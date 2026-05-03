@@ -259,6 +259,23 @@ export default function Disclosure() {
           {/* 판정 카드 */}
           <VerdictCard result={result} />
 
+          {/* 카카오톡 복사 (설계매니저 전송용) */}
+          {result.kakao_message && (
+            <button
+              onClick={handleCopy}
+              className="w-full flex items-center justify-center gap-2 mb-6 py-3.5 rounded-xl font-bold text-sm transition-colors shadow-[0_2px_8px_rgba(0,0,0,0.08)]"
+              style={{ background: "#FEE500", color: "#191919" }}
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path
+                  d="M9 1C4.58 1 1 3.8 1 7.24c0 2.22 1.48 4.17 3.7 5.27l-.94 3.47c-.08.3.26.54.52.36L8.05 13.7c.31.03.63.05.95.05 4.42 0 8-2.8 8-6.24S13.42 1 9 1Z"
+                  fill="#191919"
+                />
+              </svg>
+              {copied ? "복사 완료!" : "병력 고지 카카오톡 복사하기"}
+            </button>
+          )}
+
           {/* 요약 수치 */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             {[
@@ -287,7 +304,13 @@ export default function Disclosure() {
           ))}
 
           {/* 고지 항목 - 접기/펼치기 */}
-          {Object.entries(result.summary_reports).map(([qTitle, items]) => {
+          {Object.entries(result.summary_reports)
+            .sort(([a], [b]) => {
+              const numA = parseInt(a.match(/\d+/)?.[0] ?? "999", 10);
+              const numB = parseInt(b.match(/\d+/)?.[0] ?? "999", 10);
+              return numA - numB;
+            })
+            .map(([qTitle, items]) => {
             const badge = qTitle.match(/Q\d+|간편\d+번/)?.[0] || "Q";
             const title = qTitle.replace(/^\[.*?\]\s*/, "");
 
@@ -363,18 +386,12 @@ export default function Disclosure() {
             </div>
           )}
 
-          {/* 카카오톡 복사 */}
+          {/* 카카오톡 메시지 미리보기 */}
           {result.kakao_message && (
-            <CollapsibleSection title="카카오톡 전송용 메시지">
-              <pre className="text-xs text-gray-600 whitespace-pre-wrap font-sans leading-relaxed bg-gray-50 rounded-xl p-4 mb-3">
+            <CollapsibleSection title="카카오톡 메시지 미리보기">
+              <pre className="text-xs text-gray-600 whitespace-pre-wrap font-sans leading-relaxed bg-gray-50 rounded-xl p-4">
                 {result.kakao_message}
               </pre>
-              <button
-                onClick={handleCopy}
-                className="px-5 py-2 bg-[#4F46E5] hover:bg-[#4338CA] text-white text-xs font-semibold rounded-xl transition-colors shadow-[0_2px_8px_rgba(79,70,229,0.3)]"
-              >
-                {copied ? "복사 완료!" : "메시지 복사"}
-              </button>
             </CollapsibleSection>
           )}
         </div>
