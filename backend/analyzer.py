@@ -325,6 +325,7 @@ def _make_merged_item(item: dict, q: str, code_override: str = "") -> dict:
         "is_inpatient":   item.get("is_inpatient", False),
         "inpatient_days": item.get("inpatient_days", 0),
         "inpatient_count": item.get("inpatient_count", 0),
+        "visit_count":    item.get("visit_count", 0),
         "first_diagnosis_date": item.get("first_diagnosis_date", ""),
         "is_surgery":     item.get("is_surgery", False),
         "surgery_name":   item.get("surgery_name"),
@@ -732,11 +733,12 @@ def run_analysis(active_files, product_type, reference_date, birthdate_pw, api_k
             continue
         _nm  = _s.get("name") or _ck
         _hp  = " / ".join(list(_s["hospitals"])[:2]) or "정보 없음"
-        _med = _s["med_dates_pharma"] if _s.get("has_pharma") and _s["med_dates_pharma"] else _s["med_dates_basic"]
+        # 투약일수: 처방조제(pharma)에서만 확인
+        _med_pharma = _s["med_dates_pharma"]
 
         def _ci(q, reason, date="", is_inp=False, inp_days=0, inp_count=0,
-                is_surg=False, surg_name=None, med_days=0, weight="mid",
-                rule_id="", evidence=None,
+                visit_count=0, is_surg=False, surg_name=None, med_days=0,
+                weight="mid", rule_id="", evidence=None,
                 _dc=_dc, _nm=_nm, _hp=_hp, _s=_s):
             return {
                 "date": date or _s.get("latest_date",""),
@@ -744,6 +746,7 @@ def run_analysis(active_files, product_type, reference_date, birthdate_pw, api_k
                 "duty_question": q, "reason": reason,
                 "is_inpatient": is_inp, "inpatient_days": inp_days,
                 "inpatient_count": inp_count,
+                "visit_count": visit_count,
                 "first_diagnosis_date": _s.get("first_date", ""),
                 "is_surgery": is_surg, "surgery_name": surg_name,
                 "med_days": med_days, "weight": weight, "_source": "code",
@@ -751,74 +754,89 @@ def run_analysis(active_files, product_type, reference_date, birthdate_pw, api_k
                 "_evidence": evidence or {},
             }
 
+        # ── 기간별 날짜 필터 ──
         inp_3m   = _dts_in_range(_s["inpatient_dates"], _d3m_dt)
         surg_3m  = _dts_in_range(_s["surgery_dates"], _d3m_dt)
         inp_10y  = _dts_in_range(_s["inpatient_dates"], _d10y_dt)
         surg_10y = _dts_in_range(_s["surgery_dates"], _d10y_dt)
         all_5y   = _dts_in_range(_s["visit_dates"] | _s["inpatient_dates"] | _s["surgery_dates"], _d5y_dt)
         inp_5y   = _dts_in_range(_s["inpatient_dates"], _d5y_dt)
-        # 입원일수 합산: 동일 코드의 입원 내원일수를 날짜별로 합산
-        _inp_days_map = _s.get("_inpatient_days_map", {})
-        _inp_days_val = sum(_inp_days_map.get(d, 1) for d in inp_10y) if inp_10y else 0
-        # 입원횟수: 내원일수 > 1인 입원이 여러 건이면 횟수 표시
-        _inp_count = sum(1 for d in inp_10y if _inp_days_map.get(d, 0) > 1) if inp_10y else 0
         surg_5y  = _dts_in_range(_s["surgery_dates"], _d5y_dt)
-        presc_10y = _max_presc(_med, _d10y_dt)
+        # 통원횟수: 기본진료 외래(통원)만 — visit_dates (입원 제외)
+        visit_3m  = _dts_in_range(_s["visit_dates"], _d3m_dt)
+        visit_10y = _dts_in_range(_s["visit_dates"], _d10y_dt)
+        visit_5y  = _dts_in_range(_s["visit_dates"], _d5y_dt)
+
+        # ── 입원일수/횟수 계산 (기본진료 기준) ──
+        _inp_days_map = _s.get("_inpatient_days_map", {})
+        # 입원일수 = 날짜별 내원일수 합산
+        _inp3m_days  = sum(_inp_days_map.get(d, 1) for d in inp_3m)  if inp_3m  else 0
+        _inp10y_days = sum(_inp_days_map.get(d, 1) for d in inp_10y) if inp_10y else 0
+        _inp5y_days  = sum(_inp_days_map.get(d, 1) for d in inp_5y)  if inp_5y  else 0
+        # 입원횟수 = 해당 기간 내 입원 날짜 수
+        _inp3m_count  = len(inp_3m)
+        _inp10y_count = len(inp_10y)
+        _inp5y_count  = len(inp_5y)
+
+        # ── 투약일수 (처방조제에서만) ──
+        presc_3m  = _max_presc(_med_pharma, _d3m_dt)
+        presc_10y = _max_presc(_med_pharma, _d10y_dt)
+        presc_5y  = _max_presc(_med_pharma, _d5y_dt)
+
         _sn = next(iter(_s["surgeries"]), None)
         _wt = ("critical" if _code_in(_dc, ("C","I60","I61","I62","I63","I64","I21","I22","K74"))
                else "high" if _code_in(_dc, ("I10","I11","I12","I13","I14","I15","E10","E11","E12","E13","E14","I20"))
                else "mid")
 
-        # 3개월 입원일수
-        _inp3m_days = sum(_inp_days_map.get(d, 1) for d in inp_3m) if inp_3m else 0
-        _inp3m_count = sum(1 for d in inp_3m if _inp_days_map.get(d, 0) > 1) if inp_3m else 0
-        # 5년 입원일수
-        _inp5y_days = sum(_inp_days_map.get(d, 1) for d in inp_5y) if inp_5y else 0
-        _inp5y_count = sum(1 for d in inp_5y if _inp_days_map.get(d, 0) > 1) if inp_5y else 0
-
         if inp_3m:
             code_based_items.append(_ci("Q1", f"3개월 이내 입원 ({_inp3m_days}일) — 기본진료 확정",
-                date=max(inp_3m), is_inp=True, inp_days=_inp3m_days, inp_count=_inp3m_count, weight=_wt,
+                date=max(inp_3m), is_inp=True, inp_days=_inp3m_days, inp_count=_inp3m_count,
+                visit_count=len(visit_3m), med_days=presc_3m, weight=_wt,
                 rule_id="R-Q1-INP-3M", evidence={"dates": inp_3m, "actual_days": _inp3m_days}))
         if surg_3m:
             code_based_items.append(_ci("Q1", f"3개월 이내 수술: {_sn or '수술'} — 세부진료 확정",
-                date=max(surg_3m), is_surg=True, surg_name=_sn, weight=_wt,
+                date=max(surg_3m), is_surg=True, surg_name=_sn,
+                visit_count=len(visit_3m), med_days=presc_3m, weight=_wt,
                 rule_id="R-Q1-SURG-3M", evidence={"dates": surg_3m, "surgery": _sn}))
 
         if product_type == "간편심사 (유병자 3-5-5 기준)":
             if inp_10y:
-                code_based_items.append(_ci("Q2", f"10년 이내 입원 ({_inp_days_val}일) — 기본진료 확정",
-                    date=max(inp_10y), is_inp=True, inp_days=_inp_days_val, inp_count=_inp_count, weight=_wt,
-                    rule_id="R-Q2-INP-10Y", evidence={"dates": inp_10y, "actual_days": _inp_days_val}))
+                code_based_items.append(_ci("Q2", f"10년 이내 입원 ({_inp10y_days}일) — 기본진료 확정",
+                    date=max(inp_10y), is_inp=True, inp_days=_inp10y_days, inp_count=_inp10y_count,
+                    visit_count=len(visit_10y), med_days=presc_10y, weight=_wt,
+                    rule_id="R-Q2-INP-10Y", evidence={"dates": inp_10y, "actual_days": _inp10y_days}))
             if surg_10y:
                 code_based_items.append(_ci("Q2", f"10년 이내 수술: {_sn or '수술'} — 세부진료 확정",
-                    date=max(surg_10y), is_inp=bool(inp_10y), inp_days=_inp_days_val, inp_count=_inp_count,
+                    date=max(surg_10y), is_inp=bool(inp_10y), inp_days=_inp10y_days, inp_count=_inp10y_count,
+                    visit_count=len(visit_10y), med_days=presc_10y,
                     is_surg=True, surg_name=_sn, weight=_wt,
                     rule_id="R-Q2-SURG-10Y", evidence={"dates": surg_10y, "surgery": _sn}))
             if _code_in(_dc, SIMPLE_Q3_CODES) and all_5y:
                 code_based_items.append(_ci("Q3", f"5년 이내 6대 중증질환: {_nm} (코드: {_dc})",
                     date=max(all_5y), is_inp=bool(inp_5y), inp_days=_inp5y_days, inp_count=_inp5y_count,
+                    visit_count=len(visit_5y), med_days=presc_5y,
                     is_surg=bool(surg_5y), surg_name=_sn if surg_5y else None, weight="critical",
                     rule_id="R-Q3-CRITICAL-5Y", evidence={"code": _dc, "matched_prefix": "SIMPLE_Q3_CODES"}))
         else:
             if inp_10y:
-                code_based_items.append(_ci("Q4", f"10년 이내 입원 ({_inp_days_val}일) — 기본진료 확정",
-                    date=max(inp_10y), is_inp=True, inp_days=_inp_days_val, inp_count=_inp_count,
-                    med_days=presc_10y, weight=_wt,
-                    rule_id="R-Q4-INP-10Y", evidence={"dates": inp_10y, "actual_days": _inp_days_val}))
+                code_based_items.append(_ci("Q4", f"10년 이내 입원 ({_inp10y_days}일) — 기본진료 확정",
+                    date=max(inp_10y), is_inp=True, inp_days=_inp10y_days, inp_count=_inp10y_count,
+                    visit_count=len(visit_10y), med_days=presc_10y, weight=_wt,
+                    rule_id="R-Q4-INP-10Y", evidence={"dates": inp_10y, "actual_days": _inp10y_days}))
             if surg_10y:
                 code_based_items.append(_ci("Q4", f"10년 이내 수술: {_sn or '수술'} — 세부진료 확정",
-                    date=max(surg_10y), is_inp=bool(inp_10y), inp_days=_inp_days_val, inp_count=_inp_count,
-                    is_surg=True, surg_name=_sn, med_days=presc_10y, weight=_wt,
+                    date=max(surg_10y), is_inp=bool(inp_10y), inp_days=_inp10y_days, inp_count=_inp10y_count,
+                    visit_count=len(visit_10y), med_days=presc_10y,
+                    is_surg=True, surg_name=_sn, weight=_wt,
                     rule_id="R-Q4-SURG-10Y", evidence={"dates": surg_10y, "surgery": _sn}))
             if presc_10y >= 30 and not inp_10y and not surg_10y:
-                src = "처방조제 확정" if _s.get("has_pharma") and _s["med_dates_pharma"] else "기본진료"
-                code_based_items.append(_ci("Q4", f"10년 이내 30일이상 투약 ({presc_10y}일) — {src}",
-                    med_days=presc_10y, weight=_wt,
-                    rule_id="R-Q4-MED-30D", evidence={"presc_days": presc_10y, "source": src}))
+                code_based_items.append(_ci("Q4", f"10년 이내 30일이상 투약 ({presc_10y}일) — 처방조제 확정",
+                    visit_count=len(visit_10y), med_days=presc_10y, weight=_wt,
+                    rule_id="R-Q4-MED-30D", evidence={"presc_days": presc_10y, "source": "처방조제"}))
             if _code_in(_dc, HEALTH_Q5_CODES) and all_5y:
                 code_based_items.append(_ci("Q5", f"5년 이내 중증질환: {_nm} (코드: {_dc})",
                     date=max(all_5y), is_inp=bool(inp_5y), inp_days=_inp5y_days, inp_count=_inp5y_count,
+                    visit_count=len(visit_5y), med_days=presc_5y,
                     is_surg=bool(surg_5y), surg_name=_sn if surg_5y else None,
                     weight="critical" if _wt == "critical" else "high",
                     rule_id="R-Q5-CRITICAL-5Y", evidence={"code": _dc, "matched_prefix": "HEALTH_Q5_CODES"}))
@@ -1582,8 +1600,9 @@ Q3. 최근 5년({d_5y} 이후) — 태그 [IN_5Y] 항목만: 아래 6대 중증�
                     m["is_surgery"] = True
                     if item.get("date"):
                         m["surgery_dates"].append(item.get("date", ""))
-                m["inpatient_days"] += item.get("inpatient_days", 0)
+                m["inpatient_days"] = max(m["inpatient_days"], item.get("inpatient_days", 0))
                 m["inpatient_count"] = max(m["inpatient_count"], item.get("inpatient_count", 0))
+                m["visit_count"] = max(m["visit_count"], item.get("visit_count", 0))
                 if item.get("first_diagnosis_date") and item["first_diagnosis_date"] < m.get("first_diagnosis_date", "2099-12-31"):
                     m["first_diagnosis_date"] = item["first_diagnosis_date"]
                 m["med_days"] = max(m["med_days"], item.get("med_days", 0))
@@ -1632,7 +1651,7 @@ Q3. 최근 5년({d_5y} 이후) — 태그 [IN_5Y] 항목만: 아래 6대 중증�
             "first_diagnosis_date": first_diagnosis_date,
             "code":            m["code"],
             "name":            m["name"],
-            "visit":           len(dates_sorted),
+            "visit":           m.get("visit_count", 0),
             "med_days":        m["med_days"],
             "inpatient":       m["inpatient_days"],
             "inpatient_count": m.get("inpatient_count", 0),

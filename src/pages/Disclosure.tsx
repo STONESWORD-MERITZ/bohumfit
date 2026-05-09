@@ -367,7 +367,7 @@ export default function Disclosure() {
                           입원 {item.inpatient}일
                         </span>
                       )}
-                      {item.inpatient_count > 1 && (
+                      {item.inpatient_count > 0 && (
                         <span className="text-[0.7rem] px-2.5 py-1 rounded-lg font-semibold bg-red-50 text-red-400">
                           입원 {item.inpatient_count}회
                         </span>
