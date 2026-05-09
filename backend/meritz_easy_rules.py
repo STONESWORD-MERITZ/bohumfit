@@ -129,7 +129,8 @@ _RULES_RAW: list[tuple[str, str, int, int, int, int]] = [
 
 def _strip_code(c: str) -> str:
     """코드에서 점/하이픈 제거 후 대문자 변환 (normalize_code와 동일 정규화)"""
-    return c.replace(".", "").replace("-", "").replace(" ", "").upper()
+    # OCR 노이즈(쉼표, 중점, 특수문자 등)를 제거해 코드 비교를 안정화
+    return re.sub(r"[^A-Z0-9]", "", str(c).upper())
 
 
 def _code_sort_key(code: str) -> tuple[str, int]:
@@ -137,13 +138,8 @@ def _code_sort_key(code: str) -> tuple[str, int]:
     code = _strip_code(code)
     if not code:
         return ("", 0)
-    alpha = ""
-    digits = ""
-    for ch in code:
-        if ch.isalpha():
-            alpha += ch
-        else:
-            digits += ch
+    alpha = "".join(ch for ch in code if ch.isalpha())
+    digits = "".join(ch for ch in code if ch.isdigit())
     return (alpha, int(digits) if digits else 0)
 
 

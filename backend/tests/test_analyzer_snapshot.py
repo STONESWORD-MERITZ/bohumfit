@@ -57,11 +57,20 @@ def test_detect_file_type_fallback_pattern():
 # ── normalize_code ────────────────────────────────────────────────
 
 def test_normalize_code_prefix_strip():
-    # A/B prefix는 뒤가 숫자일 때만 제거 (AK는 코드명 유지)
-    assert normalize_code("AK635") == "AK635"
-    # A123 → strip A → "123" → 1로 시작 → I23 변환
-    assert normalize_code("A123") == "I23"
-    assert normalize_code("B456") == "456"
+    # A/B는 다음 문자가 영문일 때만 양방/한의학 구분자로 간주해 제거
+    # (A123/B456처럼 실제 대분류 코드인 경우는 유지)
+    assert normalize_code("A123") == "A123"
+    assert normalize_code("B456") == "B456"
+    assert normalize_code("BK635") == "K635"  # B 제거 → K635
+
+
+def test_normalize_code_ocr_prefix_alpha():
+    # A/B 구분자 제거 + 점 제거 + 선행0 제거 → 동일 코드
+    assert normalize_code("AO0339") == "O339"
+    assert normalize_code("AO339") == "O339"
+    assert normalize_code("O33.9") == "O339"
+    assert normalize_code("AI639") == "I639"
+    assert normalize_code("I63.9") == "I639"
 
 
 def test_normalize_code_ocr_1_to_I():
