@@ -413,8 +413,23 @@ def evaluate_meritz_easy(
     exception_results: list[dict] = []
     rejected_results: list[dict] = []
 
+    ten_years_ago = reference_date - timedelta(days=3650)
+
     for group_key, stat in disease_stats.items():
         code = stat.get("diag_code", "") or group_key
+
+        # 간편 2번은 입원/수술만 해당 — 10년 이내 입원·수술 기록이 없으면 스킵
+        inp_in_10y = [
+            d for d in stat.get("inpatient_dates", set())
+            if _parse_dt(d) and _parse_dt(d) >= ten_years_ago
+        ]
+        surg_in_10y = [
+            d for d in stat.get("surgery_dates", set())
+            if _parse_dt(d) and _parse_dt(d) >= ten_years_ago
+        ]
+        if not inp_in_10y and not surg_in_10y:
+            continue  # 외래 전용 — 간편 2번 대상 아님
+
         result = evaluate_disease(code, stat, reference_date)
         if result is None:
             continue  # 룰에 해당하지 않는 코드
