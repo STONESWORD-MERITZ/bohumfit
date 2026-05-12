@@ -72,36 +72,43 @@ class _PDFFile:
         return self._data
 
 
+def _s(v) -> str:
+    """None-safe 문자열 변환: None이면 "" 반환, 그 외 str()."""
+    return "" if v is None else str(v)
+
+
 def _kakao_item(item: dict) -> str:
-    fd = item["first_date"]
-    ld = item["latest_date"]
+    fd = _s(item.get("first_date"))
+    ld = _s(item.get("latest_date"))
     date_str = f"{fd} ~ {ld}" if fd and ld and fd != ld else (fd or ld or "")
 
-    code_clean = (item["code"] or "").replace(".", "")
-    raw_hospitals = item["hospitals"] or []
-    hosp_list = raw_hospitals if isinstance(raw_hospitals, list) else list(raw_hospitals)
+    code_clean = _s(item.get("code")).replace(".", "")
+    raw_hospitals = item.get("hospitals") or []
+    hosp_list = [_s(h) for h in (raw_hospitals if isinstance(raw_hospitals, list) else list(raw_hospitals))]
     hosp_str = ", ".join(hosp_list)
     kind = "(한방)" if any(k in hosp_str for k in ["한의원", "한방", "한의"]) else "(양방)"
 
-    if item["inpatient"] > 0:
-        visit_str = f"입원{item['inpatient']}일"
+    inpatient = item.get("inpatient") or 0
+    if inpatient > 0:
+        visit_str = f"입원{inpatient}일"
     else:
-        visit_str = f"통원{item.get('visit', 1) or 1}회"
+        visit_str = f"통원{item.get('visit') or 1}회"
 
-    line1 = f"{date_str} / {visit_str} / {code_clean} / {kind}{item['name']}\n"
+    line1 = f"{date_str} / {visit_str} / {code_clean} / {kind}{_s(item.get('name'))}\n"
 
-    if item["surgeries"]:
-        surg_names = [s for s in item["surgeries"] if s and s != "수술"]
+    surgeries = item.get("surgeries") or []
+    if surgeries:
+        surg_names = [s for s in surgeries if s and s != "수술"]
         line2 = (", ".join(surg_names) if surg_names else "수술") + "\n"
     else:
-        detail_short = item["detail"][:60] if item["detail"] else ""
-        line2 = f"{detail_short}\n" if detail_short else ""
+        detail = _s(item.get("detail"))
+        line2 = f"{detail[:60]}\n" if detail else ""
 
     return line1 + line2 + "\n"
 
 
 def _build_kakao_message(product_type_kr: str, today, summary_reports: dict) -> str:
-    msg = f"[{product_type_kr} 고지 사항]\n"
+    msg = f"[{_s(product_type_kr)} 고지 사항]\n"
     msg += f"기준일: {today.strftime('%Y-%m-%d')}\n\n"
 
     if not summary_reports:
@@ -109,16 +116,16 @@ def _build_kakao_message(product_type_kr: str, today, summary_reports: dict) -> 
         return msg
 
     def _q_sort_key(title):
-        m = re.search(r'\d+', title)
+        m = re.search(r'\d+', _s(title))
         return int(m.group()) if m else 999
 
     for q_title in sorted(summary_reports.keys(), key=_q_sort_key):
-        clean_title = re.sub(r"^\[.*?\]\s*", "", q_title or "")
+        clean_title = re.sub(r"^\[.*?\]\s*", "", _s(q_title))
         msg += f"> {clean_title}\n"
-        items_q = summary_reports[q_title]
-        inpatient_items = [i for i in items_q if i["inpatient"] > 0]
-        surgery_items = [i for i in items_q if not i["inpatient"] > 0 and i["surgeries"]]
-        other_items = [i for i in items_q if not i["inpatient"] > 0 and not i["surgeries"]]
+        items_q = summary_reports.get(q_title) or []
+        inpatient_items = [i for i in items_q if (i.get("inpatient") or 0) > 0]
+        surgery_items   = [i for i in items_q if not (i.get("inpatient") or 0) > 0 and i.get("surgeries")]
+        other_items     = [i for i in items_q if not (i.get("inpatient") or 0) > 0 and not i.get("surgeries")]
 
         if inpatient_items:
             msg += "[입원]\n"
