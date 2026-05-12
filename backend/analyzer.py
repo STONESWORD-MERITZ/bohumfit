@@ -847,6 +847,10 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
         AnalysisError: 분석 실패 시
     """
     today = datetime(reference_date.year, reference_date.month, reference_date.day)
+    _d3m_dt  = today - timedelta(days=90)
+    _d1y_dt  = today - timedelta(days=365)
+    _d5y_dt  = today - timedelta(days=1825)
+    _d10y_dt = today - timedelta(days=3650)
     all_records = []
     parse_errors = []
     retry_warnings = []
@@ -1378,12 +1382,6 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
             )
         elif earliest_available_date and earliest_available_date <= today:
             presc_end_text += "\n★ 3개월 이내 처방이 있으나 모두 복약 완료 상태 — 투약 관련 Q1은 면제 가능\n"
-
-    # ── 기준 날짜 컷오프 (재사용) ────────────────────────────────
-    _d3m_dt  = today - timedelta(days=90)
-    _d1y_dt  = today - timedelta(days=365)
-    _d5y_dt  = today - timedelta(days=1825)
-    _d10y_dt = today - timedelta(days=3650)
 
     # ── 날짜 태그 필터링 ─────────────────────────────────────────
     filtered_entries = []
