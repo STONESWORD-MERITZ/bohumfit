@@ -24,6 +24,11 @@ type SummaryItem = {
   inpatient_count: number;
   surgery_count?: number;
   surgeries: string[];
+  procedures?: string[];
+  procedure_dates?: string[];
+  surgery_suspected?: string[];
+  surgery_suspected_dates?: string[];
+  additional_tests?: string[];
   hospitals: string[];
   detail: string;
 };
@@ -43,16 +48,23 @@ type AnalyzeResult = {
 };
 
 // ── 위험도 판정 ──────────────────────────────────────────────
-type Risk = "red" | "yellow" | "green";
+type Risk = "red" | "orange" | "gray" | "yellow" | "green";
 
 function riskOf(item: SummaryItem): Risk {
-  if (item.inpatient > 0 || (item.surgery_count ?? item.surgeries?.length ?? 0) > 0) return "red";
+  const surgN   = item.surgery_count ?? item.surgeries?.length ?? 0;
+  const procN   = item.procedures?.length ?? 0;
+  const suspN   = item.surgery_suspected?.length ?? 0;
+  if (item.inpatient > 0 || surgN > 0) return "red";
+  if (procN > 0) return "orange";
+  if (suspN > 0) return "gray";
   if (item.med_days >= 30 || item.visit >= 7) return "yellow";
   return "green";
 }
 
-const RISK = {
+const RISK: Record<Risk, { border: string; label: string; pill: string }> = {
   red:    { border: "border-red-400",     label: "text-red-600",     pill: "bg-red-100 text-red-600" },
+  orange: { border: "border-orange-400",  label: "text-orange-600",  pill: "bg-orange-100 text-orange-600" },
+  gray:   { border: "border-gray-400",    label: "text-gray-500",    pill: "bg-gray-100 text-gray-600" },
   yellow: { border: "border-amber-400",   label: "text-amber-600",   pill: "bg-amber-100 text-amber-700" },
   green:  { border: "border-emerald-400", label: "text-emerald-600", pill: "bg-emerald-100 text-emerald-700" },
 };
@@ -86,7 +98,10 @@ function buildDiseaseList(reports: Record<string, SummaryItem[]>): DiseaseEntry[
         e.item.med_days        = Math.max(e.item.med_days, item.med_days);
         const sc = item.surgery_count ?? item.surgeries?.length ?? 0;
         e.item.surgery_count   = Math.max(e.item.surgery_count ?? 0, sc);
-        e.item.surgeries = [...new Set([...(e.item.surgeries ?? []), ...(item.surgeries ?? [])])];
+        e.item.surgeries         = [...new Set([...(e.item.surgeries ?? []), ...(item.surgeries ?? [])])];
+        e.item.procedures        = [...new Set([...(e.item.procedures ?? []), ...(item.procedures ?? [])])];
+        e.item.surgery_suspected = [...new Set([...(e.item.surgery_suspected ?? []), ...(item.surgery_suspected ?? [])])];
+        e.item.additional_tests  = [...new Set([...(e.item.additional_tests ?? []), ...(item.additional_tests ?? [])])];
       }
     }
   }
@@ -214,6 +229,8 @@ function ResultView({
             const risk   = riskOf(item);
             const s      = RISK[risk];
             const surgN  = item.surgery_count ?? item.surgeries?.length ?? 0;
+            const procN  = item.procedures?.length ?? 0;
+            const suspN  = item.surgery_suspected?.length ?? 0;
             const period =
               item.first_date && item.latest_date && item.first_date !== item.latest_date
                 ? `${item.first_date} ~ ${item.latest_date}`
@@ -268,8 +285,18 @@ function ResultView({
                       </span>
                     )}
                     {surgN > 0 && (
-                      <span className="text-xs px-3 py-1 rounded-full font-semibold bg-orange-100 text-orange-600">
+                      <span className="text-xs px-3 py-1 rounded-full font-semibold bg-red-100 text-red-600">
                         수술 {surgN}건
+                      </span>
+                    )}
+                    {procN > 0 && (
+                      <span className="text-xs px-3 py-1 rounded-full font-semibold bg-orange-100 text-orange-600">
+                        시술 {procN}건
+                      </span>
+                    )}
+                    {suspN > 0 && (
+                      <span className="text-xs px-3 py-1 rounded-full font-semibold bg-gray-100 text-gray-500">
+                        ⚠️ 수술 의심 {suspN}건
                       </span>
                     )}
                     {item.med_days > 0 && (
@@ -282,6 +309,13 @@ function ResultView({
                       </span>
                     )}
                   </div>
+
+                  {/* 수술 의심 시술명 (설계사 확인 유도) */}
+                  {suspN > 0 && (
+                    <div className="mt-2 text-xs text-gray-400 leading-relaxed">
+                      의심 행위: {item.surgery_suspected!.slice(0, 3).join(", ")}
+                    </div>
+                  )}
                 </div>
               </div>
             );

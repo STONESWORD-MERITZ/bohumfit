@@ -116,15 +116,21 @@ def _serialize_reports(summary_reports: dict) -> dict:
         m = re.search(r'\d+', title)
         return int(m.group()) if m else 999
 
+    def _to_list(v):
+        if isinstance(v, set):
+            return list(v)
+        return v if v is not None else []
+
     out = {}
     for q_title in sorted(summary_reports.keys(), key=_q_sort_key):
         items = summary_reports[q_title]
         out[q_title] = [
             {
                 **item,
-                "surgeries": list(item["surgeries"])
-                             if isinstance(item["surgeries"], set)
-                             else item["surgeries"],
+                "surgeries":         _to_list(item.get("surgeries")),
+                "procedures":        _to_list(item.get("procedures")),
+                "surgery_suspected": _to_list(item.get("surgery_suspected")),
+                "additional_tests":  _to_list(item.get("additional_tests")),
             }
             for item in items
         ]

@@ -33,6 +33,12 @@ SIMPLE_Q3_CODES            = tuple(_KW["simple_q3_codes"])
 HEALTH_Q5_CODES            = tuple(_KW["health_q5_codes"])
 SIMPLE_Q3_ALLOWED_PREFIXES = tuple(_KW["simple_q3_allowed_prefixes"])
 _FTYPE_KW                  = _KW["detect_file_type_keywords"]
+SURGERY_COST_KEYWORDS      = _KW["surgery_cost_keywords"]
+PROCEDURE_KEYWORDS         = _KW["procedure_keywords"]
+
+# 진료비 기반 수술/시술 판정 임계값
+SURGERY_COST_THRESHOLD   = 500_000  # 수술 확정 기준 (50만원 이상 + 수술키워드)
+PROCEDURE_COST_THRESHOLD = 300_000  # 시술 확정 기준 (30만원 이상 + 시술키워드)
 
 # ==========================================
 # 헬퍼 함수
@@ -156,6 +162,21 @@ def _is_surgery_match(text: str) -> bool:
         strong_surg = ["수술", "절제", "절개", "적출", "봉합", "이식", "절단", "재건", "치환", "관혈", "배농"]
         return any(kw in text for kw in strong_surg)
     return True
+
+
+def _is_confirmed_surgery_cost_kw(text: str) -> bool:
+    """수술 확정 키워드 (비용 기반 판정용) 매칭"""
+    if not text:
+        return False
+    tl = text.lower()
+    return any(kw.lower() in tl for kw in SURGERY_COST_KEYWORDS)
+
+
+def _is_procedure_kw(text: str) -> bool:
+    """시술 키워드 매칭 (주사/도수치료/물리치료 등)"""
+    if not text:
+        return False
+    return any(kw in text for kw in PROCEDURE_KEYWORDS)
 
 
 def _to_int_cost(raw: str) -> int:
@@ -357,6 +378,10 @@ def new_disease():
         "drug_names_in_90": set(), "drug_names_before_90": set(),
         "tests_found": set(), "inpatient_dates": set(),
         "surgeries": set(), "surgery_dates": set(), "hospitals": set(),
+        "procedures": set(),               # 시술 확정 (30만원이상 + 시술키워드)
+        "procedure_dates": set(),          # 시술 날짜
+        "surgery_suspected_names": set(),  # 수술 의심 행위명 (50만원이상 + 키워드없음)
+        "surgery_suspected_dates": set(),  # 수술 의심 날짜
         "_daily_facts": {},
         "_inpatient_days_map": {},   # date → max(내원일수) per inpatient record
         "chojin_count": 0,           # 세부진료 초진 행위 횟수
@@ -724,6 +749,7 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
         "basic_hospitals": set(),
         "detail_proc_names": set(),
         "has_detail_surg_kw": False,
+        "has_detail_proc_kw": False,
         "inpatient_flag": False,
     })
 
@@ -888,17 +914,22 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
                         idx["detail_proc_names"].add(target_idx)
                     if _is_surgery_match(target_idx):
                         idx["has_detail_surg_kw"] = True
+                    if _is_procedure_kw(target_idx):
+                        idx["has_detail_proc_kw"] = True
 
         if hospital and "약국" not in hospital and ftype != "pharma":
             s["hospitals"].add(hospital)
         if name_str and not s["name"]:
             s["name"] = name_str
 
-    # ── 기본진료+세부진료 동일일자 교차 수술 추정 ────────────────
-    # 규칙 기반 확정: 세부진료 "처치및수술" 컬럼 값 OR (수술키워드 + 고비용)
-    # 규칙으로 불가능한 애매 케이스: AI에 근거(비용+행위명) 전달
-    HIGH_SURGERY_COST = 300000
-    MEDIUM_SURGERY_COST = 150000
+    # ── 기본진료+세부진료 동일일자 교차 수술/시술 판정 ──────────────
+    # 규칙:
+    #   컬럼확정(처치및수술 컬럼 값 있음) → 수술 확정 (비용 무관)
+    #   50만원 이상 + 수술키워드            → 수술 확정
+    #   50만원 이상 + 키워드 없음           → 수술 의심 (설계사 확인 유도)
+    #   30만원 이상 + 시술키워드            → 시술 확정
+    #   30만원 이상 + 수술키워드            → AI 힌트 전달
+    #   30만원 미만                          → 일반 외래 (제외)
     cross_surgery_hints = []
     for _ck, _s in disease_stats.items():
         _dc = (_s.get("diag_code") or "").strip()
@@ -911,13 +942,14 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
             if not idx:
                 continue
             max_cost = idx.get("max_basic_cost", 0)
-            has_detail_proc = bool(idx.get("detail_proc_names"))
+            has_detail_proc    = bool(idx.get("detail_proc_names"))
             has_detail_surg_kw = bool(idx.get("has_detail_surg_kw"))
+            has_detail_proc_kw = bool(idx.get("has_detail_proc_kw"))
             # ★ 세부진료 "처치및수술" 컬럼으로 확정된 경우 — 비용 무관 수술 확정
             is_col_confirmed = day_fact.get("_is_surg_by_column", False)
 
             if is_col_confirmed:
-                # 세부진료 컬럼값으로 이미 수술 확정 — 교차확인 기록만
+                # 컬럼값으로 이미 수술 확정 — 교차확인 기록만
                 if d not in _s["surgery_dates"]:
                     _s["surgery_dates"].add(d)
                     if idx["detail_proc_names"]:
@@ -926,24 +958,48 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
                     f"{d} {_dc or ckey} {'|'.join(list(idx.get('detail_proc_names', set()))[:2]) or _name} "
                     f"컬럼확정(처치및수술+기본진료비 {max_cost:,}원)"
                 )
-            elif has_detail_proc and max_cost >= HIGH_SURGERY_COST:
-                # 세부진료 행위명 + 기본진료 고비용 → 수술 확정
-                if d not in _s["surgery_dates"]:
-                    _s["surgery_dates"].add(d)
-                if idx["detail_proc_names"]:
-                    _s["surgeries"].update(idx["detail_proc_names"])
-                    _hint_name = next(iter(idx["detail_proc_names"]))
-                else:
-                    _hint_name = _name or _dc or "수술"
-                cross_surgery_hints.append(
-                    f"{d} {_dc or ckey} {_hint_name} 교차확정(세부처치+기본진료비 {max_cost:,}원)"
-                )
-            elif has_detail_surg_kw and max_cost >= MEDIUM_SURGERY_COST:
-                # 수술 키워드 + 중간 비용 → AI에 힌트 전달 (규칙으로 확정 불가)
-                _hint_name = next(iter(idx["detail_proc_names"])) if idx["detail_proc_names"] else (_name or _dc or "진료")
-                cross_surgery_hints.append(
-                    f"{d} {_dc or ckey} {_hint_name} 교차후보(수술키워드+기본진료비 {max_cost:,}원) ★AI판단필요"
-                )
+
+            elif max_cost >= SURGERY_COST_THRESHOLD:  # 50만원 이상
+                if has_detail_surg_kw:
+                    # 수술 확정
+                    if d not in _s["surgery_dates"]:
+                        _s["surgery_dates"].add(d)
+                    if idx["detail_proc_names"]:
+                        # 수술 확정 키워드가 포함된 행위명만 등록
+                        for pn in idx["detail_proc_names"]:
+                            if _is_confirmed_surgery_cost_kw(pn) or _is_surgery_match(pn):
+                                _s["surgeries"].add(pn)
+                        if not (_s["surgeries"] & set(idx["detail_proc_names"])):
+                            _s["surgeries"].update(idx["detail_proc_names"])
+                        _hint_name = next(iter(idx["detail_proc_names"]))
+                    else:
+                        _hint_name = _name or _dc or "수술"
+                    cross_surgery_hints.append(
+                        f"{d} {_dc or ckey} {_hint_name} 교차확정(수술키워드+기본진료비 {max_cost:,}원)"
+                    )
+                elif has_detail_proc:
+                    # 50만원 이상이지만 수술 키워드 없음 → 수술 의심
+                    _hint_name = next(iter(idx["detail_proc_names"]), _name or "수술 의심")
+                    _s["surgery_suspected_names"].add(_hint_name)
+                    _s["surgery_suspected_dates"].add(d)
+                    cross_surgery_hints.append(
+                        f"{d} {_dc or ckey} {_hint_name} 수술의심(키워드없음+기본진료비 {max_cost:,}원) ★설계사확인"
+                    )
+
+            elif max_cost >= PROCEDURE_COST_THRESHOLD:  # 30만원 이상 50만원 미만
+                if has_detail_proc_kw:
+                    # 시술 확정
+                    for pn in (idx.get("detail_proc_names") or set()):
+                        if _is_procedure_kw(pn):
+                            _s["procedures"].add(pn)
+                    _s["procedure_dates"].add(d)
+                elif has_detail_surg_kw:
+                    # 수술 키워드 있지만 50만원 미만 → AI 힌트 전달
+                    _hint_name = next(iter(idx["detail_proc_names"])) if idx["detail_proc_names"] else (_name or _dc or "진료")
+                    cross_surgery_hints.append(
+                        f"{d} {_dc or ckey} {_hint_name} 교차후보(수술키워드+기본진료비 {max_cost:,}원) ★AI판단필요"
+                    )
+            # else: 30만원 미만 → 일반 외래, 수술/시술 판정 제외
 
     # ── 날짜 파싱 실패/미래일자 경고 ─────────────────────────────
     if date_parse_fail_count > 0:
@@ -1925,27 +1981,37 @@ Q3. 최근 5년({d_5y} 이후) — 태그 [IN_5Y] 항목만: 아래 중대질병
 
         _chojin  = _ds["chojin_count"]  if _ds else 0
         _jaejin  = _ds["jaejin_count"]  if _ds else 0
+        _procedures      = list(_ds.get("procedures", set()) or []) if _ds else []
+        _proc_dates      = sorted(_ds.get("procedure_dates", set()) or []) if _ds else []
+        _surg_susp       = list(_ds.get("surgery_suspected_names", set()) or []) if _ds else []
+        _surg_susp_dates = sorted(_ds.get("surgery_suspected_dates", set()) or []) if _ds else []
+        _tests           = [t[:50] for t in list(_ds.get("tests_found", set()) or [])[:8]] if _ds else []
         summary_reports[q_title].append({
-            "first_date":           first_date,
-            "latest_date":          latest_date,
-            "first_diagnosis_date": first_diagnosis_date,
-            "code":                 m["code"],
-            "name":                 m["name"],
-            "visit":                ds_visit_count,
-            "chojin_count":         _chojin,
-            "jaejin_count":         _jaejin,
-            "total_clinic_visit":   _chojin + _jaejin if (_chojin + _jaejin) > 0 else ds_visit_count,
-            "med_days":             ds_med_days,
-            "med_days_30plus":      ds_med_days >= 30,
-            "inpatient":            ds_inpatient_days,
-            "inpatient_count":      ds_inpatient_count,
-            "inpatient_dates":      _ds_inp_dates if _ds and _ds_inp_dates else [],
-            "surgeries":            {m["surgery_name"]} if m["is_surgery"] and m["surgery_name"] else ({"수술"} if m["is_surgery"] else set()),
-            "surgery_dates":        sorted(set(m["surgery_dates"])),
-            "surgery_count":        len(set(m["surgery_dates"])) if m["is_surgery"] else 0,
-            "drug_change_in_3m":    _ds.get("drug_change_in_3m", False) if _ds else False,
-            "hospitals":            m["hospitals"],
-            "detail":               m["reason"],
+            "first_date":              first_date,
+            "latest_date":             latest_date,
+            "first_diagnosis_date":    first_diagnosis_date,
+            "code":                    m["code"],
+            "name":                    m["name"],
+            "visit":                   ds_visit_count,
+            "chojin_count":            _chojin,
+            "jaejin_count":            _jaejin,
+            "total_clinic_visit":      _chojin + _jaejin if (_chojin + _jaejin) > 0 else ds_visit_count,
+            "med_days":                ds_med_days,
+            "med_days_30plus":         ds_med_days >= 30,
+            "inpatient":               ds_inpatient_days,
+            "inpatient_count":         ds_inpatient_count,
+            "inpatient_dates":         _ds_inp_dates if _ds and _ds_inp_dates else [],
+            "surgeries":               {m["surgery_name"]} if m["is_surgery"] and m["surgery_name"] else ({"수술"} if m["is_surgery"] else set()),
+            "surgery_dates":           sorted(set(m["surgery_dates"])),
+            "surgery_count":           len(set(m["surgery_dates"])) if m["is_surgery"] else 0,
+            "procedures":              _procedures,
+            "procedure_dates":         _proc_dates,
+            "surgery_suspected":       _surg_susp,
+            "surgery_suspected_dates": _surg_susp_dates,
+            "additional_tests":        _tests,
+            "drug_change_in_3m":       _ds.get("drug_change_in_3m", False) if _ds else False,
+            "hospitals":               m["hospitals"],
+            "detail":                  m["reason"],
         })
 
     # ── 메리츠화재 간편보험 예외질환 평가 ──────────────────────────

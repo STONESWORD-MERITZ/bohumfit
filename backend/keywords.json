@@ -1,5 +1,5 @@
 {
-  "_version": "1.2.0",
+  "_version": "1.3.0",
   "_updated": "2026-05-12",
 
   "surg_keywords": [
@@ -49,6 +49,15 @@
     "I20","I21","I22",
     "I05","I06","I07","I08","I09","I34","I35","I36","I37","I38",
     "K74"
+  ],
+
+  "surgery_cost_keywords": [
+    "수술", "절제", "절개", "이식", "재건", "교정",
+    "제거", "복원", "성형", "fixation", "removal"
+  ],
+
+  "procedure_keywords": [
+    "주사", "도수치료", "물리치료", "초음파치료", "ESWT", "체외충격파"
   ],
 
   "detect_file_type_keywords": {
