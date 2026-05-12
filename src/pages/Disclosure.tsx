@@ -75,21 +75,29 @@ const RISK: Record<Risk, { border: string; label: string; pill: string; bg: stri
   green:  { border: "border-emerald-400", label: "text-emerald-600", pill: "bg-emerald-100 text-emerald-700",bg: "bg-emerald-50", text: "text-emerald-700" },
 };
 
-function Chip({ children, color = "gray" }: { children: React.ReactNode; color?: string }) {
-  const cls: Record<string, string> = {
-    gray:    "bg-gray-100 text-gray-600",
-    red:     "bg-red-100 text-red-600",
-    amber:   "bg-amber-100 text-amber-700",
-    emerald: "bg-emerald-100 text-emerald-700",
-    orange:  "bg-orange-100 text-orange-600",
-    indigo:  "bg-indigo-100 text-indigo-600",
-    rose:    "bg-rose-100 text-rose-600",
+function Chip({ label, tone = "gray" }: { label: string; tone?: string }) {
+  const tones: Record<string, string> = {
+    gray:        "bg-gray-100 text-gray-600",
+    "gray-light":"bg-gray-50 text-gray-400 border border-gray-200",
+    red:         "bg-red-100 text-red-600",
+    "red-light": "bg-red-50 text-red-500 border border-red-200",
+    amber:       "bg-amber-100 text-amber-700",
+    emerald:     "bg-emerald-100 text-emerald-700",
+    orange:      "bg-orange-100 text-orange-600",
+    indigo:      "bg-indigo-100 text-indigo-600",
+    rose:        "bg-rose-100 text-rose-600",
   };
   return (
-    <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${cls[color] ?? cls.gray}`}>
-      {children}
+    <span className={`text-xs px-3 py-1 rounded-full font-semibold ${tones[tone] ?? tones.gray}`}>
+      {label}
     </span>
   );
+}
+
+function extractQNumber(qTitle: string): string {
+  // "[1번질문] ..." or "[간편1번질문] ..." → "Q1"
+  const m = qTitle.match(/\[(?:간편)?(\d+)번질문\]/);
+  return m ? `Q${m[1]}` : "Q";
 }
 
 
@@ -201,9 +209,7 @@ function ResultView({
       {Object.keys(result.summary_reports).length > 0 ? (
         <div className="space-y-4">
           {Object.entries(result.summary_reports).map(([qTitle, items]) => {
-            // "[간편1번질문] 3개월 이내..." → badge: "간편1번", title: "3개월 이내..."
-            const badgeMatch = qTitle.match(/\[(.*?)번질문\]/);
-            const badge      = badgeMatch ? badgeMatch[1] + "번" : (qTitle.match(/Q\d+/)?.[0] ?? "Q");
+            const qNum         = extractQNumber(qTitle);
             const sectionTitle = qTitle.replace(/^\[.*?\]\s*/, "");
 
             return (
@@ -211,7 +217,7 @@ function ResultView({
                 {/* 섹션 헤더 */}
                 <div className="px-5 py-3.5 flex items-center gap-2.5 border-b border-gray-100">
                   <span className="text-xs font-bold bg-[#4F46E5] text-white px-2.5 py-1 rounded-md shrink-0">
-                    {badge}
+                    {qNum}
                   </span>
                   <span className="text-sm font-bold text-gray-800">{sectionTitle}</span>
                 </div>
@@ -228,86 +234,100 @@ function ResultView({
                     const period = item.first_date && item.latest_date && item.first_date !== item.latest_date
                       ? `${item.first_date} ~ ${item.latest_date}`
                       : (item.first_date || "");
+                    const hasBottom = hosps.length > 0 || suspN > 0 ||
+                      item.additional_test_hit || item.treatment_ongoing != null;
 
                     return (
                       <div key={idx} className={`px-5 py-4 border-l-4 ${sc.border}`}>
-                        {/* 질병명 + 코드 */}
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[15px] font-bold text-gray-900">
-                            {item.name || "질병명 없음"}
-                          </span>
-                          {item.code && (
-                            <span className="font-mono text-[11px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded shrink-0">
-                              {item.code}
+                        {/* 헤더: 질병명 + 코드 + Q배지 */}
+                        <div className="flex items-start justify-between gap-3 mb-1">
+                          <div className="flex items-center gap-2 flex-wrap min-w-0">
+                            <span className="text-[15px] font-bold text-gray-900">
+                              {item.name || "질병명 없음"}
                             </span>
-                          )}
+                            {item.code && (
+                              <span className="font-mono text-[11px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded shrink-0">
+                                {item.code}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[11px] font-bold bg-[#4F46E5] text-white px-2 py-0.5 rounded-md shrink-0">
+                            {qNum}
+                          </span>
                         </div>
 
-                        {/* 진료 기간 */}
+                        {/* 진료기간 */}
                         {period && (
-                          <div className="text-xs text-gray-400 mb-2.5">{period}</div>
-                        )}
-
-                        {/* 고지 이유 박스 — RISK 색상 */}
-                        {item.detail && (
-                          <div className={`${sc.bg} ${sc.text} text-xs rounded-lg px-3 py-2 mb-3 leading-relaxed`}>
-                            {item.detail}
+                          <div className="text-xs text-gray-500 mb-2.5">
+                            <span className="text-gray-400 mr-1.5">진료기간</span>{period}
                           </div>
                         )}
 
-                        {/* 주요 통계 칩 — 4개 항목은 0이어도 항상 표시 */}
-                        <div className="flex flex-wrap gap-1.5 mb-1.5">
-                          <Chip color="gray">통원 {item.visit}회</Chip>
-                          <Chip color={item.inpatient > 0 ? "red" : "gray"}>입원 {item.inpatient}일</Chip>
-                          <Chip color={surgN > 0 ? "red" : "gray"}>수술 {surgN}건</Chip>
-                          <Chip color={item.med_days >= 30 ? "amber" : item.med_days > 0 ? "emerald" : "gray"}>
-                            투약 {item.med_days}일
-                          </Chip>
+                        {/* 알릴의무 사유 — RISK 색상 + 📋 */}
+                        {item.detail && (
+                          <div className={`text-[13px] font-medium mb-3 px-3 py-2 rounded-lg leading-relaxed ${sc.bg} ${sc.text}`}>
+                            <span className="mr-1">📋</span>{item.detail}
+                          </div>
+                        )}
+
+                        {/* 주요 4대 통계 — 0이어도 항상 표시 */}
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          <Chip label={`통원 ${item.visit ?? 0}회`}
+                                tone={(item.visit ?? 0) >= 7 ? "amber" : "gray"} />
+                          <Chip label={`입원 ${item.inpatient ?? 0}일`}
+                                tone={(item.inpatient ?? 0) > 0 ? "red" : "gray"} />
+                          <Chip label={`수술 ${surgN}건`}
+                                tone={surgN > 0 ? "red" : "gray"} />
+                          <Chip label={`투약 ${item.med_days ?? 0}일`}
+                                tone={(item.med_days ?? 0) >= 30 ? "amber"
+                                      : (item.med_days ?? 0) > 0 ? "emerald" : "gray"} />
                         </div>
 
                         {/* 보조 칩 */}
-                        <div className="flex flex-wrap gap-1.5">
-                          {item.inpatient_count > 0 && (
-                            <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-red-50 text-red-500 border border-red-200">
-                              입원 {item.inpatient_count}회
-                            </span>
+                        <div className="flex flex-wrap gap-2">
+                          {(item.inpatient_count ?? 0) > 0 && (
+                            <Chip label={`입원 ${item.inpatient_count}회`} tone="red-light" />
                           )}
-                          {procN > 0 && <Chip color="orange">시술 {procN}건</Chip>}
-                          {suspN > 0 && <Chip color="gray">⚠️ 수술 의심 {suspN}건</Chip>}
-                          {item.additional_test_hit && <Chip color="indigo">재검사</Chip>}
-                          {item.treatment_ongoing === true  && <Chip color="rose">치료 중</Chip>}
-                          {item.treatment_ongoing === false && <Chip color="emerald">종결</Chip>}
+                          {procN > 0 && <Chip label={`시술 ${procN}건`} tone="orange" />}
+                          {suspN > 0 && <Chip label={`⚠️ 수술 의심 ${suspN}건`} tone="gray-light" />}
+                          {item.additional_test_hit && <Chip label="재검사" tone="indigo" />}
+                          {item.treatment_ongoing === true  && <Chip label="치료 중" tone="rose" />}
+                          {item.treatment_ongoing === false && <Chip label="종결" tone="emerald" />}
                         </div>
 
-                        {/* 수술 의심 행위명 + 의학 판단 보조 텍스트 */}
-                        {(suspN > 0 || item.additional_test_hit || item.treatment_ongoing != null) && (
-                          <div className="mt-2 space-y-0.5">
+                        {/* 하단 부가정보 */}
+                        {hasBottom && (
+                          <div className="mt-3 pt-2.5 border-t border-gray-100 space-y-1 text-xs leading-relaxed">
+                            {hosps.length > 0 && (
+                              <p className="text-gray-400">
+                                <span className="text-gray-300 mr-1.5">병원</span>
+                                {hosps.slice(0, 4).join(" · ")}
+                              </p>
+                            )}
                             {suspN > 0 && (
-                              <p className="text-xs text-gray-400">
-                                의심 행위: {item.surgery_suspected!.slice(0, 3).join(", ")}
+                              <p className="text-gray-400">
+                                <span className="text-gray-300 mr-1.5">의심 행위</span>
+                                {item.surgery_suspected!.slice(0, 3).join(", ")}
                               </p>
                             )}
                             {item.additional_test_hit && item.additional_test_reason && (
-                              <p className="text-xs text-indigo-500">
-                                재검사: {item.additional_test_reason}
+                              <p className="text-indigo-500">
+                                <span className="text-indigo-300 mr-1.5">재검사</span>
+                                {item.additional_test_reason}
                               </p>
                             )}
-                            {item.treatment_ongoing != null && (
-                              <p className={`text-xs ${item.treatment_ongoing ? "text-rose-500" : "text-emerald-600"}`}>
-                                {item.treatment_ongoing ? "치료 중" : "종결"}: {item.treatment_ongoing_reason}
+                            {item.treatment_ongoing === true && item.treatment_ongoing_reason && (
+                              <p className="text-rose-500">
+                                <span className="text-rose-300 mr-1.5">치료 중</span>
+                                {item.treatment_ongoing_reason}
                               </p>
                             )}
-                          </div>
-                        )}
-
-                        {/* 병원 목록 */}
-                        {hosps.length > 0 && (
-                          <div className="mt-2.5 pt-2.5 border-t border-gray-100 flex flex-wrap gap-1">
-                            {hosps.map((h, hi) => (
-                              <span key={hi} className="text-[11px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded">
-                                {h}
-                              </span>
-                            ))}
+                            {item.treatment_ongoing === false && item.treatment_ongoing_reason && (
+                              <p className="text-emerald-600">
+                                <span className="text-emerald-400 mr-1.5">종결</span>
+                                {item.treatment_ongoing_reason}
+                              </p>
+                            )}
                           </div>
                         )}
                       </div>
