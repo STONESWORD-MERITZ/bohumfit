@@ -275,3 +275,35 @@ def test_chronic_drug_hits_multiple_categories():
     assert "혈압강하제" in hits
     assert "신경안정제" in hits
     assert "수면제" in hits
+
+
+def test_filter_rejects_non_kcd_name():
+    """진료비/행위명 entry는 KCD 패턴 불일치 시 차단되어야 함"""
+    ds = {
+        # 유효 disease — Q3 통원 7회 이상으로 flagging
+        "K05": _disease(
+            code="K05",
+            name="치주염",
+            visits=[f"2025-{m:02d}-15" for m in range(1, 10)],
+            first="2025-01-15",
+            latest="2025-09-15",
+        ),
+        # 비-disease entry (KCD 코드 없음 → filters가 차단해야 함)
+        "재진진찰료|치과의|2025-10": {
+            **_disease(name="재진진찰료"),
+            "diag_code": "",
+        },
+        # PHARMA 임시 key (KCD 코드 없음 → filters가 차단해야 함)
+        "PHARMA|암로디핀|2025-10": {
+            **_disease(name="암로디핀정 5mg"),
+            "diag_code": "",
+        },
+    }
+    items = build_code_based_items(ds, REF, PRODUCT_HEALTH)
+    codes = {it["code"] for it in items}
+    # 정상 질환은 포함
+    assert "K05" in codes
+    # 비-KCD 항목은 차단
+    assert not any("진찰료" in (it.get("disease") or "") for it in items)
+    assert not any("PHARMA" in (it.get("code") or "") for it in items)
+    assert not any("재진진찰료" in (it.get("code") or "") for it in items)

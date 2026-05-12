@@ -175,6 +175,19 @@ def test_snapshot_surgery_detection():
     assert _is_surgery_match("초음파 검사") is False
 
 
+def test_normalize_code_keeps_kcd_only():
+    """normalize_code는 KCD 보정만 수행 — 비-KCD 문자열을 강제 차단하지 않음 (filters 담당)"""
+    # 정상 KCD 코드 (점 제거 + 선행 0 정규화)
+    assert normalize_code("K05.30") == "K530"   # 선행 0 제거: 0530 → 530
+    assert normalize_code("I63") == "I63"
+    assert normalize_code("K21") == "K21"
+    # 소문자 → 대문자 보정 + 점 제거
+    assert normalize_code("k21.0") == "K210"
+    # 빈 문자열 / None
+    assert normalize_code("") == ""
+    assert normalize_code(None) == ""
+
+
 if __name__ == "__main__":
     import pytest
     pytest.main([__file__, "-v"])

@@ -912,12 +912,22 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
         # 기본진료내역에서 '진단과: 일반의'는 약국 처방성 데이터로 간주 → 전체 분석에서 제외
         if ftype in ("basic", "unknown") and dept.replace(" ", "") == "일반의":
             continue
-        # 처방조제(pharma)의 코드는 약품/분류코드일 수 있어 질병코드 판정에서 제외
-        raw_code = "" if ftype == "pharma" else get_val(row, ["코드", "상병코드", "진단코드"])
+        # 주상병 우선 추출 (기본진료/세부진료)
+        if ftype == "pharma":
+            raw_code = ""
+        else:
+            # 1순위: '주상병코드' / '주상병기호' 등 주상병 명시 컬럼
+            raw_code = get_val(row, ["주상병코드", "주상병기호", "주상병"])
+            # 2순위: 일반 상병코드 (양식에 주/부 구분이 없는 경우)
+            if not raw_code:
+                raw_code = get_val(row, ["상병코드", "진단코드"])
+            # 3순위: "코드" 단일 컬럼 (가장 광범위)
+            if not raw_code:
+                raw_code = get_val(row, ["코드"])
         code_str = normalize_code(raw_code)
 
         # ftype별 이름 조회 분리:
-        # - basic/unknown: 상병명(질병명) 우선 → 행위명으로 오인 방지
+        # - basic/unknown: 주상병명 우선 → 부상병명·행위명으로 오인 방지
         # - detail: 행위명칭(처치행위명) 사용
         # - pharma: 약품명 사용
         if ftype == "detail":
@@ -925,10 +935,14 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
         elif ftype == "pharma":
             name_str = get_val(row, ["약품명", "의약품명"])
         else:  # basic, unknown, nhis
-            name_str = (
-                get_val(row, ["상병명", "주상병명", "상병기호"])
-                or get_val(row, ["진료내역", "행위명", "처치및수술"])
-            )
+            # 1순위: 주상병명 명시 컬럼
+            name_str = get_val(row, ["주상병명", "주상병"])
+            # 2순위: 일반 상병명
+            if not name_str:
+                name_str = get_val(row, ["상병명", "상병기호"])
+            # 3순위: 행위명 fallback (주상병 컬럼 없는 양식)
+            if not name_str:
+                name_str = get_val(row, ["진료내역", "행위명", "처치및수술"])
 
         in_out   = get_val(row, ["입내원구분", "입원외래구분", "입원", "외래", "구분"])
         hospital = get_val(row, ["병·의원", "기관명", "요양기관명"])

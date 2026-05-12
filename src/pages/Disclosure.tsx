@@ -280,21 +280,51 @@ function ResultView({
 
                   {/* 진료기간 */}
                   {period && (
-                    <div className="text-xs text-gray-400 mb-3">{period}</div>
+                    <div className="text-xs text-gray-400 mb-1">
+                      <span className="text-gray-300 mr-1">진료기간</span>
+                      {period}
+                    </div>
+                  )}
+                  {/* 최초진단일 — period 시작일과 다를 때만 별도 표시 */}
+                  {item.first_diagnosis_date &&
+                   item.first_diagnosis_date !== item.first_date && (
+                    <div className="text-xs text-gray-400 mb-3">
+                      <span className="text-gray-300 mr-1">최초 진단</span>
+                      {item.first_diagnosis_date}
+                    </div>
+                  )}
+                  {!period && item.first_diagnosis_date && (
+                    <div className="text-xs text-gray-400 mb-3">
+                      <span className="text-gray-300 mr-1">최초 진단</span>
+                      {item.first_diagnosis_date}
+                    </div>
+                  )}
+                  {/* period 있고 최초진단일도 같으면 mb-3 간격 보정 */}
+                  {period && item.first_diagnosis_date === item.first_date && (
+                    <div className="mb-3" />
                   )}
 
                   {/* 통계 pill */}
                   <div className="flex flex-wrap gap-2">
+                    {/* 1) 통원횟수 */}
                     {item.visit > 0 && (
                       <span className="text-xs px-3 py-1 rounded-full font-semibold bg-gray-100 text-gray-600">
                         통원 {item.visit}회
                       </span>
                     )}
+                    {/* 2) 입원일수 */}
                     {item.inpatient > 0 && (
                       <span className="text-xs px-3 py-1 rounded-full font-semibold bg-red-100 text-red-600">
                         입원 {item.inpatient}일
                       </span>
                     )}
+                    {/* 3) 입원횟수 */}
+                    {item.inpatient_count > 0 && (
+                      <span className="text-xs px-3 py-1 rounded-full font-semibold bg-red-50 text-red-500 border border-red-200">
+                        입원 {item.inpatient_count}회
+                      </span>
+                    )}
+                    {/* 4) 수술여부 */}
                     {surgN > 0 && (
                       <span className="text-xs px-3 py-1 rounded-full font-semibold bg-red-100 text-red-600">
                         수술 {surgN}건
@@ -310,6 +340,7 @@ function ResultView({
                         ⚠️ 수술 의심 {suspN}건
                       </span>
                     )}
+                    {/* 5) 투약일 */}
                     {item.med_days > 0 && (
                       <span className={`text-xs px-3 py-1 rounded-full font-semibold ${
                         item.med_days >= 30
