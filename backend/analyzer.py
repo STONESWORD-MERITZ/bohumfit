@@ -15,6 +15,18 @@ from google.genai import types
 from meritz_easy_rules import evaluate_meritz_easy
 from filters import build_code_based_items as _build_code_based_items, PRODUCT_HEALTH, PRODUCT_EASY
 
+# 비-질병 항목 차단용 (merge 단계 이중 안전망)
+_KCD_MERGE_RE = re.compile(r"^[A-Z]\d{2,4}[A-Z0-9]?$")
+_NON_DISEASE_NAME_PATTERNS_MERGE = (
+    "진찰료", "재진", "초진",
+    "조제료", "약국관리료", "약제비",
+    "응급및회송료", "외래환자의약품관리료",
+    "주사료", "주사기료",
+    "검사료", "방사선료", "마취료", "이학요법료",
+    "처치및수술", "처치 및수술", "처치및 수 술",
+    "재료대", "행위료", "기본진료료", "방문당",
+)
+
 # ==========================================
 # 키워드 로딩 (keywords.json 외부화)
 # ==========================================
@@ -928,21 +940,16 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
 
         if code_str:
             group_key = code_str
-        else:
-            # ★ 세부진료(detail) 레코드는 disease code 없으면 독립 disease entry 생성 금지
-            #   (세부진료 행위명은 질병명이 아닌 청구 행위)
-            if ftype == "detail":
-                continue
+        elif ftype == "pharma":
+            # 처방조제: 약품명+월로 임시 group (filters에서 KCD 미보유로 자동 스킵됨,
+            # 약 변경/투약일수 집계용으로만 사용)
             name_norm    = re.sub(r"[\s\d\.\-\[\]]", "", name_str)[:12]
             month_bucket = parse_date(date_str)[:7] if parse_date(date_str) else ""
-            hosp_short   = hospital[:6] if hospital else ""
-            # 날짜 없음 → 같은 버킷에 수년치 날짜 몰림 방지; 이름 없음 → 의미없는 entry
-            if not month_bucket or not name_norm:
-                continue
-            # 의료수가 청구 코드(진찰료/관리료/조제기본료 등)는 질병명 아님 → 스킵
-            if _is_billing_code(name_str):
-                continue
-            group_key = f"{name_norm}|{hosp_short}|{month_bucket}"
+            group_key = f"PHARMA|{name_norm}|{month_bucket}" if name_norm else ""
+        else:
+            # 기본진료/세부진료에서 상병코드 없는 행 → 새 disease entry 생성 금지
+            # (세부진료 행위명, 진찰료 등 비-질병 청구항목은 disease_stats에 직접 반영 안 함)
+            group_key = ""
         if not group_key:
             continue
 
@@ -1941,6 +1948,13 @@ Q3. 최근 5년({d_5y} 이후) — 태그 [IN_5Y] 항목만: 아래 중대질병
     code_claimed    = set()
 
     for item in (code_based_items + ai_result.get("flagged_items", [])):
+        # ★ 비-질병 항목 차단 (이중 안전망 — filters.py 가드 외에 AI 결과까지 검사)
+        _it_code = (item.get("code") or "").strip().upper()
+        _it_name = (item.get("disease") or "").strip()
+        if not _KCD_MERGE_RE.match(_it_code):
+            continue
+        if _it_name and any(pat in _it_name for pat in _NON_DISEASE_NAME_PATTERNS_MERGE):
+            continue
         q_raw    = item.get("duty_question", "Q1")
         raw_code_key = item.get("code", item.get("disease", "unknown"))
         code_key = normalize_code(raw_code_key) or raw_code_key

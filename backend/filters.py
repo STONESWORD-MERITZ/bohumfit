@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import re as _re
 from datetime import datetime, timedelta
 from typing import Any, Iterable
 
@@ -69,6 +70,36 @@ def _max_presc(med_dict, since_dt) -> int:
          if d and datetime.strptime(d, "%Y-%m-%d") >= since_dt),
         default=0,
     ) if med_dict else 0
+
+
+# KCD-7 상병코드 패턴: 영문 1자(A~Z) + 숫자 2~4자 + 옵션 숫자/문자
+_KCD_RE = _re.compile(r"^[A-Z]\d{2,4}[A-Z0-9]?$")
+
+# 진료비/행위명 키워드 — disease name에 포함되면 비-질병으로 간주
+_NON_DISEASE_NAME_PATTERNS = (
+    "진찰료", "재진", "초진",
+    "조제료", "약국관리료", "약제비", "복약지도료",
+    "응급및회송료", "응급의료관리료", "외래환자의약품관리료",
+    "주사료", "주사기료", "피하또는근육내주사", "정맥내주사",
+    "검사료", "방사선료", "마취료", "이학요법료", "물리치료료",
+    "처치및수술", "처치 및수술", "처치및 수 술",
+    "치근활택술", "스케일링",
+    "재료대", "행위료", "기본진료료", "선택진료료",
+    "방문당", "촉탁",
+)
+
+
+def _is_valid_disease(diag_code: str, name: str) -> bool:
+    """KCD 상병코드가 있어야 질병으로 인정. 진료비/행위명 항목은 제외."""
+    if not diag_code or diag_code in ("$", "해당없음"):
+        return False
+    if not _KCD_RE.match(diag_code):
+        return False
+    if name:
+        for pat in _NON_DISEASE_NAME_PATTERNS:
+            if pat in name:
+                return False
+    return True
 
 
 def is_simple_q3_allowed(code: str) -> bool:
@@ -206,10 +237,12 @@ def _build_health(
     d3m, d1y, d5y, d10y = _cutoffs(reference_date)
 
     for gk, s in disease_stats.items():
-        dc = (s.get("diag_code") or gk).strip()
-        if not dc or dc in ("$", "해당없음"):
+        dc = (s.get("diag_code") or "").strip().upper()
+        nm = (s.get("name") or "").strip()
+        if not _is_valid_disease(dc, nm):
             continue
-        nm = s.get("name") or dc
+        if not nm:
+            nm = dc
         hp = " / ".join(list(s.get("hospitals", set()))[:2]) or "정보 없음"
         fd = s.get("first_date", "2099-12-31")
         ld = s.get("latest_date", "2000-01-01")
@@ -387,10 +420,12 @@ def _build_easy(
     d3m, d1y, d5y, d10y = _cutoffs(reference_date)
 
     for gk, s in disease_stats.items():
-        dc = (s.get("diag_code") or gk).strip()
-        if not dc or dc in ("$", "해당없음"):
+        dc = (s.get("diag_code") or "").strip().upper()
+        nm = (s.get("name") or "").strip()
+        if not _is_valid_disease(dc, nm):
             continue
-        nm = s.get("name") or dc
+        if not nm:
+            nm = dc
         hp = " / ".join(list(s.get("hospitals", set()))[:2]) or "정보 없음"
         fd = s.get("first_date", "2099-12-31")
         ld = s.get("latest_date", "2000-01-01")
