@@ -77,8 +77,9 @@ def _kakao_item(item: dict) -> str:
     ld = item["latest_date"]
     date_str = f"{fd} ~ {ld}" if fd and ld and fd != ld else (fd or ld or "")
 
-    code_clean = item["code"].replace(".", "")
-    hosp_list = item["hospitals"] if isinstance(item["hospitals"], list) else list(item["hospitals"])
+    code_clean = (item["code"] or "").replace(".", "")
+    raw_hospitals = item["hospitals"] or []
+    hosp_list = raw_hospitals if isinstance(raw_hospitals, list) else list(raw_hospitals)
     hosp_str = ", ".join(hosp_list)
     kind = "(한방)" if any(k in hosp_str for k in ["한의원", "한방", "한의"]) else "(양방)"
 
@@ -112,7 +113,7 @@ def _build_kakao_message(product_type_kr: str, today, summary_reports: dict) -> 
         return int(m.group()) if m else 999
 
     for q_title in sorted(summary_reports.keys(), key=_q_sort_key):
-        clean_title = re.sub(r"^\[.*?\]\s*", "", q_title)
+        clean_title = re.sub(r"^\[.*?\]\s*", "", q_title or "")
         msg += f"> {clean_title}\n"
         items_q = summary_reports[q_title]
         inpatient_items = [i for i in items_q if i["inpatient"] > 0]
