@@ -433,6 +433,193 @@ def _make_merged_item(item: dict, q: str, code_override: str = "") -> dict:
     }
 
 
+def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d1y, d10y, d5y):
+    """merged_items(표준 Q1-Q4 범위) + disease_stats → (summary_reports, flagged_codes)."""
+    is_easy = product_type == "간편심사 (유병자 3-5-5 기준)"
+
+    if is_easy:
+        _q_since = {"Q1": d3m, "Q2": d10y, "Q3": d5y}
+        q_labels = {
+            "Q1": "[간편1번질문] 3개월 이내 진단·약 변경",
+            "Q2": "[간편2번질문] 10년 이내 입원/수술",
+            "Q3": "[간편3번질문] 5년 이내 중대질병",
+        }
+    else:
+        _q_since = {"Q1": d3m, "Q2": d1y, "Q3": d10y, "Q4": d5y}
+        q_labels = {
+            "Q1": "[1번질문] 3개월 이내 진단·입원·수술·투약",
+            "Q2": "[2번질문] 1년 이내 추가검사(재검사)",
+            "Q3": "[3번질문] 10년 이내 입원/수술/7회이상통원/30일이상투약",
+            "Q4": "[4번질문] 5년 이내 중대질병",
+        }
+
+    summary_reports = defaultdict(list)
+    flagged_codes   = set()
+    seen_pairs      = set()  # (code_key, effective_q) 중복 방지
+
+    for merge_key, m in merged_items.items():
+        code_key = m["code"]
+        q_orig   = m["duty_question"]
+
+        # ── 간편심사: 표준 Q→간편 Q 재매핑 ──────────────────────────
+        if is_easy:
+            if q_orig == "Q2":
+                continue  # 1년 재검사 → 간편 해당 없음
+            elif q_orig == "Q3":
+                # 표준 Q3(10년 입원/수술/7회/30일) → 간편 Q2(10년 입원/수술만)
+                _ds_chk = disease_stats.get(code_key)
+                has_inp  = bool(_ds_chk and _dts_in_range(_ds_chk.get("inpatient_dates", set()), d10y))
+                has_surg = m.get("is_surgery", False) or bool(
+                    _ds_chk and _dts_in_range(_ds_chk.get("surgery_dates", set()), d10y))
+                if not (has_inp or has_surg):
+                    continue
+                q = "Q2"
+            elif q_orig == "Q4":
+                # 표준 Q4(5년 중대) → 간편 Q3(허용 코드만)
+                if not is_simple_q3_allowed(code_key):
+                    continue
+                q = "Q3"
+            else:
+                q = q_orig  # Q1 유지
+        else:
+            q = q_orig
+
+        if q not in q_labels:
+            continue
+
+        pair = (code_key, q)
+        if pair in seen_pairs:
+            continue
+        seen_pairs.add(pair)
+
+        q_title  = q_labels[q]
+        since_dt = _q_since.get(q, d10y)
+        _ds      = disease_stats.get(code_key)
+
+        if _ds:
+            _all_dates   = _ds.get("visit_dates", set()) | _ds.get("inpatient_dates", set()) | _ds.get("surgery_dates", set())
+            _in_range    = _dts_in_range(_all_dates, since_dt)
+            first_date   = _in_range[0]  if _in_range else ""
+            latest_date  = _in_range[-1] if _in_range else ""
+            _fd = _ds.get("first_date", "2099-12-31")
+            first_diagnosis_date = _fd if _fd and _fd != "2099-12-31" else first_date
+
+            _ds_inp_dates      = _dts_in_range(_ds.get("inpatient_dates", set()), since_dt)
+            _ds_inp_map        = _ds.get("_inpatient_days_map", {})
+            ds_inpatient_days  = sum(_ds_inp_map.get(d, 1) for d in _ds_inp_dates) if _ds_inp_dates else 0
+            ds_inpatient_count = len(_ds_inp_dates)
+            ds_visit_count     = len(_dts_in_range(_ds.get("visit_dates", set()), since_dt))
+            ds_med_days        = _max_presc(_ds.get("med_dates_pharma", {}), since_dt)
+        else:
+            dates_sorted       = sorted([d for d in m["dates"] if d])
+            first_date         = dates_sorted[0]  if dates_sorted else ""
+            latest_date        = dates_sorted[-1] if dates_sorted else ""
+            first_diagnosis_date = first_date
+            ds_inpatient_days  = m["inpatient_days"]
+            ds_inpatient_count = m.get("inpatient_count", 0)
+            ds_visit_count     = m.get("visit_count", 0)
+            ds_med_days        = m["med_days"]
+            _ds_inp_dates      = []
+
+        _chojin          = _ds["chojin_count"]  if _ds else 0
+        _jaejin          = _ds["jaejin_count"]  if _ds else 0
+        _procedures      = list(_ds.get("procedures", set()) or [])      if _ds else []
+        _proc_dates      = sorted(_ds.get("procedure_dates", set()) or []) if _ds else []
+        _surg_susp       = list(_ds.get("surgery_suspected_names", set()) or []) if _ds else []
+        _surg_susp_dates = sorted(_ds.get("surgery_suspected_dates", set()) or []) if _ds else []
+
+        _at_res = _ds.get("_additional_test_result") if _ds else None
+        _to_res = _ds.get("_treatment_ongoing_result") if _ds else None
+
+        if _at_res is not None:
+            _add_test_hit    = bool(_at_res.get("is_additional_test"))
+            _add_test_reason = _at_res.get("reason", "")
+            _additional_tests = [_at_res.get("test_type", "재검사")] if _add_test_hit else []
+        else:
+            _add_test_hit    = False
+            _add_test_reason = ""
+            _additional_tests = [t[:50] for t in list(_ds.get("tests_found", set()) or [])[:8]] if _ds else []
+
+        if _to_res is not None:
+            _tx_ongoing        = bool(_to_res.get("is_ongoing"))
+            _tx_ongoing_reason = _to_res.get("reason", "")
+        else:
+            _tx_ongoing        = None
+            _tx_ongoing_reason = ""
+
+        flagged_codes.add(code_key)
+        summary_reports[q_title].append({
+            "first_date":              first_date,
+            "latest_date":             latest_date,
+            "first_diagnosis_date":    first_diagnosis_date,
+            "code":                    m["code"],
+            "name":                    m["name"] or (_ds.get("name", "") if _ds else ""),
+            "visit":                   ds_visit_count,
+            "chojin_count":            _chojin,
+            "jaejin_count":            _jaejin,
+            "total_clinic_visit":      _chojin + _jaejin if (_chojin + _jaejin) > 0 else ds_visit_count,
+            "med_days":                ds_med_days,
+            "med_days_30plus":         ds_med_days >= 30,
+            "inpatient":               ds_inpatient_days,
+            "inpatient_count":         ds_inpatient_count,
+            "inpatient_dates":         _ds_inp_dates if _ds and _ds_inp_dates else [],
+            "surgeries":               {m["surgery_name"]} if m["is_surgery"] and m["surgery_name"] else ({"수술"} if m["is_surgery"] else set()),
+            "surgery_dates":           sorted(set(m["surgery_dates"])),
+            "surgery_count":           len(set(m["surgery_dates"])) if m["is_surgery"] else 0,
+            "procedures":              _procedures,
+            "procedure_dates":         _proc_dates,
+            "surgery_suspected":       _surg_susp,
+            "surgery_suspected_dates": _surg_susp_dates,
+            "additional_tests":        _additional_tests,
+            "additional_test_hit":     _add_test_hit,
+            "additional_test_reason":  _add_test_reason,
+            "treatment_ongoing":       _tx_ongoing,
+            "treatment_ongoing_reason": _tx_ongoing_reason,
+            "drug_change_in_3m":       _ds.get("drug_change_in_3m", False) if _ds else False,
+            "hospitals":               m["hospitals"],
+            "first_hospital":          (_ds.get("hospital_dates", {}).get(first_diagnosis_date, "")
+                                        or _ds.get("hospital_dates", {}).get(first_date, "")) if _ds else "",
+            "last_hospital":           _ds.get("hospital_dates", {}).get(latest_date, "") if _ds else "",
+            "detail":                  m["reason"],
+        })
+
+    return summary_reports, flagged_codes
+
+
+def _build_all_disease_summary(disease_stats):
+    """disease_stats 전체를 날짜순으로 정리한 리스트 반환."""
+    result = []
+    for code_key, s in disease_stats.items():
+        if code_key.startswith("PHARMA|"):
+            continue  # 처방조제 전용 항목 제외
+        all_dates = sorted(s.get("visit_dates", set()) | s.get("inpatient_dates", set()) | s.get("surgery_dates", set()))
+        first_date  = all_dates[0]  if all_dates else (s.get("first_date", "") or "")
+        latest_date = all_dates[-1] if all_dates else (s.get("latest_date", "") or "")
+        if first_date and first_date == "2099-12-31":
+            first_date = ""
+
+        inp_map   = s.get("_inpatient_days_map", {})
+        inp_dates = sorted(s.get("inpatient_dates", set()))
+        inpatient_days = sum(inp_map.get(d, 1) for d in inp_dates) if inp_dates else 0
+
+        result.append({
+            "code":            s.get("diag_code") or code_key.split("|")[0],
+            "name":            s.get("name", ""),
+            "first_date":      first_date,
+            "latest_date":     latest_date,
+            "visit_count":     len(s.get("visit_dates", set())),
+            "inpatient_count": len(inp_dates),
+            "inpatient_days":  inpatient_days,
+            "surgery_count":   len(s.get("surgery_dates", set())),
+            "med_days":        max(s.get("med_dates_pharma", {}).values(), default=0),
+            "hospitals":       sorted(s.get("hospitals", set())),
+        })
+
+    # 최근 날짜 기준 정렬
+    result.sort(key=lambda x: x.get("latest_date") or "0000", reverse=True)
+    return result
+
+
 def new_disease():
     return {
         "visit_dates": set(), "med_dates_basic": {}, "med_dates_pharma": {},
@@ -448,6 +635,7 @@ def new_disease():
         "chojin_count": 0,           # 세부진료 초진 행위 횟수
         "jaejin_count": 0,           # 세부진료 재진 행위 횟수
         "drug_change_in_3m": False,  # 3개월 내 약 변경/추가/용량증가 여부
+        "hospital_dates": {},        # date → hospital_name (기본진료 기준)
         "first_date": "2099-12-31", "latest_date": "2000-01-01",
         "diag_code": "", "name": "", "has_pharma": False,
     }
@@ -1000,6 +1188,9 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
                     prev = s["med_dates_basic"].get(clean_date, 0)
                     if m_days > prev:
                         s["med_dates_basic"][clean_date] = m_days
+                # 날짜별 병원 기록 (기본진료 기준, 최초/마지막 병원 추적용)
+                if hospital and "약국" not in hospital:
+                    s["hospital_dates"].setdefault(clean_date, hospital)
                 # 동일일자 교차검증용 기본진료 정보(병원비/입원) 저장
                 day_fact = s["_daily_facts"].setdefault(clean_date, {"max_basic_cost": 0, "detail_proc_names": set()})
                 day_fact["max_basic_cost"] = max(day_fact["max_basic_cost"], cost_val)
@@ -2001,28 +2192,14 @@ Q3. 최근 5년({d_5y} 이후) — 태그 [IN_5Y] 항목만: 아래 중대질병
             q_list = [q_raw.strip()]
         source = item.get("_source", "ai")
 
+        # 표준 Q1-Q4 전체 수집 — 상품별 필터링은 _build_reports_for_product()에서 수행
         for q in q_list:
-            if product_type == "간편심사 (유병자 3-5-5 기준)":
-                if q not in ("Q1", "Q2", "Q3"):
-                    continue
-            else:
-                if q not in ("Q1", "Q2", "Q3", "Q4"):
-                    continue
+            if q not in ("Q1", "Q2", "Q3", "Q4"):
+                continue
 
-            if product_type == "간편심사 (유병자 3-5-5 기준)" and q == "Q2":
-                if not item.get("is_inpatient", False) and not item.get("is_surgery", False):
-                    continue
-
-            if product_type == "간편심사 (유병자 3-5-5 기준)" and q == "Q3":
-                if not is_simple_q3_allowed(code_key):
-                    continue
-
-            # 전 상품 공통: 문항별 기간 강제(날짜 없음/범위 밖 제외)
+            # 표준 기준 날짜 필터 (Q2=1y, Q3=10y, Q4=5y)
             item_dt = _parse_ymd(item.get("date", ""))
-            if product_type == "간편심사 (유병자 3-5-5 기준)":
-                q_since_map = {"Q1": _d3m_dt, "Q2": _d10y_dt, "Q3": _d5y_dt}
-            else:
-                q_since_map = {"Q1": _d3m_dt, "Q2": _d1y_dt, "Q3": _d10y_dt, "Q4": _d5y_dt}
+            q_since_map = {"Q1": _d3m_dt, "Q2": _d1y_dt, "Q3": _d10y_dt, "Q4": _d5y_dt}
             since_dt = q_since_map.get(q)
             if since_dt and (not item_dt or item_dt < since_dt):
                 continue
@@ -2060,131 +2237,22 @@ Q3. 최근 5년({d_5y} 이후) — 태그 [IN_5Y] 항목만: 아래 중대질병
                 if item.get("hospital") and item["hospital"] not in m["hospitals"]:
                     m["hospitals"].append(item["hospital"])
 
-    # 문항별 기간 매핑 (disease_stats에서 직접 조회할 때 사용)
-    if product_type == "간편심사 (유병자 3-5-5 기준)":
-        _q_since = {"Q1": _d3m_dt, "Q2": _d10y_dt, "Q3": _d5y_dt}
-    else:
-        _q_since = {"Q1": _d3m_dt, "Q2": _d1y_dt, "Q3": _d10y_dt, "Q4": _d5y_dt}
+    # ── 상품별 고지사항 빌드 (표준 / 간편) ────────────────────────
+    std_reports, std_flagged = _build_reports_for_product(
+        merged_items, disease_stats,
+        "건강체/표준체 (일반심사)",
+        _d3m_dt, _d1y_dt, _d10y_dt, _d5y_dt,
+    )
+    easy_reports, easy_flagged = _build_reports_for_product(
+        merged_items, disease_stats,
+        "간편심사 (유병자 3-5-5 기준)",
+        _d3m_dt, _d1y_dt, _d10y_dt, _d5y_dt,
+    )
+    summary_reports = std_reports  # 하위 호환
+    flagged_codes   = std_flagged | easy_flagged
 
-    for merge_key, m in merged_items.items():
-        code_key = m["code"]
-        q        = m["duty_question"]
-        flagged_codes.add(code_key)
-
-        if product_type == "건강체/표준체 (일반심사)":
-            q_map = {
-                "Q1": "[1번질문] 3개월 이내 진단·입원·수술·투약",
-                "Q2": "[2번질문] 1년 이내 추가검사(재검사)",
-                "Q3": "[3번질문] 10년 이내 입원/수술/7회이상통원/30일이상투약",
-                "Q4": "[4번질문] 5년 이내 중대질병",
-            }
-        else:
-            q_map = {
-                "Q1": "[간편1번질문] 3개월 이내 진단·약 변경",
-                "Q2": "[간편2번질문] 10년 이내 입원/수술",
-                "Q3": "[간편3번질문] 5년 이내 중대질병",
-            }
-        q_title = q_map.get(q, f"[{q}번질문]")
-
-        surgery_count = len(set(m["surgery_dates"])) if m["is_surgery"] else 0
-
-        # ── disease_stats에서 직접 조회하여 정확한 값 계산 ──
-        # 병원 무관, 동일 질병코드 기준으로 모든 수치 확정
-        _ds = disease_stats.get(code_key)
-        since_dt = _q_since.get(q, _d10y_dt)
-
-        if _ds:
-            # 전체 날짜 (visit + inpatient + surgery) 에서 기간 내 최초/최종 계산
-            _all_dates = _ds.get("visit_dates", set()) | _ds.get("inpatient_dates", set()) | _ds.get("surgery_dates", set())
-            _all_in_range = _dts_in_range(_all_dates, since_dt)
-            first_date  = _all_in_range[0]  if _all_in_range else ""
-            latest_date = _all_in_range[-1] if _all_in_range else ""
-
-            # 최초진단일: disease_stats.first_date (전체 기간, 병원 무관)
-            _fd = _ds.get("first_date", "2099-12-31")
-            first_diagnosis_date = _fd if _fd and _fd != "2099-12-31" else first_date
-
-            # 입원일수: 기본진료 내원일수 합산 (해당 문항 기간)
-            _ds_inp_dates = _dts_in_range(_ds.get("inpatient_dates", set()), since_dt)
-            _ds_inp_map   = _ds.get("_inpatient_days_map", {})
-            ds_inpatient_days  = sum(_ds_inp_map.get(d, 1) for d in _ds_inp_dates) if _ds_inp_dates else 0
-            # 입원횟수: 해당 기간 내 입원 날짜 수
-            ds_inpatient_count = len(_ds_inp_dates)
-            # 통원횟수: 기본진료 외래만 (해당 문항 기간)
-            ds_visit_count = len(_dts_in_range(_ds.get("visit_dates", set()), since_dt))
-            # 투약일수: 처방조제에서만
-            ds_med_days = _max_presc(_ds.get("med_dates_pharma", {}), since_dt)
-        else:
-            dates_sorted = sorted([d for d in m["dates"] if d])
-            first_date    = dates_sorted[0]  if dates_sorted else ""
-            latest_date   = dates_sorted[-1] if dates_sorted else ""
-            first_diagnosis_date = first_date
-            ds_inpatient_days  = m["inpatient_days"]
-            ds_inpatient_count = m.get("inpatient_count", 0)
-            ds_visit_count     = m.get("visit_count", 0)
-            ds_med_days        = m["med_days"]
-            _ds_inp_dates      = []
-
-        _chojin  = _ds["chojin_count"]  if _ds else 0
-        _jaejin  = _ds["jaejin_count"]  if _ds else 0
-        _procedures      = list(_ds.get("procedures", set()) or []) if _ds else []
-        _proc_dates      = sorted(_ds.get("procedure_dates", set()) or []) if _ds else []
-        _surg_susp       = list(_ds.get("surgery_suspected_names", set()) or []) if _ds else []
-        _surg_susp_dates = sorted(_ds.get("surgery_suspected_dates", set()) or []) if _ds else []
-
-        # 의학 판단 결과 반영
-        _at_res = _ds.get("_additional_test_result") if _ds else None
-        _to_res = _ds.get("_treatment_ongoing_result") if _ds else None
-
-        # additional_tests: AI가 '재검사'로 확정한 경우만 포함, 아니면 raw test names
-        if _at_res is not None:
-            _add_test_hit    = bool(_at_res.get("is_additional_test"))
-            _add_test_reason = _at_res.get("reason", "")
-            _additional_tests = [_at_res.get("test_type", "재검사")] if _add_test_hit else []
-        else:
-            _add_test_hit    = False
-            _add_test_reason = ""
-            _additional_tests = [t[:50] for t in list(_ds.get("tests_found", set()) or [])[:8]] if _ds else []
-
-        # treatment_ongoing: None이면 미판단
-        if _to_res is not None:
-            _tx_ongoing        = bool(_to_res.get("is_ongoing"))
-            _tx_ongoing_reason = _to_res.get("reason", "")
-        else:
-            _tx_ongoing        = None
-            _tx_ongoing_reason = ""
-
-        summary_reports[q_title].append({
-            "first_date":              first_date,
-            "latest_date":             latest_date,
-            "first_diagnosis_date":    first_diagnosis_date,
-            "code":                    m["code"],
-            "name":                    m["name"],
-            "visit":                   ds_visit_count,
-            "chojin_count":            _chojin,
-            "jaejin_count":            _jaejin,
-            "total_clinic_visit":      _chojin + _jaejin if (_chojin + _jaejin) > 0 else ds_visit_count,
-            "med_days":                ds_med_days,
-            "med_days_30plus":         ds_med_days >= 30,
-            "inpatient":               ds_inpatient_days,
-            "inpatient_count":         ds_inpatient_count,
-            "inpatient_dates":         _ds_inp_dates if _ds and _ds_inp_dates else [],
-            "surgeries":               {m["surgery_name"]} if m["is_surgery"] and m["surgery_name"] else ({"수술"} if m["is_surgery"] else set()),
-            "surgery_dates":           sorted(set(m["surgery_dates"])),
-            "surgery_count":           len(set(m["surgery_dates"])) if m["is_surgery"] else 0,
-            "procedures":              _procedures,
-            "procedure_dates":         _proc_dates,
-            "surgery_suspected":       _surg_susp,
-            "surgery_suspected_dates": _surg_susp_dates,
-            "additional_tests":        _additional_tests,
-            "additional_test_hit":     _add_test_hit,
-            "additional_test_reason":  _add_test_reason,
-            "treatment_ongoing":       _tx_ongoing,
-            "treatment_ongoing_reason": _tx_ongoing_reason,
-            "drug_change_in_3m":       _ds.get("drug_change_in_3m", False) if _ds else False,
-            "hospitals":               m["hospitals"],
-            "detail":                  m["reason"],
-        })
+    # ── 전체 병력 요약 ─────────────────────────────────────────
+    all_disease_summary = _build_all_disease_summary(disease_stats)
 
     # ── 메리츠화재 간편보험 예외질환 평가 ──────────────────────────
     meritz_easy_result = evaluate_meritz_easy(disease_stats, today)
@@ -2192,6 +2260,9 @@ Q3. 최근 5년({d_5y} 이후) — 태그 [IN_5Y] 항목만: 아래 중대질병
     return {
         "ai_result":               ai_result,
         "summary_reports":         {k: list(v) for k, v in summary_reports.items()},
+        "standard_reports":        {k: list(v) for k, v in std_reports.items()},
+        "easy_reports":            {k: list(v) for k, v in easy_reports.items()},
+        "all_disease_summary":     all_disease_summary,
         "flagged_codes":           flagged_codes,
         "prescription_end_details": prescription_end_details,
         "drug_change_summary":     drug_change_summary,

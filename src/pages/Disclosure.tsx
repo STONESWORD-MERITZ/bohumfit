@@ -12,6 +12,19 @@ function connectionErrorMessage(apiBase: string): string {
   );
 }
 
+type DiseaseSummary = {
+  code: string;
+  name: string;
+  first_date: string;
+  latest_date: string;
+  visit_count: number;
+  inpatient_count: number;
+  inpatient_days: number;
+  surgery_count: number;
+  med_days: number;
+  hospitals: string[];
+};
+
 type SummaryItem = {
   first_date: string;
   latest_date: string;
@@ -26,15 +39,14 @@ type SummaryItem = {
   surgery_count?: number;
   surgeries: string[];
   procedures?: string[];
-  procedure_dates?: string[];
   surgery_suspected?: string[];
-  surgery_suspected_dates?: string[];
-  additional_tests?: string[];
   additional_test_hit?: boolean;
   additional_test_reason?: string;
   treatment_ongoing?: boolean | null;
   treatment_ongoing_reason?: string;
   hospitals: string[];
+  first_hospital?: string;
+  last_hospital?: string;
   detail: string;
 };
 
@@ -43,13 +55,13 @@ type AnalyzeResult = {
   total_q_count: number;
   total_visit_sum: number;
   total_med_sum: number;
-  summary_reports: Record<string, SummaryItem[]>;
-  kakao_message: string;
+  standard_reports: Record<string, SummaryItem[]>;
+  easy_reports: Record<string, SummaryItem[]>;
+  all_disease_summary: DiseaseSummary[];
+  standard_kakao: string;
+  easy_kakao: string;
   parse_errors: string[];
   warnings: string[];
-  verdict: string;
-  verdict_reason: string;
-  recommend: string;
   meritz_easy_message: string;
 };
 
@@ -57,9 +69,9 @@ type AnalyzeResult = {
 type Risk = "red" | "orange" | "gray" | "yellow" | "green";
 
 function riskOf(item: SummaryItem): Risk {
-  const surgN   = item.surgery_count ?? item.surgeries?.length ?? 0;
-  const procN   = item.procedures?.length ?? 0;
-  const suspN   = item.surgery_suspected?.length ?? 0;
+  const surgN = item.surgery_count ?? item.surgeries?.length ?? 0;
+  const procN = item.procedures?.length ?? 0;
+  const suspN = item.surgery_suspected?.length ?? 0;
   if (item.inpatient > 0 || surgN > 0) return "red";
   if (procN > 0) return "orange";
   if (suspN > 0) return "gray";
@@ -95,38 +107,243 @@ function Chip({ label, tone = "gray" }: { label: string; tone?: string }) {
 }
 
 function extractQNumber(qTitle: string): string {
-  // "[1번질문] ..." or "[간편1번질문] ..." → "Q1"
   const m = qTitle.match(/\[(?:간편)?(\d+)번질문\]/);
   return m ? `Q${m[1]}` : "Q";
 }
 
+// ── 전체 병력 요약 섹션 ──────────────────────────────────────
+function AllDiseaseSection({ diseases }: { diseases: DiseaseSummary[] }) {
+  const [open, setOpen] = useState(true);
 
-// ── 결과 뷰 ─────────────────────────────────────────────────
-function ResultView({
-  result, copied, kakaoOpen,
-  setKakaoOpen, handleCopy,
+  if (!diseases.length) return null;
+
+  return (
+    <div className="bg-white rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] mb-5 overflow-hidden">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full px-5 py-4 flex items-center justify-between text-left"
+      >
+        <div className="flex items-center gap-2.5">
+          <svg className={`w-4 h-4 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+          <span className="text-sm font-bold text-gray-800">전체 병력 요약</span>
+          <span className="text-xs font-semibold text-gray-400">{diseases.length}개 질환</span>
+        </div>
+      </button>
+
+      {open && (
+        <div className="border-t border-gray-100">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-gray-50 text-gray-400 font-semibold">
+                  <th className="px-4 py-2.5 text-left">코드</th>
+                  <th className="px-4 py-2.5 text-left">질병명</th>
+                  <th className="px-4 py-2.5 text-left">최초~최근</th>
+                  <th className="px-4 py-2.5 text-center">통원</th>
+                  <th className="px-4 py-2.5 text-center">입원</th>
+                  <th className="px-4 py-2.5 text-center">수술</th>
+                  <th className="px-4 py-2.5 text-center">투약</th>
+                  <th className="px-4 py-2.5 text-left">병원</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {diseases.map((d, i) => (
+                  <tr key={i} className="hover:bg-gray-50/60">
+                    <td className="px-4 py-2 font-mono text-gray-500">{d.code}</td>
+                    <td className="px-4 py-2 text-gray-800 font-medium max-w-[160px] truncate">{d.name || "—"}</td>
+                    <td className="px-4 py-2 text-gray-400 whitespace-nowrap">
+                      {d.first_date}
+                      {d.latest_date && d.latest_date !== d.first_date ? ` ~ ${d.latest_date}` : ""}
+                    </td>
+                    <td className="px-4 py-2 text-center">
+                      {d.visit_count > 0 ? (
+                        <span className={`font-semibold ${d.visit_count >= 7 ? "text-amber-600" : "text-gray-600"}`}>
+                          {d.visit_count}회
+                        </span>
+                      ) : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-4 py-2 text-center">
+                      {d.inpatient_days > 0 ? (
+                        <span className="font-semibold text-red-500">{d.inpatient_days}일</span>
+                      ) : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-4 py-2 text-center">
+                      {d.surgery_count > 0 ? (
+                        <span className="font-semibold text-red-500">{d.surgery_count}건</span>
+                      ) : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-4 py-2 text-center">
+                      {d.med_days > 0 ? (
+                        <span className={`font-semibold ${d.med_days >= 30 ? "text-amber-600" : "text-emerald-600"}`}>
+                          {d.med_days}일
+                        </span>
+                      ) : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-4 py-2 text-gray-400 max-w-[140px] truncate">
+                      {d.hospitals.slice(0, 2).join(", ") || "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── 질환 카드 ────────────────────────────────────────────────
+function DiseaseCard({ item, qNum }: { item: SummaryItem; qNum: string }) {
+  const risk  = riskOf(item);
+  const sc    = RISK[risk];
+  const surgN = item.surgery_count ?? item.surgeries?.length ?? 0;
+  const procN = item.procedures?.length ?? 0;
+  const suspN = item.surgery_suspected?.length ?? 0;
+  const period = item.first_date && item.latest_date && item.first_date !== item.latest_date
+    ? `${item.first_date} ~ ${item.latest_date}`
+    : (item.first_date || "");
+  const hasBottom = suspN > 0 || item.additional_test_hit || item.treatment_ongoing != null;
+
+  return (
+    <div className={`px-5 py-4 border-l-4 ${sc.border}`}>
+      {/* 헤더: 질병명 + 코드 + Q배지 */}
+      <div className="flex items-start justify-between gap-3 mb-1">
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
+          <span className="text-[15px] font-bold text-gray-900">
+            {item.name || "질병명 없음"}
+          </span>
+          {item.code && (
+            <span className="font-mono text-[11px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded shrink-0">
+              {item.code}
+            </span>
+          )}
+        </div>
+        <span className="text-[11px] font-bold bg-[#4F46E5] text-white px-2 py-0.5 rounded-md shrink-0">
+          {qNum}
+        </span>
+      </div>
+
+      {/* 진료기간 + 최초진단 */}
+      <div className="text-xs text-gray-500 mb-2.5 space-y-0.5">
+        {period && (
+          <div className="flex items-center gap-2">
+            <span className="text-gray-400 shrink-0">진료기간</span>
+            <span>{period}</span>
+            {item.last_hospital && (
+              <span className="text-gray-400 truncate">{item.last_hospital}</span>
+            )}
+          </div>
+        )}
+        {item.first_diagnosis_date && (
+          <div className="flex items-center gap-2">
+            <span className="text-gray-400 shrink-0">최초진단</span>
+            <span>{item.first_diagnosis_date}</span>
+            {item.first_hospital && (
+              <span className="text-gray-400 truncate">{item.first_hospital}</span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* 알릴의무 사유 */}
+      {item.detail && (
+        <div className="text-[13px] font-medium mb-3 leading-relaxed text-gray-700">
+          <span className="mr-1">📋</span>{item.detail}
+        </div>
+      )}
+
+      {/* 5대 통계 칩 */}
+      <div className="flex flex-wrap gap-2 mb-2">
+        <Chip label={`통원 ${item.visit ?? 0}회`}
+              tone={(item.visit ?? 0) >= 7 ? "amber" : "gray"} />
+        <Chip label={`입원 ${item.inpatient ?? 0}일`}
+              tone={(item.inpatient ?? 0) > 0 ? "red" : "gray"} />
+        <Chip label={`입원 ${item.inpatient_count ?? 0}회`}
+              tone={(item.inpatient_count ?? 0) > 0 ? "red-light" : "gray"} />
+        <Chip label={`수술 ${surgN}건`}
+              tone={surgN > 0 ? "red" : "gray"} />
+        <Chip label={`투약 ${item.med_days ?? 0}일`}
+              tone={(item.med_days ?? 0) >= 30 ? "amber"
+                    : (item.med_days ?? 0) > 0 ? "emerald" : "gray"} />
+      </div>
+
+      {/* 보조 칩 */}
+      <div className="flex flex-wrap gap-2">
+        {procN > 0 && <Chip label={`시술 ${procN}건`} tone="orange" />}
+        {suspN > 0 && <Chip label={`⚠️ 수술 의심 ${suspN}건`} tone="gray-light" />}
+        {item.additional_test_hit && <Chip label="재검사" tone="indigo" />}
+        {item.treatment_ongoing === true  && <Chip label="치료 중" tone="rose" />}
+        {item.treatment_ongoing === false && <Chip label="종결" tone="emerald" />}
+      </div>
+
+      {/* 하단 부가정보 */}
+      {hasBottom && (
+        <div className="mt-3 pt-2.5 border-t border-gray-100 space-y-1 text-xs leading-relaxed">
+          {suspN > 0 && (
+            <p className="text-gray-400">
+              <span className="text-gray-300 mr-1.5">의심 행위</span>
+              {item.surgery_suspected!.slice(0, 3).join(", ")}
+            </p>
+          )}
+          {item.additional_test_hit && item.additional_test_reason && (
+            <p className="text-indigo-500">
+              <span className="text-indigo-300 mr-1.5">재검사</span>
+              {item.additional_test_reason}
+            </p>
+          )}
+          {item.treatment_ongoing === true && item.treatment_ongoing_reason && (
+            <p className="text-rose-500">
+              <span className="text-rose-300 mr-1.5">치료 중</span>
+              {item.treatment_ongoing_reason}
+            </p>
+          )}
+          {item.treatment_ongoing === false && item.treatment_ongoing_reason && (
+            <p className="text-emerald-600">
+              <span className="text-emerald-400 mr-1.5">종결</span>
+              {item.treatment_ongoing_reason}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── 고지사항 섹션 (상품별) ───────────────────────────────────
+function DisclosureSection({
+  reports, kakaoMsg, label,
 }: {
-  result: AnalyzeResult;
-  copied: boolean;
-  kakaoOpen: boolean;
-  setKakaoOpen: (v: boolean) => void;
-  handleCopy: () => void;
+  reports: Record<string, SummaryItem[]>;
+  kakaoMsg: string;
+  label: string;
 }) {
+  const [kakaoOpen, setKakaoOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(kakaoMsg);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const hasItems = Object.keys(reports).length > 0;
 
   return (
     <div>
-      {/* 카카오톡 메시지 */}
-      {result.kakao_message && (
-        <div className="bg-white rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] mb-6 overflow-hidden">
+      {/* 카카오 메시지 */}
+      {kakaoMsg && (
+        <div className="bg-white rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] mb-4 overflow-hidden">
           <div className="px-5 py-4 flex items-center justify-between">
             <button
               onClick={() => setKakaoOpen(!kakaoOpen)}
               className="flex items-center gap-2 text-left"
             >
-              <svg
-                className={`w-4 h-4 text-gray-400 transition-transform ${kakaoOpen ? "rotate-180" : ""}`}
-                fill="none" viewBox="0 0 24 24" stroke="currentColor"
-              >
+              <svg className={`w-4 h-4 text-gray-400 transition-transform ${kakaoOpen ? "rotate-180" : ""}`}
+                fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
               <span className="text-sm font-bold text-gray-800">카카오톡 전송용 메시지</span>
@@ -144,195 +361,30 @@ function ResultView({
           </div>
           {kakaoOpen && (
             <pre className="text-xs text-gray-600 whitespace-pre-wrap font-sans leading-relaxed bg-gray-50 px-5 py-4">
-              {result.kakao_message}
+              {kakaoMsg}
             </pre>
           )}
         </div>
       )}
 
-      {/* 상단 요약 카드 4개 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        {/* 고지 질환 수 */}
-        <div className="bg-white rounded-2xl p-4 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
-          <div className="text-xs text-gray-400 font-semibold mb-1">고지 질환 수</div>
-          <div className={`text-3xl font-bold font-mono leading-none ${result.flagged_count > 0 ? "text-red-500" : "text-gray-900"}`}>
-            {result.flagged_count}
-            <span className="text-sm font-semibold ml-1 text-gray-500">개</span>
-          </div>
-        </div>
-
-        {/* 해당 질문 수 */}
-        <div className="bg-white rounded-2xl p-4 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
-          <div className="text-xs text-gray-400 font-semibold mb-1">해당 질문 수</div>
-          <div className={`text-3xl font-bold font-mono leading-none ${result.total_q_count > 2 ? "text-amber-500" : "text-gray-900"}`}>
-            {result.total_q_count}
-            <span className="text-sm font-semibold ml-1 text-gray-500">개</span>
-          </div>
-        </div>
-
-        {/* 총 통원 횟수 */}
-        <div className="bg-white rounded-2xl p-4 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
-          <div className="text-xs text-gray-400 font-semibold mb-1">총 통원 횟수</div>
-          <div className="text-3xl font-bold font-mono leading-none text-gray-900">
-            {result.total_visit_sum}
-            <span className="text-sm font-semibold ml-1 text-gray-500">회</span>
-          </div>
-        </div>
-
-        {/* 총 투약일수 */}
-        <div className="bg-white rounded-2xl p-4 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
-          <div className="text-xs text-gray-400 font-semibold mb-1">총 투약일수</div>
-          <div className="text-3xl font-bold font-mono leading-none text-gray-900">
-            {result.total_med_sum}
-            <span className="text-sm font-semibold ml-1 text-gray-500">일</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 파싱 오류 (심각한 것만) */}
-      {result.parse_errors
-        .filter(e => e.includes("🔒") || e.includes("손상") || e.includes("비밀번호"))
-        .map((e, i) => (
-          <div key={i} className="bg-amber-50 rounded-xl p-3 mb-3 text-sm text-amber-700 font-semibold">
-            {e}
-          </div>
-        ))}
-
-      {/* 메리츠 간편 예외질환 경고 */}
-      {result.meritz_easy_message && (
-        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-4 text-xs text-orange-800 whitespace-pre-wrap leading-relaxed">
-          {result.meritz_easy_message}
-        </div>
-      )}
-
-      {/* 질환 섹션별 카드 */}
-      {Object.keys(result.summary_reports).length > 0 ? (
+      {/* 질환 카드 */}
+      {hasItems ? (
         <div className="space-y-4">
-          {Object.entries(result.summary_reports).map(([qTitle, items]) => {
-            const qNum         = extractQNumber(qTitle);
+          {Object.entries(reports).map(([qTitle, items]) => {
+            const qNum = extractQNumber(qTitle);
             const sectionTitle = qTitle.replace(/^\[.*?\]\s*/, "");
-
             return (
               <div key={qTitle} className="bg-white rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden">
-                {/* 섹션 헤더 */}
                 <div className="px-5 py-3.5 flex items-center gap-2.5 border-b border-gray-100">
                   <span className="text-xs font-bold bg-[#4F46E5] text-white px-2.5 py-1 rounded-md shrink-0">
                     {qNum}
                   </span>
                   <span className="text-sm font-bold text-gray-800">{sectionTitle}</span>
                 </div>
-
-                {/* 질환 카드 목록 */}
                 <div className="divide-y divide-gray-50">
-                  {items.map((item, idx) => {
-                    const risk  = riskOf(item);
-                    const sc    = RISK[risk];
-                    const surgN = item.surgery_count ?? item.surgeries?.length ?? 0;
-                    const procN = item.procedures?.length ?? 0;
-                    const suspN = item.surgery_suspected?.length ?? 0;
-                    const hosps = (item.hospitals as string[]) ?? [];
-                    const period = item.first_date && item.latest_date && item.first_date !== item.latest_date
-                      ? `${item.first_date} ~ ${item.latest_date}`
-                      : (item.first_date || "");
-                    const hasBottom = hosps.length > 0 || suspN > 0 ||
-                      item.additional_test_hit || item.treatment_ongoing != null;
-
-                    return (
-                      <div key={idx} className={`px-5 py-4 border-l-4 ${sc.border}`}>
-                        {/* 헤더: 질병명 + 코드 + Q배지 */}
-                        <div className="flex items-start justify-between gap-3 mb-1">
-                          <div className="flex items-center gap-2 flex-wrap min-w-0">
-                            <span className="text-[15px] font-bold text-gray-900">
-                              {item.name || "질병명 없음"}
-                            </span>
-                            {item.code && (
-                              <span className="font-mono text-[11px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded shrink-0">
-                                {item.code}
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-[11px] font-bold bg-[#4F46E5] text-white px-2 py-0.5 rounded-md shrink-0">
-                            {qNum}
-                          </span>
-                        </div>
-
-                        {/* 진료기간 */}
-                        {period && (
-                          <div className="text-xs text-gray-500 mb-2.5">
-                            <span className="text-gray-400 mr-1.5">진료기간</span>{period}
-                          </div>
-                        )}
-
-                        {/* 알릴의무 사유 — RISK 색상 + 📋 */}
-                        {item.detail && (
-                          <div className={`text-[13px] font-medium mb-3 px-3 py-2 rounded-lg leading-relaxed ${sc.bg} ${sc.text}`}>
-                            <span className="mr-1">📋</span>{item.detail}
-                          </div>
-                        )}
-
-                        {/* 주요 4대 통계 — 0이어도 항상 표시 */}
-                        <div className="flex flex-wrap gap-2 mb-2">
-                          <Chip label={`통원 ${item.visit ?? 0}회`}
-                                tone={(item.visit ?? 0) >= 7 ? "amber" : "gray"} />
-                          <Chip label={`입원 ${item.inpatient ?? 0}일`}
-                                tone={(item.inpatient ?? 0) > 0 ? "red" : "gray"} />
-                          <Chip label={`수술 ${surgN}건`}
-                                tone={surgN > 0 ? "red" : "gray"} />
-                          <Chip label={`투약 ${item.med_days ?? 0}일`}
-                                tone={(item.med_days ?? 0) >= 30 ? "amber"
-                                      : (item.med_days ?? 0) > 0 ? "emerald" : "gray"} />
-                        </div>
-
-                        {/* 보조 칩 */}
-                        <div className="flex flex-wrap gap-2">
-                          {(item.inpatient_count ?? 0) > 0 && (
-                            <Chip label={`입원 ${item.inpatient_count}회`} tone="red-light" />
-                          )}
-                          {procN > 0 && <Chip label={`시술 ${procN}건`} tone="orange" />}
-                          {suspN > 0 && <Chip label={`⚠️ 수술 의심 ${suspN}건`} tone="gray-light" />}
-                          {item.additional_test_hit && <Chip label="재검사" tone="indigo" />}
-                          {item.treatment_ongoing === true  && <Chip label="치료 중" tone="rose" />}
-                          {item.treatment_ongoing === false && <Chip label="종결" tone="emerald" />}
-                        </div>
-
-                        {/* 하단 부가정보 */}
-                        {hasBottom && (
-                          <div className="mt-3 pt-2.5 border-t border-gray-100 space-y-1 text-xs leading-relaxed">
-                            {hosps.length > 0 && (
-                              <p className="text-gray-400">
-                                <span className="text-gray-300 mr-1.5">병원</span>
-                                {hosps.slice(0, 4).join(" · ")}
-                              </p>
-                            )}
-                            {suspN > 0 && (
-                              <p className="text-gray-400">
-                                <span className="text-gray-300 mr-1.5">의심 행위</span>
-                                {item.surgery_suspected!.slice(0, 3).join(", ")}
-                              </p>
-                            )}
-                            {item.additional_test_hit && item.additional_test_reason && (
-                              <p className="text-indigo-500">
-                                <span className="text-indigo-300 mr-1.5">재검사</span>
-                                {item.additional_test_reason}
-                              </p>
-                            )}
-                            {item.treatment_ongoing === true && item.treatment_ongoing_reason && (
-                              <p className="text-rose-500">
-                                <span className="text-rose-300 mr-1.5">치료 중</span>
-                                {item.treatment_ongoing_reason}
-                              </p>
-                            )}
-                            {item.treatment_ongoing === false && item.treatment_ongoing_reason && (
-                              <p className="text-emerald-600">
-                                <span className="text-emerald-400 mr-1.5">종결</span>
-                                {item.treatment_ongoing_reason}
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                  {items.map((item, idx) => (
+                    <DiseaseCard key={idx} item={item} qNum={qNum} />
+                  ))}
                 </div>
               </div>
             );
@@ -341,23 +393,95 @@ function ResultView({
       ) : (
         <div className="bg-emerald-50 rounded-2xl p-8 text-center shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
           <div className="text-4xl mb-3">✅</div>
-          <p className="text-sm font-bold text-emerald-700">고지 대상 항목이 없습니다</p>
+          <p className="text-sm font-bold text-emerald-700">{label} 고지 대상 항목이 없습니다</p>
         </div>
       )}
     </div>
   );
 }
 
+// ── 결과 뷰 ─────────────────────────────────────────────────
+function ResultView({ result }: { result: AnalyzeResult }) {
+  const [productTab, setProductTab] = useState<"standard" | "easy">("standard");
+
+  const activeReports = productTab === "standard" ? result.standard_reports : result.easy_reports;
+  const activeKakao   = productTab === "standard" ? result.standard_kakao   : result.easy_kakao;
+  const activeLabel   = productTab === "standard" ? "건강체/표준체" : "간편심사";
+
+  const stdCount  = Object.values(result.standard_reports).reduce((s, arr) => s + arr.length, 0);
+  const easyCount = Object.values(result.easy_reports).reduce((s, arr) => s + arr.length, 0);
+
+  return (
+    <div>
+      {/* 파싱 오류 */}
+      {result.parse_errors
+        .filter(e => e.includes("🔒") || e.includes("손상") || e.includes("비밀번호"))
+        .map((e, i) => (
+          <div key={i} className="bg-amber-50 rounded-xl p-3 mb-3 text-sm text-amber-700 font-semibold">{e}</div>
+        ))}
+
+      {/* 메리츠 간편 경고 */}
+      {result.meritz_easy_message && (
+        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-4 text-xs text-orange-800 whitespace-pre-wrap leading-relaxed">
+          {result.meritz_easy_message}
+        </div>
+      )}
+
+      {/* ① 전체 병력 요약 */}
+      <AllDiseaseSection diseases={result.all_disease_summary} />
+
+      {/* ② 상품별 고지사항 */}
+      <div className="bg-white rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] overflow-hidden mb-5">
+        {/* 탭 헤더 */}
+        <div className="flex border-b border-gray-100">
+          {(["standard", "easy"] as const).map((tab) => {
+            const label = tab === "standard" ? "건강체/표준체" : "간편심사";
+            const count = tab === "standard" ? stdCount : easyCount;
+            const active = productTab === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setProductTab(tab)}
+                className={`flex-1 py-3.5 text-sm font-bold transition-all relative ${
+                  active
+                    ? "text-[#4F46E5]"
+                    : "text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                {label}
+                {count > 0 && (
+                  <span className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full font-semibold ${
+                    active ? "bg-indigo-100 text-indigo-600" : "bg-gray-100 text-gray-500"
+                  }`}>{count}</span>
+                )}
+                {active && (
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#4F46E5]" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 탭 콘텐츠 */}
+        <div className="p-4">
+          <DisclosureSection
+            reports={activeReports}
+            kakaoMsg={activeKakao}
+            label={activeLabel}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── 메인 ────────────────────────────────────────────────────
 export default function Disclosure() {
-  const [productType, setProductType] = useState("standard");
-  const [refDate, setRefDate]         = useState(() => new Date().toISOString().slice(0, 10));
-  const [birthdate, setBirthdate]     = useState("");
-  const [loading, setLoading]         = useState(false);
-  const [error, setError]             = useState("");
-  const [result, setResult]           = useState<AnalyzeResult | null>(null);
-  const [copied, setCopied]           = useState(false);
-  const [kakaoOpen, setKakaoOpen]     = useState(false);
+  const [refDate, setRefDate]     = useState(() => new Date().toISOString().slice(0, 10));
+  const [birthdate, setBirthdate] = useState("");
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState("");
+  const [result, setResult]       = useState<AnalyzeResult | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -371,7 +495,6 @@ export default function Disclosure() {
 
     const form = new FormData();
     for (const f of files) form.append("files", f);
-    form.append("product_type", productType);
     form.append("reference_date", refDate);
     if (birthdate) form.append("birthdate_pw", birthdate);
 
@@ -396,13 +519,6 @@ export default function Disclosure() {
     }
   };
 
-  const handleCopy = () => {
-    if (!result?.kakao_message) return;
-    navigator.clipboard.writeText(result.kakao_message);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
   return (
     <div>
       {/* 헤더 */}
@@ -416,29 +532,7 @@ export default function Disclosure() {
 
       {/* 설정 카드 */}
       <div className="bg-white rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] p-6 mb-5">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">심사 기준</label>
-            <div className="flex gap-2">
-              {[
-                { value: "standard", label: "건강체/표준체" },
-                { value: "easy",     label: "간편심사" },
-              ].map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setProductType(opt.value)}
-                  className={`flex-1 py-2.5 px-3 rounded-xl text-sm font-semibold transition-all ${
-                    productType === opt.value
-                      ? "bg-[#4F46E5] text-white shadow-[0_2px_8px_rgba(79,70,229,0.3)]"
-                      : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">기준일 (청약예정일)</label>
             <input
@@ -487,21 +581,11 @@ export default function Disclosure() {
 
       {/* 에러 */}
       {error && (
-        <div className="bg-red-50 rounded-2xl p-4 mb-5 text-sm text-red-600 font-semibold">
-          {error}
-        </div>
+        <div className="bg-red-50 rounded-2xl p-4 mb-5 text-sm text-red-600 font-semibold">{error}</div>
       )}
 
       {/* 결과 */}
-      {result && (
-        <ResultView
-          result={result}
-          copied={copied}
-          kakaoOpen={kakaoOpen}
-          setKakaoOpen={setKakaoOpen}
-          handleCopy={handleCopy}
-        />
-      )}
+      {result && <ResultView result={result} />}
 
       {/* 빈 상태 */}
       {!result && !loading && !error && (

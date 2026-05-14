@@ -145,14 +145,9 @@ def health():
 @app.post("/api/analyze")
 async def analyze(
     files: list[UploadFile] = File(..., description="심평원 진료 PDF"),
-    product_type: str = Form(..., description="'standard' 또는 'easy'"),
     reference_date: str = Form(..., description="YYYY-MM-DD"),
     birthdate_pw: str = Form(default="", description="PDF 비밀번호용 생년월일"),
 ):
-    product_type_kr = PRODUCT_TYPE_MAP.get(product_type)
-    if not product_type_kr:
-        raise HTTPException(status_code=400, detail=f"product_type은 'standard' 또는 'easy'여야 합니다.")
-
     try:
         ref_date = date.fromisoformat(reference_date)
     except ValueError:
@@ -171,6 +166,9 @@ async def analyze(
 
     active_files = await asyncio.gather(*[_read(f) for f in files])
 
+    # 표준 컨텍스트로 AI 분석 (Q1-Q4 전체 수집) — 간편 결과는 파생
+    product_type_kr = PRODUCT_TYPE_MAP["standard"]
+
     try:
         result = await run_analysis(
             active_files=active_files,
@@ -184,30 +182,38 @@ async def analyze(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"분석 중 오류: {e}")
 
-    summary_reports = result["summary_reports"]
+    std_reports  = result["standard_reports"]
+    easy_reports = result["easy_reports"]
     flagged_codes = result["flagged_codes"]
     today = result["analysis_today"]
-
     ai_res = result["ai_result"]
-
     meritz = result.get("meritz_easy", {})
 
+    std_kakao  = _build_kakao_message(PRODUCT_TYPE_MAP["standard"], today, std_reports)
+    easy_kakao = _build_kakao_message(PRODUCT_TYPE_MAP["easy"],     today, easy_reports)
+    if meritz.get("detail_message"):
+        std_kakao  += "\n" + meritz["detail_message"]
+        easy_kakao += "\n" + meritz["detail_message"]
+
     return {
-        "flagged_count":   len(flagged_codes),
-        "total_q_count":   len(summary_reports),
-        "total_visit_sum": sum(item["visit"] for items in summary_reports.values() for item in items),
-        "total_med_sum":   sum(item["med_days"] for items in summary_reports.values() for item in items),
-        "summary_reports": _serialize_reports(summary_reports),
-        "kakao_message":   _build_kakao_message(product_type_kr, today, summary_reports)
-                           + ("\n" + meritz["detail_message"] if meritz.get("detail_message") else ""),
-        "parse_errors":    result["parse_errors"],
-        "warnings":        result["retry_warnings"],
-        "verdict":         ai_res.get("health_verdict") or ai_res.get("simple_verdict", ""),
-        "verdict_reason":  ai_res.get("health_reason") or ai_res.get("simple_reason", ""),
-        "recommend":       ai_res.get("recommend", ""),
-        "meritz_easy_eligible":          meritz.get("meritz_easy_eligible", False),
-        "meritz_easy_exception_count":   meritz.get("exception_diseases_count", 0),
-        "meritz_easy_recommended_year":  meritz.get("recommended_disclosure_year"),
-        "meritz_easy_details":           meritz.get("exception_diseases", []) + meritz.get("rejected_diseases", []),
-        "meritz_easy_message":           meritz.get("detail_message", ""),
+        "flagged_count":        len(flagged_codes),
+        "total_q_count":        len(std_reports),
+        "total_visit_sum":      sum(item["visit"] for items in std_reports.values() for item in items),
+        "total_med_sum":        sum(item["med_days"] for items in std_reports.values() for item in items),
+        "standard_reports":     _serialize_reports(std_reports),
+        "easy_reports":         _serialize_reports(easy_reports),
+        "all_disease_summary":  result["all_disease_summary"],
+        "standard_kakao":       std_kakao,
+        "easy_kakao":           easy_kakao,
+        "kakao_message":        std_kakao,   # 하위 호환
+        "parse_errors":         result["parse_errors"],
+        "warnings":             result["retry_warnings"],
+        "verdict":              ai_res.get("health_verdict") or ai_res.get("simple_verdict", ""),
+        "verdict_reason":       ai_res.get("health_reason") or ai_res.get("simple_reason", ""),
+        "recommend":            ai_res.get("recommend", ""),
+        "meritz_easy_eligible":         meritz.get("meritz_easy_eligible", False),
+        "meritz_easy_exception_count":  meritz.get("exception_diseases_count", 0),
+        "meritz_easy_recommended_year": meritz.get("recommended_disclosure_year"),
+        "meritz_easy_details":          meritz.get("exception_diseases", []) + meritz.get("rejected_diseases", []),
+        "meritz_easy_message":          meritz.get("detail_message", ""),
     }
