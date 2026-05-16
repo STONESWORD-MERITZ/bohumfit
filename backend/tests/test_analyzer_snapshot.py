@@ -20,6 +20,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from analyzer import (
     detect_file_type,
+    _clean_disease_name,
+    get_diagnosis_code,
+    get_diagnosis_name,
+    get_val,
     normalize_code,
     parse_date,
     extract_drug_info,
@@ -89,6 +93,38 @@ def test_parse_date_formats():
     assert parse_date("2025.03.15") == "2025-03-15"
     assert parse_date("20250315") == "2025-03-15"
     assert parse_date("no date here") == ""
+
+
+def test_get_val_matches_spaced_basic_diagnosis_headers():
+    row = {
+        "주상병 코드": "AK0530",
+        "주 상병명": "(양방)만성단순치주염",
+    }
+    assert get_val(row, ["주상병코드"]) == "AK0530"
+    assert get_diagnosis_code(row) == "AK0530"
+    assert get_diagnosis_name(row) == "만성단순치주염"
+
+
+def test_diagnosis_code_does_not_read_detail_code_name():
+    row = {
+        "진료내역": "진찰료/초진(양방)",
+        "코드명": "초진진찰료-치과의원",
+    }
+    assert get_diagnosis_code(row) == ""
+
+
+def test_get_val_skips_empty_exact_column_for_combined_pdf_rows():
+    row = {
+        "내원일수": "",
+        "총투약일수": "30",
+    }
+    assert get_val(row, ["내원일수", "투약일수", "요양일수"]) == "30"
+
+
+def test_clean_disease_name_repairs_common_ocr_spacing():
+    assert _clean_disease_name("(양방)만 성단순치 주염") == "만성단순치주염"
+    assert _clean_disease_name("상 세불명의 위염") == "상세불명의 위염"
+    assert _clean_disease_name("경 추의염좌 및긴장") == "경추의 염좌 및 긴장"
 
 
 # ── extract_drug_info ─────────────────────────────────────────────
