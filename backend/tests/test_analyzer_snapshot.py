@@ -21,6 +21,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from analyzer import (
     detect_file_type,
     _clean_disease_name,
+    _inpatient_periods_in_range,
+    format_kcd_code,
     get_diagnosis_code,
     get_diagnosis_name,
     get_val,
@@ -81,6 +83,13 @@ def test_normalize_code_ocr_1_to_I():
     assert normalize_code("1670") == "I670"
 
 
+def test_format_kcd_code_for_display():
+    assert format_kcd_code("K0530") == "K05.30"
+    assert format_kcd_code("F200") == "F20.0"
+    assert format_kcd_code("M170") == "M17.0"
+    assert format_kcd_code("M54") == "M54"
+
+
 def test_normalize_code_empty():
     assert normalize_code("") == ""
     assert normalize_code("$") == ""
@@ -119,6 +128,16 @@ def test_get_val_skips_empty_exact_column_for_combined_pdf_rows():
         "총투약일수": "30",
     }
     assert get_val(row, ["내원일수", "투약일수", "요양일수"]) == "30"
+
+
+def test_inpatient_periods_use_start_plus_days_minus_one():
+    stat = {
+        "inpatient_periods": [
+            {"start": "2022-12-20", "end": "2022-12-27", "days": 8},
+        ]
+    }
+    periods = _inpatient_periods_in_range(stat, datetime(2020, 1, 1))
+    assert periods == [{"start": "2022-12-20", "end": "2022-12-27", "days": 8}]
 
 
 def test_clean_disease_name_repairs_common_ocr_spacing():

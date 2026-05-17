@@ -211,6 +211,15 @@ def normalize_code(raw: str | None) -> str:
     return code
 
 
+def format_kcd_code(code: str | None) -> str:
+    """Format a normalized KCD code for display, e.g. K0530 -> K05.30, F200 -> F20.0."""
+    c = normalize_code(code)
+    m = re.match(r"^([A-Z])(\d{2})([A-Z0-9]+)$", c)
+    if not m:
+        return c
+    return f"{m.group(1)}{m.group(2)}.{m.group(3)}"
+
+
 DISCLOSURE_CODE_GROUPS = {
     "M54": {
         "code": "M54",
@@ -647,7 +656,13 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
         _ds      = disease_stats.get(code_key)
 
         if _ds:
-            _all_dates   = _ds.get("visit_dates", set()) | _ds.get("inpatient_dates", set()) | _ds.get("surgery_dates", set())
+            _inpatient_end_dates = _inpatient_end_dates_in_range(_ds, since_dt)
+            _all_dates   = (
+                _ds.get("visit_dates", set())
+                | _ds.get("inpatient_dates", set())
+                | _inpatient_end_dates
+                | _ds.get("surgery_dates", set())
+            )
             _in_range    = _dts_in_range(_all_dates, since_dt)
             first_date   = _in_range[0]  if _in_range else ""
             latest_date  = _in_range[-1] if _in_range else ""
@@ -655,6 +670,7 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
             first_diagnosis_date = _fd if _fd and _fd != "2099-12-31" else first_date
 
             _ds_inp_dates      = _dts_in_range(_ds.get("inpatient_dates", set()), since_dt)
+            _ds_inp_periods    = _inpatient_periods_in_range(_ds, since_dt)
             _ds_inp_map        = _ds.get("_inpatient_days_map", {})
             ds_inpatient_days  = sum(_ds_inp_map.get(d, 1) for d in _ds_inp_dates) if _ds_inp_dates else 0
             ds_inpatient_count = len(_ds_inp_dates)
@@ -670,6 +686,7 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
             ds_visit_count     = m.get("visit_count", 0)
             ds_med_days        = m["med_days"]
             _ds_inp_dates      = []
+            _ds_inp_periods    = []
 
         _chojin          = _ds["chojin_count"]  if _ds else 0
         _jaejin          = _ds["jaejin_count"]  if _ds else 0
@@ -703,6 +720,7 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
             "latest_date":             latest_date,
             "first_diagnosis_date":    first_diagnosis_date,
             "code":                    m["code"],
+            "display_code":            format_kcd_code(m["code"]),
             "name":                    m["name"] or (_ds.get("name", "") if _ds else ""),
             "visit":                   ds_visit_count,
             "chojin_count":            _chojin,
@@ -713,6 +731,7 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
             "inpatient":               ds_inpatient_days,
             "inpatient_count":         ds_inpatient_count,
             "inpatient_dates":         _ds_inp_dates if _ds and _ds_inp_dates else [],
+            "inpatient_periods":       _ds_inp_periods if _ds and _ds_inp_periods else [],
             "surgeries":               {m["surgery_name"]} if m["is_surgery"] and m["surgery_name"] else ({"수술"} if m["is_surgery"] else set()),
             "surgery_dates":           sorted(set(m["surgery_dates"])),
             "surgery_count":           len(set(m["surgery_dates"])) if m["is_surgery"] else 0,
@@ -742,7 +761,12 @@ def _build_all_disease_summary(disease_stats):
     for code_key, s in sorted(disease_stats.items(), key=lambda kv: (kv[1].get("first_date", ""), kv[0])):
         if code_key.startswith("PHARMA|"):
             continue  # 처방조제 전용 항목 제외
-        all_dates = sorted(s.get("visit_dates", set()) | s.get("inpatient_dates", set()) | s.get("surgery_dates", set()))
+        all_dates = sorted(
+            s.get("visit_dates", set())
+            | s.get("inpatient_dates", set())
+            | _inpatient_end_dates_in_range(s, datetime.min)
+            | s.get("surgery_dates", set())
+        )
         first_date  = all_dates[0]  if all_dates else (s.get("first_date", "") or "")
         latest_date = all_dates[-1] if all_dates else (s.get("latest_date", "") or "")
         if first_date and first_date == "2099-12-31":
@@ -754,12 +778,14 @@ def _build_all_disease_summary(disease_stats):
 
         result.append({
             "code":            s.get("diag_code") or code_key.split("|")[0],
+            "display_code":    format_kcd_code(s.get("diag_code") or code_key.split("|")[0]),
             "name":            s.get("name", ""),
             "first_date":      first_date,
             "latest_date":     latest_date,
             "visit_count":     len(s.get("visit_events") or s.get("visit_dates", set())),
             "inpatient_count": len(inp_dates),
             "inpatient_days":  inpatient_days,
+            "inpatient_periods": _inpatient_periods_in_range(s, datetime.min),
             "surgery_count":   len(s.get("surgery_dates", set())),
             "med_days":        _max_presc(s.get("med_dates_pharma_episode") or s.get("med_dates_pharma", {}), datetime.min),
             "hospitals":       sorted(s.get("hospitals", set())),
@@ -775,7 +801,7 @@ def new_disease():
         "visit_dates": set(), "visit_events": [], "med_dates_basic": {}, "med_dates_pharma": {},
         "med_dates_pharma_episode": {},
         "drug_names_in_90": set(), "drug_names_before_90": set(),
-        "tests_found": set(), "test_events": [], "inpatient_dates": set(),
+        "tests_found": set(), "test_events": [], "inpatient_dates": set(), "inpatient_periods": [],
         "surgeries": set(), "surgery_dates": set(), "hospitals": set(),
         "procedures": set(),               # 시술 확정 (30만원이상 + 시술키워드)
         "procedure_dates": set(),          # 시술 날짜
@@ -811,6 +837,37 @@ def _dts_in_range(date_set, since_dt):
         except ValueError:
             pass
     return sorted(result)
+
+
+def _add_days(date_str: str, days: int) -> str:
+    dt = _parse_ymd(date_str)
+    if not dt or days <= 1:
+        return date_str
+    return (dt + timedelta(days=days - 1)).strftime("%Y-%m-%d")
+
+
+def _inpatient_periods_in_range(stat: dict, since_dt) -> list[dict]:
+    seen = {}
+    for period in stat.get("inpatient_periods") or []:
+        if not isinstance(period, dict):
+            continue
+        start = str(period.get("start") or "")
+        if not start:
+            continue
+        start_dt = _parse_ymd(start)
+        if not start_dt or start_dt < since_dt:
+            continue
+        days = int(period.get("days") or 0)
+        end = str(period.get("end") or "") or _add_days(start, days)
+        key = (start, end)
+        prev = seen.get(key)
+        if prev is None or days > int(prev.get("days") or 0):
+            seen[key] = {"start": start, "end": end, "days": days}
+    return sorted(seen.values(), key=lambda x: (x["start"], x["end"]))
+
+
+def _inpatient_end_dates_in_range(stat: dict, since_dt) -> set[str]:
+    return {p["end"] for p in _inpatient_periods_in_range(stat, since_dt) if p.get("end")}
 
 
 def _visit_count_in_range(stat, since_dt) -> int:
@@ -1399,6 +1456,13 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
                     if m_days > 0:
                         prev_inp = s["_inpatient_days_map"].get(clean_date, 0)
                         s["_inpatient_days_map"][clean_date] = max(prev_inp, m_days)
+                        s.setdefault("inpatient_periods", []).append({
+                            "start": clean_date,
+                            "end": _add_days(clean_date, m_days),
+                            "days": m_days,
+                        })
+                        if _add_days(clean_date, m_days) > s["latest_date"]:
+                            s["latest_date"] = _add_days(clean_date, m_days)
                     elif clean_date not in s["_inpatient_days_map"]:
                         # 내원일수 0 = 퇴원일 기록 — 일수 0으로 마킹 (기본값 1 적용 방지)
                         s["_inpatient_days_map"][clean_date] = 0
@@ -1508,6 +1572,13 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
                     if m_days > 0:
                         prev_inp = s["_inpatient_days_map"].get(clean_date, 0)
                         s["_inpatient_days_map"][clean_date] = max(prev_inp, m_days)
+                        s.setdefault("inpatient_periods", []).append({
+                            "start": clean_date,
+                            "end": _add_days(clean_date, m_days),
+                            "days": m_days,
+                        })
+                        if _add_days(clean_date, m_days) > s["latest_date"]:
+                            s["latest_date"] = _add_days(clean_date, m_days)
                 elif in_out == "약국":
                     s["has_pharma"] = True
                 else:

@@ -14,6 +14,7 @@ function connectionErrorMessage(apiBase: string): string {
 
 type DiseaseSummary = {
   code: string;
+  display_code?: string;
   name: string;
   first_date: string;
   latest_date: string;
@@ -30,12 +31,14 @@ type SummaryItem = {
   latest_date: string;
   first_diagnosis_date: string;
   code: string;
+  display_code?: string;
   name: string;
   visit: number;
   med_days: number;
   med_days_30plus?: boolean;
   inpatient: number;
   inpatient_count: number;
+  inpatient_periods?: { start: string; end: string; days: number }[];
   surgery_count?: number;
   surgeries: string[];
   procedures?: string[];
@@ -152,7 +155,7 @@ function AllDiseaseSection({ diseases }: { diseases: DiseaseSummary[] }) {
               <tbody className="divide-y divide-gray-50">
                 {diseases.map((d, i) => (
                   <tr key={i} className="hover:bg-gray-50/60">
-                    <td className="px-4 py-2 font-mono text-gray-500">{d.code}</td>
+                    <td className="px-4 py-2 font-mono text-gray-500">{d.display_code || d.code}</td>
                     <td className="px-4 py-2 text-gray-800 font-medium max-w-[160px] truncate">{d.name || "—"}</td>
                     <td className="px-4 py-2 text-gray-400 whitespace-nowrap">
                       {d.first_date}
@@ -218,7 +221,7 @@ function DiseaseCard({ item, qNum }: { item: SummaryItem; qNum: string }) {
           </span>
           {item.code && (
             <span className="font-mono text-[11px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded shrink-0">
-              {item.code}
+              {item.display_code || item.code}
             </span>
           )}
         </div>

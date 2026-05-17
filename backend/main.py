@@ -49,7 +49,7 @@ def _kakao_item(item: dict) -> str:
     ld = _s(item.get("latest_date"))
     date_str = f"{fd} ~ {ld}" if fd and ld and fd != ld else (fd or ld or "")
 
-    code_clean = _s(item.get("code")).replace(".", "")
+    code_clean = _s(item.get("display_code") or item.get("code"))
     raw_hospitals = item.get("hospitals") or []
     hosp_list = [_s(h) for h in (raw_hospitals if isinstance(raw_hospitals, list) else list(raw_hospitals))]
     hosp_str = ", ".join(hosp_list)
@@ -131,6 +131,7 @@ def _serialize_reports(summary_reports: dict) -> dict:
                 "procedures":        _to_list(item.get("procedures")),
                 "surgery_suspected": _to_list(item.get("surgery_suspected")),
                 "additional_tests":  _to_list(item.get("additional_tests")),
+                "inpatient_periods": _to_list(item.get("inpatient_periods")),
             }
             for item in items
         ]
