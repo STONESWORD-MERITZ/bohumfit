@@ -400,7 +400,12 @@ function DisclosureSection({
                   <span className="text-sm font-bold text-gray-800">{cleanQTitle(qTitle)}</span>
                 </div>
                 <div className="divide-y divide-gray-50">
-                  {items.map((item, idx) => (
+                  {[...items].sort((a, b) => {
+                    const al = a.latest_date || a.first_date || "";
+                    const bl = b.latest_date || b.first_date || "";
+                    if (al !== bl) return bl.localeCompare(al);
+                    return (b.first_date || "").localeCompare(a.first_date || "");
+                  }).map((item, idx) => (
                     <DiseaseCard key={`${item.code}-${idx}`} item={item} qNum={qNum} />
                   ))}
                 </div>

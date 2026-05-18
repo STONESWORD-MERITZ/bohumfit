@@ -53,6 +53,7 @@ def new_disease():
         "hospital_dates": {},
         "first_date": "2099-12-31", "latest_date": "2000-01-01",
         "diag_code": "", "name": "", "has_pharma": False,
+        "_pharma_seen": set(),
     }
 
 
@@ -229,9 +230,18 @@ def build_disease_stats(
                 elif "재진" in _chk:
                     s["jaejin_count"] += 1
             elif ftype == "pharma":
-                _gubun = get_val(row, ["구분", "처방조제구분", "처방구분", "분류"])
-                if _gubun and "조제" in _gubun and "처방" not in _gubun:
+                # 처방/조제 구분 — 헤더 정규화 후 컬럼명 "처방/조제"까지 인식하도록 키 확장
+                # "처방조제"·"조제" 등 약국 조제 행은 스킵; "외래"(병원 처방)는 통과
+                _gubun = get_val(row, ["처방/조제", "처방조제구분", "처방조제", "처방구분", "구분", "분류"])
+                _gubun_clean = (_gubun or "").replace(" ", "").strip()
+                if _gubun_clean and _gubun_clean != "외래" and "조제" in _gubun_clean:
                     continue
+
+                # 추가 안전망: 같은 (날짜, 약품명) 쌍 중복 방어
+                _seen_key = (clean_date, (name_str or "").strip())
+                if _seen_key in s["_pharma_seen"]:
+                    continue
+                s["_pharma_seen"].add(_seen_key)
 
                 _target_groups = []
                 for _ck, _cs in disease_stats.items():
