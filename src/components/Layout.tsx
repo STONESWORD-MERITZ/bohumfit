@@ -52,16 +52,6 @@ export default function Layout() {
           </nav>
 
           <div className="flex items-center gap-3 text-sm">
-            {user && (
-              <NavLink
-                to="/history"
-                className={({ isActive }) =>
-                  isActive ? "text-indigo-600 font-semibold text-sm" : "text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors"
-                }
-              >
-                내 점검 기록
-              </NavLink>
-            )}
             {user ? (
               <>
                 <span className="hidden text-xs text-gray-400 sm:inline">{user.email}</span>
