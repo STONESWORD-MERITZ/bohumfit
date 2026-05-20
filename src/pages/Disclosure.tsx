@@ -72,6 +72,12 @@ type AnalyzeResult = {
 };
 
 type Risk = "red" | "orange" | "gray" | "yellow" | "green";
+type TourPhase = "pre" | "post";
+type TourStep = {
+  target: string;
+  title: string;
+  body: string;
+};
 
 const modeCopy: Record<AudienceMode, {
   badge: string;
@@ -166,7 +172,7 @@ function AllDiseaseSection({ diseases }: { diseases: DiseaseSummary[] }) {
   if (!diseases.length) return null;
 
   return (
-    <section className="mb-5 overflow-hidden rounded-[8px] bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
+    <section data-tour="summary" className="mb-5 overflow-hidden rounded-[8px] bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
       <button
         onClick={() => setOpen(!open)}
         className="flex w-full items-center justify-between px-5 py-4 text-left"
@@ -364,7 +370,7 @@ function DisclosureSection({
   };
 
   return (
-    <div>
+    <div data-tour="copy">
       {memo && (
         <section className="mb-4 overflow-hidden rounded-[8px] bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
           <div className="flex items-center justify-between gap-3 px-5 py-4">
@@ -388,7 +394,7 @@ function DisclosureSection({
       )}
 
       {hasItems ? (
-        <div className="space-y-4">
+        <div data-tour="cards" className="space-y-4">
           {Object.entries(reports).map(([qTitle, items]) => {
             const qNum = extractQNumber(qTitle);
             return (
@@ -414,7 +420,7 @@ function DisclosureSection({
           })}
         </div>
       ) : (
-        <div className="rounded-[8px] bg-emerald-50 p-8 text-center shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
+        <div data-tour="cards" className="rounded-[8px] bg-emerald-50 p-8 text-center shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
           <p className="text-sm font-bold text-emerald-700">{label}</p>
         </div>
       )}
@@ -515,7 +521,7 @@ function Metric({ label, value, tone = "text-gray-900" }: { label: string; value
 
 function ModeSwitch({ mode }: { mode: AudienceMode }) {
   return (
-    <div className="mb-5 grid gap-3 md:grid-cols-2">
+    <div data-tour="role" className="mb-5 grid gap-3 md:grid-cols-2">
       <Link
         to="/check"
         className={`rounded-[8px] border p-4 transition ${
@@ -542,66 +548,150 @@ function ModeSwitch({ mode }: { mode: AudienceMode }) {
   );
 }
 
-const tutorialSteps = [
+const preTourSteps: TourStep[] = [
   {
+    target: "role",
     title: "설계사용 또는 고객용 선택",
     body: "청약 전 상담은 설계사용, 기존 보험 점검은 고객용에서 시작합니다.",
   },
   {
+    target: "date",
     title: "청약 예정일 입력",
     body: "고지 기간 계산의 기준일입니다. 기존 보험 점검은 실제 가입일을 넣어 주세요.",
   },
   {
+    target: "upload",
     title: "PDF 첨부",
     body: "기본진료, 세부진료, 처방조제 PDF를 올리고 암호가 있으면 비밀번호를 입력합니다.",
   },
+];
+
+const postTourSteps: TourStep[] = [
   {
+    target: "summary",
     title: "병력 요약 펼치기 또는 접기",
     body: "전체 병력은 처음에는 접혀 있습니다. 필요할 때 펼쳐 원자료 집계를 확인합니다.",
   },
   {
+    target: "copy",
     title: "카카오톡 복사하기",
     body: "상품 기준별 고지 메시지를 복사해 고객 안내나 내부 검토에 활용합니다.",
   },
   {
+    target: "cards",
     title: "하단 병력 확인하기",
     body: "질병별 카드에서 통원, 입원, 수술, 투약, 추가검사 의심 내용을 최종 확인합니다.",
   },
 ];
 
-function TutorialGuide() {
-  const [open, setOpen] = useState(true);
+function TourOverlay({
+  phase,
+  index,
+  onNext,
+  onSkip,
+}: {
+  phase: TourPhase;
+  index: number;
+  onNext: () => void;
+  onSkip: () => void;
+}) {
+  const steps = phase === "pre" ? preTourSteps : postTourSteps;
+  const step = steps[index];
+  const [rect, setRect] = useState<DOMRect | null>(null);
+  const displayIndex = phase === "pre" ? index + 1 : index + 4;
+  const isLast = index === steps.length - 1;
+
+  useEffect(() => {
+    const target = document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`);
+    if (!target) {
+      const emptyTimer = window.setTimeout(() => setRect(null), 0);
+      return () => window.clearTimeout(emptyTimer);
+    }
+
+    const updateRect = () => setRect(target.getBoundingClientRect());
+    target.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
+    updateRect();
+    const timer = window.setTimeout(updateRect, 220);
+
+    window.addEventListener("resize", updateRect);
+    window.addEventListener("scroll", updateRect, true);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("resize", updateRect);
+      window.removeEventListener("scroll", updateRect, true);
+    };
+  }, [step.target]);
+
+  const spotlightStyle = rect
+    ? {
+        left: Math.max(12, rect.left - 10),
+        top: Math.max(12, rect.top - 10),
+        width: rect.width + 20,
+        height: rect.height + 20,
+        borderRadius: 16,
+        boxShadow: "0 0 0 9999px rgba(17, 24, 39, 0.68), 0 24px 70px rgba(0, 0, 0, 0.28)",
+      }
+    : undefined;
+
+  const cardStyle = (() => {
+    if (!rect || typeof window === "undefined") return undefined;
+    const cardWidth = Math.min(360, window.innerWidth - 32);
+    const below = rect.bottom + 34;
+    const above = rect.top - 294;
+    const top = below + 260 < window.innerHeight ? below : Math.max(18, above);
+    const left = Math.min(Math.max(16, rect.left + rect.width / 2 - cardWidth / 2), window.innerWidth - cardWidth - 16);
+    return { width: cardWidth, top, left };
+  })();
 
   return (
-    <section className="mb-5 overflow-hidden rounded-[8px] border border-indigo-100 bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
-      <button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left"
-      >
-        <div>
-          <p className="text-xs font-bold tracking-wider text-[#4F46E5]">STEP BY STEP</p>
-          <h2 className="mt-1 text-sm font-extrabold text-gray-900">처음 이용하는 순서</h2>
-        </div>
-        <span className="shrink-0 text-xs font-bold text-gray-400">{open ? "접기" : "펼치기"}</span>
-      </button>
-
-      {open && (
-        <div className="grid gap-2 border-t border-gray-100 p-4 md:grid-cols-3">
-          {tutorialSteps.map((step, index) => (
-            <div key={step.title} className="rounded-[8px] bg-gray-50 p-4">
-              <div className="mb-3 flex items-center gap-2">
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#4F46E5] text-[11px] font-black text-white">
-                  {index + 1}
-                </span>
-                <p className="text-sm font-extrabold text-gray-900">{step.title}</p>
-              </div>
-              <p className="text-xs leading-5 text-gray-500 break-keep">{step.body}</p>
-            </div>
-          ))}
-        </div>
+    <div className="fixed inset-0 z-[1000]">
+      {rect ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed border-2 border-white bg-transparent ring-2 ring-[#4F46E5]/40"
+          style={spotlightStyle}
+        />
+      ) : (
+        <div aria-hidden="true" className="absolute inset-0 bg-gray-950/70" />
       )}
-    </section>
+
+      <section
+        className={`fixed rounded-[8px] bg-white p-5 shadow-[0_22px_70px_rgba(15,23,42,0.3)] ${
+          cardStyle ? "" : "left-1/2 top-1/2 w-[min(360px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2"
+        }`}
+        style={cardStyle}
+      >
+        <div className="mb-6 flex items-center justify-between text-sm font-semibold text-gray-400">
+          <span>{displayIndex} / 6</span>
+          <button type="button" onClick={onSkip} className="hover:text-gray-700">
+            건너뛰기
+          </button>
+        </div>
+        <div className="mb-5">
+          <p className="text-lg font-extrabold text-gray-900 break-keep">{step.title}</p>
+          <p className="mt-3 text-sm leading-7 text-gray-600 break-keep">{step.body}</p>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex gap-1.5">
+            {Array.from({ length: 6 }).map((_, dotIndex) => (
+              <span
+                key={dotIndex}
+                className={`h-2 rounded-full ${
+                  dotIndex + 1 === displayIndex ? "w-7 bg-[#4F46E5]" : "w-2 bg-gray-200"
+                }`}
+              />
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={onNext}
+            className="rounded-[8px] bg-[#4F46E5] px-5 py-3 text-sm font-extrabold text-white shadow-sm hover:bg-[#4338CA]"
+          >
+            {isLast ? "완료" : "다음"}
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -616,11 +706,39 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<AnalyzeResult | null>(null);
+  const [tourPhase, setTourPhase] = useState<TourPhase | null>("pre");
+  const [tourIndex, setTourIndex] = useState(0);
+  const [postTourShown, setPostTourShown] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/health`).catch(() => {});
   }, []);
+
+  const handleTourNext = () => {
+    if (!tourPhase) return;
+    const steps = tourPhase === "pre" ? preTourSteps : postTourSteps;
+    if (tourIndex >= steps.length - 1) {
+      setTourPhase(null);
+      return;
+    }
+    setTourIndex((value) => value + 1);
+  };
+
+  const handleTourSkip = () => {
+    setTourPhase(null);
+  };
+
+  const replayTour = (phase: TourPhase) => {
+    setTourPhase(phase);
+    setTourIndex(0);
+  };
+
+  const showPostTour = () => {
+    setTourPhase("post");
+    setTourIndex(0);
+    setPostTourShown(true);
+  };
 
   const analyze = async () => {
     const files = fileRef.current?.files;
@@ -648,7 +766,11 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
         const body = await res.json().catch(() => null);
         throw new Error(body?.detail || `서버 오류 (${res.status})`);
       }
-      setResult(await res.json());
+      const data = await res.json();
+      setResult(data);
+      if (!postTourShown) {
+        window.setTimeout(showPostTour, 0);
+      }
     } catch (e: unknown) {
       if (e instanceof TypeError && e.message.includes("fetch")) {
         setError(connectionErrorMessage(API_BASE));
@@ -663,7 +785,15 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
   return (
     <div>
       <ModeSwitch mode={mode} />
-      <TutorialGuide />
+      <div className="-mt-2 mb-5 flex justify-end">
+        <button
+          type="button"
+          onClick={() => replayTour(result ? "post" : "pre")}
+          className="rounded-[8px] border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-500 hover:border-[#4F46E5]/40 hover:text-[#4F46E5]"
+        >
+          {result ? "결과 가이드 다시보기" : "필터 가이드 다시보기"}
+        </button>
+      </div>
 
       <div className="mb-6">
         <p className="mb-1 text-xs font-bold tracking-wider text-[#4F46E5]">{copy.badge}</p>
@@ -673,7 +803,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
 
       <section className="mb-5 rounded-[8px] bg-white p-6 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <div>
+          <div data-tour="date">
             <label className="mb-2 block text-sm font-semibold text-gray-700">{copy.dateLabel}</label>
             <input
               type="date"
@@ -699,7 +829,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
           </div>
         </div>
 
-        <div className="mt-5 rounded-[8px] border-2 border-dashed border-indigo-200 bg-indigo-50 p-6 text-center transition hover:border-indigo-400">
+        <div data-tour="upload" className="mt-5 rounded-[8px] border-2 border-dashed border-indigo-200 bg-indigo-50 p-6 text-center transition hover:border-indigo-400">
           <input
             ref={fileRef}
             type="file"
@@ -742,6 +872,15 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
             기본진료, 세부진료, 처방조제 3종을 함께 올리면 통원, 입원, 수술, 투약 기록을 더 정확하게 교차검증할 수 있습니다.
           </p>
         </section>
+      )}
+
+      {tourPhase && (
+        <TourOverlay
+          phase={tourPhase}
+          index={tourIndex}
+          onNext={handleTourNext}
+          onSkip={handleTourSkip}
+        />
       )}
     </div>
   );
