@@ -22,17 +22,28 @@ from .helpers import (
 
 
 @functools.lru_cache(maxsize=512)
-def detect_file_type(headers):
+def _strong_header_ftype(headers) -> str:
+    """표 헤더가 _FTYPE_KW 키워드와 '명확히' 일치하는 경우의 타입.
+
+    헤더 OCR이 정상 추출된 강(强)신호에 해당한다. 키워드 일치가 없으면 ""
+    (= 신호 약함)을 돌려준다. SURIT-002: 분류 우선순위 판정에 사용.
+    """
     h_joined = " ".join(str(h) for h in headers)
     h_norm = h_joined.replace(" ", "").replace("\n", "")
+    for ftype in ("pharma", "detail", "basic"):
+        if any(k in h_joined or k in h_norm for k in _FTYPE_KW[ftype]):
+            return ftype
+    return ""
 
-    if any(k in h_joined or k in h_norm for k in _FTYPE_KW["pharma"]):
-        return "pharma"
-    if any(k in h_joined or k in h_norm for k in _FTYPE_KW["detail"]):
-        return "detail"
-    if any(k in h_joined or k in h_norm for k in _FTYPE_KW["basic"]):
-        return "basic"
 
+@functools.lru_cache(maxsize=512)
+def detect_file_type(headers):
+    # 1순위: _FTYPE_KW 키워드 명시 일치 (헤더 OCR 성공 — 강신호)
+    strong = _strong_header_ftype(headers)
+    if strong:
+        return strong
+
+    # 2순위: 컬럼명 구조 휴리스틱 추정 (헤더 신호 약함 — 약신호)
     n_cols = len(headers)
     has_date_col = any(re.search(r"일$|날짜|일자|개시", str(h)) for h in headers)
     has_code_like = any(re.search(r"코드|기호|분류", str(h)) for h in headers)
@@ -50,15 +61,44 @@ def detect_file_type(headers):
 
 
 def _detect_ftype_by_page_text(text: str) -> str:
+    """페이지 본문 텍스트의 심평원 섹션 표제어로 PDF 표 타입을 추정한다.
+
+    표제어가 줄바꿈·공백으로 끊겨도 인식되도록 공백을 제거한 뒤 대조한다
+    (SURIT-002: 헤더 OCR 누락 시 신뢰할 본문 신호의 견고성 보강).
+    """
     if not text:
         return ""
-    if "기본진료정보" in text:
+    norm = re.sub(r"\s+", "", text)
+    if "기본진료정보" in norm:
         return "basic"
-    if "세부진료정보" in text:
+    if "세부진료정보" in norm:
         return "detail"
-    if "처방조제" in text:
+    if "처방조제" in norm:
         return "pharma"
     return ""
+
+
+def _resolve_ftype(headers, page_ftype: str) -> str:
+    """표 헤더 신호와 페이지 본문 신호를 종합해 표 타입을 최종 결정한다.
+
+    우선순위 (SURIT-002 — 헤더 OCR 누락 시 처방 PDF가 진료내역으로
+    오분류되던 문제 보정):
+      1) 헤더가 _FTYPE_KW 키워드와 명확히 일치(강신호) → 헤더를 신뢰한다.
+         헤더 OCR이 성공한 경우이므로 본문 신호보다 우선한다.
+      2) 헤더 신호가 약하면(구조 휴리스틱 추정 또는 unknown) 페이지 본문
+         섹션 신호(page_ftype)를 우선한다. 헤더 OCR이 누락·왜곡됐을 때
+         처방표가 detail로 잘못 굳는 것을 막는다.
+      3) 본문 신호도 없으면 약한 헤더 추정값(없으면 "unknown")을 사용한다.
+
+    변경 전: 헤더가 unknown일 때만 본문 신호로 fallback → 헤더가 약신호로
+    오분류돼도 본문 신호가 무시됐다. 변경 후: 약신호 헤더는 본문 신호에 양보.
+    """
+    strong_ftype = _strong_header_ftype(headers)
+    if strong_ftype:
+        return strong_ftype
+    if page_ftype:
+        return page_ftype
+    return detect_file_type(headers)
 
 
 def _open_pdf(data, bdate_str):
@@ -187,8 +227,7 @@ def parse_single_pdf(uploaded_file, birthdate_pw) -> dict:
                             str(h).replace("\n", "").replace(" ", "") if h else f"col_{i}"
                             for i, h in enumerate(raw_headers)
                         ]
-                        header_ftype = detect_file_type(tuple(headers))
-                        ftype = header_ftype if header_ftype != "unknown" else (page_ftype or "unknown")
+                        ftype = _resolve_ftype(tuple(headers), page_ftype)
                         for row in table[1:]:
                             if not any(row):
                                 continue
