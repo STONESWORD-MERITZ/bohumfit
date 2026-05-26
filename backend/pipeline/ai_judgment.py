@@ -43,7 +43,8 @@ def _finalize_raw_text_for_gemini(
     drug_change_text: str,
     presc_end_text: str,
 ) -> str:
-    raw_text = "\n".join(filtered_lines[:800])
+    # 기존: filtered_lines[:800] — OOM 방지용 보수적 상한, 대용량 세부진료 PDF 잘림 발생
+    raw_text = "\n".join(filtered_lines[:2000])
     if visit_count_lines:
         raw_text = "[10년내 질병코드별 통원횟수 집계 — Q4 7회이상통원 판단 기준]\n" \
                    + "\n".join(visit_count_lines) + "\n\n" + raw_text
@@ -57,7 +58,8 @@ def _finalize_raw_text_for_gemini(
         raw_text = drug_change_text + "\n" + raw_text
     if presc_end_text:
         raw_text = presc_end_text + "\n" + raw_text
-    MAX_RAW_TEXT_LEN = 30_000
+    # 기존: MAX_RAW_TEXT_LEN = 30_000
+    MAX_RAW_TEXT_LEN = 80_000
     if len(raw_text) > MAX_RAW_TEXT_LEN:
         raw_text = raw_text[:MAX_RAW_TEXT_LEN] + "\n... (truncated)"
     return raw_text

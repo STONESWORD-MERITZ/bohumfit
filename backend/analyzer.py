@@ -62,10 +62,10 @@ from pipeline.result_builder import (
 
 
 # ── SURIT-003: 초대용량 PDF AI 입력 잘림 감지 ───────────────────────
-# ai_judgment._finalize_raw_text_for_gemini 가 filtered_lines[:800] 로 줄을
-# 자르고, 길이가 30,000자를 넘으면 "... (truncated)" 표식을 붙인다. 잘림
+# ai_judgment._finalize_raw_text_for_gemini 가 filtered_lines[:2000] 로 줄을
+# 자르고, 길이가 80,000자를 넘으면 "... (truncated)" 표식을 붙인다. 잘림
 # 로직 자체는 변경하지 않고, analyzer 호출부에서 잘림 여부만 감지한다.
-_GEMINI_LINE_CAP = 800
+_GEMINI_LINE_CAP = 2000  # ai_judgment 슬라이스와 동기 (기존: 800 / MAX_RAW_TEXT_LEN 30_000 → 80_000)
 
 
 def _is_gemini_input_truncated(file_lines: list, raw_text: str) -> bool:
