@@ -216,6 +216,7 @@ def parse_single_pdf(uploaded_file, birthdate_pw) -> dict:
                         recs = parse_nhis_text(page_text, fname)
                         file_recs.extend(recs)
                     del page_text
+                    page.flush_cache()  # OOM 핫픽스: 페이지 레이아웃 캐시 즉시 해제
             else:
                 for page in pdf.pages:
                     tables = page.extract_tables()
@@ -238,6 +239,7 @@ def parse_single_pdf(uploaded_file, birthdate_pw) -> dict:
                             rec["_fname"] = fname
                             file_recs.append(rec)
                     del tables
+                    page.flush_cache()  # OOM 핫픽스: 페이지 레이아웃 캐시 즉시 해제
 
             if not file_recs:
                 parse_errors_local.append(

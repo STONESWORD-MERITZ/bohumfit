@@ -89,19 +89,23 @@ def _build_truncation_warning(truncated_files: list) -> str | None:
 
 
 async def _parse_all_pdfs(active_files: list, birthdate_pw: str) -> tuple[list, list]:
-    """PDF들을 병렬 파싱해 (레코드, 파싱오류) 반환. 레코드 0건이면 AnalysisError."""
+    """PDF들을 순차 파싱해 (레코드, 파싱오류) 반환. 레코드 0건이면 AnalysisError.
+
+    OOM 핫픽스: 여러 PDF를 동시 파싱하면 pdfplumber 페이지 캐시가 파일 수만큼
+    메모리에 동시에 쌓여 Railway 컨테이너 메모리 한도를 초과, 프로세스가 강제
+    종료됐다 (files=2 에서 재현). 파일을 한 개씩 순차 처리해 메모리 피크를
+    PDF 1개분으로 제한한다. parse_single_pdf 는 finally 에서 자체 gc 하므로
+    다음 파일 파싱 전에 직전 파일의 메모리가 해제된다.
+    """
     all_records = []
     parse_errors = []
-    # ── PDF 파싱 (병렬 스레드) ────────────────────────────────────
-    parse_results = await asyncio.gather(
-        *[asyncio.to_thread(parse_single_pdf, uf, birthdate_pw) for uf in active_files],
-        return_exceptions=True,
-    )
-    for i, pr in enumerate(parse_results):
-        uf = active_files[i]
+    # ── PDF 파싱 (순차 처리 — 메모리 피크 억제) ──
+    for i, uf in enumerate(active_files):
         fn = getattr(uf, "name", None) or getattr(uf, "filename", None) or f"file_{i}"
-        if isinstance(pr, BaseException):
-            parse_errors.append(f"⚠️ {fn}: PDF 파싱 중 예외 — {str(pr)[:120]}")
+        try:
+            pr = await asyncio.to_thread(parse_single_pdf, uf, birthdate_pw)
+        except Exception as e:
+            parse_errors.append(f"⚠️ {fn}: PDF 파싱 중 예외 — {str(e)[:120]}")
             continue
         all_records.extend(pr["records"])
         parse_errors.extend(pr["parse_errors"])
