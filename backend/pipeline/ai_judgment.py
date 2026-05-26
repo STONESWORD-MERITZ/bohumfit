@@ -224,6 +224,10 @@ async def analyze_single_pdf(parsed_data: dict, product_type: str, reference_dat
     pdf_bytes = parsed_data.get("pdf_bytes")  # SURIT-007: PDF 네이티브 첨부용
     system_prompt = parsed_data["system_prompt"]
     retry_local: list[str] = []
+    # SURIT-BUG-004: PDF 시그니처 검증 — 손상된 바이너리는 텍스트 fallback 으로 전환.
+    if pdf_bytes and not (isinstance(pdf_bytes, (bytes, bytearray)) and pdf_bytes[:5] == b"%PDF-"):
+        retry_local.append(f"[{fname}] PDF 시그니처 비정상(%PDF- 누락) → 텍스트 fallback 사용")
+        pdf_bytes = None
 
     GEMINI_TIMEOUT_SECONDS = 240
     try:
@@ -239,23 +243,24 @@ async def analyze_single_pdf(parsed_data: dict, product_type: str, reference_dat
     raw_response = ""
     MAX_RETRIES = 5
     RETRY_DELAYS = [5, 10, 20, 40, 60]
-    # SURIT-007: PDF 바이너리가 있으면 Gemini 네이티브 첨부 — 잘림 없이 전체 PDF 전달.
-    # 보조 가공 데이터(통원집계·태깅·약변경)는 텍스트로 함께 동봉한다.
-    if pdf_bytes:
-        instruction = (
-            f"고객 기준일: {today_str}\n심사 유형: {product_type}\n\n"
-            f"첨부된 PDF는 심평원에서 발급한 진료 데이터입니다. "
-            f"시스템 프롬프트의 규칙에 따라 알릴의무 항목을 정확히 판단하세요.\n\n"
-            f"[보조 분석 자료 — 사전 가공된 통원/처방/태그 데이터]\n{raw_text}"
-        )
-        pdf_part = types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf")
-        # SURIT-007 fix: SDK 2.6.0 에서 contents=[Part, str] 혼합은 inline_data Part 와
-        # 함께 있을 때 HTTP 400 (Invalid argument) 을 유발한다. 텍스트도 명시적 Part 로
-        # 감싸 모든 원소를 Part 로 통일한다 (Railway 400 핫픽스).
-        contents = [pdf_part, types.Part.from_text(text=instruction)]
-    else:
-        # 텍스트 fallback (PDF 파싱 실패 등)
-        contents = f"고객 기준일: {today_str}\n심사 유형: {product_type}\n\n진료 데이터:\n{raw_text}"
+    # SURIT-007 + BUG-004: contents 빌더 — 매 attempt 에서 fallback 가능하도록 함수화.
+    # PDF 바이너리가 있으면 Gemini 네이티브 첨부, 없으면(또는 400 fallback 시) 텍스트.
+    # SDK 2.6.0 에서 contents=[Part, str] 혼합은 inline_data Part 와 함께 있을 때
+    # HTTP 400 을 유발하므로 텍스트도 from_text 로 Part 통일.
+    def _build_contents(use_pdf: bool):
+        if use_pdf and pdf_bytes:
+            instruction = (
+                f"고객 기준일: {today_str}\n심사 유형: {product_type}\n\n"
+                f"첨부된 PDF는 심평원에서 발급한 진료 데이터입니다. "
+                f"시스템 프롬프트의 규칙에 따라 알릴의무 항목을 정확히 판단하세요.\n\n"
+                f"[보조 분석 자료 — 사전 가공된 통원/처방/태그 데이터]\n{raw_text}"
+            )
+            pdf_part = types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf")
+            return [pdf_part, types.Part.from_text(text=instruction)]
+        return f"고객 기준일: {today_str}\n심사 유형: {product_type}\n\n진료 데이터:\n{raw_text}"
+
+    use_pdf_native = pdf_bytes is not None
+    contents = _build_contents(use_pdf_native)
     config = types.GenerateContentConfig(
         system_instruction=system_prompt,
         temperature=0,
@@ -296,6 +301,21 @@ async def analyze_single_pdf(parsed_data: dict, product_type: str, reference_dat
             }
         except Exception as e:
             err_str = str(e)
+            # SURIT-BUG-004: PDF 네이티브 경로에서 400(Bad Request/INVALID_ARGUMENT)
+            # 발생 시 상세 메시지를 retry_warnings 로 노출하고 텍스트 fallback 으로 즉시 재시도.
+            is_bad_request = (
+                "400" in err_str
+                or "INVALID_ARGUMENT" in err_str.upper()
+                or "Bad Request" in err_str
+            )
+            if is_bad_request and use_pdf_native and attempt < MAX_RETRIES - 1:
+                retry_local.append(
+                    f"[{fname}] Gemini 400 (PDF 첨부 형식 의심) — 상세: {err_str[:400]}. "
+                    f"텍스트 fallback 으로 즉시 재시도."
+                )
+                use_pdf_native = False
+                contents = _build_contents(False)
+                continue
             _retryable = ("503", "UNAVAILABLE", "high demand", "overloaded",
                           "429", "RESOURCE_EXHAUSTED", "rate limit", "quota")
             if any(s in err_str for s in _retryable) and attempt < MAX_RETRIES - 1:
@@ -305,7 +325,7 @@ async def analyze_single_pdf(parsed_data: dict, product_type: str, reference_dat
                 )
                 await asyncio.sleep(wait)
                 continue
-            return {"filename": fname, "ai_result": None, "retry_warnings": retry_local, "error": str(e)}
+            return {"filename": fname, "ai_result": None, "retry_warnings": retry_local, "error": str(e)[:500]}
 
     if ai_result is None:
         return {
