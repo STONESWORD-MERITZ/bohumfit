@@ -18,6 +18,34 @@
 
 Use newest entries at the top.
 
+## 2026-05-26 17:52 Codex SURIT-BUG-006
+### Changed
+- `backend/main.py` 검증: `ANALYZE_TIMEOUT_SECONDS`가 170초에서 300초로 연장됨.
+- `.agent-harness/tasks/SURIT-BUG-006-timeout-extend.md` 확인.
+- `.agent-harness/handoff.md`, `.agent-harness/locks.md` 하네스 기록 및 잠금 정리.
+### Verified
+- [x] `backend/main.py` - `ANALYZE_TIMEOUT_SECONDS = 300` 확인
+- [x] 사용처 2곳 상수 참조 확인: `asyncio.wait_for(... timeout=ANALYZE_TIMEOUT_SECONDS)`, timeout warning 로그
+- [x] `git status --short -uall` - 허용 범위만 변경됨
+- [x] `git push origin main` - Codex publish step에서 완료
+### Notes
+- 프런트 타임아웃(~180s) < 서버 타임아웃(300s) 불일치가 남아 있음. SURIT-BUG-007로 프런트 타임아웃 동기화 필요.
+### Next
+- Human: Railway 배포 후 박화자 PDF 재테스트.
+
+## 2026-05-27 07:15 Claude SURIT-BUG-006
+### Changed
+- `backend/main.py` — `ANALYZE_TIMEOUT_SECONDS` 상수 `170 → 300` 으로 상향. 기존값 주석 보존 + 변경 이유 ("318p 대용량 PDF Gemini 응답 + 후처리 합산 ~170s 초과") 명기.
+- `.agent-harness/tasks/SURIT-BUG-006-timeout-extend.md` — 태스크 파일 신규 생성.
+### Verified
+- [x] `grep -n ANALYZE_TIMEOUT_SECONDS backend/main.py` — 상수 정의 1회(300) + 사용처 2회(`timeout=` 인자, 타임아웃 로그) 확인. 사용처는 상수를 참조하므로 함께 자동 반영.
+- [ ] 빌드/테스트 — 상수 변경만이라 태스크 정의상 생략.
+### Notes
+- 프런트 axios/타임아웃은 현재 180s (`src/pages/Disclosure.tsx`) 로 추정. 서버 300s 가 프런트보다 길어졌으므로 프런트가 먼저 끊고 서버는 응답을 끝까지 만들지만 사용자에게는 전달 안 될 가능성 있음. 후속 태스크에서 프런트 타임아웃도 같이 늘리는 것을 권장 (별도 P1 태스크로 분리).
+- Railway 기본 응답 타임아웃(보통 30s~5min 변동)도 확인 필요. 300s 가 Railway 측에서 끊기지 않는지 모니터링.
+### Next
+- Codex: SURIT-BUG-006 검증 + 푸시 — ① `backend/main.py` 의 `ANALYZE_TIMEOUT_SECONDS = 300` 재확인 ② `git status --short -uall` 로 허용 범위(`backend/main.py`, `.agent-harness/tasks/SURIT-BUG-006-timeout-extend.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md`) 만 변경됐는지 확인 ③ 한국어 커밋 메시지(`SURIT-BUG-006: 분석 타임아웃 170→300 연장`)로 `git push origin main` ④ Railway 배포 후 318p 박화자 PDF 로 500/timeout 응답이 사라지는지 확인.
+
 ## 2026-05-26 16:07 Codex SURIT-ROLLBACK-001
 ### Changed
 - `backend/pipeline/ai_judgment.py` 검증: PDF 네이티브 첨부/Files API 경로 롤백, `_strengthen_filter` 기반 텍스트 필터링 적용, 입력 상한 3000줄/100K자 확인.

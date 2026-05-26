@@ -216,7 +216,9 @@ def _serialize_reports(summary_reports: dict) -> dict:
 MAX_FILE_COUNT = 6
 MAX_FILE_SIZE  = 15 * 1024 * 1024   # 파일당 15MB
 MAX_TOTAL_SIZE = 40 * 1024 * 1024   # 총합 40MB
-ANALYZE_TIMEOUT_SECONDS = 170       # 서버측 분석 상한 (프런트 180초보다 짧게)
+# SURIT-BUG-006: 318p 대용량 PDF Gemini 응답 + 후처리 합산 ~170s 초과로 타임아웃 연장.
+# 기존: 170 (프런트 180초보다 짧게) → 300 으로 상향. 프런트 타임아웃도 함께 검토 필요.
+ANALYZE_TIMEOUT_SECONDS = 300       # 서버측 분석 상한 (318p 대용량 PDF 대응)
 
 # ── 인증 (Supabase 토큰 검증) ────────────────────────────────────────────────
 # JWT 비밀키/서명 알고리즘에 의존하지 않고 Supabase Auth 서버에 토큰을 직접

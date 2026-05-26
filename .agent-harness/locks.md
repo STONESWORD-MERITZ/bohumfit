@@ -8,6 +8,14 @@ Use this file to prevent Claude and Codex from editing the same files at the sam
 
 ## Released
 
+- `backend/main.py` - Codex - SURIT-BUG-006 verification/publish - 2026-05-26 released
+- `.agent-harness/handoff.md` - Codex - SURIT-BUG-006 handoff update - 2026-05-26 released
+- `.agent-harness/locks.md` - Codex - SURIT-BUG-006 lock release - 2026-05-26 released
+
+- `.agent-harness/tasks/SURIT-BUG-006-timeout-extend.md` — Claude (Cowork) · SURIT-BUG-006 · 2026-05-27 해제
+- `backend/main.py` — Claude (Cowork) · SURIT-BUG-006 · 2026-05-27 해제
+
+
 - `backend/pipeline/ai_judgment.py` - Codex - SURIT-ROLLBACK-001 verification/publish - 2026-05-26 released
 - `backend/analyzer.py` - Codex - SURIT-ROLLBACK-001 verification/publish - 2026-05-26 released
 - `backend/pipeline/pdf_parser.py` - Codex - SURIT-ROLLBACK-001 verification/publish - 2026-05-26 released
