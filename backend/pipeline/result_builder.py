@@ -261,11 +261,12 @@ def _build_all_disease_summary(disease_stats):
 
 def build_summary_reports(
     disease_stats: dict,
-    code_based_items: list[dict],
+    code_based_items_health: list[dict],
+    code_based_items_easy: list[dict],
     ai_result: dict,
     product_type: str,
     today: datetime,
-) -> tuple[dict, set, dict]:
+) -> tuple[dict, dict, set, dict]:
     """
     merged_items 빌드 + (표준/간편) summary_reports 생성.
 
@@ -282,62 +283,69 @@ def build_summary_reports(
     _d5y_dt  = _subtract_years(today, 5)    # SURIT-004: 달력 기준 5년
     _d10y_dt = _subtract_years(today, 10)   # SURIT-004: 달력 기준 10년
 
-    merged_items: dict = {}
-    code_claimed: set  = set()
+    # SURIT-BUG-010: health/easy 풀을 분리해 각각 merged_items 빌드.
+    # health 풀은 _health_items + ai_result.flagged_items, easy 풀은 _easy_items 만.
+    _ = product_type  # 시그니처 호환
 
-    for item in (code_based_items + ai_result.get("flagged_items", [])):
-        _it_code = (item.get("code") or "").strip().upper()
-        _it_name = (item.get("disease") or "").strip()
-        if not _KCD_MERGE_RE.match(_it_code):
-            continue
-        if _it_name and any(pat in _it_name for pat in _NON_DISEASE_NAME_PATTERNS_MERGE):
-            continue
-        q_raw    = item.get("duty_question", "Q1")
-        raw_code_key = item.get("code", item.get("disease", "unknown"))
-        code_key = normalize_code(raw_code_key) or raw_code_key
-        q_list   = [q.strip() for q in re.split(r"[,/\s]+", q_raw) if re.match(r"Q\d+", q.strip())]
-        if not q_list:
-            q_list = [q_raw.strip()]
-        source = item.get("_source", "ai")
-
-        for q in q_list:
-            if q not in ("Q1", "Q2", "Q3", "Q4"):
+    def _build_pool(items_list: list[dict], include_ai: bool) -> dict:
+        pool_merged: dict = {}
+        pool_claimed: set = set()
+        source_list = list(items_list)
+        if include_ai:
+            source_list = source_list + list(ai_result.get("flagged_items", []))
+        for item in source_list:
+            _it_code = (item.get("code") or "").strip().upper()
+            _it_name = (item.get("disease") or "").strip()
+            if not _KCD_MERGE_RE.match(_it_code):
                 continue
-
-            item_dt = _parse_ymd(item.get("date", ""))
-            q_since_map = {"Q1": _d3m_dt, "Q2": _d1y_dt, "Q3": _d10y_dt, "Q4": _d5y_dt}
-            since_dt = q_since_map.get(q)
-            if since_dt and (not item_dt or item_dt < since_dt):
+            if _it_name and any(pat in _it_name for pat in _NON_DISEASE_NAME_PATTERNS_MERGE):
                 continue
-
-            merge_key = (code_key, q)
-
-            if source == "code":
-                code_claimed.add(merge_key)
-                if merge_key not in merged_items:
-                    merged_items[merge_key] = _make_merged_item(item, q, code_key)
+            q_raw    = item.get("duty_question", "Q1")
+            raw_code_key = item.get("code", item.get("disease", "unknown"))
+            code_key = normalize_code(raw_code_key) or raw_code_key
+            q_list_ = [q.strip() for q in re.split(r"[,/\s]+", q_raw) if re.match(r"Q\d+", q.strip())]
+            if not q_list_:
+                q_list_ = [q_raw.strip()]
+            source = item.get("_source", "ai")
+            for q in q_list_:
+                if q not in ("Q1", "Q2", "Q3", "Q4"):
+                    continue
+                item_dt = _parse_ymd(item.get("date", ""))
+                q_since_map = {"Q1": _d3m_dt, "Q2": _d1y_dt, "Q3": _d10y_dt, "Q4": _d5y_dt}
+                since_dt = q_since_map.get(q)
+                if since_dt and (not item_dt or item_dt < since_dt):
+                    continue
+                merge_key = (code_key, q)
+                if source == "code":
+                    pool_claimed.add(merge_key)
+                    if merge_key not in pool_merged:
+                        pool_merged[merge_key] = _make_merged_item(item, q, code_key)
+                    else:
+                        _merge_item_into(pool_merged[merge_key], item)
+                    continue
+                if merge_key in pool_claimed:
+                    continue
+                if merge_key not in pool_merged:
+                    pool_merged[merge_key] = _make_merged_item(item, q, code_key)
                 else:
-                    _merge_item_into(merged_items[merge_key], item)
-                continue
+                    _merge_item_into(pool_merged[merge_key], item)
+        return pool_merged
 
-            if merge_key in code_claimed:
-                continue
-
-            if merge_key not in merged_items:
-                merged_items[merge_key] = _make_merged_item(item, q, code_key)
-            else:
-                _merge_item_into(merged_items[merge_key], item)
+    merged_health = _build_pool(code_based_items_health, include_ai=True)
+    merged_easy   = _build_pool(code_based_items_easy,   include_ai=False)
 
     std_reports, std_flagged = _build_reports_for_product(
-        merged_items, disease_stats,
+        merged_health, disease_stats,
         "건강체/표준체 (일반심사)",
         _d3m_dt, _d1y_dt, _d10y_dt, _d5y_dt,
     )
-    # SURIT-009: 간편 보고서 복구 — easy_reports 도 함께 생성.
     easy_reports, easy_flagged = _build_reports_for_product(
-        merged_items, disease_stats,
+        merged_easy, disease_stats,
         "간편심사 (유병자 3-5-5 기준)",
         _d3m_dt, _d1y_dt, _d10y_dt, _d5y_dt,
     )
+
     flagged_codes = std_flagged | easy_flagged
+    # 호환: merged_items 는 두 풀의 union (외부 호출처가 사용하면 안 손상되도록)
+    merged_items = {**merged_health, **merged_easy}
     return std_reports, easy_reports, flagged_codes, merged_items

@@ -846,22 +846,28 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
     _q2_easy_items = [it for it in _easy_items if it.get("duty_question") == "Q2"]
     _q3_easy_items = [it for it in _easy_items if it.get("duty_question") == "Q3"]
 
-    # SURIT-009: Q2 건강체 항목에 Gemini 의심 소견 텍스트 부착.
-    if _q2_health_items:
+    # SURIT-BUG-010: Q1 (공통) + Q2 건강체 항목에만 의심 소견 부착. Q3/Q4 는 부착 금지.
+    _suspicion_targets = _q1_items + _q2_health_items
+    if _suspicion_targets:
         try:
-            _q2_findings = await _call_q2_health_findings(_q2_health_items, today_str, api_key)
+            _q2_findings = await _call_q2_health_findings(_suspicion_targets, today_str, api_key)
         except Exception as _e:
-            retry_warnings.append(f"⚠️ Q2 건강체 의심 소견 생성 실패 — {str(_e)[:80]}")
+            retry_warnings.append(f"⚠️ Q1/Q2 의심 소견 생성 실패 — {str(_e)[:80]}")
             _q2_findings = {}
-        for it in _q2_health_items:
+        for it in _suspicion_targets:
             code = (it.get("code") or "").upper()
             susp = _q2_findings.get(code, "")
             if susp:
                 it["q2_suspicion"] = susp
 
-    # ── summary_reports 빌드 ─────────────────────────────────────
+    # ── summary_reports 빌드 (SURIT-BUG-010: health/easy 풀 분리 전달) ──
     std_reports, easy_reports, flagged_codes, _ = build_summary_reports(
-        disease_stats, code_based_items, ai_result, product_type, today,
+        disease_stats,
+        _health_items,
+        _easy_items,
+        ai_result,
+        product_type,
+        today,
     )
     summary_reports = std_reports  # 하위 호환
 

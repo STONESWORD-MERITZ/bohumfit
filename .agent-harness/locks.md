@@ -6,6 +6,26 @@ Use this file to prevent Claude and Codex from editing the same files at the sam
 
 (none)
 
+## Released (SURIT-BUG-010)
+
+- `backend/analyzer.py` - Codex - SURIT-BUG-010 verification/publish retry with utf-8 ast.parse - 2026-05-30 released
+- `backend/pipeline/result_builder.py` - Codex - SURIT-BUG-010 verification/publish retry with utf-8 ast.parse - 2026-05-30 released
+- `backend/pipeline/ai_judgment.py` - Codex - SURIT-BUG-010 verification/publish retry with utf-8 ast.parse - 2026-05-30 released
+- `.agent-harness/handoff.md` - Codex - SURIT-BUG-010 completion handoff update - 2026-05-30 released
+- `.agent-harness/locks.md` - Codex - SURIT-BUG-010 lock release after successful verification - 2026-05-30 released
+
+- `backend/analyzer.py` - Codex - SURIT-BUG-010 verification stopped on ast.parse decoding error - 2026-05-30 released
+- `backend/pipeline/result_builder.py` - Codex - SURIT-BUG-010 verification stopped on ast.parse decoding error - 2026-05-30 released
+- `backend/pipeline/ai_judgment.py` - Codex - SURIT-BUG-010 verification stopped on ast.parse decoding error - 2026-05-30 released
+- `.agent-harness/handoff.md` - Codex - SURIT-BUG-010 handoff update - 2026-05-30 released
+- `.agent-harness/locks.md` - Codex - SURIT-BUG-010 lock release - 2026-05-30 released
+
+- `.agent-harness/tasks/SURIT-BUG-010-tab-fix.md` — Claude (Cowork) · SURIT-BUG-010 · 2026-05-27 해제
+- `src/pages/Disclosure.tsx` — Claude (Cowork) · SURIT-BUG-010 · 2026-05-27 해제 (미수정 — 잠금만 보유)
+- `backend/pipeline/ai_judgment.py` — Claude (Cowork) · SURIT-BUG-010 · 2026-05-27 해제 (미수정 — 잠금만 보유)
+- `backend/analyzer.py` — Claude (Cowork) · SURIT-BUG-010 · 2026-05-27 해제
+- `backend/pipeline/result_builder.py` — Claude (Cowork) · SURIT-BUG-010 · 2026-05-27 해제
+
 ## Released (SURIT-009)
 
 - `backend/filters.py` - Codex - SURIT-009 verification/publish - 2026-05-28 released

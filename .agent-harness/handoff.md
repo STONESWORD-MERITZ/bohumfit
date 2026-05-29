@@ -18,6 +18,93 @@
 
 Use newest entries at the top.
 
+## 2026-05-30 06:10 Codex SURIT-BUG-010 [완료]
+### Changed
+- `backend/analyzer.py` - 건강체 Q1/Q2 의심 소견 입력 범위 및 summary report 호출 분리 검증.
+- `backend/pipeline/result_builder.py` - 건강체/간편 탭별 report pool 분리 검증.
+- `.agent-harness/tasks/SURIT-BUG-010-tab-fix.md` - Cowork 태스크 파일 포함.
+- `.agent-harness/handoff.md` - cp949 중단 기록 + UTF-8 재검증 완료 기록.
+- `.agent-harness/locks.md` - Codex 검증 잠금 해제.
+### Verified
+- [x] AGENTS.md 확인.
+- [x] CLAUDE.md 확인.
+- [x] handoff 최신 항목(cp949 중단 사유) 확인.
+- [x] locks.md 확인 후 대상 파일 3개 잠금 추가.
+- [x] `python -c "import ast; ast.parse(open('backend/analyzer.py', encoding='utf-8').read()); print('OK')"` - OK.
+- [x] `python -c "import ast; ast.parse(open('backend/pipeline/result_builder.py', encoding='utf-8').read()); print('OK')"` - OK.
+- [x] `python -c "import ast; ast.parse(open('backend/pipeline/ai_judgment.py', encoding='utf-8').read()); print('OK')"` - OK.
+- [x] `cd backend && python -m pytest -q` - 119 passed, 7 skipped.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` - 통과.
+- [x] `npm run build` - 통과 (Vite chunk size warning만 출력).
+- [x] `git status --short -uall` - 허용 범위만 변경됨.
+- [x] git commit/push 진행.
+### Notes
+- cp949 실패는 코드 문제가 아니라 Windows 기본 인코딩 문제였고, UTF-8 명시로 ast.parse 3건 모두 통과.
+- 변경 범위는 허용 파일(`backend/analyzer.py`, `backend/pipeline/result_builder.py`, `.agent-harness/`)만 확인됨. `backend/pipeline/ai_judgment.py`는 검증 대상이지만 파일 변경 없음.
+- Vite build 경고: 번들 chunk 500KB 초과 경고만 있으며 빌드 성공.
+### Next
+- Human: Railway+Vercel 배포 후 재테스트.
+  - 간편 탭 Q4 미표시 확인.
+  - Q2/Q3 신구조 확인.
+  - 의심 소견 Q1/Q2만 표시, Q3/Q4 없음 확인.
+
+## 2026-05-30 00:00 Codex SURIT-BUG-010 [중단 · ast.parse 디코딩 실패]
+### Changed
+- `.agent-harness/locks.md` - Codex 검증 잠금 추가 후 실패로 해제.
+- `.agent-harness/handoff.md` - 실패 원인 기록.
+### Verified
+- [x] AGENTS.md 확인.
+- [x] CLAUDE.md 확인.
+- [x] handoff 최신 항목 Cowork SURIT-BUG-010 확인.
+- [x] locks.md 확인 후 대상 파일 3개 잠금 추가.
+- [ ] `python -c "import ast; ast.parse(open('backend/analyzer.py').read()); print('OK')"` - 실패.
+- [ ] `python -c "import ast; ast.parse(open('backend/pipeline/result_builder.py').read()); print('OK')"` - 실패.
+- [ ] `python -c "import ast; ast.parse(open('backend/pipeline/ai_judgment.py').read()); print('OK')"` - 실패.
+- [ ] `cd backend && python -m pytest -q` - 미실행: ast.parse 단계 실패로 중단.
+- [ ] `npx tsc -p tsconfig.app.json --noEmit` - 미실행: ast.parse 단계 실패로 중단.
+- [ ] `npm run build` - 미실행: ast.parse 단계 실패로 중단.
+- [ ] git commit/push - 미진행.
+### Notes
+- 세 `ast.parse(open(...).read())` 명령 모두 Windows 기본 `cp949` 디코딩 문제로 실패. 코드 문법 검증 전 파일 읽기 단계에서 중단됨.
+- `backend/analyzer.py`: `UnicodeDecodeError: 'cp949' codec can't decode byte 0xec in position 16: illegal multibyte sequence`
+- `backend/pipeline/result_builder.py`: `UnicodeDecodeError: 'cp949' codec can't decode byte 0xe2 in position 26: illegal multibyte sequence`
+- `backend/pipeline/ai_judgment.py`: `UnicodeDecodeError: 'cp949' codec can't decode byte 0xed in position 13: illegal multibyte sequence`
+- 요청 지시가 "오류 나면 중단 후 handoff에 기록"이므로 `PYTHONUTF8=1` 재시도, pytest, tsc, build, commit/push는 진행하지 않음.
+### Next
+- Human: `PYTHONUTF8=1` 환경으로 동일 검증 재시도 승인 또는 Cowork/Codex 재호출.
+
+## 2026-05-27 23:10 Claude SURIT-BUG-010
+### Changed
+**버그 1 (간편 탭 분류 분리)**
+- `backend/pipeline/result_builder.py` — `build_summary_reports` 시그니처 변경: 단일 `code_based_items` → `code_based_items_health`/`code_based_items_easy` 2 입력 분리. 내부 `_build_pool(items, include_ai)` 헬퍼로 health/easy 별 merged_items 빌드 → `_build_reports_for_product` 별도 호출. health 풀에만 `ai_result.flagged_items` 포함, easy 풀은 결정론 `_easy_items` 만. merged_items 반환은 두 풀 union 으로 호환 유지.
+- `backend/analyzer.py` — `build_summary_reports` 호출에 `_health_items`/`_easy_items` 분리 전달.
+
+**버그 2 (의심 소견 범위 제한)**
+- `backend/analyzer.py` — `_call_q2_health_findings` 입력을 `_q2_health_items` 단독에서 `_q1_items + _q2_health_items` 로 확장. Q3/Q4 항목은 입력에서 제외 → 의심 소견 부착 금지.
+
+**프런트**
+- `src/pages/Disclosure.tsx` 별도 변경 없음 — 기존 `productTab` 분기가 백엔드의 분리 빌드 결과를 자동 반영.
+
+**태스크 파일**
+- `.agent-harness/tasks/SURIT-BUG-010-tab-fix.md` 신규.
+
+### Verified
+- [x] `python -c "import ast; ast.parse(...)"` — analyzer.py / result_builder.py 모두 OK
+- [x] `cd backend && python -m pytest -q` — **119 passed + 7 skipped** (SURIT-009 기준선 유지)
+- [x] `npx tsc -p tsconfig.app.json --noEmit` — 통과
+- [x] `npx vite build --outDir /tmp/surit-build-010 --emptyOutDir` — 통과 (1.77s)
+- [ ] `npm run build` 기본 경로는 마운트 dist/ 권한으로 실패 — 코드 문제 아님
+
+### Notes
+**버그 1 원인**: SURIT-009 의 `build_summary_reports` 가 단일 풀(`_health_items + _easy_items`)에서 std/easy 양쪽 reports 를 만들어 두 탭이 동일하게 표시됨. 풀 분리로 해결.
+
+**버그 2 원인**: SURIT-009 는 Q2_health 만 의심 소견 부착했는데 사용자 명세는 Q1 도 포함 ("건강체 Q1·Q2 / 간편 Q1"). 부착 대상에 `_q1_items` 추가. Q3/Q4 는 입력에서 자연 제외되어 안전.
+
+**Gemini 호출 비용**: 호출 횟수 변동 없음 (1회). 입력 항목 수만 (q1+q2_health) 로 증가.
+
+### Next
+- Codex: SURIT-BUG-010 검증 + 푸시 — ① ast.parse(analyzer.py, result_builder.py) ② pytest (119+7skip) ③ Windows tsc + npm run build ④ `git status --short -uall` 로 허용 범위(`backend/analyzer.py`, `backend/pipeline/result_builder.py`, `.agent-harness/tasks/SURIT-BUG-010-tab-fix.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md`) 확인 ⑤ 한국어 커밋(`SURIT-BUG-010: 간편 탭 분류 분리 + Q1·Q2 의심 소견 범위 제한`)으로 push ⑥ Railway/Vercel 배포 후 318p PDF 로 ① 간편 탭 Q4 미표시 + Q2/Q3 신구조 ② 의심 소견 Q1/Q2 만 ③ Q3/Q4 부착 없음을 확인.
+
 ## 2026-05-28 15:29 Codex SURIT-009
 ### Changed
 - SURIT-009 범위 전체 검증 후 게시: `backend/`, `src/pages/Disclosure.tsx`, `.agent-harness/`.
