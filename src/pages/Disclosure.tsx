@@ -277,7 +277,7 @@ function AllDiseaseSection({ diseases }: { diseases: DiseaseSummary[] }) {
   );
 }
 
-function DiseaseCard({ item, qNum }: { item: SummaryItem; qNum: string }) {
+function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: string; isEasy?: boolean }) {
   const risk = riskOf(item);
   const surgN = item.surgery_count ?? item.surgeries?.length ?? 0;
   const procN = item.procedures?.length ?? 0;
@@ -285,7 +285,8 @@ function DiseaseCard({ item, qNum }: { item: SummaryItem; qNum: string }) {
   const period = item.first_date && item.latest_date && item.first_date !== item.latest_date
     ? `${item.first_date} ~ ${item.latest_date}`
     : (item.first_date || "");
-  const hasBottom = suspN > 0 || item.additional_test_hit || item.treatment_ongoing != null;
+  // SURIT-BUG-012: 간편 탭은 통원·투약·의심 태그 미노출 (입원·수술 중심)
+  const hasBottom = !isEasy && (suspN > 0 || item.additional_test_hit || item.treatment_ongoing != null);
 
   return (
     <article className={`border-l-4 px-5 py-4 ${RISK[risk].border}`}>
@@ -327,22 +328,24 @@ function DiseaseCard({ item, qNum }: { item: SummaryItem; qNum: string }) {
       )}
 
       <div className="mb-2 flex flex-wrap gap-2">
-        <Chip label={`통원 ${item.visit ?? 0}회`} tone={(item.visit ?? 0) >= 7 ? "amber" : "gray"} />
+        {!isEasy && <Chip label={`통원 ${item.visit ?? 0}회`} tone={(item.visit ?? 0) >= 7 ? "amber" : "gray"} />}
         <Chip label={`입원 ${item.inpatient ?? 0}일`} tone={(item.inpatient ?? 0) > 0 ? "red" : "gray"} />
         <Chip label={`입원 ${item.inpatient_count ?? 0}회`} tone={(item.inpatient_count ?? 0) > 0 ? "red-light" : "gray"} />
         <Chip label={`수술 ${surgN}건`} tone={surgN > 0 ? "red" : "gray"} />
-        <Chip
-          label={`투약 ${item.med_days ?? 0}일`}
-          tone={(item.med_days ?? 0) >= 30 ? "amber" : (item.med_days ?? 0) > 0 ? "emerald" : "gray"}
-        />
+        {!isEasy && (
+          <Chip
+            label={`투약 ${item.med_days ?? 0}일`}
+            tone={(item.med_days ?? 0) >= 30 ? "amber" : (item.med_days ?? 0) > 0 ? "emerald" : "gray"}
+          />
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2">
         {procN > 0 && <Chip label={`시술 ${procN}건`} tone="orange" />}
-        {suspN > 0 && <Chip label={`수술 의심 ${suspN}건`} tone="gray-light" />}
-        {item.additional_test_hit && <Chip label="추가검사 의심" tone="indigo" />}
-        {item.treatment_ongoing === true && <Chip label="치료 중" tone="rose" />}
-        {item.treatment_ongoing === false && <Chip label="종결" tone="emerald" />}
+        {!isEasy && suspN > 0 && <Chip label={`수술 의심 ${suspN}건`} tone="gray-light" />}
+        {!isEasy && item.additional_test_hit && <Chip label="추가검사 의심" tone="indigo" />}
+        {!isEasy && item.treatment_ongoing === true && <Chip label="치료 중" tone="rose" />}
+        {!isEasy && item.treatment_ongoing === false && <Chip label="종결" tone="emerald" />}
       </div>
 
       {hasBottom && (
@@ -382,11 +385,13 @@ function DisclosureSection({
   memo,
   label,
   mode,
+  isEasy = false,
 }: {
   reports: Record<string, SummaryItem[]>;
   memo: string;
   label: string;
   mode: AudienceMode;
+  isEasy?: boolean;
 }) {
   const [memoOpen, setMemoOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -442,7 +447,7 @@ function DisclosureSection({
                     if (al !== bl) return bl.localeCompare(al);
                     return (b.first_date || "").localeCompare(a.first_date || "");
                   }).map((item, idx) => (
-                    <DiseaseCard key={`${item.code}-${idx}`} item={item} qNum={qNum} />
+                    <DiseaseCard key={`${item.code}-${idx}`} item={item} qNum={qNum} isEasy={isEasy} />
                   ))}
                 </div>
               </section>
@@ -547,6 +552,7 @@ function ResultView({ result, mode }: { result: AnalyzeResult; mode: AudienceMod
             memo={activeMemo}
             label={`${activeLabel} ${copy.emptyTitle}`}
             mode={mode}
+            isEasy={productTab === "easy"}
           />
         </div>
       </section>

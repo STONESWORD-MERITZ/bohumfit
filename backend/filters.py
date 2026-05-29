@@ -149,6 +149,10 @@ CHRONIC_DRUG_CATEGORIES: dict[str, list[str]] = {
 # Q1 약물 상시복용 판정 임계 (30일 이상 단일 카테고리 지속 처방)
 Q1_CHRONIC_DRUG_DAYS_THRESHOLD = 30
 
+# SURIT-BUG-012: 건강체 Q3 통원/투약 OR 트리거 임계
+Q3_VISIT_COUNT_THRESHOLD = 7   # 매직넘버: 동일질병 10년내 통원 7회 이상 시 고지
+Q3_MED_DAYS_THRESHOLD    = 30  # 매직넘버: 동일질병 10년내 투약 30일 이상 시 고지 (현 _max_presc=계속/최대 경로)
+
 # 가중치
 _WEIGHT_CRITICAL_PREFIXES = ("C", "I60", "I61", "I62", "I63", "I64", "I21", "I22", "K74")
 _WEIGHT_HIGH_PREFIXES     = ("I10", "I11", "I12", "I13", "I14", "I15",
@@ -669,16 +673,87 @@ def _build_q3_health_items(
     disease_stats: dict[str, dict[str, Any]],
     reference_date: datetime,
 ) -> list[dict]:
-    """Q3 건강체 — 10년이내 입원(기본진료) + 수술(세부진료)."""
-    # 구조적으로 Q2 간편과 동일하지만 rule_id 와 q 만 다름.
-    base = _build_q2_easy_items(disease_stats, reference_date)
-    converted = []
-    for it in base:
-        new_it = dict(it)
-        new_it["duty_question"] = "Q3"
-        new_it["_rule_id"] = it.get("_rule_id", "").replace("R-E-Q2-", "R-H-Q3-")
-        converted.append(new_it)
-    return converted
+    """Q3 건강체 — 10년이내 (입원 OR 수술 OR 통원 7회 이상 OR 투약 30일 이상).
+
+    SURIT-BUG-012: 4개 OR 트리거를 각각 독립 생성한다. 통원·투약은 입원/수술 유무와
+    무관하게 단독으로도 항목이 뜬다. 입원=기본진료(inpatient_dates), 수술=세부진료
+    (surgery_dates). 동일질병 판정은 KCD 코드 정규화 기준(_is_valid_disease).
+    창 경계는 달력 10년(_subtract_years) 포함(>=).
+    """
+    items: list[dict] = []
+    _d3m, _d1y, _d5y, d10y = _cutoffs(reference_date)
+
+    for gk, s in disease_stats.items():
+        dc = (s.get("diag_code") or "").strip().upper()
+        nm = (s.get("name") or "").strip()
+        if not _is_valid_disease(dc, nm):
+            continue
+        if not nm:
+            nm = dc
+        hp = " / ".join(_sorted_strings(s.get("hospitals", set()))[:2]) or "정보 없음"
+        fd = s.get("first_date", "2099-12-31")
+        ld = s.get("latest_date", "2000-01-01")
+        wt = _weight_for(dc)
+        sn = next(iter(_sorted_strings(s.get("surgeries", set()))), None)
+
+        inp_10y  = _dts_in_range(s.get("inpatient_dates", set()), d10y)
+        surg_10y = _dts_in_range(s.get("surgery_dates", set()), d10y)
+        visit_10y = _dts_in_range(s.get("visit_dates", set()), d10y)
+        visit_10y_count = _visit_count_in_range(s, d10y)
+        inp_map  = s.get("_inpatient_days_map", {})
+        inp10y_days = sum(inp_map.get(d, 1) for d in inp_10y) if inp_10y else 0
+        med_pharma = s.get("med_dates_pharma_episode") or s.get("med_dates_pharma", {})
+        presc_10y = _max_presc(med_pharma, d10y)
+
+        ci = lambda **kw: _make_item(code=dc, disease=nm, hospital=hp,
+                                     first_diagnosis_date=fd, **kw)
+
+        # R-H-Q3-INP-10Y: 10년이내 입원 (기본진료)
+        if inp_10y:
+            items.append(ci(
+                q="Q3", rule_id="R-H-Q3-INP-10Y",
+                reason=f"10년이내 입원 ({inp10y_days}일) — 기본진료 확인",
+                date=max(inp_10y), weight=wt,
+                is_inpatient=True, inpatient_days=inp10y_days,
+                inpatient_count=len(inp_10y),
+                visit_count=visit_10y_count, med_days=presc_10y,
+                evidence={"dates": inp_10y, "actual_days": inp10y_days},
+            ))
+
+        # R-H-Q3-SURG-10Y: 10년이내 수술 (세부진료)
+        if surg_10y:
+            items.append(ci(
+                q="Q3", rule_id="R-H-Q3-SURG-10Y",
+                reason=f"10년이내 수술: {sn or '수술'} — 세부진료 확인",
+                date=max(surg_10y), weight=wt,
+                is_surgery=True, surgery_name=sn,
+                is_inpatient=bool(inp_10y), inpatient_days=inp10y_days,
+                inpatient_count=len(inp_10y),
+                visit_count=visit_10y_count, med_days=presc_10y,
+                evidence={"dates": surg_10y, "surgery": sn},
+            ))
+
+        # R-H-Q3-VISIT-7: 10년이내 통원 7회 이상 (입원/수술 유무 무관 — 단독 트리거)
+        if visit_10y_count >= Q3_VISIT_COUNT_THRESHOLD:
+            items.append(ci(
+                q="Q3", rule_id="R-H-Q3-VISIT-7",
+                reason=f"10년이내 통원 {Q3_VISIT_COUNT_THRESHOLD}회 이상 ({visit_10y_count}회) — 기본진료 확인",
+                date=ld, weight=wt,
+                visit_count=visit_10y_count, med_days=presc_10y,
+                evidence={"visit_count": visit_10y_count, "dates": visit_10y},
+            ))
+
+        # R-H-Q3-MED-30D: 10년이내 투약 30일 이상 (입원/수술 유무 무관 — 단독 트리거)
+        if presc_10y >= Q3_MED_DAYS_THRESHOLD:
+            items.append(ci(
+                q="Q3", rule_id="R-H-Q3-MED-30D",
+                reason=f"10년이내 투약 {Q3_MED_DAYS_THRESHOLD}일 이상 ({presc_10y}일) — 처방조제 확인",
+                date=ld, weight=wt,
+                visit_count=visit_10y_count, med_days=presc_10y,
+                evidence={"presc_days": presc_10y, "source": "처방조제"},
+            ))
+
+    return items
 
 
 def _build_q3_easy_items(

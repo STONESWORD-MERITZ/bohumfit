@@ -82,21 +82,33 @@ def _merged_item_sort_key(entry) -> tuple:
     return (q, code, dates[0] if dates else "", item.get("name", ""))
 
 
-def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d1y, d10y, d5y):
+def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d1y, d10y, d5y,
+                               is_easy: bool = False):
     """merged_items + disease_stats → (summary_reports, flagged_codes).
 
-    SURIT-BUG-008: 간편심사 분기 제거. product_type 은 시그니처 호환을 위해
-    유지하되 무시한다.
+    SURIT-BUG-012: 탭별 질문 창(_q_since)·라벨(q_labels)을 분리한다.
+    - 건강체: Q1→3개월, Q2→1년(진단·의심 소견), Q3→10년(입원·수술·통원·투약), Q4→5년(10대질환)
+    - 간편  : Q1→3개월, Q2→10년(입원·수술), Q3→5년(6대질환)
+    간편 Q2 에 건강체 Q2 의 1년 창·의심 소견 라벨을 적용하던 결함(SURIT-BUG-012)을 끊는다.
+    product_type 은 시그니처 호환을 위해 유지하되 라우팅은 is_easy 로 한다.
     """
     _ = product_type
 
-    _q_since = {"Q1": d3m, "Q2": d1y, "Q3": d10y, "Q4": d5y}
-    q_labels = {
-        "Q1": "[1번질문] 3개월 이내 진단·입원·수술·투약",
-        "Q2": "[2번질문] 1년 이내 진단 (추가검사·재검사 의심 소견)",
-        "Q3": "[3번질문] 10년 이내 입원·수술",
-        "Q4": "[4번질문] 5년 이내 10대질환",
-    }
+    if is_easy:
+        _q_since = {"Q1": d3m, "Q2": d10y, "Q3": d5y}
+        q_labels = {
+            "Q1": "[1번질문] 3개월 이내 진단·입원·수술·투약",
+            "Q2": "[2번질문] 10년 이내 입원·수술",
+            "Q3": "[3번질문] 5년 이내 6대질환",
+        }
+    else:
+        _q_since = {"Q1": d3m, "Q2": d1y, "Q3": d10y, "Q4": d5y}
+        q_labels = {
+            "Q1": "[1번질문] 3개월 이내 진단·입원·수술·투약",
+            "Q2": "[2번질문] 1년 이내 진단 (추가검사·재검사 의심 소견)",
+            "Q3": "[3번질문] 10년 이내 입원·수술·통원·투약",
+            "Q4": "[4번질문] 5년 이내 10대질환",
+        }
 
     summary_reports = defaultdict(list)
     flagged_codes   = set()
@@ -287,7 +299,7 @@ def build_summary_reports(
     # health 풀은 _health_items + ai_result.flagged_items, easy 풀은 _easy_items 만.
     _ = product_type  # 시그니처 호환
 
-    def _build_pool(items_list: list[dict], include_ai: bool) -> dict:
+    def _build_pool(items_list: list[dict], include_ai: bool, q_since_map: dict) -> dict:
         pool_merged: dict = {}
         pool_claimed: set = set()
         source_list = list(items_list)
@@ -311,7 +323,6 @@ def build_summary_reports(
                 if q not in ("Q1", "Q2", "Q3", "Q4"):
                     continue
                 item_dt = _parse_ymd(item.get("date", ""))
-                q_since_map = {"Q1": _d3m_dt, "Q2": _d1y_dt, "Q3": _d10y_dt, "Q4": _d5y_dt}
                 since_dt = q_since_map.get(q)
                 if since_dt and (not item_dt or item_dt < since_dt):
                     continue
@@ -331,18 +342,24 @@ def build_summary_reports(
                     _merge_item_into(pool_merged[merge_key], item)
         return pool_merged
 
-    merged_health = _build_pool(code_based_items_health, include_ai=True)
-    merged_easy   = _build_pool(code_based_items_easy,   include_ai=False)
+    # SURIT-BUG-012: 탭별 질문 창 분리 — 간편 Q2=10년, 건강체 Q2=1년.
+    _health_since = {"Q1": _d3m_dt, "Q2": _d1y_dt, "Q3": _d10y_dt, "Q4": _d5y_dt}
+    _easy_since   = {"Q1": _d3m_dt, "Q2": _d10y_dt, "Q3": _d5y_dt}
+
+    merged_health = _build_pool(code_based_items_health, True,  _health_since)
+    merged_easy   = _build_pool(code_based_items_easy,   False, _easy_since)
 
     std_reports, std_flagged = _build_reports_for_product(
         merged_health, disease_stats,
         "건강체/표준체 (일반심사)",
         _d3m_dt, _d1y_dt, _d10y_dt, _d5y_dt,
+        is_easy=False,
     )
     easy_reports, easy_flagged = _build_reports_for_product(
         merged_easy, disease_stats,
         "간편심사 (유병자 3-5-5 기준)",
         _d3m_dt, _d1y_dt, _d10y_dt, _d5y_dt,
+        is_easy=True,
     )
 
     flagged_codes = std_flagged | easy_flagged

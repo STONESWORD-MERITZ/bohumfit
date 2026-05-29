@@ -4,7 +4,27 @@ Use this file to prevent Claude and Codex from editing the same files at the sam
 
 ## Active
 
-(none)
+- none
+
+## Released (SURIT-BUG-012)
+
+- `backend/filters.py` - Codex - SURIT-BUG-012 verification/publish - 2026-05-30 released
+- `backend/pipeline/result_builder.py` - Codex - SURIT-BUG-012 verification/publish - 2026-05-30 released
+- `backend/pipeline/helpers.py` - Codex - SURIT-BUG-012 row_is_junk verification/publish - 2026-05-30 released
+- `backend/tests/` - Codex - SURIT-BUG-012 verification/publish - 2026-05-30 released
+- `src/pages/Disclosure.tsx` - Codex - SURIT-BUG-012 verification/publish - 2026-05-30 released
+- `.agent-harness/tasks/SURIT-BUG-012-easy-q2-and-healthy-q3.md` - Codex - SURIT-BUG-012 task file - 2026-05-30 released
+- `.agent-harness/handoff.md` - Codex - SURIT-BUG-012 handoff update - 2026-05-30 released
+- `.agent-harness/locks.md` - Codex - SURIT-BUG-012 lock release - 2026-05-30 released
+- `backend/_repro_bug012.py`, `backend/_dbg_bug012.py`, `backend/_dbg2.py`, `backend/_dbg3.py` - Codex - SURIT-BUG-012 temporary scratch cleanup - 2026-05-30 removed
+
+- `backend/filters.py` — Claude (Cowork) · SURIT-BUG-012 · 2026-05-30 해제
+- `backend/pipeline/result_builder.py` — Claude (Cowork) · SURIT-BUG-012 · 2026-05-30 해제
+- `backend/pipeline/disease_aggregator.py` — Claude (Cowork) · SURIT-BUG-012 · 2026-05-30 해제 (미수정 — 잠금만 보유, 가설 검증용)
+- `backend/pipeline/helpers.py` — Claude (Cowork) · SURIT-BUG-012 · 2026-05-30 해제 (row_is_junk 근본 수정 — 사용자 승인 후 범위 확장)
+- `src/pages/Disclosure.tsx` — Claude (Cowork) · SURIT-BUG-012 · 2026-05-30 해제
+- `backend/tests/` — Claude (Cowork) · SURIT-BUG-012 · 2026-05-30 해제
+- `.agent-harness/tasks/SURIT-BUG-012-easy-q2-and-healthy-q3.md` — Claude (Cowork) · SURIT-BUG-012 · 2026-05-30 해제
 
 ## Released (SURIT-BUG-010)
 

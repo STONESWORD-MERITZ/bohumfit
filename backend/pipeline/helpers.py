@@ -189,8 +189,31 @@ def parse_date(date_str: str) -> str:
 
 
 def row_is_junk(row) -> bool:
+    """행이 '$ 해당없음' 플레이스홀더뿐인 무의미 행인지 판정.
+
+    SURIT-BUG-012: 과거 구현은 행 전체 문자열에 '$'나 '해당없음'이 하나라도
+    있으면 junk 로 버렸다. 그 결과 병원 통원 행이라도 약국코드 등 부수 칸이
+    '$ 해당없음'이면 행 전체가 탈락했다. 실측: 내과 기침(약국코드 R05계열)은
+    생존하나 산부인과 급성질염(N76.0, 약국코드 '$ 해당없음') 통원 14건이 통째로
+    누락 → 동일질병 통원 7회 룰(R-H-Q3-VISIT-7)에서 질염이 안 잡힘.
+
+    교정: 마커가 있어도 진단/행위/약품 식별 필드에 실내용이 남아 있으면 junk 가
+    아니다. 마커가 있으면서 식별 내용이 전무할 때만 junk 로 본다(원래 의도 보존).
+    """
     combined = "".join(str(v) for v in row.values).replace(" ", "")
-    return "$" in combined or "해당없음" in combined
+    has_marker = "$" in combined or "해당없음" in combined
+    if not has_marker:
+        return False
+    identity = "".join([
+        get_val(row, ["주상병코드", "주상병 코드", "주상병기호", "주상병 기호",
+                      "상병코드", "상병 코드", "진단코드", "진단 코드"]),
+        get_val(row, ["주상병명", "주 상병명", "상병명", "상병 명"]),
+        get_val(row, ["코드명", "수가명", "행위명칭", "행위명", "진료내역",
+                      "처치", "처치및수술", "처치및수 술"]),
+        get_val(row, ["약품명", "의약품명"]),
+    ])
+    identity_clean = identity.replace("$", "").replace("해당없음", "").replace(" ", "")
+    return not identity_clean
 
 
 def _is_surgery_match(text: str) -> bool:

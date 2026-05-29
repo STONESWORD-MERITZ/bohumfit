@@ -18,6 +18,66 @@
 
 Use newest entries at the top.
 
+## 2026-05-30 08:40 Codex SURIT-BUG-012 [검증·정리·푸시 준비 완료]
+### Changed
+- `backend/filters.py` - 건강체 Q3를 입원 OR 수술 OR 통원 7회 이상 OR 투약 30일 이상 독립 트리거로 확장한 변경 검증.
+- `backend/pipeline/result_builder.py` - 건강체/간편 탭별 질문 기간과 라벨 분리 검증.
+- `backend/pipeline/helpers.py` - `$`/`해당없음` 마커가 있어도 진단/행위/약품 식별값이 있으면 행을 보존하도록 `row_is_junk` 보정 검증.
+- `src/pages/Disclosure.tsx` - 간편 탭에서 통원·투약·의심/치료 태그를 숨기고 입원·수술 중심으로 표시하는 변경 검증.
+- `backend/tests/test_bug012_q2_q3.py` - BUG-012 회귀 테스트 추가 확인.
+- `backend/_repro_bug012.py`, `backend/_dbg_bug012.py`, `backend/_dbg2.py`, `backend/_dbg3.py` - 인계된 임시 디버그 파일 4개 삭제.
+- `.agent-harness/handoff.md`, `.agent-harness/locks.md`, `.agent-harness/tasks/SURIT-BUG-012-easy-q2-and-healthy-q3.md` - 작업 기록 정리.
+
+### Verified
+- [x] `python -c "import ast; ast.parse(open('backend/filters.py', encoding='utf-8').read()); ast.parse(open('backend/pipeline/helpers.py', encoding='utf-8').read()); ast.parse(open('backend/pipeline/result_builder.py', encoding='utf-8').read()); print('OK')"` - OK.
+- [x] `cd backend && python -m pytest -q` - 130 passed, 7 skipped.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` - passed.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` - passed.
+- [x] `npm run build` - passed. Vite chunk-size warning only.
+- [x] `npm run lint` - passed.
+- [x] `npm test` - 1 passed.
+
+### Notes
+- 건강체 Q3 투약 30일은 현재 `_max_presc` 경로 기준으로, 처방 에피소드별 최대/계속 처방일수 판정이다. 누적 투약일수 기준이 필요하면 별도 task로 분리해야 한다.
+- BUG-012의 질염(N76.0) 통원 14회 누락 케이스는 `test_vulvovaginitis_visit_14_triggers_q3_rule`로 회귀 검증했다.
+- Vite build의 500KB chunk 경고는 기존 번들 경고이며 빌드는 성공했다.
+
+### Next
+- Human: 배포 후 실제 PDF로 질염(N76.0) 통원 14회가 건강체 Q3에 표시되는지, 간편 Q2 라벨/태그가 입원·수술 중심으로 보이는지 라이브 확인.
+
+## 2026-05-30 11:30 Claude SURIT-BUG-012
+### Changed
+- `backend/filters.py` — `_build_q3_health_items` 를 4-OR 트리거 실 빌더로 교체(입원 OR 수술 OR 통원 7회 OR 투약 30일, 통원·투약 단독 트리거). `Q3_VISIT_COUNT_THRESHOLD=7`/`Q3_MED_DAYS_THRESHOLD=30` 상수 + 매직넘버 주석. 간편 Q2(`_build_q2_easy_items`)는 이미 입원·수술 순수 — 미변경. (filters 변경은 직전 세션 작업분 포함)
+- `backend/pipeline/result_builder.py` — `_build_pool`/`_build_reports_for_product` 에 `is_easy` 도입해 탭별 질문 창·라벨 분리. 간편 Q2 창=10년, 라벨 "[2번질문] 10년 이내 입원·수술" / 건강체 Q2 창=1년 유지. 건강체 Q3 라벨에 "통원·투약" 추가.
+- `src/pages/Disclosure.tsx` — `DiseaseCard`/`DisclosureSection` 에 `isEasy` 전달. 간편 탭에서 통원·투약 칩 + 의심(수술의심/추가검사/치료중/종결) 태그 미노출 (productTab==="easy").
+- `backend/pipeline/helpers.py` — **통원 누락 근본 수정(사용자 승인 후 잠금 확장)**. `row_is_junk`(helpers.py:191) 를 "마커('$'/'해당없음')가 있어도 진단/행위/약품 식별 필드에 실내용이 남으면 junk 아님" 으로 교정. 식별 내용 전무할 때만 junk.
+- `backend/tests/test_bug012_q2_q3.py` — 회귀 보강: ① `row_is_junk` 약국코드 placeholder 보존, ② 질염 통원 14회가 집계에서 누락 없이 `R-H-Q3-VISIT-7` 발동(기침 7회 vs 질염 14회). (기존 간편 Q2 순수·건강체 Q3 통원7/6·투약30/29 경계 테스트는 직전 세션 작성분 유지)
+- `.agent-harness/tasks/SURIT-BUG-012-easy-q2-and-healthy-q3.md` — 통원 누락 디버깅(가설 판정) 섹션 추가.
+
+### Verified
+- [x] AGENTS.md / CLAUDE.md / handoff 최신(BUG-010 완료) / locks 확인. 잠금 충돌 없음(전부 본인 명의).
+- [x] 통원 누락 가설 코드 검증: 가설1(진료과 제외) **기각** — dept 필터는 `disease_aggregator.py:220,268` 의 `일반의` 뿐. 가설3(4단위 코드) **기각** — `non_disease_code_prefixes`=Z00~Z27, `normalize_code` N760 정상. 가설2 방향 **확정** — 원인은 `helpers.row_is_junk`.
+- [x] 샌드박스 재현 확증: 수정 前 기침→group `R05`(통원7, VISIT-7 발동) / 질염→group 미생성(`['R05']`만, 통원0). row_is_junk 신로직 격리 검증 — 질염 행 identity_clean="AN760급성질염" → `row_is_junk=False`(보존).
+- [ ] `cd backend && python -m pytest -q` — **미실행(차단)**. 사유 아래 Notes.
+- [ ] `npx tsc -p tsconfig.app.json --noEmit` / `tsconfig.node.json` — 미실행(차단).
+- [ ] `npm run build` — 미실행(차단).
+
+### Notes
+- **⚠️ in-sandbox 검증 차단 (마운트 동기화 사고)**: helpers.py Windows 원본은 Read 도구로 완전·정상 확인(491줄, 전 함수 존재). 그러나 sandbox 마운트 뷰가 442줄에서 mid-line truncation(`if not date or` 에서 잘림)으로 고착 → `python` 이 helpers 임포트 불가(`SyntaxError: line 443`). Windows 재편집·`touch`·재동기화 대기 모두 마운트 전파 안 됨. 과거 BUG-008/009/VERIFY-001 핸드오프의 마운트 truncation 사고와 동일. AGENTS.md 41조에 따라 사유 기록 후 검증을 Codex(Windows)로 인계.
+- **질염 fix end-to-end 미확정**: row_is_junk 신로직은 격리 검증(질염 행 보존) 통과. 단 수정본 helpers 로 `build_disease_stats` 전구간 실행은 마운트 차단으로 미수행. 로직상 다른 drop 지점 없음(dept 무관, N760 유효)이라 완전 해소로 판단하나, Codex 가 Windows 에서 `test_bug012_q2_q3.py::test_vulvovaginitis_visit_14_triggers_q3_rule` 통과로 최종 확인 필요.
+- **투약 누적 vs 계속 플래그**: 건강체 Q3 투약 30일은 현 `_max_presc` 경로 = **처방 에피소드별 최대값(=계속 처방일수)**, 누적 합계 아님. 약관이 '누적 30일' 기준이면 코드 변경 없이 별도 태스크 필요 — 본 태스크는 현 경로 유지(사용자 지시: 코드 변경 말고 플래그만).
+- **스크래치 파일 정리 필요**: `backend/_repro_bug012.py`,`_dbg_bug012.py`,`_dbg2.py`,`_dbg3.py` 4개 untracked 잔존. sandbox `rm` 이 마운트 권한(Operation not permitted)으로 실패. Codex 가 커밋 전 삭제 — 태스크 범위 밖이라 미스테이징 대상.
+
+### Next
+- Codex: SURIT-BUG-012 검증 + 푸시 —
+  ① 스크래치 4파일(`backend/_repro_bug012.py`,`_dbg_bug012.py`,`_dbg2.py`,`_dbg3.py`) 삭제.
+  ② `python -c "import ast; ast.parse(open('backend/pipeline/helpers.py', encoding='utf-8').read()); print('OK')"` + filters/result_builder 동일 확인.
+  ③ `cd backend && python -m pytest -q` — 기존 119 passed+7skip 기준선 + 신규 회귀(질염 14회 등) 통과 확인(`test_bug012_q2_q3.py` 전건).
+  ④ `npx tsc -p tsconfig.app.json --noEmit` / `tsconfig.node.json` / `npm run build`.
+  ⑤ `git status --short -uall` 로 허용 범위(`backend/filters.py`, `backend/pipeline/result_builder.py`, `backend/pipeline/helpers.py`, `src/pages/Disclosure.tsx`, `backend/tests/test_bug012_q2_q3.py`, `.agent-harness/tasks/SURIT-BUG-012-easy-q2-and-healthy-q3.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md`)만 스테이징 — 스크래치 제외.
+  ⑥ 한국어 커밋(`SURIT-BUG-012: 간편 Q2 입원·수술 순수화 + 건강체 Q3 4-OR 트리거 + 통원 누락(row_is_junk) 근본 수정`)으로 `git push origin main`.
+  ⑦ Railway/Vercel 배포 후 오성심 PDF 로 질염(N76.0) 통원 14회가 건강체 Q3 표시 + 간편 Q2 라벨/태그 확인.
+
 ## 2026-05-30 06:10 Codex SURIT-BUG-010 [완료]
 ### Changed
 - `backend/analyzer.py` - 건강체 Q1/Q2 의심 소견 입력 범위 및 summary report 호출 분리 검증.
