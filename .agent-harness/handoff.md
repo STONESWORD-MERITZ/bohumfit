@@ -18,6 +18,32 @@
 
 Use newest entries at the top.
 
+## 2026-05-30 20:05 Codex BOHUMFIT-001 [완료]
+### Changed
+- `.agent-harness/tasks/BOHUMFIT-001-rebrand-audit.md` - SURIT -> BOHUMFIT 리브랜딩 감사 태스크 기록 생성.
+- `.agent-harness/handoff.md`, `.agent-harness/locks.md` - 전수 조사 결과, 사용자 결정 대기 항목, 잠금 해제 기록.
+- 런타임 코드 변경 없음. 안전 교체 대상 사용자 표시 문자열은 이미 BOHUMFIT 기준으로 정리돼 있어 추가 교체하지 않음.
+
+### Verified
+- [x] `rg -n -i "surit" . --glob '!node_modules/**' --glob '!dist/**' --glob '!backend/__pycache__/**' --glob '!backend/.pytest_cache/**' --glob '!*.pyc'` - 전수 조사 완료.
+- [x] 사용자 노출 확인: `index.html` title/meta/OG = BOHUMFIT, `src/components/Layout.tsx` 헤더 = BOHUMFIT, `src/components/Footer.tsx` 푸터/면책 = BOHUMFIT, `backend/main.py` 카카오 복사문 면책 = BOHUMFIT.
+- [x] manifest 확인: `public/manifest.json`/`public/site.webmanifest` 없음.
+- [x] 설정 확인: `package.json`/`package-lock.json` name=`surit-react`, `.github/workflows/ci.yml` VITE_API_URL=`https://surit-react-production.up.railway.app`, `.env.example` VITE_API_URL 동일, `backend/main.py` CORS 기본값에 `bohumfit.ai`, `www.bohumfit.ai`, `surit-react.vercel.app` 포함, Sentry는 env 기반만 사용.
+- [x] `git remote -v` - origin fetch/push = `https://github.com/STONESWORD-MERITZ/surit-react.git`; 직전 push 때 GitHub가 `https://github.com/STONESWORD-MERITZ/bohumfit.git` 이동 경고 출력.
+- [x] `git diff --check` - whitespace 오류 없음.
+
+### Notes
+- A 조사 결과 / 이력=유지: `SURIT-*` 태스크 ID, 코드 주석, 회귀 테스트 docstring, 감사문서(`SURIT_종합감사보고서_2026-05-20.md`), `PROGRESS.md`, `AGENTS.md`/`CLAUDE.md`의 내부 prefix/로컬 경로 설명은 이력 추적용으로 유지 권장.
+- A 조사 결과 / 사용자 노출=이미 정리됨: `index.html`, `public/og-image.svg`, `Layout`, `Footer`, `Disclosure`, `Home`, `PrivacyPolicy`, `Terms`, `WhyDisclosure`, 카카오 복사문 면책은 BOHUMFIT/보험핏 기준.
+- A 조사 결과 / 사용자 노출 아님: `src/index.css:56` `.surit-result-card`는 CSS 클래스명이며 현재 검색상 사용자 텍스트 아님. 기능 영향 가능성이 있어 자동 변경하지 않음.
+- A 조사 결과 / 설정·외부연동: `package.json:2`, `package-lock.json:2/8` name=`surit-react`; `.github/workflows/ci.yml:62`, `.env.example:9`, `vercel.json:29`은 Railway API host `surit-react-production.up.railway.app` 참조; `backend/main.py:77` CORS 기본값에 옛 Vercel 도메인 `https://surit-react.vercel.app` 포함.
+- B 안전 교체: 추가 교체 없음. 새로 발견된 안전한 사용자 표시 문자열 잔존분이 없었음.
+- C 사용자 결정 필요: `git remote set-url origin https://github.com/STONESWORD-MERITZ/bohumfit.git` 적용 여부, Vercel/Railway 프로젝트명·서비스명·저장소 연결 변경 여부, Railway API 도메인을 새 이름으로 바꿀지 여부, 옛 Vercel 도메인 CORS 유지/제거 여부, `package.json` name 변경 여부, Sentry DSN/project 이름 변경 여부.
+
+### Next
+- Human: remote URL을 `STONESWORD-MERITZ/bohumfit.git`로 변경할지 확정.
+- Human: Vercel/Railway/Supabase/Sentry 대시보드의 프로젝트명·도메인·환경변수 정리 범위 결정.
+
 ## 2026-05-30 19:25 Codex SURIT-013 [완료]
 ### Changed
 - `backend/filters.py` - 건강체 Q3 투약 30일 판정을 `_sum_daily_max_presc`로 전환. 같은 날은 최대 처방 1건만 반영하고 다른 날짜는 합산. `_max_presc`, Q1 투약/약변경, `row_is_junk`, `detect_drug_changes`는 변경하지 않음.
