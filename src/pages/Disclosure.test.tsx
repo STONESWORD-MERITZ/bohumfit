@@ -117,9 +117,12 @@ describe("Disclosure guided tour", () => {
       container.querySelector("input[type='file']") as HTMLInputElement,
       new File(["mock"], "sample.pdf", { type: "application/pdf" }),
     );
-    const analyzeButton = screen.getByRole("button", { name: "AI 고지사항 추출" });
+    const analyzeButton = screen.getByRole("button", { name: "AI 고지 리스크 점검" });
     expect(analyzeButton).toBeDisabled();
-    await user.click(screen.getByRole("checkbox"));
+    const checkboxes = screen.getAllByRole("checkbox");
+    await user.click(checkboxes[0]);
+    expect(analyzeButton).toBeDisabled();
+    await user.click(checkboxes[1]);
     expect(analyzeButton).toBeEnabled();
     await user.click(analyzeButton);
 

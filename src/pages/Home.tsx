@@ -57,7 +57,7 @@ const ROADMAP = [
   {
     phase: "STEP 01", status: "현재 운영",
     title: "알릴의무 점검",
-    body: "심평원 PDF 를 분석해 보험 가입·청구 시 알려야 할 병력을 자동 정리.",
+    body: "심평원 PDF를 분석해 보험 가입 전 고지 리스크를 자동 정리.",
     active: true,
   },
   {
@@ -75,7 +75,7 @@ const ROADMAP = [
 ];
 
 const VALUES = [
-  { k: "정확성", e: "Accuracy",     body: "KCD 코드 단위 결정론적 룰 + AI 의학 판단으로 누락 없이 분류." },
+  { k: "정확성", e: "Accuracy",     body: "KCD 코드 단위 결정론적 룰 + AI 보조 판단으로 고지 검토 항목을 분류." },
   { k: "중립성", e: "Neutrality",   body: "특정 보험사·상품을 권유하지 않습니다. 사실만 정리합니다." },
   { k: "투명성", e: "Transparency", body: "왜 이 항목이 고지 대상인지 근거를 함께 보여줍니다." },
   { k: "안전성", e: "Privacy",      body: "업로드한 자료는 분석 직후 폐기되며 서버에 저장하지 않습니다." },
@@ -136,15 +136,15 @@ export default function Home() {
           </h1>
           <p className="mt-7 max-w-xl text-lg leading-8 text-gray-300 break-keep">
             보험은 가입하는 순간이 아니라 보험금을 청구하는 순간 진실이 드러납니다.
-            SURIT 은 건강보험심평원 원자료를 분석해 고객과 설계사가 알아야 할
-            고지 사항을 한 화면에 정리합니다.
+            BOHUMFIT은 건강보험심평원 원자료를 분석해 고객과 설계사가 확인해야 할
+            고지 리스크를 한 화면에 정리합니다.
           </p>
           <div className="mt-9 flex flex-wrap gap-3">
             <Link
               to="/check"
               className="rounded-xl bg-indigo-600 px-6 py-3.5 text-sm font-bold text-white hover:bg-indigo-500 transition"
             >
-              무료 점검 시작 →
+              고지 리스크 점검 시작 →
             </Link>
             <Link
               to="/why"
@@ -166,7 +166,7 @@ export default function Home() {
             </h2>
             <p className="mt-6 text-[15px] leading-8 text-gray-600 break-keep">
               고지 누락은 가입자에게는 보험금 부지급·계약 해지의 위험으로,
-              설계사에게는 불완전판매 분쟁의 위험으로 돌아옵니다. SURIT 은 기억이나
+              설계사에게는 불완전판매 분쟁의 위험으로 돌아옵니다. BOHUMFIT은 기억이나
               구두 확인이 아닌 <strong>원자료 기반 점검</strong>으로 양측 모두를 보호합니다.
             </p>
           </FadeIn>
@@ -193,7 +193,7 @@ export default function Home() {
           <FadeIn className="mb-14">
             <p className="text-xs font-bold uppercase tracking-[0.25em] text-indigo-600">Service Roadmap</p>
             <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-gray-950 md:text-4xl break-keep">
-              지금의 SURIT 과 앞으로의 SURIT
+              지금의 BOHUMFIT과 앞으로의 BOHUMFIT
             </h2>
           </FadeIn>
           <div className="grid gap-6 md:grid-cols-3">
@@ -307,10 +307,10 @@ export default function Home() {
                 </span>
                 <h3 className="mt-4 text-xl font-bold tracking-tight text-gray-950">내 보험 고지 점검</h3>
                 <p className="mt-3 text-[14px] leading-6 text-gray-600 break-keep">
-                  이미 가입한 보험이 청약 당시 병력 고지를 빠뜨리지 않았는지 무료로 확인합니다.
+                  이미 가입한 보험이 청약 당시 병력 고지를 빠뜨리지 않았는지 참고용으로 확인합니다.
                 </p>
                 <ul className="mt-4 space-y-1.5">
-                  {["보험금 청구 때 분쟁이 될 만한 병력·입원·투약 기록을 미리 점검", "로그인 없이 즉시 사용 가능"].map(b => (
+                  {["보험금 청구 때 분쟁이 될 만한 병력·입원·투약 기록을 미리 점검", "로그인 후 안전하게 이용"].map(b => (
                     <li key={b} className="flex items-start gap-2 text-[13px] text-gray-500">
                       <span className="mt-1.5 inline-block h-1 w-1 shrink-0 rounded-full bg-gray-400" />
                       <span className="break-keep">{b}</span>
@@ -318,7 +318,7 @@ export default function Home() {
                   ))}
                 </ul>
                 <span className="mt-6 inline-flex items-center text-sm font-bold text-indigo-600">
-                  무료 점검 시작
+                  고지 리스크 점검 시작
                   <span aria-hidden className="ml-2 transition group-hover:translate-x-1">→</span>
                 </span>
               </Link>
@@ -336,7 +336,7 @@ export default function Home() {
                   심평원 PDF 기준으로 건강체·간편심사 가입 전 고지 대상 병력을 자동 정리합니다.
                 </p>
                 <ul className="mt-4 space-y-1.5">
-                  {["고객 상담용 카카오톡 메시지 자동 생성", "간편심사 예외질환 인수 판정 지원"].map(b => (
+                  {["고객 상담용 카카오톡 메시지 자동 생성", "건강체·간편심사 고지 검토 항목 정리"].map(b => (
                     <li key={b} className="flex items-start gap-2 text-[13px] text-gray-500">
                       <span className="mt-1.5 inline-block h-1 w-1 shrink-0 rounded-full bg-gray-400" />
                       <span className="break-keep">{b}</span>
@@ -369,16 +369,16 @@ export default function Home() {
               지금 바로 확인하세요
             </h2>
             <p className="mt-5 text-[15px] leading-8 text-gray-400 break-keep">
-              PDF 3장이면 충분합니다. 5분 안에 알릴의무 전체를 정리합니다.
+              PDF 3장이면 충분합니다. 가입 전 확인해야 할 고지 리스크를 빠르게 정리합니다.
             </p>
             <Link
               to="/check"
               className="mt-8 inline-flex rounded-xl bg-indigo-600 px-8 py-4 text-base font-bold text-white hover:bg-indigo-500 transition"
             >
-              무료 점검 시작 →
+              고지 리스크 점검 시작 →
             </Link>
             <p className="mt-4 text-xs text-gray-600">
-              본 결과는 AI 보조 도구가 제공하는 참고 자료입니다. 최종 판단은 보험회사 약관·언더라이팅에 따릅니다.
+              본 결과는 AI 보조 도구가 제공하는 참고 자료입니다. 가입·인수·보험금 지급을 보장하지 않습니다.
             </p>
           </FadeIn>
         </div>

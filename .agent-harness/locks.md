@@ -15,6 +15,7 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-05-30 `SURIT-LAUNCH-001` - Codex - BOHUMFIT.ai open-prep implementation completed; locks released.
 - 2026-05-30 `SURIT-BUG-014` - Codex - clinical review scope/completeness fixed; locks released.
 - 2026-05-30 `SURIT-BUG-013` - Codex - question-specific disclosure display completed; locks released.
 - 2026-05-30 `SURIT-PROGRESS-001` - Codex - progress determinism plan updated; locks released.

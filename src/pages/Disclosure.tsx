@@ -4,12 +4,15 @@ import AnalysisProgress from "../components/AnalysisProgress";
 import { useAuth } from "../lib/auth-context";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
+const MAX_FILE_COUNT = 6;
+const MAX_FILE_SIZE = 15 * 1024 * 1024;
+const MAX_TOTAL_SIZE = 40 * 1024 * 1024;
 
 type AudienceMode = "customer" | "agent";
 
 function connectionErrorMessage(apiBase: string): string {
   if (typeof console !== "undefined") {
-    console.error("[SURIT] API 연결 실패:", apiBase);
+    console.error("[BOHUMFIT] API 연결 실패:", apiBase);
   }
   return "서버에 연결하지 못했어요. 인터넷 연결을 확인하시고 잠시 후 다시 시도해 주세요. 문제가 계속되면 관리자에게 문의해 주세요.";
 }
@@ -81,7 +84,7 @@ type AnalyzeResult = {
 type Risk = "red" | "orange" | "gray" | "yellow" | "green";
 type TourPhase = "pre" | "post";
 
-const TOUR_STORAGE_KEY = "surit_tour_seen_v1";
+const TOUR_STORAGE_KEY = "bohumfit_tour_seen_v1";
 function readTourSeen(): { pre: boolean; post: boolean } {
   if (typeof window === "undefined") return { pre: false, post: false };
   try {
@@ -120,9 +123,9 @@ const modeCopy: Record<AudienceMode, {
   memoLabel: string;
 }> = {
   customer: {
-    badge: "고객용 무료 점검",
+    badge: "고객용 점검",
     title: "내 보험 고지 점검",
-    subtitle: "이전에 가입한 보험이 청약 당시 병력 고지사항을 잘 지켜 가입됐는지 확인합니다.",
+    subtitle: "이전에 가입한 보험의 청약 당시 병력 고지 누락 가능성을 참고용으로 점검합니다.",
     dateLabel: "가입일 또는 점검 기준일",
     dateHelp: "이미 가입한 보험을 확인할 때는 해당 상품의 청약일을 넣어 주세요.",
     uploadHelp: "건강e음에서 발급한 기본진료, 세부진료, 처방조제 PDF를 올려 주세요.",
@@ -134,11 +137,11 @@ const modeCopy: Record<AudienceMode, {
   agent: {
     badge: "설계사용",
     title: "알릴의무 필터",
-    subtitle: "심평원 병력 PDF를 기준으로 건강체와 간편심사 고지 대상 병력을 정리합니다.",
+    subtitle: "심평원 병력 PDF를 기준으로 건강체와 간편심사 고지 검토 항목을 정리합니다.",
     dateLabel: "청약 예정일",
     dateHelp: "상품 가입 예정일 기준으로 3개월, 1년, 5년, 10년 기간을 계산합니다.",
     uploadHelp: "기본진료, 세부진료, 처방조제 PDF를 함께 올리면 정확도가 올라갑니다.",
-    button: "AI 고지사항 추출",
+    button: "AI 고지 리스크 점검",
     emptyTitle: "선택한 상품 기준의 고지 대상 항목이 없습니다.",
     resultTitle: "상품별 고지사항",
     memoLabel: "카카오 전송용 메시지",
@@ -532,8 +535,8 @@ function DisclaimerBox() {
     <div className="mt-5 rounded-[8px] border border-gray-200 bg-gray-50 p-4 text-[11px] leading-5 text-gray-500">
       <p className="font-bold text-gray-600">분석 결과 이용 시 유의사항</p>
       <p className="mt-1.5 break-keep">
-        본 결과는 업로드한 진료자료를 바탕으로 AI가 산출한 <b className="font-bold">참고용 보조자료</b>이며,
-        의학적 진단이나 보험 인수 여부를 확정하지 않습니다. 실제 알릴의무(고지) 대상과 범위는
+        BOHUMFIT 결과는 업로드한 진료자료를 바탕으로 AI가 산출한 <b className="font-bold">참고용 보조자료</b>이며,
+        의학적 진단이나 보험 가입·인수·보험금 지급 여부를 확정하지 않습니다. 실제 알릴의무(고지) 대상과 범위는
         보험사별 청약서 문항·약관·인수지침에 따라 달라질 수 있으므로, 청약 전 반드시 해당 청약서
         문항과 대조해 주세요. 고지 누락에 대한 최종 책임은 청약자 본인에게 있으며, 본 서비스는
         분석 결과의 사용으로 인한 법적 책임을 지지 않습니다.
@@ -832,6 +835,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
   const [refDate, setRefDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [birthdate, setBirthdate] = useState("");
   const [consent, setConsent] = useState(false);
+  const [subjectConsent, setSubjectConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<AnalyzeResult | null>(null);
@@ -878,8 +882,8 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
       setError("PDF 파일을 업로드해 주세요.");
       return;
     }
-    if (files.length > 6) {
-      setError("PDF는 최대 6개까지 업로드할 수 있습니다.");
+    if (files.length > MAX_FILE_COUNT) {
+      setError(`PDF는 최대 ${MAX_FILE_COUNT}개까지 업로드할 수 있습니다.`);
       return;
     }
     const nonPdf = Array.from(files).find((f) => !f.name.toLowerCase().endsWith(".pdf"));
@@ -887,8 +891,22 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
       setError(`PDF 파일만 업로드할 수 있어요. (${nonPdf.name})`);
       return;
     }
+    const tooLarge = Array.from(files).find((f) => f.size > MAX_FILE_SIZE);
+    if (tooLarge) {
+      setError(`개별 PDF 크기는 ${MAX_FILE_SIZE / 1024 / 1024}MB를 넘을 수 없습니다. (${tooLarge.name})`);
+      return;
+    }
+    const totalSize = Array.from(files).reduce((sum, f) => sum + f.size, 0);
+    if (totalSize > MAX_TOTAL_SIZE) {
+      setError(`전체 PDF 합계 크기는 ${MAX_TOTAL_SIZE / 1024 / 1024}MB를 넘을 수 없습니다.`);
+      return;
+    }
     if (!consent) {
       setError("민감정보(건강정보) 처리 동의가 필요합니다. 동의 항목을 확인해 주세요.");
+      return;
+    }
+    if (mode === "agent" && !subjectConsent) {
+      setError("고객 진료자료 업로드 권한과 정보주체 동의 확보 여부를 확인해 주세요.");
       return;
     }
     const token = session?.access_token;
@@ -991,7 +1009,9 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
             multiple
             className="block w-full cursor-pointer text-sm text-gray-600 file:mr-4 file:rounded-[8px] file:border-0 file:bg-[#4F46E5] file:px-5 file:py-2.5 file:text-sm file:font-bold file:text-white hover:file:bg-[#4338CA]"
           />
-          <p className="mt-3 text-xs text-gray-500">{copy.uploadHelp}</p>
+          <p className="mt-3 text-xs text-gray-500">
+            {copy.uploadHelp} 파일은 최대 {MAX_FILE_COUNT}개, 개별 {MAX_FILE_SIZE / 1024 / 1024}MB, 총합 {MAX_TOTAL_SIZE / 1024 / 1024}MB까지 업로드할 수 있습니다.
+          </p>
         </div>
 
         <label className="mt-4 flex items-start gap-2.5 rounded-[8px] bg-gray-50 px-4 py-3 text-xs leading-5 text-gray-600">
@@ -1003,14 +1023,29 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
           />
           <span className="break-keep">
             업로드하는 진료자료에는 <b className="font-bold text-gray-700">민감정보(건강에 관한 정보)</b>가 포함됩니다.
-            알릴의무 분석 목적의 처리에 동의하며, 자료는 분석 직후 서버에서 폐기되고 저장되지 않습니다.
+            고지 리스크 점검 목적의 처리에 동의하며, 자료는 분석 직후 BOHUMFIT 서버에서 폐기되고 서비스 데이터베이스에 저장되지 않습니다.
             <Link to="/privacy" className="ml-1 underline hover:text-gray-800">개인정보처리방침</Link>
           </span>
         </label>
 
+        {mode === "agent" && (
+          <label className="mt-3 flex items-start gap-2.5 rounded-[8px] bg-gray-50 px-4 py-3 text-xs leading-5 text-gray-600">
+            <input
+              type="checkbox"
+              checked={subjectConsent}
+              onChange={(e) => setSubjectConsent(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-[#4F46E5]"
+            />
+            <span className="break-keep">
+              고객 등 제3자의 진료자료를 업로드하는 경우, 정보주체에게 BOHUMFIT 분석 목적·민감정보 처리·AI 위탁 처리 내용을 안내했고
+              업로드 및 분석에 필요한 동의를 확보했습니다.
+            </span>
+          </label>
+        )}
+
         <button
           onClick={analyze}
-          disabled={loading || !consent}
+          disabled={loading || !consent || (mode === "agent" && !subjectConsent)}
           className="mt-5 w-full rounded-[8px] bg-[#4F46E5] py-3 text-sm font-bold text-white shadow-[0_2px_8px_rgba(79,70,229,0.3)] transition-colors hover:bg-[#4338CA] disabled:opacity-50"
         >
           {loading ? "분석 중..." : copy.button}
@@ -1021,8 +1056,8 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
         <section className="mb-5 rounded-[8px] border border-emerald-100 bg-emerald-50 p-5">
           <p className="text-sm font-extrabold text-emerald-800">고객 안내 포인트</p>
           <p className="mt-2 text-xs leading-6 text-emerald-700 break-keep">
-            이 점검은 보험 가입 권유가 아니라 기존 보험의 고지 누락 가능성을 미리 확인하는 절차입니다.
-            분석 결과는 최종 법률 판단이 아니며, 실제 청약서 질문과 보험사 심사 기준에 맞춰 한 번 더 대조해야 합니다.
+            이 점검은 보험 가입 권유가 아니라 기존 보험의 고지 누락 가능성을 미리 확인하는 참고 절차입니다.
+            분석 결과는 최종 법률·보험 인수 판단이 아니며, 실제 청약서 질문과 보험사 심사 기준에 맞춰 한 번 더 대조해야 합니다.
           </p>
         </section>
       )}

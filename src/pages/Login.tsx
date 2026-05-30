@@ -41,9 +41,9 @@ export default function Login() {
       <div className="w-full max-w-sm">
         <div className="mb-10 text-center">
           <h1 className="text-3xl font-black tracking-tight text-gray-900">
-            SUR<span className="text-[#4F46E5]">IT</span>
+            BOHUM<span className="text-[#4F46E5]">FIT</span>
           </h1>
-          <p className="mt-2 text-sm text-gray-400">설계사용 고지 필터에 로그인하세요</p>
+          <p className="mt-2 text-sm text-gray-400">보험 고지 리스크 점검을 시작하세요</p>
         </div>
 
         <div className="space-y-3">
@@ -105,9 +105,9 @@ export default function Login() {
           </Link>
         </p>
         <p className="mt-4 text-center text-xs text-gray-400">
-          고객용 무료 점검은{" "}
+          고객용 점검도{" "}
           <Link to="/check" className="font-bold text-emerald-600 hover:underline">
-            로그인 없이 이용
+            로그인 후 이용
           </Link>
           할 수 있습니다.
         </p>

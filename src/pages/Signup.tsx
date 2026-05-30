@@ -49,9 +49,9 @@ export default function Signup() {
       <div className="w-full max-w-sm">
         <div className="mb-10 text-center">
           <h1 className="text-3xl font-black tracking-tight text-gray-900">
-            SUR<span className="text-[#4F46E5]">IT</span>
+            BOHUM<span className="text-[#4F46E5]">FIT</span>
           </h1>
-          <p className="mt-2 text-sm text-gray-400">설계사용 계정 만들기</p>
+          <p className="mt-2 text-sm text-gray-400">보험핏 계정 만들기</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3">

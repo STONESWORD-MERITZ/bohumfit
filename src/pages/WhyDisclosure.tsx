@@ -29,8 +29,8 @@ const CASES = [
       "가입 전 위염 치료 사실을 설계사에게 구두로 알렸으나 보험사가 이를 기록하지 않아 " +
       "고지의무 위반으로 계약이 해지됐습니다. 분쟁조정을 거쳐서야 해지가 철회되고 " +
       "암진단비 5,000만원 지급이 권고됐습니다.",
-    surit:
-      "SURIT 은 심평원 PDF 원자료로 점검합니다. 기억·구두 확인이 아니라 객관적 기록 " +
+    bohumfit:
+      "BOHUMFIT은 심평원 PDF 원자료로 점검합니다. 기억·구두 확인이 아니라 객관적 기록 " +
       "기반이라 '말했다 / 못 들었다' 분쟁 자체가 생기지 않습니다.",
     source: "https://dazabi.com/insurance_magazine/article.php?id=6525",
   },
@@ -41,8 +41,8 @@ const CASES = [
       "가입 전 의료기관에서 투약 처방을 받았으나 실제로 복용하지 않아 고지하지 않은 사례. " +
       "금융분쟁조정위원회는 처방 사실 자체가 '질병 치료' 행위로 고지 대상이며 실제 복용 " +
       "여부와 무관하다고 보아 보험사의 해지를 정당하다고 판단했습니다.",
-    surit:
-      "SURIT 은 처방조제 PDF 까지 함께 분석합니다. 본인도 잊고 있던 처방 이력을 빠짐없이 " +
+    bohumfit:
+      "BOHUMFIT은 처방조제 PDF까지 함께 분석합니다. 본인도 잊고 있던 처방 이력을 빠짐없이 " +
       "확인해 '몰라서 누락' 하는 위험을 막습니다.",
     source: "https://dazabi.com/insurance_magazine/article.php?id=6522",
   },
@@ -52,8 +52,8 @@ const CASES = [
     body:
       "척추 디스크 수술·전립선염 투약·고지혈증 진단 중 고지혈증 진단 이력만 빠뜨리고 " +
       "가입했다가, 이후 뇌경색 진단 시 계약 해지·보험금 부지급됐습니다.",
-    surit:
-      "SURIT 은 기본진료·세부진료·처방조제를 교차 분석해 질환별로 빠짐없이 정리합니다. " +
+    bohumfit:
+      "BOHUMFIT은 기본진료·세부진료·처방조제를 교차 분석해 질환별로 빠짐없이 정리합니다. " +
       "'이건 별거 아니겠지' 하고 넘어가는 항목을 시스템이 대신 잡아냅니다.",
     source: "https://www.insnews.co.kr/news/articleView.html?idxno=79080",
   },
@@ -160,8 +160,8 @@ export default function WhyDisclosure() {
                 <p className="mt-3 text-[14px] leading-7 text-gray-600 break-keep">{c.body}</p>
                 <div className="mt-5 rounded-xl bg-indigo-50 border border-indigo-100 px-6 py-4">
                   <p className="text-[13px] leading-6 text-indigo-700 break-keep">
-                    <strong className="text-indigo-800">SURIT 은 </strong>
-                    {c.surit.replace(/^SURIT 은 /, "")}
+                    <strong className="text-indigo-800">BOHUMFIT은 </strong>
+                    {c.bohumfit.replace(/^BOHUMFIT은 /, "")}
                   </p>
                 </div>
                 <a
@@ -178,13 +178,13 @@ export default function WhyDisclosure() {
         </div>
       </section>
 
-      {/* ── HOW SURIT HELPS (다크) ───────────────────────────── */}
+      {/* ── HOW BOHUMFIT HELPS (다크) ────────────────────────── */}
       <section className="bg-[#0F172A] py-20">
         <div className="mx-auto max-w-6xl px-6">
           <div className="mb-12 text-center">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-indigo-300">How SURIT helps</p>
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-indigo-300">How BOHUMFIT helps</p>
             <h2 className="mt-4 text-2xl font-extrabold text-white md:text-3xl break-keep">
-              SURIT 이 이 문제를 해결하는 방법
+              BOHUMFIT이 이 문제를 줄이는 방법
             </h2>
           </div>
           <div className="grid gap-6 md:grid-cols-3">
@@ -206,7 +206,7 @@ export default function WhyDisclosure() {
             to="/check"
             className="inline-flex rounded-xl bg-indigo-600 px-8 py-4 text-base font-bold text-white hover:bg-indigo-500 transition"
           >
-            지금 무료로 점검하기 →
+            지금 고지 리스크 점검하기 →
           </Link>
         </div>
       </section>
@@ -217,7 +217,7 @@ export default function WhyDisclosure() {
           <p className="text-xs leading-6 text-gray-600 break-keep">
             ※ 본 페이지의 통계와 사례는 금융감독원 분쟁조정·보험협회 공시·언론 보도 자료를
             인용한 것으로, 개별 보험 계약의 해석은 약관과 보험회사 심사에 따릅니다.
-            SURIT 은 참고용 점검 도구입니다.
+            BOHUMFIT은 참고용 점검 도구이며 보험 가입·인수·보험금 지급을 보장하지 않습니다.
           </p>
           <Link to="/" className="mt-6 inline-block text-xs font-semibold text-gray-500 hover:text-gray-300 transition">
             ← 홈으로

@@ -18,6 +18,36 @@
 
 Use newest entries at the top.
 
+## 2026-05-30 12:40 Codex SURIT-LAUNCH-001 [완료]
+### Changed
+- `index.html`, `src/components/*`, `src/pages/*` - 외부 노출 브랜드를 BOHUMFIT/보험핏으로 전환하고 단정적 가입·인수 표현을 완화.
+- `src/pages/Disclosure.tsx` - 파일 개수/용량 클라이언트 사전 검증, 민감정보 처리 동의, 설계사용 정보주체 동의 확인 체크 추가.
+- `backend/main.py` - FastAPI title/logger를 BOHUMFIT 기준으로 조정, `bohumfit.ai`/`www.bohumfit.ai` 기본 CORS 추가, 고객 안내 복사문 면책 문구 고정.
+- `backend/tests/test_main_launch_guardrails.py`, `src/pages/Disclosure.test.tsx` - BOHUMFIT 도메인/면책 및 동의 체크 회귀 테스트 추가·갱신.
+- `.env.example`, `README.md`, `BOHUMFIT_OPEN_RISK_CHECKLIST.md` - `bohumfit.ai` 운영 도메인/env 템플릿 및 오픈 전 리스크 체크리스트 문서화.
+- `.agent-harness/tasks/SURIT-LAUNCH-001-bohumfit-open-prep.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md` - 하네스 태스크/기록/잠금 관리.
+
+### Verified
+- [x] Vercel domain check - `bohumfit.ai` available, $160 / 2 years.
+- [x] `python -c "import ast; ast.parse(open('backend/main.py', encoding='utf-8').read()); print('OK')"` - OK.
+- [x] `cd backend && python -m pytest -q` - 133 passed, 7 skipped.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` - passed.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` - passed.
+- [x] `npm run lint` - passed.
+- [x] `npm test` - 1 passed.
+- [x] `npm run build` - passed. Vite 500KB chunk warning only.
+- [x] Local dev server smoke - `/` 200, `/login` 200, index title includes BOHUMFIT.
+- [x] `git diff --check` - whitespace 오류 없음.
+
+### Notes
+- 실제 `bohumfit.ai` 구매/연결, `www` redirect, Supabase Auth Site URL/Redirect URL, Railway/Vercel 운영 환경변수 반영은 콘솔 작업이 필요해 `BOHUMFIT_OPEN_RISK_CHECKLIST.md`에 Human 조치로 남겼다.
+- 브라우저 자동화는 Node REPL 환경에 Playwright 모듈이 없어 실행하지 못했다. 대신 Vite dev 서버 HTTP smoke와 빌드 검증을 완료했다.
+- 기존 내부 태스크 prefix와 레거시 주석의 `SURIT-*`는 이력 보존을 위해 유지했다.
+
+### Next
+- Human: Vercel에서 `bohumfit.ai` 구매/연결 후 Supabase/Railway/Vercel 콘솔 설정 반영.
+- Codex: 도메인 연결 후 배포 URL 기준 브라우저 smoke, 오성심 PDF 반복 분석 QA, 콘솔 설정 반영 확인.
+
 ## 2026-05-30 11:52 Codex SURIT-BUG-014 [완료]
 ### Changed
 - `backend/analyzer.py` - 추가검사·재검사 의심 소견 생성 대상을 건강체 Q1/Q2로 제한하고, 동일 코드 결과를 간편 Q1에도 반영.

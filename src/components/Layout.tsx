@@ -13,7 +13,7 @@ export default function Layout() {
             to="/"
             className="text-lg font-extrabold tracking-tight text-gray-950 hover:text-indigo-600 transition-colors"
           >
-            SUR<span className="text-indigo-600">IT</span>
+            BOHUM<span className="text-indigo-600">FIT</span>
           </Link>
 
           <nav className="flex items-center gap-5 text-sm font-semibold text-gray-600">

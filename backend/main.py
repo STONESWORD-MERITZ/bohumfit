@@ -66,7 +66,7 @@ if SENTRY_DSN:
     )
 
 # ── FastAPI 앱 ───────────────────────────────────────────────────────────────
-app = FastAPI(title="SURIT React Backend", version="1.0.0")
+app = FastAPI(title="BOHUMFIT AI Backend", version="1.0.0")
 
 # ── Rate Limiter ─────────────────────────────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
@@ -74,7 +74,7 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # ── CORS ─────────────────────────────────────────────────────────────────────
-_default_origins = "https://surit-react.vercel.app,http://localhost:5173,http://localhost:3000"
+_default_origins = "https://bohumfit.ai,https://www.bohumfit.ai,https://surit-react.vercel.app,http://localhost:5173,http://localhost:3000"
 ALLOWED_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", _default_origins).split(",") if o.strip()]
 if SERVICE_ENV == "production":
     # 운영 환경에서는 localhost 출처를 허용하지 않는다.
@@ -93,7 +93,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
-logger = logging.getLogger("surit")
+logger = logging.getLogger("bohumfit")
 logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
 # ── 상수 ─────────────────────────────────────────────────────────────────────
@@ -101,6 +101,11 @@ PRODUCT_TYPE_MAP = {
     "standard": "건강체/표준체 (일반심사)",
     "easy":     "간편심사 (유병자 3-5-5 기준)",
 }
+
+KAKAO_DISCLAIMER = (
+    "\n※ BOHUMFIT은 보험 가입·인수·보험금 지급을 보장하지 않는 AI 보조 점검 도구입니다. "
+    "최종 고지 범위와 심사 결과는 실제 청약서 문항, 약관, 보험회사 인수 기준에 따라 달라질 수 있습니다.\n"
+)
 
 
 # ── 내부 유틸 ────────────────────────────────────────────────────────────────
@@ -116,6 +121,13 @@ class _PDFFile:
 def _s(v) -> str:
     """None-safe 문자열 변환: None이면 "" 반환, 그 외 str()."""
     return "" if v is None else str(v)
+
+
+def _with_kakao_disclaimer(message: str) -> str:
+    """고객 안내 복사문 말미에 BOHUMFIT 면책 문구를 1회만 붙인다."""
+    if KAKAO_DISCLAIMER.strip() in message:
+        return message
+    return message.rstrip() + KAKAO_DISCLAIMER
 
 
 def _kakao_item(item: dict) -> str:
@@ -382,6 +394,8 @@ async def analyze(
     if meritz.get("detail_message"):
         std_kakao  += "\n" + meritz["detail_message"]
         easy_kakao += "\n" + meritz["detail_message"]
+    std_kakao = _with_kakao_disclaimer(std_kakao)
+    easy_kakao = _with_kakao_disclaimer(easy_kakao)
 
     return {
         "flagged_count":        len(flagged_codes),
