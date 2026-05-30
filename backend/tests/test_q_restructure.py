@@ -23,6 +23,7 @@ from filters import (
     EASY_Q3_6CODES,
     HEALTH_Q4_10CODES,
 )
+from pipeline.result_builder import build_summary_reports
 
 
 def _disease(*, code="K21", name="역류성식도염", first="", latest="",
@@ -258,3 +259,58 @@ def test_build_code_based_items_easy_includes_q1_q2_q3():
     assert "Q2" in qs
     assert "Q3" in qs
     assert "Q4" not in qs
+
+
+def test_summary_reports_preserve_q2_suspicion_for_review_questions():
+    """추가검사·재검사 확인 대상 문항은 병합 후 q2_suspicion 문구를 보존."""
+    ds = {
+        "K21": _disease(code="K21", name="역류성식도염", visits=["2026-04-15"], first="2026-04-15"),
+        "M33": _disease(code="M33", name="발근염", visits=["2025-08-15"], first="2025-08-15"),
+    }
+    health_items = [{
+        "date": "2025-08-15",
+        "code": "M33",
+        "disease": "발근염",
+        "hospital": "서울병원",
+        "duty_question": "Q2",
+        "reason": "1년 이내 확정진단",
+        "is_inpatient": False,
+        "inpatient_days": 0,
+        "inpatient_count": 0,
+        "visit_count": 1,
+        "is_surgery": False,
+        "surgery_name": None,
+        "med_days": 0,
+        "first_diagnosis_date": "2025-08-15",
+        "weight": "mid",
+        "_source": "code",
+        "q2_suspicion": "재검사 여부 원자료 확인 필요",
+    }]
+    easy_items = [{
+        "date": "2026-04-15",
+        "code": "K21",
+        "disease": "역류성식도염",
+        "hospital": "서울내과",
+        "duty_question": "Q1",
+        "reason": "3개월 이내 진단",
+        "is_inpatient": False,
+        "inpatient_days": 0,
+        "inpatient_count": 0,
+        "visit_count": 1,
+        "is_surgery": False,
+        "surgery_name": None,
+        "med_days": 0,
+        "first_diagnosis_date": "2026-04-15",
+        "weight": "mid",
+        "_source": "code",
+        "q2_suspicion": "추가검사 여부 원자료 확인 필요",
+    }]
+
+    std_reports, easy_reports, _, _ = build_summary_reports(
+        ds, health_items, easy_items, {"flagged_items": []}, PRODUCT_HEALTH, REF
+    )
+
+    health_q2 = std_reports["[2번질문] 1년 이내 진단 (추가검사·재검사 의심 소견)"][0]
+    easy_q1 = easy_reports["[1번질문] 3개월 이내 진단·입원·수술·투약"][0]
+    assert health_q2["q2_suspicion"] == "재검사 여부 원자료 확인 필요"
+    assert easy_q1["q2_suspicion"] == "추가검사 여부 원자료 확인 필요"

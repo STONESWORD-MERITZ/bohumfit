@@ -743,7 +743,10 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
         drug_change_groups=drug_change_groups,
     )
     # code_based_items 는 두 set 의 합 (q 분류는 result_builder 의 q_labels 가 처리).
-    code_based_items = list(_health_items) + [it for it in _easy_items if it.get("duty_question") in ("Q2", "Q3")]
+    # 간편 Q1도 건강체 Q1과 같은 3개월 문항이므로 의학 판단 결과를 함께 반영한다.
+    code_based_items = list(_health_items) + [
+        it for it in _easy_items if it.get("duty_question") in ("Q1", "Q2", "Q3")
+    ]
 
     # ── 처방 종료일 계산 ─────────────────────────────────────────
     prescription_end_details, earliest_available_date = \
@@ -843,18 +846,21 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
     _q2_health_items = [it for it in _health_items if it.get("duty_question") == "Q2"]
     _q3_health_items = [it for it in _health_items if it.get("duty_question") == "Q3"]
     _q4_health_items = [it for it in _health_items if it.get("duty_question") == "Q4"]
+    _q1_easy_items = [it for it in _easy_items if it.get("duty_question") == "Q1"]
     _q2_easy_items = [it for it in _easy_items if it.get("duty_question") == "Q2"]
     _q3_easy_items = [it for it in _easy_items if it.get("duty_question") == "Q3"]
 
-    # SURIT-BUG-010: Q1 (공통) + Q2 건강체 항목에만 의심 소견 부착. Q3/Q4 는 부착 금지.
-    _suspicion_targets = _q1_items + _q2_health_items
-    if _suspicion_targets:
+    # SURIT-BUG-014: 추가검사/재검사 확인은 건강체 Q1/Q2 + 간편 Q1에만 부착한다.
+    # 건강체 Q3/Q4 및 간편 Q2/Q3는 입원·수술·통원·투약 등 해당 문항 지표만 표시한다.
+    _suspicion_prompt_items = _q1_items + _q2_health_items
+    _suspicion_apply_items = _suspicion_prompt_items + _q1_easy_items
+    if _suspicion_prompt_items:
         try:
-            _q2_findings = await _call_q2_health_findings(_suspicion_targets, today_str, api_key)
+            _q2_findings = await _call_q2_health_findings(_suspicion_prompt_items, today_str, api_key)
         except Exception as _e:
             retry_warnings.append(f"⚠️ Q1/Q2 의심 소견 생성 실패 — {str(_e)[:80]}")
             _q2_findings = {}
-        for it in _suspicion_targets:
+        for it in _suspicion_apply_items:
             code = (it.get("code") or "").upper()
             susp = _q2_findings.get(code, "")
             if susp:

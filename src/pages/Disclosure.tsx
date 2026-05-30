@@ -47,6 +47,7 @@ type SummaryItem = {
   surgery_suspected?: string[];
   additional_test_hit?: boolean;
   additional_test_reason?: string;
+  q2_suspicion?: string;
   treatment_ongoing?: boolean | null;
   treatment_ongoing_reason?: string;
   hospitals: string[];
@@ -242,7 +243,7 @@ function getMetricVisibility(item: SummaryItem, qNum: string, isEasy: boolean) {
 }
 
 function shouldShowClinicalReview(qNum: string, isEasy: boolean) {
-  if (isEasy) return false;
+  if (isEasy) return qNum === "Q1";
   return qNum === "Q1" || qNum === "Q2";
 }
 
@@ -340,12 +341,12 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
     ? `${item.first_date} ~ ${item.latest_date}`
     : (item.first_date || "");
   const hasMetricChips = metric.visit || metric.inpatient || metric.inpatientCount || metric.surgery || metric.med;
-  const hasClinicalChips = showClinicalReview && (
-    procN > 0 || suspN > 0 || item.additional_test_hit || item.treatment_ongoing === true || item.treatment_ongoing === false
-  );
-  const hasBottom = showClinicalReview && (
-    suspN > 0 || item.additional_test_hit || item.treatment_ongoing != null
-  );
+  const clinicalReviewText = item.q2_suspicion || item.additional_test_reason || "";
+  const clinicalReviewLabel = item.additional_test_hit || item.q2_suspicion
+    ? "추가검사·재검사 의심"
+    : "추가검사·재검사 확인 필요";
+  const hasClinicalChips = showClinicalReview;
+  const hasBottom = showClinicalReview;
 
   return (
     <article className={`border-l-4 px-5 py-4 ${RISK[risk].border}`}>
@@ -405,7 +406,7 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
         <div className="flex flex-wrap gap-2">
           {procN > 0 && <Chip label={`시술 ${procN}건`} tone="orange" />}
           {suspN > 0 && <Chip label={`수술 의심 ${suspN}건`} tone="gray-light" />}
-          {item.additional_test_hit && <Chip label="추가검사 의심" tone="indigo" />}
+          <Chip label={clinicalReviewLabel} tone={item.additional_test_hit || item.q2_suspicion ? "indigo" : "gray-light"} />
           {item.treatment_ongoing === true && <Chip label="치료 중" tone="rose" />}
           {item.treatment_ongoing === false && <Chip label="종결" tone="emerald" />}
         </div>
@@ -419,12 +420,12 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
               {item.surgery_suspected!.slice(0, 3).join(", ")}
             </p>
           )}
-          {item.additional_test_hit && item.additional_test_reason && (
-            <p className="text-indigo-600">
-              <span className="mr-1.5 text-indigo-300">추가검사</span>
-              {item.additional_test_reason}
-            </p>
-          )}
+          <p className={clinicalReviewText ? "text-indigo-600" : "text-gray-500"}>
+            <span className={clinicalReviewText ? "mr-1.5 text-indigo-300" : "mr-1.5 text-gray-400"}>
+              추가검사·재검사
+            </span>
+            {clinicalReviewText || "자동 의심 소견 없음 - 원자료 기준 추가검사·재검사 여부 확인"}
+          </p>
           {item.treatment_ongoing === true && item.treatment_ongoing_reason && (
             <p className="text-rose-600">
               <span className="mr-1.5 text-rose-300">치료 중</span>

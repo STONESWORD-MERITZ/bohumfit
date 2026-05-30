@@ -49,6 +49,7 @@ def _make_merged_item(item: dict, q: str, code_override: str = "") -> dict:
         "med_days":       item.get("med_days", 0),
         "weight":         item.get("weight", "mid"),
         "hospitals":      [item.get("hospital", "")],
+        "q2_suspicion":   item.get("q2_suspicion", ""),
     }
 
 
@@ -74,6 +75,9 @@ def _merge_item_into(m: dict, item: dict) -> None:
         m["weight"] = item.get("weight", "mid")
     if item.get("hospital") and item["hospital"] not in m["hospitals"]:
         m["hospitals"].append(item["hospital"])
+    if item.get("q2_suspicion"):
+        if item["q2_suspicion"] not in m.get("q2_suspicion", ""):
+            m["q2_suspicion"] = (m.get("q2_suspicion", "") + " / " + item["q2_suspicion"]).strip(" /")
 
 
 def _merged_item_sort_key(entry) -> tuple:
@@ -218,6 +222,7 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
             "additional_tests":        _additional_tests,
             "additional_test_hit":     _add_test_hit,
             "additional_test_reason":  _add_test_reason,
+            "q2_suspicion":            m.get("q2_suspicion", ""),
             "treatment_ongoing":       _tx_ongoing,
             "treatment_ongoing_reason": _tx_ongoing_reason,
             "drug_change_in_3m":       _ds.get("drug_change_in_3m", False) if _ds else False,

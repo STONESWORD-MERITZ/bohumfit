@@ -18,6 +18,34 @@
 
 Use newest entries at the top.
 
+## 2026-05-30 11:52 Codex SURIT-BUG-014 [완료]
+### Changed
+- `backend/analyzer.py` - 추가검사·재검사 의심 소견 생성 대상을 건강체 Q1/Q2로 제한하고, 동일 코드 결과를 간편 Q1에도 반영.
+- `backend/pipeline/result_builder.py` - 병합/요약 리포트에서 `q2_suspicion` 문구가 유실되지 않도록 전달.
+- `backend/tests/test_q_restructure.py` - 건강체 Q2와 간편 Q1의 `q2_suspicion` 보존 회귀 테스트 추가.
+- `src/pages/Disclosure.tsx` - 건강체 Q1/Q2·간편 Q1 카드에는 추가검사·재검사 확인 줄을 전건 표시하고, 건강체 Q3/Q4·간편 Q2/Q3에서는 보조 판단을 숨김.
+- `.agent-harness/tasks/SURIT-BUG-014-clinical-review-scope.md` - 태스크 기록 추가.
+- `.agent-harness/handoff.md`, `.agent-harness/locks.md` - 작업 기록 및 잠금 관리.
+
+### Verified
+- [x] `python -c "import ast; ..."` - `backend/analyzer.py`, `backend/pipeline/result_builder.py` 파싱 OK.
+- [x] `cd backend && python -m pytest -q` - 131 passed, 7 skipped.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` - passed.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` - passed.
+- [x] `npm run lint` - passed.
+- [x] `npm test` - 1 passed.
+- [x] `npm run build` - passed. Vite 500KB chunk warning only.
+- [x] `git diff --check` - whitespace 오류 없음.
+
+### Notes
+- 추가검사·재검사 확인 노출 대상: 건강체 Q1, 건강체 Q2, 간편 Q1.
+- 건강체 Q3/Q4 및 간편 Q2/Q3는 추가검사·재검사/치료 중 보조 판단을 표시하지 않는다.
+- 간편 Q2는 기존 SURIT-BUG-013 정책대로 입원·수술 지표만 표시한다.
+- AI가 별도 의심 문구를 반환하지 않은 대상 문항 카드에는 "자동 의심 소견 없음 - 원자료 기준 추가검사·재검사 여부 확인"을 표시해 누락처럼 보이지 않게 했다.
+
+### Next
+- Human: 배포 후 오성심 PDF 화면에서 건강체 Q1/Q2·간편 Q1은 확인 줄이 전건 표시되고, 건강체 Q3·간편 Q2에는 보조 판단이 사라졌는지 최종 확인.
+
 ## 2026-05-30 09:18 Codex SURIT-BUG-013 [완료]
 ### Changed
 - `src/pages/Disclosure.tsx` - 결과 카드의 통원/입원/수술/투약 칩을 질문별 필요 지표만 표시하도록 분기.
