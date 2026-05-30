@@ -18,6 +18,26 @@
 
 Use newest entries at the top.
 
+## 2026-05-30 20:35 Codex SURIT-016 [완료]
+### Changed
+- `backend/requirements.txt` - 직접 의존성 10개가 이미 현재 설치·테스트 통과 버전으로 `==` 고정돼 있음을 확인. 파일 diff 없음.
+- `.agent-harness/tasks/SURIT-016-pin-deps.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md` - 태스크 기록, 검증 결과, 잠금 해제 기록.
+
+### Verified
+- [x] 기준선 `cd backend && python -m pytest -q` - 138 passed, 7 skipped.
+- [x] 현재 설치 버전 확인 - `pip show`/`pip freeze` 기준 직접 의존성 버전이 `requirements.txt`와 일치.
+- [x] 고정 후 `cd backend && python -m pytest -q` - 138 passed, 7 skipped.
+- [x] 임시 새 venv에서 `pip install -r backend/requirements.txt` 완료.
+- [x] 임시 새 venv에서 `python -m pytest -q` - 138 passed, 7 skipped.
+
+### Notes
+- 고정 확인 목록: `fastapi==0.136.3`, `uvicorn==0.48.0`, `pdfplumber==0.11.9`, `pandas==2.3.3`, `python-multipart==0.0.29`, `google-genai==2.6.0`, `python-dotenv==1.2.2`, `slowapi==0.1.9`, `sentry-sdk[fastapi]==2.60.0`, `httpx==0.28.1`.
+- 전이 의존성은 사용자 지시대로 전체 freeze하지 않음. 클린 venv 설치 중 일부 전이 의존성은 로컬 기존 설치보다 최신 패치 버전으로 선택됐지만 전체 테스트는 통과함.
+- 로컬과 Railway 운영 Python/pip resolver 환경은 다를 수 있으므로 다음 배포에서 Railway 빌드 정상 여부 확인 권장.
+
+### Next
+- Human/Codex: 다음 배포 시 Railway 빌드가 고정 직접 의존성으로 정상 완료되는지 확인.
+
 ## 2026-05-30 20:28 Codex BOHUMFIT-002 [완료]
 ### Changed
 - Local git config - `origin` URL을 `https://github.com/STONESWORD-MERITZ/surit-react.git`에서 `https://github.com/STONESWORD-MERITZ/bohumfit.git`로 전환.
