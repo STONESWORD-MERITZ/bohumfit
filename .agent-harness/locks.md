@@ -15,6 +15,7 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-05-30 `SURIT-013` - Codex - Q3 medication daily-max accumulation, BUG-012 PDF verification, and `_build_health` dead-code removal completed; locks released.
 - 2026-05-30 `SURIT-LAUNCH-002` - Codex - BOHUMFIT.ai final open trust/legal placeholder cleanup completed; locks released.
 - 2026-05-30 `SURIT-LAUNCH-001` - Codex - BOHUMFIT.ai open-prep implementation completed; locks released.
 - 2026-05-30 `SURIT-BUG-014` - Codex - clinical review scope/completeness fixed; locks released.

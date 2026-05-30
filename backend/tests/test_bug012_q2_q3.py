@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """SURIT-BUG-012 회귀 테스트.
 
-- 건강체 Q3: 입원·수술 OR 통원7회 OR 투약30일(누적 경로=_max_presc) 단독 트리거 + 경계.
+- 건강체 Q3: 입원·수술 OR 통원7회 OR 투약30일(날짜별 최대 처방일수 누적) 단독 트리거 + 경계.
 - 간편 Q2: 입원·수술만 (통원·투약·1년진단 미혼입).
 """
 from datetime import datetime
@@ -11,6 +11,9 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from filters import (  # noqa: E402
+    PRODUCT_HEALTH,
+    build_code_based_items,
+    _build_q1_items,
     _build_q3_health_items,
     _build_q2_easy_items,
     Q3_VISIT_COUNT_THRESHOLD,
@@ -22,7 +25,8 @@ REF = datetime(2026, 5, 12)
 
 
 def _disease(*, code="K21", name="역류성식도염", first="", latest="",
-             visits=(), inpatients=(), surgeries=(), pharma_dates=None):
+             visits=(), inpatients=(), surgeries=(), pharma_dates=None,
+             drug_change_in_3m=False):
     return {
         "visit_dates": set(visits),
         "inpatient_dates": set(inpatients),
@@ -36,6 +40,7 @@ def _disease(*, code="K21", name="역류성식도염", first="", latest="",
         "latest_date": latest or "2000-01-01",
         "diag_code": code,
         "name": name,
+        "drug_change_in_3m": drug_change_in_3m,
     }
 
 
@@ -82,6 +87,90 @@ def test_q3_health_med_29_not_flagged():
     ds = {"K21": _disease(pharma_dates={"2020-06-15": 29}, first="2020-06-15", latest="2020-06-15")}
     items = _build_q3_health_items(ds, REF)
     assert "R-H-Q3-MED-30D" not in _rule_ids(items)
+
+
+def test_q3_health_med_daily_max_accumulates_across_dates():
+    """같은 날은 최대 1건만, 다른 날짜는 합산해 30일이면 Q3 투약 고지."""
+    ds = {
+        "K21": _disease(
+            pharma_dates={
+                "2020-06-15": {"drug-a": 5, "drug-b": 3},
+                "2020-07-01": {"drug-c": 25},
+            },
+            first="2020-06-15",
+            latest="2020-07-01",
+        )
+    }
+    items = _build_q3_health_items(ds, REF)
+    med_items = [it for it in items if it["_rule_id"] == "R-H-Q3-MED-30D"]
+    assert len(med_items) == 1
+    assert med_items[0]["med_days"] == 30
+
+
+def test_q3_health_med_same_day_takes_max_only():
+    """같은 날 여러 약은 합산하지 않고 최대값만 반영한다."""
+    ds_29 = {
+        "K21": _disease(
+            pharma_dates={
+                "2020-06-15": {"drug-a": 20, "drug-b": 15},
+                "2020-07-01": 9,
+            },
+            first="2020-06-15",
+            latest="2020-07-01",
+        )
+    }
+    assert "R-H-Q3-MED-30D" not in _rule_ids(_build_q3_health_items(ds_29, REF))
+
+    ds_30 = {
+        "K21": _disease(
+            pharma_dates={
+                "2020-06-15": {"drug-a": 20, "drug-b": 15},
+                "2020-07-01": 10,
+            },
+            first="2020-06-15",
+            latest="2020-07-01",
+        )
+    }
+    items = _build_q3_health_items(ds_30, REF)
+    assert "R-H-Q3-MED-30D" in _rule_ids(items)
+
+
+def test_q3_health_med_boundary_included_and_invalid_date_skipped():
+    """10년 경계일은 포함하고, 잘못된 날짜 키는 무시한다."""
+    ds = {
+        "K21": _disease(
+            pharma_dates={
+                "2016-05-12": 30,
+                "bad-date": 999,
+                "2016-05-11": 999,
+            },
+            first="2016-05-12",
+            latest="2016-05-12",
+        )
+    }
+    items = _build_q3_health_items(ds, REF)
+    med_items = [it for it in items if it["_rule_id"] == "R-H-Q3-MED-30D"]
+    assert len(med_items) == 1
+    assert med_items[0]["med_days"] == 30
+
+
+def test_q1_drug_change_still_uses_max_presc_not_daily_sum():
+    """Q1 약 변경 표시는 기존 _max_presc 경로를 유지한다."""
+    ds = {
+        "K21": _disease(
+            pharma_dates={
+                "2026-04-15": {"drug-a": 5, "drug-b": 3},
+                "2026-04-20": 25,
+            },
+            first="2026-04-01",
+            latest="2026-04-20",
+            drug_change_in_3m=True,
+        )
+    }
+    items = _build_q1_items(ds, REF, drug_change_groups={"K21"})
+    drug_change = [it for it in items if it["_rule_id"] == "R-Q1-DRUG-CHANGE"]
+    assert len(drug_change) == 1
+    assert drug_change[0]["med_days"] == 25
 
 
 def test_q3_med_threshold_is_30():
@@ -175,3 +264,20 @@ def test_vulvovaginitis_visit_14_triggers_q3_rule():
     q3 = _build_q3_health_items(ds, today)
     vulvo = [it for it in q3 if it["code"] == "N760" and it["_rule_id"] == "R-H-Q3-VISIT-7"]
     assert vulvo, f"질염 통원 7회 룰 미발동: {_rule_ids(q3)}"
+
+
+def test_pharmacy_placeholder_rows_do_not_become_fake_q_items():
+    """'$ 해당없음' 약국행은 질병행으로 승격되지 않아 Q1/Q2/Q4 가짜 항목을 만들지 않는다."""
+    from datetime import datetime as _dt
+    from pipeline.disease_aggregator import build_disease_stats
+
+    today = _dt(2026, 5, 30)
+    recs = [
+        _basic_row("2026-05-01", "$ 해당없음", "$ 해당없음", "", "", pharma_code="$ 해당없음"),
+        _basic_row("2026-05-02", "해당없음", "해당없음", "", "", pharma_code="$"),
+    ]
+    ds, _, _, _, _ = build_disease_stats(recs, today)
+    items = build_code_based_items(ds, today, PRODUCT_HEALTH)
+    assert not any((it.get("code") or "").startswith("$") for it in items)
+    assert not any((it.get("disease") or "") in {"$", "해당없음", "$ 해당없음"} for it in items)
+    assert not any(it.get("duty_question") in {"Q1", "Q2", "Q4"} for it in items)

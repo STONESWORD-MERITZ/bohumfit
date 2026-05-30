@@ -18,6 +18,35 @@
 
 Use newest entries at the top.
 
+## 2026-05-30 19:25 Codex SURIT-013 [완료]
+### Changed
+- `backend/filters.py` - 건강체 Q3 투약 30일 판정을 `_sum_daily_max_presc`로 전환. 같은 날은 최대 처방 1건만 반영하고 다른 날짜는 합산. `_max_presc`, Q1 투약/약변경, `row_is_junk`, `detect_drug_changes`는 변경하지 않음.
+- `backend/filters.py` - 호출자가 없는 구버전 `_build_health` 제거. 제거 전 `rg "_build_health\\(" backend` 결과 직접 호출 없음 확인.
+- `backend/tests/test_bug012_q2_q3.py` - Q3 투약 누적/경계/같은날 최대값/잘못된 날짜 skip, Q1 `_max_presc` 회귀, 약국 placeholder 오검 방지 테스트 추가.
+- `.agent-harness/tasks/SURIT-013-q3med-deadcode-verify.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md` - 태스크 기록 및 잠금 관리.
+
+### Verified
+- [x] `_build_health` 제거 전 기준선 `cd backend && python -m pytest -q` - 133 passed, 7 skipped.
+- [x] `python -c "import ast; ast.parse(open('backend/filters.py', encoding='utf-8').read()); ast.parse(open('backend/pipeline/helpers.py', encoding='utf-8').read()); print('OK')"` - OK.
+- [x] `cd backend && python -m pytest -q` - 138 passed, 7 skipped.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` - passed.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` - passed.
+- [x] `npm run lint` - passed.
+- [x] `npm test` - 1 passed.
+- [x] `npm run build` - passed. Vite 500KB chunk warning only.
+- [x] `git diff --check` - whitespace 오류 없음.
+- [x] 오성심 PDF 3종 deterministic E2E(parser -> aggregator -> filters) - records 1508, groups 235, parse_errors 0, date_warnings 0.
+
+### Notes
+- 실제 PDF row_is_junk 부작용 점검: `N760` 급성질염 10년 통원 14회 및 `R05` 기침 10년 통원 7회 확인. 둘 다 건강체 Q3 `R-H-Q3-VISIT-7` 발동. `$ 해당없음` placeholder 가짜 항목 0건.
+- 실제 PDF 간편 Q2 점검: rule set 은 `R-E-Q2-INP-10Y`만 확인, `VISIT`/`MED`/`DIAG` 혼입 0건.
+- Q3 투약 누적 실측: 질염 Q3 항목의 `med_days`가 날짜별 최대 처방일수 누적 기준으로 63일 표시됨.
+- `_build_health`는 직접 호출 없음으로 제거. 제거 전 기존 테스트 133+7skip 통과, 제거/신규 테스트 후 138+7skip 통과로 기존 동작 회귀 없음 확인.
+- 셸에 Gemini API 키가 없어 `run_analysis` 전체 AI 호출은 수행하지 않음. 이번 검증은 BUG-012/Q3 결정론 룰 범위인 PDF 파싱 -> 질병 집계 -> 필터 결과까지 수행.
+
+### Next
+- Human: 배포 후 화면에서 오성심 PDF 결과가 건강체 Q3 질염 14회/기침 7회, 간편 Q2 입원·수술 중심으로 표시되는지 최종 확인.
+
 ## 2026-05-30 14:06 Codex SURIT-LAUNCH-002 [완료]
 ### Changed
 - `src/components/Footer.tsx`, `src/pages/PrivacyPolicy.tsx`, `src/pages/Terms.tsx` - 공개 약관/개인정보/푸터의 화면상 TODO·등록 예정 placeholder 제거, BOHUMFIT 문의/시행일 정보 반영.
