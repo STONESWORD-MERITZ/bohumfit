@@ -15,6 +15,7 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-05-31 `SURIT-018` - Codex - prescription PDF page signal hardening completed; locks released.
 - 2026-05-30 `SURIT-016` - Codex - backend direct dependency pins verified against current passing versions; clean venv install and pytest passed; locks released.
 - 2026-05-30 `BOHUMFIT-002` - Codex - git remote switched to bohumfit and package name cleanup completed; locks released.
 - 2026-05-30 `BOHUMFIT-001` - Codex - rebrand audit completed; runtime files unchanged; locks released.

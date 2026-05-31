@@ -6,14 +6,17 @@
 """
 import os
 import sys
+from io import BytesIO
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+import pipeline.pdf_parser as pdf_parser
 from pipeline.pdf_parser import (
     _detect_ftype_by_page_text,
     _empty_result_message,
     _resolve_ftype,
     detect_file_type,
+    parse_single_pdf,
 )
 
 
@@ -81,6 +84,28 @@ def test_strong_header_wins_over_contradicting_page_text():
     assert _resolve_ftype(headers, "") == "pharma"
 
 
+def test_pharma_page_text_overrides_strong_detail_header():
+    """본문이 처방조제이면 OCR 오염된 detail 강신호보다 pharma를 우선한다."""
+    headers = ("행위명칭", "수가코드", "급여비총액")
+    assert detect_file_type(headers) == "detail"
+    assert _resolve_ftype(headers, "pharma") == "pharma"
+
+
+def test_pharma_page_text_overrides_strong_basic_header():
+    """본문이 처방조제이면 OCR 오염된 basic 강신호보다 pharma를 우선한다."""
+    headers = ("주상병명", "주상병코드", "내원일수")
+    assert detect_file_type(headers) == "basic"
+    assert _resolve_ftype(headers, "pharma") == "pharma"
+
+
+def test_non_pharma_page_text_does_not_override_headers_or_weak_rules():
+    """B안 보정은 pharma 본문 한정이며 detail/basic 일반 우선화는 하지 않는다."""
+    assert _resolve_ftype(("약품명", "성분명", "투약일수"), "detail") == "pharma"
+    weak_headers = ("명칭", "코드", "일자", "수량", "금액")
+    assert _resolve_ftype(weak_headers, "detail") == "detail"
+    assert _resolve_ftype(weak_headers, "basic") == "basic"
+
+
 def test_weak_header_used_when_no_page_signal():
     """본문 신호가 없으면 약한 헤더 추정값이라도 그대로 사용한다."""
     headers = ("명칭", "코드", "일자", "수량", "금액")
@@ -93,3 +118,51 @@ def test_page_text_detection_tolerates_whitespace():
     assert _detect_ftype_by_page_text("세부 진료\n정보") == "detail"
     assert _detect_ftype_by_page_text("기본진료정보") == "basic"
     assert _detect_ftype_by_page_text("일반 안내문") == ""
+
+
+class _FakePage:
+    def __init__(self, text, tables):
+        self._text = text
+        self._tables = tables
+        self.flushed = False
+
+    def extract_text(self):
+        return self._text
+
+    def extract_tables(self):
+        return self._tables
+
+    def flush_cache(self):
+        self.flushed = True
+
+
+class _FakePdf:
+    def __init__(self, pages):
+        self.pages = pages
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+
+def test_parse_single_pdf_uses_page_local_ftype_for_later_pharma_page(monkeypatch):
+    """합본 PDF에서 뒤쪽 처방 페이지는 첫 페이지 basic 신호에 끌리지 않는다."""
+    pages = [
+        _FakePage("기본진료정보", []),
+        _FakePage("처방조제", [
+            [
+                ["col_0", "col_1"],
+                ["2026.05.01", "베포리진정"],
+            ]
+        ]),
+    ]
+    monkeypatch.setattr(pdf_parser, "_open_pdf", lambda data, password: _FakePdf(pages))
+
+    result = parse_single_pdf(BytesIO(b"%PDF-fake"), "")
+
+    assert result["parse_errors"] == []
+    assert len(result["records"]) == 1
+    assert result["records"][0]["_ftype"] == "pharma"
+    assert all(page.flushed for page in pages)

@@ -83,8 +83,12 @@ def _resolve_ftype(headers, page_ftype: str) -> str:
 
     우선순위 (SURIT-002 — 헤더 OCR 누락 시 처방 PDF가 진료내역으로
     오분류되던 문제 보정):
-      1) 헤더가 _FTYPE_KW 키워드와 명확히 일치(강신호) → 헤더를 신뢰한다.
-         헤더 OCR이 성공한 경우이므로 본문 신호보다 우선한다.
+      1) 헤더가 _FTYPE_KW 키워드와 명확히 일치(강신호) → 기본적으로
+         헤더를 신뢰한다.
+         예외: 페이지 본문이 처방조제(pharma)이고 헤더 강신호가 detail/basic
+         인 경우에는 처방 PDF가 진료내역으로 굳는 방향의 오분류를 막기 위해
+         본문 신호를 우선한다. 반대 방향(detail/basic 본문이 pharma 헤더를
+         이기는 일반화)은 적용하지 않는다.
       2) 헤더 신호가 약하면(구조 휴리스틱 추정 또는 unknown) 페이지 본문
          섹션 신호(page_ftype)를 우선한다. 헤더 OCR이 누락·왜곡됐을 때
          처방표가 detail로 잘못 굳는 것을 막는다.
@@ -95,6 +99,8 @@ def _resolve_ftype(headers, page_ftype: str) -> str:
     """
     strong_ftype = _strong_header_ftype(headers)
     if strong_ftype:
+        if page_ftype == "pharma" and strong_ftype in {"detail", "basic"}:
+            return "pharma"
         return strong_ftype
     if page_ftype:
         return page_ftype
@@ -207,7 +213,6 @@ def parse_single_pdf(uploaded_file, birthdate_pw) -> dict:
         with _open_pdf(pdf_data, birthdate_pw or "") as pdf:
             first_text = pdf.pages[0].extract_text() or "" if pdf.pages else ""
             is_nhis = "건강보험 요양급여내역" in first_text
-            page_ftype = _detect_ftype_by_page_text(first_text)
 
             if is_nhis:
                 for page in pdf.pages:
@@ -219,6 +224,8 @@ def parse_single_pdf(uploaded_file, birthdate_pw) -> dict:
                     page.flush_cache()  # OOM 핫픽스: 페이지 레이아웃 캐시 즉시 해제
             else:
                 for page in pdf.pages:
+                    page_text = page.extract_text() or ""
+                    page_ftype = _detect_ftype_by_page_text(page_text)
                     tables = page.extract_tables()
                     for table in tables:
                         if not table or len(table) < 2:
@@ -238,6 +245,7 @@ def parse_single_pdf(uploaded_file, birthdate_pw) -> dict:
                             rec["_ftype"] = ftype
                             rec["_fname"] = fname
                             file_recs.append(rec)
+                    del page_text
                     del tables
                     page.flush_cache()  # OOM 핫픽스: 페이지 레이아웃 캐시 즉시 해제
 

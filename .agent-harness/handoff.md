@@ -18,6 +18,61 @@
 
 Use newest entries at the top.
 
+## 2026-05-31 12:51 Codex SURIT-018 [완료]
+### Changed
+- `backend/pipeline/pdf_parser.py` - `_resolve_ftype`에 B안 예외 추가: `page_ftype=="pharma"`이고 강한 헤더가 `detail`/`basic`인 경우에만 본문 `pharma` 우선. `_strong_header_ftype` 키워드·우선순위와 `detect_file_type` 휴리스틱은 변경하지 않음.
+- `backend/pipeline/pdf_parser.py` - 비-NHIS 표 파싱 루프에서 `page_ftype`을 첫 페이지 고정값이 아니라 각 페이지의 `extract_text()`로 계산하도록 변경.
+- `backend/tests/test_pdf_parser.py` - 강한 detail/basic 헤더 + pharma 본문 보정, pharma 헤더 역방향 보존, detail/basic 본문 보존, 합본 PDF 뒤쪽 pharma 페이지 분류 회귀 테스트 추가.
+- `.agent-harness/tasks/SURIT-018-pdf-ftype-page-signal-hardening.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md` - 태스크 기록 및 잠금 해제.
+
+### Verified
+- [x] `cd backend && python -m pytest tests/test_pdf_parser.py -q` - 14 passed.
+- [x] `cd backend && python -m pytest -q` - 142 passed, 7 skipped.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` - passed.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` - passed.
+- [x] `npm run build` - passed. Vite 500KB chunk warning only.
+
+### Notes
+- 신규 테스트는 기존 10건에서 14건으로 증가. 요청한 5개 검증 축 중 `pharma 헤더 역방향 보존`과 `본문 detail/basic + 약한 헤더 기존 동작 보존`은 한 테스트에서 함께 검증.
+- `pharma` 본문 신호 한정 예외만 추가했으므로, 본문 `detail`/`basic`이 강한 헤더를 일반적으로 이기는 방향의 동작 변경은 없음.
+- SURIT-017 진단 태스크 파일은 직전 read-only 지시로 미커밋 상태였고, 이번 완료 커밋에 하네스 기록으로 함께 포함 예정.
+
+### Next
+- Human: 다음 배포 후 실제 처방 PDF/합본 PDF에서 처방조제 표가 `pharma`로 분류되는지 확인 권장.
+
+## 2026-05-31 12:46 Codex SURIT-017 [진단 완료 / 커밋 없음]
+### Changed
+- `.agent-harness/tasks/SURIT-017-pdf-misclassify-diagnosis.md` - 진단 전용 태스크 기록 생성 및 완료 처리.
+- `.agent-harness/handoff.md` - 처방 PDF 오분류 잔존 경로 진단 결과 기록.
+- 런타임 코드 수정 없음. `locks.md`는 read-only 지시대로 잠금 추가하지 않음.
+
+### Verified
+- [x] `locks.md` 확인 - Active `none`, `backend/pipeline/pdf_parser.py` 잠금 없음.
+- [x] `backend/pipeline/pdf_parser.py` 흐름 확인 - `_strong_header_ftype` -> `detect_file_type` -> `_detect_ftype_by_page_text` -> `_resolve_ftype`.
+- [x] 기존 회귀 테스트 확인 - `backend/tests/test_pdf_parser.py`에 SURIT-002 처방 PDF 분류 테스트 6건 존재.
+- [x] 인라인 호출 검증 - 임시 파일 저장 없이 `_resolve_ftype` 합성 케이스 호출.
+- [x] `cd backend && python -m pytest -q` - 138 passed, 7 skipped.
+
+### Notes
+- 현재 커버되는 케이스:
+  - 헤더가 `unknown`이고 본문에 `처방조제`가 있으면 `_resolve_ftype(..., "pharma") == "pharma"`.
+  - 헤더가 약한 detail 휴리스틱(`명칭/코드/일자/수량/금액`)으로 `detail` 추정돼도 본문 `처방조제`가 있으면 `pharma`가 우선됨.
+  - 헤더가 강한 pharma 키워드(`약품명`, `성분명`, `처방/조제`, `조제일자` 등)를 포함하면 본문과 충돌해도 `pharma` 유지.
+- 커버 안 되는 잔존 경로:
+  - 처방 PDF 헤더가 OCR 오류로 강한 detail/basic 키워드(`행위명칭`, `수가코드`, `주상병명` 등)를 포함하면 `_strong_header_ftype`이 `detail`/`basic`을 반환하고, `_resolve_ftype`은 본문 `처방조제`보다 헤더를 우선한다. 인라인 검증 결과 `("행위명칭","수가코드","급여비총액") + page_ftype="pharma" -> detail`, `("주상병명","주상병코드","내원일수") + page_ftype="pharma" -> basic`.
+  - `parse_single_pdf`는 `page_ftype`을 첫 페이지 텍스트에서만 계산한다. 여러 섹션/페이지가 섞인 PDF에서 첫 페이지가 기본/세부이고 뒤 페이지가 처방조제인 경우, 뒤 페이지의 약한/unknown 헤더는 첫 페이지 타입으로 끌릴 수 있다.
+  - 본문 섹션 표제어가 `처방조제`가 아니라 `처방진료정보`, `처방 내역`, `조제 내역` 등으로만 추출되면 `_detect_ftype_by_page_text`가 `pharma`를 반환하지 않는다.
+- 실제 오분류 재현:
+  - 실제 PDF 샘플로 재현은 하지 못함(테스트 리소스에 실제 처방 PDF 없음).
+  - 함수 레벨 합성 입력에서는 잔존 오분류 조건이 재현됨: 강한 detail/basic 헤더 + 본문 pharma 신호일 때 본문이 이기지 못한다.
+- 결론:
+  - (b) 잔존 버그 가능성 있음. PROGRESS 항목을 닫기보다 후속 수정 태스크 권장.
+  - 후속 후보: `SURIT-018-pdf-ftype-page-signal-hardening`.
+  - 수정 범위 제안: `backend/pipeline/pdf_parser.py`, `backend/tests/test_pdf_parser.py` 한정. `page.extract_text()`를 페이지별로 계산해 `page_ftype`을 페이지마다 갱신하고, `page_ftype=="pharma"`일 때 강한 detail/basic 헤더를 무조건 신뢰하지 않을 예외 정책을 테스트와 함께 설계. 단, 실제 detail/basic 표가 처방 섹션 텍스트 주변에 섞인 PDF의 반대 오분류 위험을 함께 검토해야 함.
+
+### Next
+- Human: SURIT-018로 실제 수정 진행 여부 결정. 실제 오분류 PDF가 있으면 해당 파일로 재현 검증 후 수정하는 것을 권장.
+
 ## 2026-05-30 20:35 Codex SURIT-016 [완료]
 ### Changed
 - `backend/requirements.txt` - 직접 의존성 10개가 이미 현재 설치·테스트 통과 버전으로 `==` 고정돼 있음을 확인. 파일 diff 없음.
