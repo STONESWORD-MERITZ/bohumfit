@@ -18,6 +18,104 @@
 
 Use newest entries at the top.
 
+## 2026-06-01 11:11 Codex SURIT-021 [completed / pushed]
+### Changed
+- `backend/main.py` - hardened backend Sentry initialization for PII safety:
+  - `include_local_variables=False`
+  - `send_default_pii=False`
+  - `max_request_body_size="never"`
+  - added defensive `before_send` scrubbing for request body/cookies/env, auth/API-key headers, stack locals, breadcrumbs, contexts, exceptions, and sensitive analysis keys such as `raw_text`, `disease_stats`, `contents`, `active_files`, `pdf_data`, `records`, and `vars`.
+- `.agent-harness/tasks/SURIT-021-sentry-pii-hardening.md` - created and completed task record.
+- `.agent-harness/handoff.md` / `.agent-harness/locks.md` - recorded verification and released lock.
+- Included prior read-only task records `.agent-harness/tasks/SURIT-019-supabase-rls-audit.md` and `.agent-harness/tasks/SURIT-020-data-retention-audit.md` because those completed diagnostic records were still uncommitted.
+
+### Verified
+- [x] Sentry SDK option keys checked locally from `sentry_sdk.consts.DEFAULT_OPTIONS`: default `include_local_variables=True`, default `max_request_body_size=medium`, default `send_default_pii=None`.
+- [x] Fake-DSN import check confirmed configured options: `include_local_variables=False`, `max_request_body_size=never`, `send_default_pii=False`.
+- [x] Local `_sanitize_event` payload check confirmed `raw_text`, PDF-like data, `disease_stats`, `contents`, stack `vars`, request body/cookies/env, and auth/API-key headers are filtered while safe scalar fields remain.
+- [x] `cd backend && python -m pytest -q` - 142 passed, 7 skipped.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` - passed.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` - passed.
+- [x] `npm run build` - passed; existing Vite chunk-size warning only.
+- [x] `git push origin main` - completed.
+
+### Notes
+- Sentry was not disabled; error tracking remains active when `SENTRY_DSN` is configured.
+- Analysis logic and exception handling behavior were not changed.
+- Frontend Sentry remains out of scope for this task. It already has replay disabled and strips request data/cookies, but a follow-up audit can verify auth headers, breadcrumbs, and browser event fields.
+- Generated `backend/__pycache__/main.cpython-312.pyc` was restored and not staged.
+
+### Next
+- Human/Codex: after deployment, trigger a non-sensitive test error and confirm the Sentry event contains no PDF bytes, raw medical text, disease stats, request body, or auth headers.
+- Optional follow-up: `SURIT-022-frontend-sentry-pii-audit` if frontend Sentry payload hardening needs the same launch-grade review.
+
+## 2026-06-01 10:30 Codex SURIT-020 [진단 완료 / 커밋 없음]
+### Changed
+- `.agent-harness/tasks/SURIT-020-data-retention-audit.md` - 데이터 파기·잔류 경로 진단 태스크 기록 생성 및 완료 처리.
+- `.agent-harness/handoff.md` - 업로드 PDF/추출 진료정보의 메모리·디스크·로그·Sentry·Gemini·응답 경로 진단 결과 기록.
+- 런타임 코드 수정 없음. `locks.md`는 read-only 지시대로 확인만 하고 수정하지 않음.
+
+### Verified
+- [x] `locks.md` 확인 - Active `none`.
+- [x] 디스크 쓰기 검색 - `tempfile`, `NamedTemporaryFile`, `open(..., 'w')`, `write_text`, `write_bytes`, `json.dump`, `to_csv` 등 PDF/중간결과 저장 코드 없음. 키워드 JSON read-only `open(..., encoding='utf-8')`만 확인.
+- [x] 메모리 흐름 확인 - `main.py` `_PDFFile` 메모리 보관 -> `analyzer._parse_all_pdfs` -> `pdf_parser.parse_single_pdf` -> `build_disease_stats` -> Gemini payload/응답.
+- [x] 로그 검색 - `logger.info/warning/error/exception`, `print`, `console.error` 확인. 정상 경로에서 상병명·병원명·원문 records 직접 로깅 없음.
+- [x] Sentry 설정 확인 - 백엔드 `before_send` 요청 body/cookie/auth header 제거, 프런트 replay 비활성 및 request data/cookies 제거.
+- [x] 로컬 Sentry SDK 기본값 확인 - `sentry-sdk==2.60.0`, `DEFAULT_OPTIONS['include_local_variables'] == True`.
+- [x] `cd backend && python -m pytest -q` - 142 passed, 7 skipped.
+
+### Notes
+- 데이터 흐름도:
+  - 브라우저: 사용자가 선택한 PDF와 생년월일 비밀번호를 `FormData`로 `/api/analyze`에 전송. 결과는 React state(`setResult`)에만 보관. `localStorage`는 튜토리얼 표시 여부(`bohumfit_tour_seen_v1`)만 저장.
+  - 백엔드 업로드: `main.py`가 `UploadFile.read()`로 bytes를 읽고 `%PDF-` 검증 후 `_PDFFile._data`에 메모리 보관. 요청 처리 중에는 `active_files`에 남고, 응답 후 request frame GC 대상. 명시적 `del active_files`는 없음.
+  - PDF 파싱: `parse_single_pdf`가 `uploaded_file.read()`로 bytes를 받아 `pdfplumber.open(io.BytesIO(data))`; 페이지마다 `flush_cache()`, finally에서 `del pdf_data; gc.collect()`. 단 `_PDFFile._data` 원본 bytes는 요청 종료까지 유지.
+  - records 처리: `all_records` -> `build_disease_stats`; 이후 `del all_records; gc.collect()`. `build_disease_stats` 내부 DataFrame은 `del df; gc.collect()`. `disease_stats`, `raw_entries`, `lines_by_file`는 분석/응답 생성까지 유지.
+  - 응답: `standard_reports`, `easy_reports`, `all_disease_summary`, 카카오 복사문, warnings 등을 인증된 요청자에게 JSON으로 반환. 서버 DB/Storage/디스크 저장 없음.
+- 디스크 잔류 위험: 코드상 PDF/records/분석결과를 임시파일이나 디스크에 쓰는 경로 없음.
+- 로그 잔류 위험: 정상 로그는 `ref_date`, 파일 개수, flagged/total_q 수치, timeout/status 정도. 직접 PII 로그는 없음. 다만 `logger.exception("analyze endpoint failed: %s", e)`는 예외 메시지에 하위 라이브러리/외부 API가 민감 문자열을 포함할 경우 로그/Sentry로 갈 가능성이 있어 방어적 보강 후보.
+- Sentry 잔류 위험: 🟠 **후속 수정 권장**. 백엔드 `before_send`는 request body/cookie/auth header와 일부 context 키를 제거하지만, Sentry Python SDK 2.60.0 기본값 `include_local_variables=True`가 확인됨. 예외 발생 시 stack frame locals에 `active_files`, `_PDFFile._data`, `result`, `disease_stats`, `raw_text`, `contents` 등이 포함될 수 있으므로 Sentry event로 PDF bytes/진료정보가 캡처될 가능성이 있다. `send_default_pii=False`만으로 locals 캡처를 차단한다고 단정할 수 없다.
+- 프런트 Sentry: replay는 `0.0`으로 비활성, `beforeSend`에서 `event.request.data`/cookies 제거. 브라우저 state 자체를 저장하지는 않지만, 예외 breadcrumb/request header 세부 캡처 범위는 Sentry SDK 동작에 의존하므로 운영 DSN 설정 시 확인 권장.
+- Gemini 외부 전송 범위:
+  - `analyze_single_pdf`는 PDF bytes가 아니라 `raw_text` 문자열을 Gemini로 전송한다.
+  - `raw_text`에는 진료일/조제일, ftype, 질병코드, 상병명 또는 약품명/행위명, 병원명 앞 10자, 투약일수, 진료비, 입원 여부, 10년 통원 집계, 수술 추정 근거, 최초·최종 진단일, 약 변경/처방 종료 정보가 포함된다.
+  - `_call_medical_judgment`는 disease_code/name/latest_date, detail_test_events(검사명, 병원명 앞 40자, same-day 행위), 최근 처방/약품명 일부를 보낸다.
+  - `_call_q2_health_findings`는 Q1/Q2 건강체 항목의 disease_code/name, diagnosis_date, hospital을 보낸다.
+  - 코드상 환자 이름/주민번호를 명시적으로 추출해 보내는 로직은 확인되지 않음. 단 업로드 PDF의 표 컬럼에 식별정보가 섞이면 필터링 없이 raw line에 포함될 가능성은 완전히 배제할 수 없다.
+- 개인정보처리방침 위탁 고지 필요 항목: Google Gemini API로 질병코드, 상병명, 병원명, 진료일, 검사/수술/처방/약품명, 진료비 등 민감 건강정보 일부가 전송됨. 현 `PrivacyPolicy.tsx` 제5조의 Google LLC 위탁 고지는 방향상 존재하지만, 병원명/진료일/약품명 등 구체 항목까지 포함할지 검토 권장.
+- CORS·응답: `/api/analyze`는 Supabase JWT `Depends(verify_jwt)`가 필수이고 프런트는 Bearer token을 첨부한다. 운영 CORS는 production에서 localhost 제거. 응답은 별도 저장 없이 인증된 HTTP 요청자에게 반환된다.
+- 결론: DB/디스크 저장 없음, 로그 직접 PII 출력 없음, Gemini 위탁 전송은 의도된 분석 경로. 그러나 Sentry backend locals capture 위험이 있어 **"잔류·유출 위험 없음"으로 닫기에는 부족**. 후속 보안 수정 태스크 필요.
+
+### Next
+- Codex 후보: `SURIT-021-sentry-pii-hardening` - 백엔드 Sentry `include_local_variables=False`, `max_request_body_size="never"` 또는 동등 설정, before_send에서 exception/log/context/breadcrumb 추가 스크러빙, 프런트 beforeSend auth/header 추가 필터 검토.
+- Human: 개인정보처리방침의 Gemini 위탁 항목에 진료일·병원명·질병코드·상병명·약품명 등 전송 범위를 더 구체화할지 결정.
+
+## 2026-06-01 10:04 Codex SURIT-019 [진단 완료 / 커밋 없음]
+### Changed
+- `.agent-harness/tasks/SURIT-019-supabase-rls-audit.md` - Supabase 저장 범위/RLS 진단 태스크 기록 생성 및 완료 처리.
+- `.agent-harness/handoff.md` - Supabase 사용 용도, 건강정보 저장 여부, RLS 정책 코드 존재 여부 진단 결과 기록.
+- 런타임 코드 수정 없음. `locks.md`는 read-only 지시대로 확인만 하고 수정하지 않음.
+
+### Verified
+- [x] `locks.md` 확인 - Active `none`.
+- [x] Supabase client 호출 전수 검색: `supabase.from`, `supabase.storage`, `storage.from`, `supabase.rpc`, `functions.invoke`, `supabase.channel` 직접 호출 없음.
+- [x] 프런트 Auth 사용 확인: `src/lib/supabase.ts`, `src/lib/AuthContext.tsx`, `src/pages/Login.tsx`, `src/pages/Signup.tsx`.
+- [x] 백엔드 Auth 검증 확인: `backend/main.py`가 `SUPABASE_URL/auth/v1/user`에 anon key + Bearer token으로 사용자 토큰 검증.
+- [x] RLS/마이그레이션 파일 확인: `supabase/` 폴더 없음, `.sql` 마이그레이션 없음, `create policy`/`auth.uid()` 정책 정의 없음.
+- [x] `cd backend && python -m pytest -q` - 142 passed, 7 skipped.
+
+### Notes
+- Supabase 사용 용도: **인증만**. 프런트는 `getSession`, `onAuthStateChange`, `signOut`, `signInWithPassword`, OAuth 로그인, `signUp`만 사용한다. 백엔드는 `/auth/v1/user` 토큰 검증만 수행한다.
+- 건강정보 저장 여부: 코드상 DB/Storage 저장 없음. `Disclosure.tsx`는 PDF를 `FormData`로 Railway `/api/analyze`에 전송하고 결과를 React state에만 보관한다. `main.py`는 분석 결과를 응답으로 반환하며 Supabase DB/Storage 쓰기 호출이 없다.
+- 업로드 PDF/진료기록/분석결과/질병정보 위치: Supabase 테이블·버킷 저장 위치 없음. 서버 메모리 처리 후 응답 반환 구조이며, 정책 문서(`PrivacyPolicy.tsx`)도 "업로드 PDF 및 추출 의료정보는 서버나 DB에 저장하지 않음"으로 안내한다.
+- 사용자별 격리 코드: 건강정보가 Supabase에 저장되지 않으므로 `user_id` 컬럼 기반 격리 코드는 없음. `/api/analyze`는 Supabase JWT로 로그인 사용자 여부만 확인하고, 반환 결과를 별도 영속화하지 않는다.
+- RLS 정책 코드: 저장소에는 RLS 정책/마이그레이션 정의가 없다. 현재 코드 구조상 앱이 직접 접근하는 사용자 데이터 테이블이 없으므로 RLS 위험은 낮지만, Supabase 대시보드에 수동 생성 테이블/Storage 버킷이 있는지는 코드만으로 확인 불가.
+- anon key 접근 범위 추정: 프런트 번들에는 anon key가 들어가는 구조가 정상이다. 코드상 anon key로 호출하는 것은 Auth API뿐이며 PostgREST/Storage 접근 코드는 없다. 단, Supabase 프로젝트에 별도 공개 테이블/버킷이 존재하고 RLS가 꺼져 있으면 외부 사용자가 직접 REST/Storage API를 호출할 가능성은 있으므로 대시보드 확인이 필요하다.
+- 결론: **(A) 인증만·건강정보 미저장 → RLS 위험 낮음**. 다만 출시 전 Supabase Dashboard에서 "사용하지 않는 테이블/Storage 버킷 없음 또는 RLS enabled"를 직접 확인하고, 다음 점검은 데이터 파기/로그 보관 범위 확인으로 이동 권장.
+
+### Next
+- Human: Supabase Dashboard에서 Database tables와 Storage buckets가 비어 있거나 RLS enabled인지 최종 육안 확인.
+- Codex 후보: `SURIT-020-data-retention-log-audit` - Railway/Sentry/브라우저 localStorage에 PDF 원문·진료기록·분석결과·인증헤더가 남지 않는지 데이터 파기/로그 보관 범위 진단.
+
 ## 2026-05-31 12:51 Codex SURIT-018 [완료]
 ### Changed
 - `backend/pipeline/pdf_parser.py` - `_resolve_ftype`에 B안 예외 추가: `page_ftype=="pharma"`이고 강한 헤더가 `detail`/`basic`인 경우에만 본문 `pharma` 우선. `_strong_header_ftype` 키워드·우선순위와 `detect_file_type` 휴리스틱은 변경하지 않음.

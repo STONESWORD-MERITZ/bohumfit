@@ -30,21 +30,97 @@ SERVICE_ENV = os.environ.get("SERVICE_ENV", "development")
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
 
+_SENSITIVE_EVENT_EXACT_KEYS = {
+    "_data",
+    "active_files",
+    "all_records",
+    "apikey",
+    "body",
+    "birthdate_pw",
+    "contents",
+    "data",
+    "disease_stats",
+    "file_recs",
+    "files",
+    "gemini_payloads",
+    "lines_by_file",
+    "parsed_data",
+    "parsed_records",
+    "pdf_data",
+    "raw_entries",
+    "raw_response",
+    "raw_text",
+    "records",
+    "result",
+    "summary_reports",
+    "system_prompt",
+    "token",
+    "vars",
+}
+
+_SENSITIVE_EVENT_KEYWORDS = (
+    "authorization",
+    "birthdate",
+    "cookie",
+    "password",
+    "disease",
+    "gemini",
+    "hospital",
+    "medical",
+    "multipart",
+    "patient",
+    "pdf",
+    "prescription",
+    "raw_",
+    "record",
+    "진료",
+    "상병",
+    "병원",
+    "처방",
+)
+
+
+def _is_sensitive_event_key(key) -> bool:
+    key_l = str(key).lower()
+    return key_l in _SENSITIVE_EVENT_EXACT_KEYS or any(token in key_l for token in _SENSITIVE_EVENT_KEYWORDS)
+
+
+def _scrub_sensitive_event_values(value):
+    """Sentry event 내부에 남은 PDF·진료기록·Gemini payload 계열 값을 제거."""
+    if isinstance(value, dict):
+        for key in list(value.keys()):
+            if _is_sensitive_event_key(key):
+                value[key] = "[Filtered]"
+            else:
+                value[key] = _scrub_sensitive_event_values(value[key])
+        return value
+    if isinstance(value, list):
+        return [_scrub_sensitive_event_values(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_scrub_sensitive_event_values(item) for item in value)
+    return value
+
 
 def _sanitize_event(event, hint=None):
     """Sentry 전송 전 PDF 바이너리·진료 데이터·이메일 등 민감정보 제거"""
     try:
         req = event.get("request") or {}
         req.pop("data", None)
+        req.pop("body", None)
         req.pop("cookies", None)
+        req.pop("env", None)
         headers = req.get("headers") or {}
         for k in list(headers.keys()):
-            if k.lower() in ("authorization", "cookie", "x-api-key"):
+            if k.lower() in ("authorization", "cookie", "x-api-key", "apikey"):
                 headers[k] = "[Filtered]"
         for ctx in (event.get("contexts") or {}).values():
             if isinstance(ctx, dict):
                 for big in ("raw_response", "parsed_records", "summary_reports"):
                     ctx.pop(big, None)
+        _scrub_sensitive_event_values(event.get("extra") or {})
+        _scrub_sensitive_event_values(event.get("contexts") or {})
+        _scrub_sensitive_event_values(event.get("breadcrumbs") or {})
+        _scrub_sensitive_event_values(event.get("exception") or {})
     except Exception:
         pass
     return event
@@ -58,6 +134,8 @@ if SENTRY_DSN:
         traces_sample_rate=0.1,
         profiles_sample_rate=0.0,
         send_default_pii=False,
+        include_local_variables=False,
+        max_request_body_size="never",
         integrations=[
             FastApiIntegration(),
             LoggingIntegration(level=logging.INFO, event_level=logging.ERROR),
