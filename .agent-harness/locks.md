@@ -15,6 +15,8 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-06 `SURIT-023` - Codex - Windows authority verification completed and scoped publish prepared; no active locks remained.
+- 2026-06-06 `SURIT-023` - Cowork - 실손 청구 2단계(§4-2 세대별 합산범위 확정 + 급여 surfacing + 실손 탭 UI) 구현 완료. §4-2 로직 독립 검증·Windows 원본 정합 확인. in-sandbox pytest/tsc/build 는 마운트 truncation 으로 차단 → Codex(Windows) 검증·푸시 대기로 잠금 해제. 범위 확장 `backend/analyzer.py`·`backend/main.py`(additive surfacing, 고지 로직 불변) 포함. 무관 변경 `backend/filters.py` 미수정.
 - 2026-06-06 `SURIT-022` - Cowork - 실손 청구 안내 1단계(수치 상수+계산 모듈+데이터 진단) 구현 완료, 검증 통과(pytest 156p/7s, tsc app·node, vite build). Codex 검증·푸시 대기로 잠금 해제. (무관 변경 backend/filters.py 는 미수정)
 - 2026-06-01 `SURIT-021` - Codex - backend Sentry PII hardening completed; locks released.
 - 2026-05-31 `SURIT-018` - Codex - prescription PDF page signal hardening completed; locks released.

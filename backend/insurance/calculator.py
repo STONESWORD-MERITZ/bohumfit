@@ -26,6 +26,7 @@ from .constants import (
     NHIS_PRE_PAYMENT_MAX_CAP_2026,
     NURSING_HOSPITAL_LONG_STAY_DAYS,
     SELF_PAY_ANNUAL_CAP,
+    SELF_PAY_CAP_SCOPE,
 )
 
 DISCLAIMER = (
@@ -257,46 +258,59 @@ def estimate_insurance_claim(
 
 # ── ② 실손 자기부담금 연 상한 초과 (설계 §3-3) ─────────────────────────
 
-def check_self_pay_cap(annual_self_pay: int, generation: Any) -> dict:
-    """연간 실손 자기부담금이 세대별 연 상한을 초과하는지.
+def check_self_pay_cap(
+    covered_self_pay_share: int,
+    generation: Any,
+    *,
+    non_covered_self_pay_share: int = 0,
+) -> dict:
+    """연간 실손 자기부담금이 세대별 연 상한(200만)을 초과하는지 (설계 v3-1 §3-3/§4-2).
 
-    설계 §4-2 상한값 미확보(None) → '판정 불가'로 반환(추측 금지).
+    인자는 '자기부담금'(자기부담분 = 의료비 × 자기부담률) 금액이다.
+    합산 범위가 세대별로 다르다(SELF_PAY_CAP_SCOPE):
+      - 1~3세대: 급여 자기부담 + 비급여 자기부담 합산
+      - 4~5세대: 급여 자기부담만 (비급여는 상한 대상 아님 → non_covered_excluded=True)
+    공제 미적용 → 동일 입력 = 동일 출력. 단정 금지.
     """
     gen = _coerce_generation(generation)
-    base = {
-        "kind": "self_pay_cap",
-        "generation": gen,
-        "disclaimer": DISCLAIMER,
-    }
+    base = {"kind": "self_pay_cap", "generation": gen, "disclaimer": DISCLAIMER}
     if gen is None:
         return {**base, "possibility": "판정 불가",
                 "message": "실손 세대(1~5)를 선택해 주세요.",
                 "limitation": "세대 미선택"}
 
     cap = SELF_PAY_ANNUAL_CAP.get(gen)
-    if cap is None:
-        return {
-            **base,
-            "possibility": "판정 불가",
-            "cap": None,
-            "message": "세대별 실손 자기부담금 연 상한값이 아직 확보되지 않아 초과 여부를 판정할 수 없습니다.",
-            "limitation": "설계문서 §4-2 미확보 — 약관 확인 후 상한값 입력 시 판정 가능",
-        }
+    scope = SELF_PAY_CAP_SCOPE.get(gen, "covered_plus_non_covered")
+    covered = max(0, int(covered_self_pay_share or 0))
+    non_covered = max(0, int(non_covered_self_pay_share or 0))
 
-    annual_self_pay = max(0, int(annual_self_pay or 0))
-    exceeded = annual_self_pay > cap
-    excess = max(0, annual_self_pay - cap)
+    if scope == "covered_only":
+        eligible = covered
+        non_covered_excluded = True
+        scope_note = "4~5세대는 비급여 자기부담이 상한 대상이 아니라 급여 자기부담만 합산합니다."
+    else:
+        eligible = covered + non_covered
+        non_covered_excluded = False
+        scope_note = "1~3세대는 급여+비급여 자기부담을 합산합니다."
+
+    exceeded = eligible > cap
+    excess = max(0, eligible - cap)
     return {
         **base,
         "possibility": "초과분 추가 보장 가능성 있음" if exceeded else "상한 초과 아닐 수 있음",
         "cap": cap,
-        "annual_self_pay": annual_self_pay,
+        "scope": scope,
+        "non_covered_excluded": non_covered_excluded,
+        "covered_self_pay_share": covered,
+        "non_covered_self_pay_share": non_covered,
+        "eligible_self_pay": eligible,
         "excess": excess,
+        "scope_note": scope_note,
         "message": (
-            f"연 자기부담금이 세대 상한({_won_to_man(cap)})을 초과해 초과분 {_won_to_man(excess)} "
-            f"수준의 추가 보장 가능성이 있습니다."
+            f"연 자기부담금 합산({_won_to_man(eligible)})이 세대 상한({_won_to_man(cap)})을 초과해 "
+            f"초과분 {_won_to_man(excess)} 수준의 추가 보장 가능성이 있습니다. {scope_note}"
             if exceeded else
-            f"연 자기부담금이 세대 상한({_won_to_man(cap)}) 이내로 보입니다."
+            f"연 자기부담금 합산({_won_to_man(eligible)})이 세대 상한({_won_to_man(cap)}) 이내로 보입니다. {scope_note}"
         ),
     }
 
@@ -378,7 +392,22 @@ def build_insurance_guidance(
     nursing = detect_nursing_long_stay(records)
     nursing_over = (target_year in nursing["over_120_years"]) if target_year is not None else nursing["any_over_120"]
 
-    annual_self_pay_total = covered_self_pay + max(0, int(non_covered or 0))
+    # 자기부담금 상한 판정용 '자기부담분' = 의료비 × 자기부담률(보수적: 상한 rate).
+    non_covered = max(0, int(non_covered or 0))
+    gen = _coerce_generation(generation)
+    if gen is not None:
+        rates = GENERATION_COPAY_RATES[gen]
+        cov_hi = rates["covered"][1]
+        options = rates.get("non_covered_options")
+        if non_covered_option is not None and options and non_covered_option in options:
+            ncov_hi = options[non_covered_option]
+        else:
+            ncov_hi = rates["non_covered"][1]
+        covered_share = int(round(covered_self_pay * cov_hi))
+        non_covered_share = int(round(non_covered * ncov_hi))
+    else:
+        covered_share = covered_self_pay
+        non_covered_share = non_covered
 
     return {
         "target_year": target_year,
@@ -388,7 +417,9 @@ def build_insurance_guidance(
             covered_self_pay, generation,
             non_covered=non_covered, non_covered_option=non_covered_option,
         ),
-        "self_pay_cap": check_self_pay_cap(annual_self_pay_total, generation),
+        "self_pay_cap": check_self_pay_cap(
+            covered_share, generation, non_covered_self_pay_share=non_covered_share,
+        ),
         "nhis_cap": check_nhis_out_of_pocket_cap(
             covered_self_pay, income_bracket, nursing_long_stay=nursing_over,
         ),

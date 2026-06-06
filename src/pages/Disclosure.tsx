@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import AnalysisProgress from "../components/AnalysisProgress";
 import { useAuth } from "../lib/auth-context";
@@ -79,6 +79,9 @@ type AnalyzeResult = {
   easy_kakao?: string;
   parse_errors: string[];
   warnings: string[];
+  // SURIT-023: 실손 안내용 급여 본인부담(내가 낸 의료비) 연도별 (additive — 백엔드 surfaced).
+  covered_self_pay_by_year?: Record<string, number>;
+  covered_self_pay_captured?: boolean;
 };
 
 type Risk = "red" | "orange" | "gray" | "yellow" | "green";
@@ -545,9 +548,224 @@ function DisclaimerBox() {
   );
 }
 
+// ──────────────────────────────────────────────────────────────
+// SURIT-023: 실손 청구 안내 (설계 v3-1). 백엔드 backend/insurance 모듈을 기준으로 TS 미러.
+//   - 프런트는 insurance 모듈을 직접 호출할 수 없어(HTTP API 부재) 동일 로직을 미러한다.
+//   - source of truth = backend/insurance + 그 단위 테스트. 수치/로직 변경 시 양쪽 동기화.
+//   - 출력은 추정 범위 + 가능성. 단정/보험 모집·추천·권유 표현 금지. 입력값 비저장(useState만).
+// ──────────────────────────────────────────────────────────────
+const INS_GEN_RATES: Record<number, {
+  period: string;
+  covered: [number, number];
+  nonCovered: [number, number];
+  nonCoveredOptions?: Record<number, number>;
+}> = {
+  1: { period: "~2009.9", covered: [0.0, 0.2], nonCovered: [0.0, 0.2] },
+  2: { period: "2009.10~2017.3", covered: [0.1, 0.2], nonCovered: [0.2, 0.2] },
+  3: { period: "2017.4~2021.6", covered: [0.1, 0.2], nonCovered: [0.2, 0.3], nonCoveredOptions: { 20: 0.2, 30: 0.3 } },
+  4: { period: "2021.7~2026.5", covered: [0.2, 0.2], nonCovered: [0.3, 0.3] },
+  5: { period: "2026.5.6~", covered: [0.2, 0.6], nonCovered: [0.5, 0.5] },
+};
+const INS_SELF_PAY_CAP = 2_000_000; // §4-2 전 세대 연 200만
+const INS_CAP_SCOPE: Record<number, "both" | "covered"> = { 1: "both", 2: "both", 3: "both", 4: "covered", 5: "covered" };
+// §4-3 건보 본인부담상한제 2026 (분위 → [일반, 요양병원 120일 초과]) 단위: 원
+const INS_NHIS_CAP_2026: Record<number, [number, number]> = {
+  1: [900000, 1430000], 2: [1120000, 1810000], 3: [1120000, 1810000],
+  4: [1730000, 2450000], 5: [1730000, 2450000], 6: [3260000, 4040000],
+  7: [3260000, 4040000], 8: [4460000, 5800000], 9: [5360000, 6980000],
+  10: [8430000, 10960000],
+};
+const INS_DISCLAIMER = "추정값입니다. 정확한 보험금·환급금 지급 여부와 금액은 보험사 약관·심사 및 국민건강보험공단 확인이 필요합니다. 본 안내는 보험 모집·중개·권유를 목적으로 하지 않습니다.";
+
+function wonToMan(won: number): string {
+  if (!won || won <= 0) return "0원";
+  return `약 ${Math.round(won / 10000).toLocaleString()}만원`;
+}
+
+function insEstimateClaim(coveredSelfPay: number, gen: number, nonCovered: number, ncOption: number | null) {
+  const r = INS_GEN_RATES[gen];
+  const [covLo, covHi] = r.covered;
+  let ncLo = r.nonCovered[0];
+  let ncHi = r.nonCovered[1];
+  if (ncOption != null && r.nonCoveredOptions && r.nonCoveredOptions[ncOption] != null) {
+    ncLo = r.nonCoveredOptions[ncOption];
+    ncHi = r.nonCoveredOptions[ncOption];
+  }
+  const low = Math.round(coveredSelfPay * (1 - covHi)) + Math.round(nonCovered * (1 - ncHi));
+  const high = Math.round(coveredSelfPay * (1 - covLo)) + Math.round(nonCovered * (1 - ncLo));
+  const has = coveredSelfPay + nonCovered > 0;
+  return { low, high, has, possibility: has ? "청구 대상일 수 있음" : "청구 대상 아닐 수 있음" };
+}
+
+function insCheckSelfPayCap(coveredShare: number, gen: number, nonCoveredShare: number) {
+  const scope = INS_CAP_SCOPE[gen];
+  const eligible = scope === "covered" ? coveredShare : coveredShare + nonCoveredShare;
+  return {
+    eligible,
+    cap: INS_SELF_PAY_CAP,
+    exceeded: eligible > INS_SELF_PAY_CAP,
+    excess: Math.max(0, eligible - INS_SELF_PAY_CAP),
+    nonCoveredExcluded: scope === "covered",
+  };
+}
+
+function insCheckNhisCap(annualCovered: number, bracket: number, nursingLongStay: boolean) {
+  const pair = INS_NHIS_CAP_2026[bracket];
+  const cap = nursingLongStay ? pair[1] : pair[0];
+  return { cap, exceeded: annualCovered > cap, refund: Math.max(0, annualCovered - cap) };
+}
+
+function InsResultCard({ n, title, children }: { n: string; title: string; children: ReactNode }) {
+  return (
+    <div className="rounded-[8px] border-l-4 border-indigo-200 bg-white px-4 py-3 text-sm">
+      <h4 className="mb-1 font-bold text-[#4F46E5]">{n} {title}</h4>
+      <div className="space-y-0.5">{children}</div>
+    </div>
+  );
+}
+
+function InsuranceSection({ coveredByYear, captured }: { coveredByYear: Record<string, number>; captured: boolean }) {
+  const years = Object.keys(coveredByYear).sort();
+  const [gen, setGen] = useState<number | "">("");
+  const [ncOption, setNcOption] = useState<number | null>(null);
+  const [nonCovered, setNonCovered] = useState<string>("");
+  const [bracket, setBracket] = useState<number | "">("");
+  const [year, setYear] = useState<string>(years.length ? years[years.length - 1] : "");
+  const [receiptName, setReceiptName] = useState<string>("");
+
+  const coveredSelfPay = year && coveredByYear[year] ? coveredByYear[year] : 0;
+  const ncAmount = Math.max(0, parseInt((nonCovered || "").replace(/[^\d]/g, "") || "0", 10));
+  const genNum = typeof gen === "number" ? gen : 0;
+
+  const claim = genNum ? insEstimateClaim(coveredSelfPay, genNum, ncAmount, ncOption) : null;
+
+  let coveredShare = 0;
+  let ncShare = 0;
+  if (genNum) {
+    const r = INS_GEN_RATES[genNum];
+    const covHi = r.covered[1];
+    let ncHi = r.nonCovered[1];
+    if (ncOption != null && r.nonCoveredOptions && r.nonCoveredOptions[ncOption] != null) ncHi = r.nonCoveredOptions[ncOption];
+    coveredShare = Math.round(coveredSelfPay * covHi);
+    ncShare = Math.round(ncAmount * ncHi);
+  }
+  const selfPayCap = genNum ? insCheckSelfPayCap(coveredShare, genNum, ncShare) : null;
+  const nhisCap = typeof bracket === "number" ? insCheckNhisCap(coveredSelfPay, bracket, false) : null;
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-[8px] bg-indigo-50 p-3 text-xs leading-relaxed text-indigo-900">
+        실손보험 <b>청구 가능성</b>과 상한제 <b>환급 가능성</b>을 추정해 안내합니다. 확정 금액이 아니며,
+        정확한 금액·보장 여부는 보험사·공단 확인이 필요합니다. 본 안내는 보험 모집·상품 추천·가입 권유가 아닙니다.
+      </div>
+
+      <div className="rounded-[8px] border border-gray-100 bg-white p-4">
+        <h3 className="mb-3 text-sm font-bold text-gray-800">실손 정보 입력</h3>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {years.length > 1 && (
+            <label className="text-xs font-semibold text-gray-600">
+              조회 연도
+              <select value={year} onChange={(e) => setYear(e.target.value)}
+                className="mt-1 w-full rounded-[6px] border border-gray-200 p-2 text-sm">
+                {years.map((y) => <option key={y} value={y}>{y}년</option>)}
+              </select>
+            </label>
+          )}
+          <label className="text-xs font-semibold text-gray-600">
+            실손 세대
+            <select value={gen === "" ? "" : String(gen)}
+              onChange={(e) => { const v = e.target.value; setGen(v === "" ? "" : parseInt(v, 10)); setNcOption(null); }}
+              className="mt-1 w-full rounded-[6px] border border-gray-200 p-2 text-sm">
+              <option value="">모름</option>
+              {[1, 2, 3, 4, 5].map((g) => <option key={g} value={g}>{g}세대 ({INS_GEN_RATES[g].period})</option>)}
+            </select>
+          </label>
+          {gen === 3 && (
+            <label className="text-xs font-semibold text-gray-600">
+              3세대 비급여 자기부담
+              <select value={ncOption == null ? "" : String(ncOption)}
+                onChange={(e) => setNcOption(e.target.value === "" ? null : parseInt(e.target.value, 10))}
+                className="mt-1 w-full rounded-[6px] border border-gray-200 p-2 text-sm">
+                <option value="">선택</option>
+                <option value="20">20%</option>
+                <option value="30">30%</option>
+              </select>
+            </label>
+          )}
+          <label className="text-xs font-semibold text-gray-600">
+            소득분위 (건보 상한제)
+            <select value={bracket === "" ? "" : String(bracket)}
+              onChange={(e) => { const v = e.target.value; setBracket(v === "" ? "" : parseInt(v, 10)); }}
+              className="mt-1 w-full rounded-[6px] border border-gray-200 p-2 text-sm">
+              <option value="">모름</option>
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((b) => <option key={b} value={b}>{b}분위</option>)}
+            </select>
+          </label>
+          <label className="text-xs font-semibold text-gray-600">
+            비급여 금액 직접 입력 (선택)
+            <input inputMode="numeric" value={nonCovered}
+              onChange={(e) => setNonCovered(e.target.value)} placeholder="예: 500000"
+              className="mt-1 w-full rounded-[6px] border border-gray-200 p-2 text-sm" />
+          </label>
+          <label className="text-xs font-semibold text-gray-600">
+            비급여 영수증 첨부 (선택)
+            <input type="file" accept="image/*,application/pdf"
+              onChange={(e) => setReceiptName(e.target.files && e.target.files[0] ? e.target.files[0].name : "")}
+              className="mt-1 w-full text-xs text-gray-500" />
+            {receiptName && (
+              <span className="mt-1 block text-[11px] text-gray-400">첨부: {receiptName} — 영수증 금액 자동 인식은 후속 단계입니다. 금액을 직접 입력해 주세요.</span>
+            )}
+          </label>
+        </div>
+        <p className="mt-3 text-[11px] text-gray-400">입력값(세대·분위·비급여)은 저장하지 않으며 이 화면에서만 사용됩니다.</p>
+      </div>
+
+      {!captured && (
+        <div className="rounded-[8px] bg-amber-50 p-3 text-xs text-amber-700">
+          PDF 기본진료정보에서 급여 본인부담(내가 낸 의료비)을 찾지 못해 급여 청구 추정이 0으로 표시됩니다. 비급여 금액은 직접 입력해 확인할 수 있습니다.
+        </div>
+      )}
+
+      <InsResultCard n="①" title="실손 청구 가능성">
+        {claim ? (
+          <>
+            <p className="font-semibold text-gray-800">{claim.possibility}</p>
+            {claim.has && (
+              <p className="text-gray-600">청구 추정 {claim.low === claim.high ? wonToMan(claim.low) : `${wonToMan(claim.low)}~${wonToMan(claim.high)}`} 수준일 수 있습니다.</p>
+            )}
+            <p className="text-[11px] text-gray-400">급여 본인부담 {wonToMan(coveredSelfPay)}{ncAmount > 0 ? ` · 비급여 ${wonToMan(ncAmount)}` : ""} 기준 추정. 세대별 자기부담률은 약관 검증 전 초안값입니다.</p>
+          </>
+        ) : <p className="text-gray-500">실손 세대를 선택하면 청구 추정 범위를 안내합니다.</p>}
+      </InsResultCard>
+
+      <InsResultCard n="②" title="실손 자기부담금 상한제">
+        {selfPayCap ? (
+          <>
+            <p className="font-semibold text-gray-800">{selfPayCap.exceeded ? "초과분 추가 보장 가능성 있음" : "상한 초과 아닐 수 있음"}</p>
+            <p className="text-gray-600">연 자기부담금 합산 {wonToMan(selfPayCap.eligible)} / 세대 상한 {wonToMan(selfPayCap.cap)}{selfPayCap.exceeded ? ` · 초과 ${wonToMan(selfPayCap.excess)} 수준` : ""}.</p>
+            {selfPayCap.nonCoveredExcluded && <p className="text-[11px] text-gray-400">4~5세대는 비급여 자기부담이 상한 대상이 아니라 급여 자기부담만 합산합니다.</p>}
+          </>
+        ) : <p className="text-gray-500">실손 세대를 선택해 주세요.</p>}
+      </InsResultCard>
+
+      <InsResultCard n="③" title="건강보험 본인부담상한제 (2026 기준)">
+        {nhisCap ? (
+          <>
+            <p className="font-semibold text-gray-800">{nhisCap.exceeded ? "공단 환급 가능성 있음" : "환급 대상 아닐 수 있음"}</p>
+            <p className="text-gray-600">연 급여 본인부담 {wonToMan(coveredSelfPay)} / {bracket}분위 상한 {wonToMan(nhisCap.cap)}{nhisCap.exceeded ? ` · 환급 ${wonToMan(nhisCap.refund)} 수준` : ""}.</p>
+            <p className="text-[11px] text-gray-400">급여 본인부담만 대상(비급여 제외). 요양병원 120일 초과 시 상한이 달라질 수 있습니다.</p>
+          </>
+        ) : <p className="text-gray-500">소득분위를 선택하면 환급 가능성을 안내합니다.</p>}
+      </InsResultCard>
+
+      <p className="text-[11px] leading-relaxed text-gray-400">{INS_DISCLAIMER}</p>
+    </div>
+  );
+}
+
 function ResultView({ result, mode }: { result: AnalyzeResult; mode: AudienceMode }) {
   // SURIT-009: 건강체/간편 탭 + Q1~Q4 신구조 섹션 복구.
-  const [productTab, setProductTab] = useState<"standard" | "easy">("standard");
+  const [productTab, setProductTab] = useState<"standard" | "easy" | "insurance">("standard");
   const easyReports = result.easy_reports || {};
   const stdCount = Object.values(result.standard_reports).reduce((s, arr) => s + arr.length, 0);
   const easyCount = Object.values(easyReports).reduce((s, arr) => s + arr.length, 0);
@@ -584,9 +802,9 @@ function ResultView({ result, mode }: { result: AnalyzeResult; mode: AudienceMod
 
       <section className="mb-5 overflow-hidden rounded-[8px] bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
         <div role="tablist" aria-label="심사 유형" className="flex border-b border-gray-100">
-          {(["standard", "easy"] as const).map((tab) => {
-            const label = tab === "standard" ? "건강체/표준체" : "간편심사";
-            const count = tab === "standard" ? stdCount : easyCount;
+          {(["standard", "easy", "insurance"] as const).map((tab) => {
+            const label = tab === "standard" ? "건강체/표준체" : tab === "easy" ? "간편심사" : "실손 청구";
+            const count = tab === "standard" ? stdCount : tab === "easy" ? easyCount : 0;
             const active = productTab === tab;
             return (
               <button
@@ -614,13 +832,20 @@ function ResultView({ result, mode }: { result: AnalyzeResult; mode: AudienceMod
         </div>
 
         <div role="tabpanel" className="p-4">
-          <DisclosureSection
-            reports={activeReports}
-            memo={activeMemo}
-            label={`${activeLabel} ${copy.emptyTitle}`}
-            mode={mode}
-            isEasy={productTab === "easy"}
-          />
+          {productTab === "insurance" ? (
+            <InsuranceSection
+              coveredByYear={result.covered_self_pay_by_year || {}}
+              captured={result.covered_self_pay_captured ?? false}
+            />
+          ) : (
+            <DisclosureSection
+              reports={activeReports}
+              memo={activeMemo}
+              label={`${activeLabel} ${copy.emptyTitle}`}
+              mode={mode}
+              isEasy={productTab === "easy"}
+            />
+          )}
         </div>
       </section>
 

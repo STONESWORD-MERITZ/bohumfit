@@ -488,6 +488,9 @@ async def analyze(
         "kakao_message":        std_kakao,   # 하위 호환
         "parse_errors":         result["parse_errors"],
         "warnings":             result["retry_warnings"],
+        # SURIT-023: 실손 안내용 급여 본인부담 연도별 (additive — 고지 응답 불변).
+        "covered_self_pay_by_year": result.get("covered_self_pay_by_year", {}),
+        "covered_self_pay_captured": result.get("covered_self_pay_captured", False),
         "verdict":              ai_res.get("health_verdict") or ai_res.get("simple_verdict", ""),
         "verdict_reason":       ai_res.get("health_reason") or ai_res.get("simple_reason", ""),
         "recommend":            ai_res.get("recommend", ""),

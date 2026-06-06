@@ -14,6 +14,8 @@ from insurance.constants import (  # noqa: E402
     NHIS_OUT_OF_POCKET_CAP_2026,
     NHIS_CAP_BASE_YEAR,
     SELF_PAY_ANNUAL_CAP,
+    SELF_PAY_ANNUAL_CAP_WON,
+    SELF_PAY_CAP_SCOPE,
 )
 from insurance.calculator import (  # noqa: E402
     aggregate_covered_self_pay_by_year,
@@ -102,13 +104,48 @@ def test_nhis_cap_unknown_bracket_indeterminate():
     assert r["cap"] is None
 
 
-# ── 실손 자기부담금 연 상한 (미확보 → 판정 불가) ──────────
-def test_self_pay_cap_indeterminate_when_value_missing():
-    assert SELF_PAY_ANNUAL_CAP[4] is None
-    r = check_self_pay_cap(5_000_000, 4)
+# ── 실손 자기부담금 연 상한 (§4-2 v3-1 확정 — 세대별 합산범위) ──
+def test_self_pay_cap_all_generations_200():
+    assert SELF_PAY_ANNUAL_CAP_WON == 2_000_000
+    assert all(SELF_PAY_ANNUAL_CAP[g] == 2_000_000 for g in range(1, 6))
+
+
+def test_self_pay_cap_scope_constant():
+    assert SELF_PAY_CAP_SCOPE[1] == "covered_plus_non_covered"
+    assert SELF_PAY_CAP_SCOPE[3] == "covered_plus_non_covered"
+    assert SELF_PAY_CAP_SCOPE[4] == "covered_only"
+    assert SELF_PAY_CAP_SCOPE[5] == "covered_only"
+
+
+def test_self_pay_cap_gen1_3_sums_covered_and_non_covered():
+    """1~3세대: 급여+비급여 자기부담 합산, 200만 경계."""
+    # 140만 + 60만 = 200만 == 상한 → 초과 아님(> 기준)
+    r_eq = check_self_pay_cap(1_400_000, 2, non_covered_self_pay_share=600_000)
+    assert r_eq["eligible_self_pay"] == 2_000_000
+    assert r_eq["possibility"] == "상한 초과 아닐 수 있음"
+    assert r_eq["non_covered_excluded"] is False
+    # 140만 + 60만 + 1 → 초과
+    r_over = check_self_pay_cap(1_400_001, 3, non_covered_self_pay_share=600_000)
+    assert r_over["possibility"] == "초과분 추가 보장 가능성 있음"
+    assert r_over["excess"] == 1
+
+
+def test_self_pay_cap_gen4_5_covered_only_excludes_non_covered():
+    """4~5세대: 급여 자기부담만. 비급여는 상한에서 제외(비급여 제외 증명)."""
+    # 급여 190만 + 비급여 500만 → 급여만 190만 < 200만 → 초과 아님
+    r = check_self_pay_cap(1_900_000, 4, non_covered_self_pay_share=5_000_000)
+    assert r["non_covered_excluded"] is True
+    assert r["eligible_self_pay"] == 1_900_000
+    assert r["possibility"] == "상한 초과 아닐 수 있음"
+    # 급여 200만 + 1 → 초과 (5세대도 동일 scope)
+    r2 = check_self_pay_cap(2_000_001, 5, non_covered_self_pay_share=0)
+    assert r2["possibility"] == "초과분 추가 보장 가능성 있음"
+    assert r2["non_covered_excluded"] is True
+
+
+def test_self_pay_cap_unknown_generation_indeterminate():
+    r = check_self_pay_cap(3_000_000, None)
     assert r["possibility"] == "판정 불가"
-    assert r["cap"] is None
-    assert "미확보" in r["limitation"]
 
 
 # ── 연도별 급여 본인부담 집계 ─────────────────────────────
@@ -163,4 +200,6 @@ def test_build_guidance_picks_latest_year_and_sections():
     assert g["target_year"] == 2025
     assert g["claim"]["kind"] == "insurance_claim"
     assert g["nhis_cap"]["kind"] == "nhis_out_of_pocket_cap"
-    assert g["self_pay_cap"]["possibility"] == "판정 불가"  # §4-2 미확보
+    # gen4 급여 30만 × 0.2 = 6만 자기부담 < 200만 → 초과 아님, 비급여 제외
+    assert g["self_pay_cap"]["possibility"] == "상한 초과 아닐 수 있음"
+    assert g["self_pay_cap"]["non_covered_excluded"] is True

@@ -18,6 +18,86 @@
 
 Use newest entries at the top.
 
+## 2026-06-06 23:57 Codex SURIT-023 [Windows verified / ready to push]
+### Changed
+- Verified Cowork SURIT-023 phase 2 on Windows authority environment.
+- Commit scope is limited to SURIT-023 files:
+  - `.agent-harness/docs/BOHUMFIT_실비기능_설계_v3.md`
+  - `.agent-harness/tasks/SURIT-023-insurance-ui.md`
+  - `.agent-harness/handoff.md`
+  - `.agent-harness/locks.md`
+  - `backend/analyzer.py`
+  - `backend/main.py`
+  - `backend/insurance/constants.py`
+  - `backend/insurance/calculator.py`
+  - `backend/tests/test_insurance_calc.py`
+  - `src/pages/Disclosure.tsx`
+- `backend/filters.py` was explicitly checked before commit:
+  - `git diff -- backend/filters.py` produced no output.
+  - `git status --short -uall -- backend/filters.py` produced no output.
+  - Conclusion: prior `filters.py (M)` note is stale in the current Windows working tree. `filters.py` is not included.
+
+### Verified
+- [x] `python -m pytest -q` from `backend` - 160 passed, 7 skipped.
+- [x] `python -m pytest tests/test_insurance_calc.py -q` from `backend` - 18 passed.
+- [x] `ast.parse(..., encoding="utf-8")` OK for `backend/insurance/constants.py`, `backend/insurance/calculator.py`, `backend/analyzer.py`, `backend/main.py`.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` - passed.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` - passed.
+- [x] `npm run build` - passed; existing Vite 500KB chunk-size warning only.
+- [x] TS mirror vs Python backend consistency - passed. `Disclosure.tsx` insurance mirror block was extracted, transpiled with TypeScript, and compared against `backend/insurance` over 504 input combinations across generations 1~5, covered/non-covered amounts, gen-3 options, income brackets 1/5/10, and nursing-long-stay true/false. Compared claim estimate, self-pay cap, and NHIS cap numeric/boolean outputs.
+- [x] O Seongsim PDF parser-level check - 3 PDFs parsed with password `19680220`: 1508 records, 0 parse errors. `aggregate_covered_self_pay_by_year` returned `captured=True` and `{2021: 362100, 2022: 640800, 2023: 458470, 2024: 441000, 2025: 855100}`.
+- [x] Wording grep checked. No "OO원 받으세요" style definitive phrase found. Insurance tab uses 추정/가능성/확인 필요 tone.
+- [x] Generated `backend/__pycache__/main.cpython-312.pyc` was restored and not staged.
+
+### Notes
+- Full browser end-to-end analysis with O Seongsim PDFs was not run because local `GEMINI_API_KEY` is not set. Parser-level PDF and covered self-pay surfacing were verified instead.
+- SURIT-023 remains additive for disclosure results: `covered_self_pay_by_year` / `covered_self_pay_captured` are added to the API response, while standard/easy disclosure logic is intended to remain unchanged.
+- `COPAY_RATE_DRAFT=True` remains in `backend/insurance/constants.py`. Generation copay rates are still draft values and need final terms/statutory confirmation before launch-grade wording.
+- TS mirror duplication is verified for this commit, but it remains a maintenance risk.
+
+### Next
+- Human: visually confirm the insurance tab after deployment, including 1~3 generation vs 4~5 generation self-pay cap scope, 4~5 generation non-covered exclusion notice, and existing disclosure tab stability.
+- Human: finalize §4-1 generation copay-rate assumptions before production-facing use.
+- Follow-up candidate: replace TS mirror duplication with an insurance calculation API endpoint so the frontend uses backend source of truth directly.
+
+## 2026-06-06 Cowork SURIT-023 [2단계 구현 완료 / in-sandbox 검증 차단 — Codex 검증·푸시]
+### Changed
+- `.agent-harness/docs/BOHUMFIT_실비기능_설계_v3.md` — v3-1 갱신: §4-2 실손 자기부담금 연 상한 확정(전 세대 200만 + 세대별 합산범위), §3-3 합산범위 판정, 급여 데이터 경로(PDF 기본진료 진료비 전부 급여로 surfacing) + 비급여 영수증 첨부.
+- `backend/insurance/constants.py` — §4-2 확정: `SELF_PAY_ANNUAL_CAP`(전 세대 200만) + `SELF_PAY_ANNUAL_CAP_WON` + `SELF_PAY_CAP_SCOPE`(1~3=급여+비급여 합산 / 4~5=급여만).
+- `backend/insurance/calculator.py` — `check_self_pay_cap` 재작성: 세대별 합산범위로 200만 초과 판정, 4~5세대 `non_covered_excluded=True` + 안내. `build_insurance_guidance` 가 자기부담금 share(자기부담률 상한 기준) 로 호출하도록 갱신.
+- `backend/tests/test_insurance_calc.py` — §4-2 회귀 보강(1~3세대 급여+비급여 경계, 4~5세대 급여만+비급여 제외, 200만 경계, scope 상수). 1단계의 '미확보 None' 테스트는 확정값 테스트로 교체.
+- `backend/analyzer.py` — **(범위 확장)** `run_analysis` 가 `all_records` 삭제 전 `aggregate_covered_self_pay_by_year(all_records)` 호출(try/except 가드) → 결과 dict 에 `covered_self_pay_by_year`/`covered_self_pay_captured` 추가(additive). `from insurance.calculator import ...` 1줄 추가. **고지(알릴의무) 판정·표시 로직 불변**.
+- `backend/main.py` — **(범위 확장)** 분석 응답에 `covered_self_pay_by_year`/`covered_self_pay_captured` 전달(additive).
+- `src/pages/Disclosure.tsx` — `ResultView` 에 세 번째 탭 "실손 청구" 추가. `InsuranceSection`(입력폼: 세대 1~5/모름, 3세대 20·30 옵션, 비급여 금액 직접입력 + 영수증 첨부, 소득분위 1~10/모름; 결과 ①②③) + TS 계산 미러(backend/insurance 기준). `AnalyzeResult` 에 covered 필드 추가. 입력값 비저장(useState만, localStorage 미사용). 기존 standard/easy 렌더링 불변.
+- `.agent-harness/tasks/SURIT-023-insurance-ui.md` (신규), `.agent-harness/locks.md`.
+
+### A. 계산 보정 (§4-2 확정)
+- 전 세대 연 상한 200만. 1~3세대=급여+비급여 자기부담 합산 / 4~5세대=급여 자기부담만(비급여 제외). `check_self_pay_cap` 가 세대별 scope 로 판정.
+
+### Verified
+- [x] §4-2 합산범위 로직 독립 검증 통과(`/tmp/verify_selfpay.py`): 1~3세대 200만 경계(140만+60만=200만→초과아님, +1→초과), 4~5세대 급여만(급여190만+비급여500만→190만<200만, 비급여 제외 증명), 급여 200만+1→초과.
+- [x] Windows 원본 무결성 확인(Read/Grep): Disclosure.tsx `InsuranceSection`(627)·탭 연결(835)·`export default`(1053) 완결. analyzer.py import(60)·집계(723)·return(908-909), main.py 응답(492-493) 모두 정합. calculator.py(428줄)·constants.py(133줄) 완결.
+- [ ] `cd backend && python -m pytest -q` — **미실행(차단)**. 사유 Notes.
+- [ ] `npx tsc -p tsconfig.app.json --noEmit` / `tsconfig.node.json` / `npm run build` — **미실행(차단)**.
+
+### Notes
+- **⚠️ in-sandbox 검증 차단 (마운트 동기화 truncation 재발)**: 이번 턴에 편집한 파일들의 sandbox 마운트 뷰가 잘림(constants.py 102줄/실제 133, calculator.py 392줄/실제 428, Disclosure.tsx 1006줄/실제 1290+). `python ast.parse`·`pytest`·`npx tsc` 가 마운트의 잘린 뷰를 읽어 실패(tsc 에러 `Disclosure.tsx(1007) Unterminated string literal` 는 잘림 아티팩트, 실제 코드 오류 아님). 전체 Write·touch·대기(12s) 모두 마운트 미동기화. **Windows 원본은 Read/Grep 으로 완결·정합 확인됨**. 과거 SURIT-BUG-012/helpers.py 와 동일 사고. AGENTS.md 41조에 따라 사유 기록 후 Codex(Windows) 권위 검증 인계.
+- **범위 확장(사용자 지시)**: 사용자가 "PDF 기본진료정보 진료비를 전부 급여로 셋팅, 비급여는 입력/영수증" 을 명시 지시 → 급여 surfacing 위해 `backend/analyzer.py`·`backend/main.py` 를 잠금에 추가. 변경은 **additive(신규 응답 키)**, 고지 판정·필터·Q1~Q4·standard/easy 표시 로직은 일절 불변. Codex 는 ① 기존 알릴의무 테스트 회귀 없음 ② analyzer 의 insurance import 정상(순환 import 없음 — calculator 는 .constants·stdlib 만 의존) 을 확인.
+- **TS 미러**: 프런트는 insurance 모듈을 직접 호출 불가(HTTP API 부재, main.py 엔드포인트 미추가)라 동일 수치·로직을 Disclosure.tsx 에 미러. source of truth=backend/insurance + 테스트. 수치 변경 시 양쪽 동기화 필요(후속: 인슈어런스 API 엔드포인트로 중복 제거 검토).
+- **영수증 첨부**: 이번 단계는 첨부 affordance(파일 선택 + 파일명 표시)만, 금액 자동 인식(OCR)은 후속. 비급여 금액은 직접 입력이 계산 입력. 첨부 파일은 업로드·저장 안 함(클라이언트 state).
+- **§4-1 자기부담률**: 여전히 약관 검증 전 초안(`COPAY_RATE_DRAFT=True`). 결과 caveat 에 '초안값' 표기. 5세대 외래 건보연동(최대 60%)은 범위로 반영.
+- **개인정보 비저장**: 세대·분위·비급여 입력 모두 useState(세션 내). localStorage 미사용(기존 투어 localStorage 는 본 기능과 무관).
+
+### Next
+- Codex: SURIT-023 검증 + 푸시 —
+  ① `python -c "import ast; ast.parse(open('backend/insurance/constants.py', encoding='utf-8').read()); print('OK')"` (+calculator/analyzer/main).
+  ② `cd backend && python -m pytest -q` — 기존 156 passed + §4-2 보강(질·통과) 확인. **특히 analyzer import 후 알릴의무 테스트 회귀 없음** 확인.
+  ③ `npx tsc -p tsconfig.app.json --noEmit` / `tsconfig.node.json` / `npm run build`.
+  ④ `git status --short -uall` 로 SURIT-023 범위(`backend/insurance/constants.py`,`backend/insurance/calculator.py`,`backend/tests/test_insurance_calc.py`,`backend/analyzer.py`,`backend/main.py`,`src/pages/Disclosure.tsx`,`.agent-harness/docs/BOHUMFIT_실비기능_설계_v3.md`,`.agent-harness/tasks/SURIT-023-insurance-ui.md`,`.agent-harness/handoff.md`,`.agent-harness/locks.md`)만 스테이징. **주의: 직전부터 있던 무관 변경 `backend/filters.py`(M) 는 제외**.
+  ⑤ 한국어 커밋(`SURIT-023: 실손 청구 2단계 — 자기부담금 상한 세대별 합산범위 + 급여 surfacing + 실손 탭 UI`)으로 `git push origin main`.
+  ⑥ 배포 후 오성심 PDF 로 실손 탭: 세대 선택 → ①②③ 표시, 급여 자동(내가 낸 의료비), 4~5세대 비급여 제외 문구 확인.
+- 후속(Human/Cowork): §4-1 자기부담률 약관 검증, 영수증 OCR, 인슈어런스 API 로 TS 미러 중복 제거.
+
 ## 2026-06-06 17:43 Codex SURIT-022 [verified / ready to push]
 ### Changed
 - Verified Cowork SURIT-022 phase 1 backend-only insurance guidance module.

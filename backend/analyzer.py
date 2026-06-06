@@ -56,6 +56,8 @@ from pipeline.ai_judgment import (
     _merge_ai_results,
     analyze_single_pdf,
 )
+# SURIT-023: 실손 안내용 급여 본인부담 집계 (additive — 알릴의무 로직과 독립 모듈)
+from insurance.calculator import aggregate_covered_self_pay_by_year
 from pipeline.result_builder import (
     _build_reports_for_product,
     _build_all_disease_summary,
@@ -715,6 +717,12 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
     # ── disease_stats + raw_entries 빌드 ─────────────────────────
     disease_stats, cross_surgery_hints, date_warnings, raw_entries, lines_by_file = \
         build_disease_stats(all_records, today)
+    # SURIT-023: 실손 안내용 급여 본인부담(PDF '내가 낸 의료비') 연도별 집계.
+    # all_records 삭제 전에 수행한다. 고지(알릴의무) 판정 로직은 변경하지 않는다(additive).
+    try:
+        _covered_self_pay = aggregate_covered_self_pay_by_year(all_records)
+    except Exception:
+        _covered_self_pay = {"by_year": {}, "total": 0, "captured": False, "limitation": ""}
     del all_records
     gc.collect()
 
@@ -896,6 +904,9 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
         "q3_easy":                 _q3_easy_items,
         "q4_health":               _q4_health_items,
         "all_disease_summary":     all_disease_summary,
+        # SURIT-023: 실손 안내용 급여 본인부담 연도별 (additive — 고지 결과 불변).
+        "covered_self_pay_by_year": _covered_self_pay["by_year"],
+        "covered_self_pay_captured": _covered_self_pay["captured"],
         "flagged_codes":           flagged_codes,
         "prescription_end_details": prescription_end_details,
         "drug_change_summary":     drug_change_summary,
