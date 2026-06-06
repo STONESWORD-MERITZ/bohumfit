@@ -18,6 +18,77 @@
 
 Use newest entries at the top.
 
+## 2026-06-06 17:43 Codex SURIT-022 [verified / ready to push]
+### Changed
+- Verified Cowork SURIT-022 phase 1 backend-only insurance guidance module.
+- Staged scope is limited to:
+  - `.agent-harness/docs/BOHUMFIT_실비기능_설계_v3.md`
+  - `.agent-harness/tasks/SURIT-022-insurance-calc-module.md`
+  - `.agent-harness/handoff.md`
+  - `.agent-harness/locks.md`
+  - `backend/insurance/__init__.py`
+  - `backend/insurance/constants.py`
+  - `backend/insurance/calculator.py`
+  - `backend/tests/test_insurance_calc.py`
+- `backend/filters.py` was explicitly checked before commit:
+  - `git diff -- backend/filters.py` produced no output.
+  - `git status --short -uall -- backend/filters.py` produced no output.
+  - Conclusion: the prior handoff note about unrelated `filters.py` changes is stale/not present in the current working tree. No `filters.py` action needed and it is not included in this commit.
+
+### Verified
+- [x] `cd backend && python -m pytest -q` - 156 passed, 7 skipped.
+- [x] `cd backend && python -m pytest tests/test_insurance_calc.py -q` - 14 passed.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` - passed.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` - passed.
+- [x] `npm run build` - passed; existing Vite 500KB chunk-size warning only.
+- [x] Generated `backend/__pycache__/main.cpython-312.pyc` was restored and not staged.
+
+### Notes
+- `.git/index.lock` was present after a generated-file restore attempt. Active `git.exe` processes were checked and were only `git fsmonitor--daemon`; the stale lock was removed before continuing.
+- No runtime/UI integration was performed. This remains phase 1: constants, pure calculator module, tests, and design notes only.
+
+### Next
+- Cowork/Codex: SURIT-022 phase 2 UI integration for insurance guidance input/display.
+- Human/Cowork: confirm unresolved statutory/self-pay assumptions in the design notes before production-facing wording is finalized.
+
+## 2026-06-06 Cowork SURIT-022 [1단계 구현 완료 / 검증 통과 — Codex 푸시 대기]
+### Changed
+- `.agent-harness/docs/BOHUMFIT_실비기능_설계_v3.md` (신규) — 사용자 제공 설계 문서 v3 전문 저장. 이후 모든 수치·로직의 기준.
+- `backend/insurance/__init__.py` (신규) — 실손 계산 패키지 (알릴의무와 독립).
+- `backend/insurance/constants.py` (신규, B) — 설계 §4 수치 상수. ①세대별 자기부담률(§4-1, 범위/옵션) ②실손 자기부담금 연 상한(§4-2, 전 세대 None 자리) ③건보 본인부담상한제 2026(§4-3, 분위별 일반/요양병원120일초과, 사전급여 843만). 각 상수에 기준연도·출처 주석 + 검증상태(✅/⚠️) 표기.
+- `backend/insurance/calculator.py` (신규, C) — 설계 §3 순수 함수. `aggregate_covered_self_pay_by_year`(PDF '내가 낸 의료비' 연도별 재집계), `detect_nursing_long_stay`(요양병원 휴리스틱), `estimate_insurance_claim`(①청구 추정 범위), `check_self_pay_cap`(②실손 자기부담금 상한), `check_nhis_out_of_pocket_cap`(③건보 상한제, 급여만), `build_insurance_guidance`(통합). 출력은 추정 범위+가능성, 단정 금지.
+- `backend/tests/test_insurance_calc.py` (신규) — 단위 테스트 14건.
+- `.agent-harness/tasks/SURIT-022-insurance-calc-module.md` (신규) — 태스크 파일 + A 진단 결과.
+- `.agent-harness/locks.md` / `.agent-harness/handoff.md` — 잠금/핸드오프 기록.
+
+### A. 데이터 진단 결과 (가능/불가/부분)
+- **급여/비급여 구분 = 부분 (현 불가에 가까움)** ★핵심. `pdf_parser.parse_single_pdf` 는 표 헤더→값을 일반 캡처해 원시 레코드에 "내가 낸 의료비"가 (있으면) 담기나, `disease_aggregator.py:265` 는 `총진료비/본인부담총액/급여비용총액`만 집계하고 "내가 낸 의료비" 미집계. 심평원 급여내역 특성상 급여 본인부담 가능성 높으나 비급여 혼재 단정 불가 → 설계 v3 확정대로 PDF 금액=전부 급여 간주, 비급여=사용자 입력으로 분리 처리.
+- **요양병원 입원일수 = 부분**. 입원일수는 `_inpatient_days_map` 로 질병별 집계되나 요양병원 구분 플래그 없음(요양기관명만). 계산 모듈에서 '요양병원' 명칭 휴리스틱 + 연간 합산 신규 구현(`detect_nursing_long_stay`).
+- **연도별 합산 = 데이터 가능 / 로직 미구현**. 전 레코드 `진료개시일`(YYYY-MM-DD) 보유로 연도 추출 가능. 비용 연도별 합산은 `aggregate_covered_self_pay_by_year` 로 신규 구현.
+
+### Verified
+- [x] `cd backend && python -m pytest -q` — **156 passed, 7 skipped** (SURIT-021 기준선 142 passed + 신규 14, 회귀 없음). ※ sandbox 기본 환경에 pytest·requirements 미설치 → `pip install -r requirements.txt --break-system-packages` + pytest 설치 후 실행.
+- [x] `tests/test_insurance_calc.py` 단독 — 14 passed (세대별 자기부담률·건보 분위 경계·결정론·비급여 분기·연도별 집계·미확보 상한 판정불가·요양병원 휴리스틱).
+- [x] `npx tsc -p tsconfig.app.json --noEmit` — 통과. `npx tsc -p tsconfig.node.json --noEmit` — 통과.
+- [x] `npx vite build --outDir /tmp/surit-build-022 --emptyOutDir` — 통과(1.50s, chunk size 경고만). 기본 `npm run build` 는 마운트 dist/ unlink 권한(Operation not permitted)으로 실패 — 코드 문제 아님(이전 핸드오프 반복 이슈). Windows 에서는 정상 예상.
+- [x] 신규 3개 py 파일 `ast.parse(open(..., encoding='utf-8'))` OK. 함수 중복 삽입 없음 확인.
+
+### Notes
+- **미확보 수치(설계 §4-2)**: 실손 자기부담금 연 상한은 설계 문서가 '확정 필요'로 표기 → `SELF_PAY_ANNUAL_CAP` 전 세대 `None` 자리만. `check_self_pay_cap` 은 None 일 때 '판정 불가' 반환(추측 금지). 약관 확인 후 값 입력 시 자동 동작.
+- **세대별 자기부담률(§4-1) = 약관 검증 전 초안**: 설계 문서가 '검색 초안 — 약관 검증 필요'로 명시 → `COPAY_RATE_DRAFT=True`, 계산 결과 caveats 에 '초안값' 경고 포함. 1·3세대 편차/옵션은 범위·옵션으로 표현. 5세대 급여 외래 건보연동(최대 60%)은 범위로 반영.
+- **건보 상한제(§4-3)만 공식 확정값** — 대상은 급여 본인부담금만(비급여 입력분 제외). 매년 변경이라 `NHIS_CAP_BASE_YEAR=2026` 와 표 분리.
+- **범위 밖 무관 변경**: `backend/filters.py` 에 본 작업과 무관한 기존 uncommitted 변경(M)이 있음 — 본인이 만든 것 아님, 미수정. Codex 는 SURIT-022 범위 파일만 스테이징하고 filters.py 는 건드리지 말 것.
+- 알릴의무 로직 무변경(독립 패키지 추가만), UI 미작업(2단계).
+
+### Next
+- Codex: SURIT-022 검증 + 푸시 —
+  ① `python -c "import ast; ast.parse(open('backend/insurance/constants.py', encoding='utf-8').read()); print('OK')"` (+calculator/__init__).
+  ② `cd backend && python -m pytest -q` — 156 passed + 7 skipped 확인.
+  ③ `npx tsc -p tsconfig.app.json --noEmit` / `tsconfig.node.json` / `npm run build`(Windows).
+  ④ `git status --short -uall` 로 SURIT-022 범위(`.agent-harness/docs/BOHUMFIT_실비기능_설계_v3.md`, `.agent-harness/tasks/SURIT-022-insurance-calc-module.md`, `backend/insurance/__init__.py`, `backend/insurance/constants.py`, `backend/insurance/calculator.py`, `backend/tests/test_insurance_calc.py`, `.agent-harness/handoff.md`, `.agent-harness/locks.md`)만 스테이징 — **`backend/filters.py` 무관 변경 제외**.
+  ⑤ 한국어 커밋(`SURIT-022: 실손 청구 안내 1단계 — 수치 상수 + 계산 모듈 + 데이터 진단(UI 제외)`)으로 `git push origin main`.
+- 이후 Human/Cowork: 2단계 UI 통합(실손 탭, 입력폼) + §4-2 실손 자기부담금 연 상한 약관 확정 + §4-1 자기부담률 약관 검증.
+
 ## 2026-06-01 11:11 Codex SURIT-021 [completed / pushed]
 ### Changed
 - `backend/main.py` - hardened backend Sentry initialization for PII safety:

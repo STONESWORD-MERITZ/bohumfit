@@ -15,6 +15,7 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-06 `SURIT-022` - Cowork - 실손 청구 안내 1단계(수치 상수+계산 모듈+데이터 진단) 구현 완료, 검증 통과(pytest 156p/7s, tsc app·node, vite build). Codex 검증·푸시 대기로 잠금 해제. (무관 변경 backend/filters.py 는 미수정)
 - 2026-06-01 `SURIT-021` - Codex - backend Sentry PII hardening completed; locks released.
 - 2026-05-31 `SURIT-018` - Codex - prescription PDF page signal hardening completed; locks released.
 - 2026-05-30 `SURIT-016` - Codex - backend direct dependency pins verified against current passing versions; clean venv install and pytest passed; locks released.
