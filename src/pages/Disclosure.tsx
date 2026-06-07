@@ -577,6 +577,19 @@ const INS_NHIS_CAP_2026: Record<number, [number, number]> = {
 };
 const INS_DISCLAIMER = "추정값입니다. 정확한 보험금·환급금 지급 여부와 금액은 보험사 약관·심사 및 국민건강보험공단 확인이 필요합니다. 본 안내는 보험 모집·중개·권유를 목적으로 하지 않습니다.";
 
+// SURIT-025: 실손 결과만 인쇄(브라우저 인쇄→PDF). 새 의존성 없이 @media print 로 처리.
+// 화면 표시 불변(print-only 은 화면 숨김, no-print 은 인쇄 숨김). #insurance-print-area 만 인쇄.
+const INS_PRINT_CSS = `
+@media screen { .print-only { display: none !important; } }
+@media print {
+  .no-print { display: none !important; }
+  body * { visibility: hidden !important; }
+  #insurance-print-area, #insurance-print-area * { visibility: visible !important; }
+  #insurance-print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0; }
+  @page { margin: 14mm; }
+}
+`;
+
 function wonToMan(won: number): string {
   if (!won || won <= 0) return "0원";
   return `약 ${Math.round(won / 10000).toLocaleString()}만원`;
@@ -652,14 +665,21 @@ function InsuranceSection({ coveredByYear, captured }: { coveredByYear: Record<s
   const selfPayCap = genNum ? insCheckSelfPayCap(coveredShare, genNum, ncShare) : null;
   const nhisCap = typeof bracket === "number" ? insCheckNhisCap(coveredSelfPay, bracket, false) : null;
 
+  const printedAt = new Date().toLocaleDateString("ko-KR");
+  const genLabel = genNum ? `${genNum}세대` : "모름";
+  const bracketLabel = typeof bracket === "number" ? `${bracket}분위` : "모름";
+  const genOptionLabel = genNum === 3 ? ` (비급여 ${ncOption != null ? ncOption + "%" : "미선택"})` : "";
+
   return (
     <div className="space-y-4">
-      <div className="rounded-[8px] bg-indigo-50 p-3 text-xs leading-relaxed text-indigo-900">
+      <style dangerouslySetInnerHTML={{ __html: INS_PRINT_CSS }} />
+
+      <div className="no-print rounded-[8px] bg-indigo-50 p-3 text-xs leading-relaxed text-indigo-900">
         실손보험 <b>청구 가능성</b>과 상한제 <b>환급 가능성</b>을 추정해 안내합니다. 확정 금액이 아니며,
         정확한 금액·보장 여부는 보험사·공단 확인이 필요합니다. 본 안내는 보험 모집·상품 추천·가입 권유가 아닙니다.
       </div>
 
-      <div className="rounded-[8px] border border-gray-100 bg-white p-4">
+      <div className="no-print rounded-[8px] border border-gray-100 bg-white p-4">
         <h3 className="mb-3 text-sm font-bold text-gray-800">실손 정보 입력</h3>
         <div className="grid gap-3 sm:grid-cols-2">
           {years.length > 1 && (
@@ -721,10 +741,31 @@ function InsuranceSection({ coveredByYear, captured }: { coveredByYear: Record<s
       </div>
 
       {!captured && (
-        <div className="rounded-[8px] bg-amber-50 p-3 text-xs text-amber-700">
+        <div className="no-print rounded-[8px] bg-amber-50 p-3 text-xs text-amber-700">
           PDF 기본진료정보에서 급여 본인부담(내가 낸 의료비)을 찾지 못해 급여 청구 추정이 0으로 표시됩니다. 비급여 금액은 직접 입력해 확인할 수 있습니다.
         </div>
       )}
+
+      <div className="no-print flex justify-end">
+        <button
+          type="button"
+          onClick={() => window.print()}
+          className="rounded-[8px] bg-[#4F46E5] px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-indigo-700"
+        >
+          PDF로 저장(인쇄)
+        </button>
+      </div>
+
+      <div id="insurance-print-area" className="space-y-4">
+        <div className="print-only mb-2">
+          <h2 className="text-base font-bold text-gray-900">실손 청구 안내 리포트</h2>
+          <p className="text-[11px] text-gray-500">생성일: {printedAt}</p>
+          <p className="text-[11px] text-gray-500">본 문서는 진료기록 기반 민감정보를 포함합니다 — 취급에 주의하세요.</p>
+        </div>
+
+        <div className="print-only rounded-[8px] border border-gray-200 p-3 text-xs text-gray-700">
+          <b>입력 요약</b> — 실손 세대: {genLabel}{genOptionLabel} · 소득분위: {bracketLabel} · 비급여 입력: {wonToMan(ncAmount)} · 조회 연도: {year || "-"} · 급여 본인부담: {wonToMan(coveredSelfPay)}
+        </div>
 
       <InsResultCard n="①" title="실손 청구 가능성">
         {claim ? (
@@ -733,7 +774,7 @@ function InsuranceSection({ coveredByYear, captured }: { coveredByYear: Record<s
             {claim.has && (
               <p className="text-gray-600">청구 추정 {claim.low === claim.high ? wonToMan(claim.low) : `${wonToMan(claim.low)}~${wonToMan(claim.high)}`} 수준일 수 있습니다.</p>
             )}
-            <p className="text-[11px] text-gray-400">급여 본인부담 {wonToMan(coveredSelfPay)}{ncAmount > 0 ? ` · 비급여 ${wonToMan(ncAmount)}` : ""} 기준 추정. 세대별 자기부담률은 약관 검증 전 초안값입니다.</p>
+            <p className="text-[11px] text-gray-400">급여 본인부담 {wonToMan(coveredSelfPay)}{ncAmount > 0 ? ` · 비급여 ${wonToMan(ncAmount)}` : ""} 기준 추정. 세대별 자기부담률은 2026-06 약관 확인 기준입니다.</p>
           </>
         ) : <p className="text-gray-500">실손 세대를 선택하면 청구 추정 범위를 안내합니다.</p>}
       </InsResultCard>
@@ -758,7 +799,11 @@ function InsuranceSection({ coveredByYear, captured }: { coveredByYear: Record<s
         ) : <p className="text-gray-500">소득분위를 선택하면 환급 가능성을 안내합니다.</p>}
       </InsResultCard>
 
-      <p className="text-[11px] leading-relaxed text-gray-400">{INS_DISCLAIMER}</p>
+        <div className="text-[11px] leading-relaxed text-gray-400">
+          <p>{INS_DISCLAIMER}</p>
+          <p className="print-only mt-1">본 안내는 추정이며 확정 금액이 아닙니다. 정확한 금액·보장 여부는 보험사·공단 확인이 필요하며, 보험 모집·상품추천·가입권유가 아닙니다.</p>
+        </div>
+      </div>
     </div>
   );
 }

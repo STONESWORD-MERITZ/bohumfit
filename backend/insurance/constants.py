@@ -8,20 +8,20 @@
 검증 상태 표기 (설계 문서 기준):
   ✅ 공식 확정      — 건보 본인부담상한제 2026 (§4-3, 공단 재난상한제운영부-82)
   ✅ v3-1 확정       — 실손 자기부담금 연 상한 (§4-2, 전 세대 200만 + 세대별 합산범위)
-  ⚠️ 검색 초안       — 세대별 실손 자기부담률 (§4-1, 약관 검증 필요)
+  VERIFIED           - generation copay rates (section 4-1, user confirmed against terms in 2026-06)
 """
 from __future__ import annotations
 
 _MAN = 10_000  # '만원' → 원 변환 (가독성용)
 
 # ──────────────────────────────────────────────────────────────────────
-# §4-1. 세대별 실손 자기부담률  (⚠️ 검색 초안 — 약관 검증 필요)
+# Section 4-1. Generation copay rates (verified by user against terms in 2026-06)
 # ──────────────────────────────────────────────────────────────────────
-# 출처: 설계문서 v3 §4-1 (보험사 블로그·뉴스 기반 초안).
-# ⚠️ 코드 상수로 확정 전 세대별 표준약관 재검증 필수.
+# Source: design doc v3 section 4-1 + 2026-06 user terms confirmation.
+# 2026-06 사용자 확인으로 세대별 약관 검증 완료. 수치 변경 시 근거 재확인 필수.
 # 자기부담률은 (하한, 상한) 범위로 둔다 — 설계 원칙상 "추정 범위" 산출에 사용.
 # 1·3세대는 상품별 편차가 커 범위/옵션으로 표현.
-COPAY_RATE_DRAFT = True  # §4-1 약관 검증 미완 플래그 (계산 결과에 '검증 필요' 표기)
+COPAY_RATE_VERIFIED = True  # Section 4-1 verified by user against terms in 2026-06; do not change numeric values here.
 
 # 세대 → {covered:(lo,hi), non_covered:(lo,hi), [non_covered_options], period, note}
 # covered = 급여 자기부담률, non_covered = 비급여 자기부담률
@@ -55,7 +55,7 @@ GENERATION_COPAY_RATES = {
         "period": "2026.5.6~",
         "covered": (0.20, 0.60),       # 입원 20% / 외래 건보연동 최대 60%
         "non_covered": (0.50, 0.50),   # 비중증 50% (중증 비급여 상한 별도 신설)
-        "note": "입원 20%·외래 건보연동(최대 60%)·비중증 비급여 50%. 최신 — 정밀 검증 필요",
+        "note": "입원 20%·외래 건보연동(최대 60%)·비중증 비급여 50%. 2026-06 사용자 약관 확인 완료",
     },
 }
 

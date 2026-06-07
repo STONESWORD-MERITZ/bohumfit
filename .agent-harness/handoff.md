@@ -18,6 +18,90 @@
 
 Use newest entries at the top.
 
+## 2026-06-07 Codex SURIT-025 [Windows verified / push ready]
+### Changed
+- Windows 권위 환경에서 SURIT-025 실손 리포트 인쇄/PDF 출력 변경을 검증.
+- `src/pages/Disclosure.tsx` — `#insurance-print-area`, `no-print`, `print-only`, `window.print()` 버튼, 면책/민감정보/생성일/입력요약 출력 경로 확인.
+- `.agent-harness/tasks/SURIT-025-insurance-pdf.md` — 태스크 수행 결과 확인.
+- SURIT-024 보류분(`COPAY_RATE_VERIFIED` 명칭/문구 정리, 수치 불변)은 SURIT-025 실손 화면 문구와 이어진 선행 변경이라 이번 publish scope에 함께 포함 판단.
+- `backend/filters.py` — `git diff -- backend/filters.py` 결과 비어 있음. 이전 `filters.py (M)` 메모는 stale로 판단, 이번 커밋 제외.
+
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` — passed.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` — passed.
+- [x] `npm run build` — passed; 기존 Vite 500KB chunk-size warning only.
+- [x] `cd backend && python -m pytest -q` — 160 passed, 7 skipped.
+- [x] Chrome headless print-media PDF render harness — `INS_PRINT_CSS` actual source 추출 후 PDF 생성/텍스트 검증 통과: 1 page, ①②③/입력요약/생성일/민감정보 경고/면책 4종 포함.
+- [x] Print exclusion check — header/nav/input/button/건강체/간편심사 sentinel text가 PDF 추출 텍스트에 없음. `#insurance-print-area` only 출력 확인.
+- [x] 화면 영향 확인 — CSS가 `@media screen`에서는 `.print-only`만 숨기고, `.no-print`/입력폼/버튼은 화면용으로 유지되는 구조 확인.
+
+### Notes
+- 실제 OS 인쇄 대화상자를 수동 클릭하지는 않고, Chrome의 실제 print CSS 렌더링(`--print-to-pdf`)과 `pdfplumber` 텍스트 추출로 자동 검증했다.
+- SURIT-026 진단 기록/태스크는 병렬 산출물로 그대로 보존하고 이번 SURIT-025 커밋 범위에서 제외한다.
+- SURIT-024는 사용자가 확정한 §4-1 자기부담률 표기 정리이며 수치 변경 없음. SURIT-025 화면 문구가 이 변경을 전제로 하므로 함께 publish한다.
+
+### Next
+- Human: 배포 후 실제 브라우저에서 실손 탭 "PDF로 저장(인쇄)" 최종 육안 확인.
+
+## 2026-06-06 Cowork SURIT-025 [구현 완료 / in-sandbox 검증 차단 — Codex 검증·푸시]
+### Changed
+- `src/pages/Disclosure.tsx` — 실손 탭에 "PDF로 저장(인쇄)" 추가(브라우저 인쇄→PDF, 새 의존성 없음).
+  - 모듈 상수 `INS_PRINT_CSS` + `InsuranceSection` 내 `<style dangerouslySetInnerHTML>` 주입(@media print). 별도 CSS 파일 미생성(self-contained, Vite import·마운트 리스크 회피).
+  - 인쇄 영역 `#insurance-print-area` 만 인쇄: print-only 헤더(제목·생성일 `toLocaleDateString("ko-KR")`·"진료기록 민감정보 취급 주의") + print-only 입력 요약(세대/3세대 옵션/분위/비급여/조회연도/급여 본인부담) + ①②③ + 면책.
+  - 화면 chrome(intro·입력폼·captured 경고·인쇄 버튼)에 `no-print`. 화면 표시 불변(print-only 은 `@media screen` 에서 display:none).
+  - 면책 인쇄 포함: "추정"·"확정 금액 아님"·"보험사·공단 확인 필요"·"보험 모집·상품추천·가입권유 아님"(INS_DISCLAIMER + print-only 보강 문구).
+- `.agent-harness/tasks/SURIT-025-insurance-pdf.md` (신규), `.agent-harness/handoff.md`/`.agent-harness/locks.md`.
+
+### constants.py §4-1 검증완료 반영 확인 (사용자/린터 선반영)
+- 사용자/린터가 `backend/insurance/constants.py` §4-1 을 검증완료로 변경(`COPAY_RATE_DRAFT` → `COPAY_RATE_VERIFIED = True`, 수치 불변).
+- 일관성 확인: `backend/insurance/calculator.py` 는 이미 `COPAY_RATE_VERIFIED` import + `if not COPAY_RATE_VERIFIED:` 로 정합(import 깨짐 없음). `Disclosure.tsx` 카드 ① 문구도 이미 "2026-06 약관 확인 기준" 으로 정합. → **추가 코드 수정 불필요**(dangling 참조 없음 확인).
+
+### Verified
+- [x] Windows 원본 무결성(Read): `InsuranceSection` print-area open(759)·print-only 헤더/요약(760-768)·①②③(770-800)·면책(802-805)·닫는 div 3개(805-807)·종료(809) 균형. 인쇄 CSS 상수/`window.print()` 버튼/`no-print`·`print-only` 정합.
+- [x] 백엔드 §4-1 일관성(Grep): `COPAY_RATE_VERIFIED` 만 사용(calculator.py 22·233, constants.py 24), `COPAY_RATE_DRAFT` 잔존 0건.
+- [ ] `npx tsc -p tsconfig.app.json --noEmit` / `tsconfig.node.json` / `npm run build` — **미실행(차단)**. 사유 Notes.
+
+### Notes
+- **⚠️ in-sandbox 검증 차단 (마운트 truncation 재발)**: 편집한 `Disclosure.tsx` 의 sandbox 마운트 뷰가 948줄로 잘림(실제 ~1310). `npx tsc` 가 잘린 뷰를 읽어 `Disclosure.tsx(949) Unterminated string literal` 로 실패 — **잘림 아티팩트이며 실제 코드 오류 아님**(Windows 원본은 Read 로 완결·균형 확인). SURIT-023/022 와 동일 마운트 사고. AGENTS.md 41조에 따라 사유 기록 후 Codex(Windows) 권위 검증 인계.
+- **인쇄 방식**: `window.print()` + @media print. 새 npm 의존성 없음(jsPDF/html2canvas 미사용 → 한글 깨짐·의존성 변경 회피). 완전 클라이언트, 서버 PDF·데이터 저장 없음. 입력값 비저장(useState만, localStorage 미사용).
+- **알릴의무 미포함**: 인쇄 대상은 `#insurance-print-area`(실손 결과)만. 건강체/간편 결과·계산 로직·알릴의무 로직 변경 없음(출력만 추가).
+- **인쇄 레이아웃**: `body * { visibility:hidden }` + `#insurance-print-area * { visible }` + `position:absolute` + `@page margin:14mm`. 실제 인쇄 미리보기(한 페이지·면책 포함·화면 비깨짐)는 Codex/Human 수동 확인 권장(샌드박스 브라우저 미가용).
+
+### Next
+- Codex: SURIT-025 검증 + 푸시 —
+  ① `npx tsc -p tsconfig.app.json --noEmit` / `tsconfig.node.json` / `npm run build`(Windows).
+  ② 실손 탭에서 인쇄 미리보기: 입력요약·①②③·면책(4문구)·민감정보 주의·생성일이 깔끔히 1페이지로 나오는지 + 화면 표시 비깨짐 확인.
+  ③ `git status --short -uall` 로 SURIT-025 범위(`src/pages/Disclosure.tsx`, `.agent-harness/tasks/SURIT-025-insurance-pdf.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md`)만 스테이징. **주의: 무관 변경 `backend/filters.py`(M) 제외. constants.py/calculator.py §4-1 검증 변경이 별도 uncommitted 라면 본 건과 분리 판단**.
+  ④ 한국어 커밋(`SURIT-025: 실손 청구 리포트 PDF 출력(브라우저 인쇄 + @media print)`)으로 `git push origin main`.
+
+## 2026-06-07 01:40 Codex SURIT-024 [completed / not pushed]
+### Changed
+- `.agent-harness/tasks/SURIT-024-copay-rate-finalize.md` - created and completed task record.
+- `.agent-harness/docs/BOHUMFIT_실비기능_설계_v3.md` - updated §4-1 self-pay/copay-rate wording from draft/check-needed to 2026-06 user-confirmed wording.
+- `backend/insurance/constants.py` - renamed `COPAY_RATE_DRAFT` to `COPAY_RATE_VERIFIED`; updated comments/notes to verified wording.
+- `backend/insurance/calculator.py` - updated import/reference to `COPAY_RATE_VERIFIED`; inactive fallback caveat now triggers only if the flag is false.
+- `src/pages/Disclosure.tsx` - insurance tab copy now says generation copay rates are based on 2026-06 terms confirmation, not draft values.
+- `.agent-harness/locks.md` - released SURIT-024 lock.
+
+### Verified
+- [x] Numeric values unchanged: `GENERATION_COPAY_RATES` table values were not edited; diff only changes names/comments/copy and the verification flag reference.
+- [x] `rg` confirmed no `COPAY_RATE_DRAFT`, draft/초안 marker, or §4-1 check-needed wording remains in scoped files.
+- [x] `ast.parse(..., encoding="utf-8")` OK for `backend/insurance/constants.py` and `backend/insurance/calculator.py`.
+- [x] `cd backend && python -m pytest -q` - 160 passed, 7 skipped.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` - passed.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` - passed.
+- [x] `npm run build` - passed; existing Vite 500KB chunk-size warning only.
+- [x] TS mirror vs backend consistency - passed over 504 generated cases.
+- [x] Generated `backend/__pycache__/main.cpython-312.pyc` was restored and not staged.
+
+### Notes
+- No copay-rate numeric value was changed.
+- This task was not committed or pushed because the user requested harness execution/verification and lock release, but did not explicitly request publish.
+
+### Next
+- Human: deployment screen check for insurance tab copy.
+- Optional: request commit/push for SURIT-024 if ready to publish.
+
 ## 2026-06-06 23:57 Codex SURIT-023 [Windows verified / ready to push]
 ### Changed
 - Verified Cowork SURIT-023 phase 2 on Windows authority environment.

@@ -19,7 +19,7 @@ import re
 from typing import Any, Iterable
 
 from .constants import (
-    COPAY_RATE_DRAFT,
+    COPAY_RATE_VERIFIED,
     GENERATION_COPAY_RATES,
     NHIS_CAP_BASE_YEAR,
     NHIS_OUT_OF_POCKET_CAP_2026,
@@ -230,8 +230,8 @@ def estimate_insurance_claim(
     possibility = "청구 대상일 수 있음" if has_amount else "청구 대상 아닐 수 있음"
 
     caveats: list[str] = []
-    if COPAY_RATE_DRAFT:
-        caveats.append("세대별 자기부담률은 약관 검증 전 초안값 — 실제와 다를 수 있음")
+    if not COPAY_RATE_VERIFIED:
+        caveats.append("세대별 자기부담률은 약관 검증 전 값입니다 — 실제와 다를 수 있음")
     if non_covered == 0:
         caveats.append("비급여 미입력 — 비급여 청구분은 추정에 포함되지 않음")
     if gen == 5:
