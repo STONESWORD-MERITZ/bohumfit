@@ -18,6 +18,69 @@
 
 Use newest entries at the top.
 
+## 2026-06-09 Codex SURIT-028 [Windows verified / push ready]
+### Changed
+- Windows 권위 환경에서 SURIT-028 구현분을 재작업 없이 검증.
+- `backend/insurance/constants.py` — `MIN_DEDUCTIBLE_BY_GEN`, `MIN_DEDUCTIBLE_DEFAULT_GRADE` 확인.
+- `backend/insurance/calculator.py` — `classify_provider`, `provider_deductible`, `estimate_claim_per_row`, `estimate_non_covered_claim_with_deductible` 확인.
+- `backend/tests/test_min_deductible.py` — 최소공제 회귀 테스트 확인.
+- `src/pages/Disclosure.tsx` — TS 미러 + ①-b 최소공제 옵션 UI 확인.
+- `.agent-harness/docs/BOHUMFIT_실비기능_설계_v4.md`, `.agent-harness/tasks/SURIT-028-min-deductible.md` — 설계/태스크 산출물 포함.
+
+### Verified
+- [x] git 인덱스 정상화: Windows에도 `.git/index.lock` 잔존 확인. `git add -u` 종료 대기 후 stale lock 제거.
+- [x] 설정 파일 방어선 확인: `tsconfig.json`, `tsconfig.app.json`, `tsconfig.node.json`, `vite.config.ts`, `vitest.config.ts`, `vercel.json` 모두 디스크에 존재. `git diff --cached --name-status` 비어 있었고 설정 파일 삭제 staged 없음.
+- [x] `ast.parse(open(..., encoding="utf-8"))` — `backend/insurance/calculator.py`, `backend/insurance/constants.py` OK.
+- [x] `cd backend && python -m pytest -q` — 185 passed, 7 skipped.
+- [x] `cd backend && python -m pytest tests/test_min_deductible.py -q` — 15 passed. Collect 기준 신규 테스트는 15건(태스크/요청의 16건 표기와 다름).
+- [x] 핵심 산식: 케이스1~3 `max(정액,정률)` 정확 — 3만원/의원→2만원, 20만원/종합→16만원, 5만원 경계→4만원 보상 확인.
+- [x] 케이스4: 비급여 건별 3만원×5회는 건별 공제 합산, 총액 일괄과 다른 결과로 고정(건별 우선) 확인.
+- [x] 케이스11~12: `서울정형외과의원`/`행복한의원` → `clinic`, `삼성서울병원`/`서울대학교병원`/`강북삼성병원` → `unknown` 확인.
+- [x] 케이스13~14: 진료비 8천원은 보상 0 + `low_value=True`; 총액 모드 `total_only=True` + limitation 확인.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` — passed.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` — passed.
+- [x] `npm run build` — passed; 기존 Vite 500KB chunk-size warning only.
+- [x] 백엔드 vs TS 미러 대조 — 실제 `Disclosure.tsx` mirror block 추출 후 Python backend 결과와 비교: 최소공제 155조합, 기존 ① 청구추정 90조합, ② 자기부담금 상한 60조합, ③ 건보 상한 30조합 모두 일치.
+- [x] 회귀 범위 확인: 기존 `estimate_insurance_claim`/`check_self_pay_cap`/`check_nhis_out_of_pocket_cap` 및 `insEstimateClaim`/`insCheckSelfPayCap`/`insCheckNhisCap` 대조 통과. 최소공제는 `minDedOn` 토글이 켜졌을 때 ①-b 결과만 표시되며 기존 ①②③ 카드와 별도 additive 경로.
+
+### Notes
+- `backend/filters.py`, `backend/pipeline/result_builder.py` diff 없음. 알릴의무(건강체/간편) 로직 변경 없음.
+- generated `backend/__pycache__/main.cpython-312.pyc`는 restore 후 staging 제외.
+
+### Next
+- Human: 배포 후 실제 화면에서 ①-b 최소공제 토글, 의원 자동분류/수동수정, 비급여 건별·총액 안내, 기존 ①②③ 표시 불변 여부 최종 육안 확인.
+
+## 2026-06-08 Cowork SURIT-028 [구현 완료 / in-sandbox 검증 차단 — Codex 검증·푸시]
+### Changed
+- `.agent-harness/docs/BOHUMFIT_실비기능_설계_v4.md` (신규) — v3-1 확장(additive): 최소공제(정액↔정률 max)·의원 자동분류. §2 안내 5종, §4-4/4-5, §6-1~6-4, §6-3 케이스 1~14.
+- `backend/insurance/constants.py` — §4-4 `MIN_DEDUCTIBLE_BY_GEN`(2·3·4세대=의원1만/종합1.5만/상급2만, 1·5세대=None) + `MIN_DEDUCTIBLE_DEFAULT_GRADE="tertiary"`. (기존 §4-1/4-2/4-3 불변, append.)
+- `backend/insurance/calculator.py` — §6-1 신규 함수 append: `classify_provider`(의원포함+병원미포함→clinic, 그외 unknown), `provider_deductible`, `estimate_claim_per_row`(최종공제=max(정액,정률)·보상=max(0,진료비-공제)·low_value), `estimate_non_covered_claim_with_deductible`(건별/total_only). **기존 ①②③ 함수 불변**.
+- `backend/tests/test_min_deductible.py` (신규) — §6-3 케이스 1~14 + 미러 참조값 + additive 회귀(16 테스트).
+- `src/pages/Disclosure.tsx` — TS 미러(`INS_MIN_DEDUCTIBLE_BY_GEN`/`insClassifyProvider`/`insProviderDeductible`/`insClaimPerRow`, 백엔드와 동일 상수·산식) + `InsuranceSection` 에 ①-b "실손 최소공제 적용 추정(선택)" 카드(적용토글·기관명 추정등급+수정·급여/비급여 통원·입원 진료비·비급여 총액/건별 토글·횟수, 결과 보상+실익낮음+§2 안내 5종). 입력 no-print·결과 print 포함. **기존 ①②③·탭·인쇄 불변(additive)**.
+- `.agent-harness/tasks/SURIT-028-min-deductible.md`(신규), handoff/locks.
+
+### Verified
+- [x] **백엔드 산식 9건 독립 검증 통과**(`/tmp/diag_028.py`, 비저장): 케이스1(의원 정액우세→2만)·2(종합 정률우세→16만)·3(경계 정률=정액→4만)·4(비급여 건별6만≠총액6.3만)·11(서울정형외과의원→clinic)·12(삼성서울병원→unknown 오분류방지)·13(8천<정액→보상0 실익낮음)·세대분기(4세대 unknown=2만, 1·5세대 None).
+- [x] Windows 원본 정합(Grep/Read): calculator append(import +MIN_*, 함수 4종), constants §4-4, Disclosure 미러함수(594/606/615)·①-b 카드(847~927 균형)·②(929)·③(939)·export default(1245). 기존 ①②③ 카드·산식 미변경.
+- [ ] `cd backend && python -m pytest -q` — **미실행(차단)**. `npx tsc`/`npm run build` — **미실행(차단)**. 사유 Notes.
+
+### Notes
+- **⚠️ in-sandbox 검증 차단 (마운트 truncation 지속)**: 편집한 `calculator.py`·`constants.py`·`Disclosure.tsx` 의 sandbox 마운트 뷰가 truncation 상태(이전 턴부터 고착) → 모듈 import/tsc 불가로 `test_min_deductible.py` 수집·tsc 실행 차단. **Windows 원본은 Grep/Read 로 완결·정합 확인**, 핵심 산식은 helpers-free 독립 스크립트로 검증. SURIT-022/023/025/027 동일 사고. AGENTS.md 41조 따라 Codex(Windows) 권위 검증 인계.
+- **백엔드-TS 미러 일치(케이스10)**: 동일 상수(1만/1.5만/2만)·동일 산식. Python `estimate_claim_per_row` 와 TS `insClaimPerRow` 는 max(정액,정률)·보상=max(0,charge-공제) 로 동일. Codex 는 `test_min_deductible.py::test_case10_mirror_reference_values` 의 참조값(2만/16만/0)이 프론트 결과와 동일한지 대조.
+- **additive 보증**: 기존 `estimate_insurance_claim`/`check_self_pay_cap`/`check_nhis_out_of_pocket_cap` 및 프론트 ①②③·탭·@media print 미변경. 최소공제는 ①-b 별도 옵션(기본 OFF).
+- **⚠️ 마운트 git 인덱스 손상 지속**: `git status` 에 `index.lock`/`null sha1` + 설정파일(tsconfig/vite.config 등) 삭제 오표시(실제 파일 존재). Codex 는 Windows `git status` 로 확인 후 설정파일 삭제가 잡히면 스테이징 복구.
+- 개인정보 비저장(최소공제 입력값 useState만). 새 npm 의존성 없음.
+
+### Next
+- Codex: SURIT-028 검증 + 푸시 —
+  ⓪ Windows `git status` 인덱스 정상 확인(설정파일 삭제 오표시 시 복구).
+  ① `python -c "import ast; ast.parse(open('backend/insurance/calculator.py', encoding='utf-8').read()); print('OK')"` (+constants).
+  ② `cd backend && python -m pytest -q` — 기준선 170 회귀 없음 + `test_min_deductible.py` 16건. 기존 실손 테스트(`test_insurance_calc.py`) 회귀 없음(additive).
+  ③ `npx tsc -p tsconfig.app.json --noEmit`/`tsconfig.node.json`/`npm run build`.
+  ④ **백엔드-TS 미러 대조**: 케이스10 참조값과 프론트 `insClaimPerRow` 결과 일치 확인.
+  ⑤ `git status --short -uall` 로 SURIT-028 범위만 스테이징(무관 변경 제외) → 한국어 커밋(`SURIT-028: 실손 최소공제(정액↔정률 max) + 의원 자동분류 (additive)`) `git push origin main`.
+  ⑥ 배포 후 실손 탭: ①-b 최소공제 토글 → 의원/종합/상급 보상 차이·실익낮음·기관 오분류방지 확인. 기존 ①②③ 불변 확인.
+
 ## 2026-06-08 Codex SURIT-027 [Windows verified / push ready]
 ### Changed
 - Windows 권위 환경에서 SURIT-027 구현분을 재작업 없이 검증.

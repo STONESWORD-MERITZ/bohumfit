@@ -21,6 +21,8 @@ from typing import Any, Iterable
 from .constants import (
     COPAY_RATE_VERIFIED,
     GENERATION_COPAY_RATES,
+    MIN_DEDUCTIBLE_BY_GEN,
+    MIN_DEDUCTIBLE_DEFAULT_GRADE,
     NHIS_CAP_BASE_YEAR,
     NHIS_OUT_OF_POCKET_CAP_2026,
     NHIS_PRE_PAYMENT_MAX_CAP_2026,
@@ -425,4 +427,108 @@ def build_insurance_guidance(
         ),
         "nursing_long_stay": nursing,
         "disclaimer": DISCLAIMER,
+    }
+
+
+# ──────────────────────────────────────────────────────────────────────
+# SURIT-028: 실손 최소공제(정액공제 ↔ 정률공제 max) + 의원 자동분류 (설계 v4 §6-1)
+#   기존 ①②③(estimate_insurance_claim / check_self_pay_cap / check_nhis_out_of_pocket_cap)
+#   은 불변. 아래는 additive 옵션 — 통원 1회 자기부담을 정액·정률 중 큰 값으로 본다.
+# ──────────────────────────────────────────────────────────────────────
+
+PROVIDER_GRADE_LABELS = {
+    "clinic": "의원",
+    "general": "종합병원",
+    "tertiary": "상급종합병원",
+    "unknown": "기관 등급 미상(상급 기준 보수 적용)",
+}
+
+
+def classify_provider(name: str) -> str:
+    """기관명 → 등급 추정 (설계 v4 §4-5).
+
+    규칙: 정규화 후 '의원' 포함 + '병원' 미포함 → 'clinic'. 그 외 → 'unknown'.
+    ※ 추정이며 실제 등급과 다를 수 있음(사용자 수정 가능). '삼성서울병원' 등 '병원' 포함
+      명칭은 unknown 으로 분류해 의원 오분류를 막는다.
+    """
+    n = _norm(name)
+    if "의원" in n and "병원" not in n:
+        return "clinic"
+    return "unknown"
+
+
+def provider_deductible(generation: Any, grade: str) -> int | None:
+    """세대·기관등급 → 통원 정액공제(원). 미적용 세대(1 legacy·5 준비중)는 None.
+
+    grade 가 'unknown'(또는 표에 없음)이면 기본 등급(상급 2만, MIN_DEDUCTIBLE_DEFAULT_GRADE)으로 본다.
+    """
+    gen = _coerce_generation(generation)
+    if gen is None:
+        return None
+    table = MIN_DEDUCTIBLE_BY_GEN.get(gen)
+    if table is None:                       # 1세대(legacy) / 5세대(준비중)
+        return None
+    g = grade if grade in table else MIN_DEDUCTIBLE_DEFAULT_GRADE
+    return table.get(g, table[MIN_DEDUCTIBLE_DEFAULT_GRADE])
+
+
+def estimate_claim_per_row(charge: int, copay_rate: float, fixed_deductible: int) -> dict:
+    """건별(1회) 실손 청구 추정 — 최소공제 적용 (설계 v4 §6-1).
+
+    최종공제 = max(정액공제, 정률공제 = charge × copay_rate).
+    보상 = max(0, charge − 최종공제). 보상 0 이하면 청구 실익 낮음(low_value).
+    공제 적용 → 동일 입력 = 동일 출력(결정론).
+    """
+    charge = max(0, int(charge or 0))
+    pct = int(round(charge * float(copay_rate or 0)))
+    fixed = max(0, int(fixed_deductible or 0))
+    final_deductible = max(fixed, pct)
+    reimbursement = max(0, charge - final_deductible)
+    return {
+        "charge": charge,
+        "pct_deductible": pct,
+        "fixed_deductible": fixed,
+        "final_deductible": final_deductible,
+        "reimbursement": reimbursement,
+        "low_value": reimbursement <= 0,
+    }
+
+
+def estimate_non_covered_claim_with_deductible(
+    *,
+    copay_rate: float,
+    fixed_deductible: int,
+    per_visit_amount: int | None = None,
+    visit_count: int = 1,
+    total_amount: int | None = None,
+) -> dict:
+    """비급여 통원 실손 청구 추정 — 건별 우선, 총액만이면 total_only (설계 v4 §6-1).
+
+    - 건별(per_visit_amount + visit_count): 회차마다 최소공제 적용 후 합산(정확).
+    - 총액만(total_amount): 공제를 1회만 적용(total_only=True) — 회차 정보가 없어 과대 보상
+      가능. UI 에 '건별(1회 금액×횟수) 입력 권장' 안내.
+    """
+    if per_visit_amount is not None and int(per_visit_amount) > 0:
+        n = max(1, int(visit_count or 1))
+        row = estimate_claim_per_row(per_visit_amount, copay_rate, fixed_deductible)
+        return {
+            "mode": "per_visit",
+            "total_only": False,
+            "visit_count": n,
+            "per_visit": row,
+            "reimbursement": row["reimbursement"] * n,
+            "charge_total": row["charge"] * n,
+            "low_value": row["low_value"],
+        }
+    total = max(0, int(total_amount or 0))
+    row = estimate_claim_per_row(total, copay_rate, fixed_deductible)
+    return {
+        "mode": "total_only",
+        "total_only": True,
+        "visit_count": None,
+        "per_visit": None,
+        "reimbursement": row["reimbursement"],
+        "charge_total": total,
+        "low_value": row["low_value"],
+        "limitation": "비급여 총액만 입력되어 공제를 1회만 적용했습니다. 회차별(1회 금액×횟수) 입력 시 더 정확합니다.",
     }

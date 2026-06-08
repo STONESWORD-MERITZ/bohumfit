@@ -577,6 +577,45 @@ const INS_NHIS_CAP_2026: Record<number, [number, number]> = {
 };
 const INS_DISCLAIMER = "추정값입니다. 정확한 보험금·환급금 지급 여부와 금액은 보험사 약관·심사 및 국민건강보험공단 확인이 필요합니다. 본 안내는 보험 모집·중개·권유를 목적으로 하지 않습니다.";
 
+// SURIT-028: 최소공제 미러 — backend/insurance constants §4-4 / calculator §6-1 와 동일 산식.
+// ⚠️ 수치/로직 변경 시 backend/insurance 와 반드시 양쪽 동기화(설계 v4 §6-3 케이스10 미러 일치).
+const INS_MIN_DEDUCTIBLE_BY_GEN: Record<number, Record<string, number> | null> = {
+  1: null,                                          // legacy
+  2: { clinic: 10000, general: 15000, tertiary: 20000 },
+  3: { clinic: 10000, general: 15000, tertiary: 20000 },
+  4: { clinic: 10000, general: 15000, tertiary: 20000 },
+  5: null,                                          // 준비중
+};
+const INS_MIN_DEDUCTIBLE_DEFAULT_GRADE = "tertiary";
+const INS_GRADE_LABELS: Record<string, string> = {
+  clinic: "의원", general: "종합병원", tertiary: "상급종합병원", unknown: "등급 미상(상급 기준)",
+};
+
+function insClassifyProvider(name: string): "clinic" | "unknown" {
+  const n = (name || "").replace(/[\s·ㆍ/\\&()[\]_-]+/g, "");
+  return n.includes("의원") && !n.includes("병원") ? "clinic" : "unknown";
+}
+
+function insProviderDeductible(gen: number, grade: string): number | null {
+  const table = INS_MIN_DEDUCTIBLE_BY_GEN[gen];
+  if (!table) return null;
+  const g = grade in table ? grade : INS_MIN_DEDUCTIBLE_DEFAULT_GRADE;
+  return table[g] ?? table[INS_MIN_DEDUCTIBLE_DEFAULT_GRADE];
+}
+
+function insClaimPerRow(charge: number, copayRate: number, fixedDeductible: number) {
+  const c = Math.max(0, Math.round(charge || 0));
+  const pct = Math.round(c * (copayRate || 0));
+  const fixed = Math.max(0, Math.round(fixedDeductible || 0));
+  const finalDeductible = Math.max(fixed, pct);
+  const reimbursement = Math.max(0, c - finalDeductible);
+  return { charge: c, finalDeductible, reimbursement, lowValue: reimbursement <= 0 };
+}
+
+function insWon(s: string): number {
+  return Math.max(0, parseInt((s || "").replace(/[^\d]/g, "") || "0", 10));
+}
+
 // SURIT-025: 실손 결과만 인쇄(브라우저 인쇄→PDF). 새 의존성 없이 @media print 로 처리.
 // 화면 표시 불변(print-only 은 화면 숨김, no-print 은 인쇄 숨김). #insurance-print-area 만 인쇄.
 const INS_PRINT_CSS = `
@@ -645,6 +684,15 @@ function InsuranceSection({ coveredByYear, captured }: { coveredByYear: Record<s
   const [bracket, setBracket] = useState<number | "">("");
   const [year, setYear] = useState<string>(years.length ? years[years.length - 1] : "");
   const [receiptName, setReceiptName] = useState<string>("");
+  // SURIT-028: 최소공제 설정 (additive, 세션 내만 — 저장 안 함)
+  const [minDedOn, setMinDedOn] = useState(false);
+  const [providerName, setProviderName] = useState("");
+  const [gradeOverride, setGradeOverride] = useState("");       // "" = 자동분류 사용
+  const [covOutCharge, setCovOutCharge] = useState("");         // 급여 통원 1회 진료비
+  const [ncOutCharge, setNcOutCharge] = useState("");           // 비급여 통원 1회(또는 총액)
+  const [ncVisitCount, setNcVisitCount] = useState("1");
+  const [ncTotalMode, setNcTotalMode] = useState(false);        // 비급여 총액 모드
+  const [inpatientCharge, setInpatientCharge] = useState("");   // 입원 진료비(정액공제 없음)
 
   const coveredSelfPay = year && coveredByYear[year] ? coveredByYear[year] : 0;
   const ncAmount = Math.max(0, parseInt((nonCovered || "").replace(/[^\d]/g, "") || "0", 10));
@@ -664,6 +712,22 @@ function InsuranceSection({ coveredByYear, captured }: { coveredByYear: Record<s
   }
   const selfPayCap = genNum ? insCheckSelfPayCap(coveredShare, genNum, ncShare) : null;
   const nhisCap = typeof bracket === "number" ? insCheckNhisCap(coveredSelfPay, bracket, false) : null;
+
+  // SURIT-028: 최소공제 추정 (적용 시). 백엔드 calculator §6-1 와 동일 산식.
+  const autoGrade = insClassifyProvider(providerName);
+  const effGrade = gradeOverride || autoGrade;
+  const minDed = genNum ? insProviderDeductible(genNum, effGrade) : null;  // 정액공제 또는 null(1·5세대/미선택)
+  const covRate = genNum ? INS_GEN_RATES[genNum].covered[1] : 0;
+  const ncRate = genNum
+    ? (ncOption != null && INS_GEN_RATES[genNum].nonCoveredOptions && INS_GEN_RATES[genNum].nonCoveredOptions![ncOption] != null
+        ? INS_GEN_RATES[genNum].nonCoveredOptions![ncOption]
+        : INS_GEN_RATES[genNum].nonCovered[1])
+    : 0;
+  const mdNcVisits = Math.max(1, parseInt((ncVisitCount || "1").replace(/[^\d]/g, "") || "1", 10));
+  const mdCovOut = minDed != null ? insClaimPerRow(insWon(covOutCharge), covRate, minDed) : null;
+  const mdNcRow = minDed != null ? insClaimPerRow(insWon(ncOutCharge), ncRate, minDed) : null;
+  const mdNcReimb = mdNcRow ? (ncTotalMode ? mdNcRow.reimbursement : mdNcRow.reimbursement * mdNcVisits) : 0;
+  const mdInpatient = (minDed != null) ? insClaimPerRow(insWon(inpatientCharge), covRate, 0) : null;  // 입원 정액공제 없음
 
   const printedAt = new Date().toLocaleDateString("ko-KR");
   const genLabel = genNum ? `${genNum}세대` : "모름";
@@ -777,6 +841,89 @@ function InsuranceSection({ coveredByYear, captured }: { coveredByYear: Record<s
             <p className="text-[11px] text-gray-400">급여 본인부담 {wonToMan(coveredSelfPay)}{ncAmount > 0 ? ` · 비급여 ${wonToMan(ncAmount)}` : ""} 기준 추정. 세대별 자기부담률은 2026-06 약관 확인 기준입니다.</p>
           </>
         ) : <p className="text-gray-500">실손 세대를 선택하면 청구 추정 범위를 안내합니다.</p>}
+      </InsResultCard>
+
+      {/* SURIT-028: ①-b 실손 최소공제 적용 추정 (additive 옵션, 기존 ①②③ 불변) */}
+      <InsResultCard n="①-b" title="실손 최소공제 적용 추정 (선택)">
+        <div className="no-print space-y-2">
+          <label className="flex items-center gap-2 text-xs font-semibold text-gray-700">
+            <input type="checkbox" checked={minDedOn} onChange={(e) => setMinDedOn(e.target.checked)} />
+            최소공제 적용 (통원 자기부담 = 정액·정률 중 큰 값)
+          </label>
+          {minDedOn && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label className="text-[11px] font-semibold text-gray-600">
+                기관명 (등급 추정)
+                <input value={providerName} onChange={(e) => setProviderName(e.target.value)} placeholder="예: 서울정형외과의원"
+                  className="mt-1 w-full rounded-[6px] border border-gray-200 p-1.5 text-sm" />
+                <span className="mt-0.5 block text-[10px] text-gray-400">추정: {INS_GRADE_LABELS[autoGrade]} — 추정이며 실제와 다를 수 있어요(우측에서 수정).</span>
+              </label>
+              <label className="text-[11px] font-semibold text-gray-600">
+                기관 등급 (수정)
+                <select value={gradeOverride} onChange={(e) => setGradeOverride(e.target.value)}
+                  className="mt-1 w-full rounded-[6px] border border-gray-200 p-1.5 text-sm">
+                  <option value="">자동 ({INS_GRADE_LABELS[autoGrade]})</option>
+                  <option value="clinic">의원</option>
+                  <option value="general">종합병원</option>
+                  <option value="tertiary">상급종합병원</option>
+                </select>
+              </label>
+              <label className="text-[11px] font-semibold text-gray-600">
+                급여 통원 1회 진료비
+                <input inputMode="numeric" value={covOutCharge} onChange={(e) => setCovOutCharge(e.target.value)} placeholder="예: 30000"
+                  className="mt-1 w-full rounded-[6px] border border-gray-200 p-1.5 text-sm" />
+              </label>
+              <label className="text-[11px] font-semibold text-gray-600">
+                입원 진료비 (정액공제 없음)
+                <input inputMode="numeric" value={inpatientCharge} onChange={(e) => setInpatientCharge(e.target.value)} placeholder="예: 100000"
+                  className="mt-1 w-full rounded-[6px] border border-gray-200 p-1.5 text-sm" />
+              </label>
+              <label className="text-[11px] font-semibold text-gray-600">
+                비급여 통원 {ncTotalMode ? "총액" : "1회 금액"}
+                <input inputMode="numeric" value={ncOutCharge} onChange={(e) => setNcOutCharge(e.target.value)} placeholder="예: 30000"
+                  className="mt-1 w-full rounded-[6px] border border-gray-200 p-1.5 text-sm" />
+              </label>
+              <div className="text-[11px] font-semibold text-gray-600">
+                <label className="flex items-center gap-1">
+                  <input type="checkbox" checked={ncTotalMode} onChange={(e) => setNcTotalMode(e.target.checked)} />
+                  비급여 총액으로 입력 (건별 권장)
+                </label>
+                {!ncTotalMode && (
+                  <label className="mt-1 block">횟수
+                    <input inputMode="numeric" value={ncVisitCount} onChange={(e) => setNcVisitCount(e.target.value)}
+                      className="mt-1 w-full rounded-[6px] border border-gray-200 p-1.5 text-sm" />
+                  </label>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {minDedOn && (
+          minDed == null ? (
+            <p className="text-gray-500">{genNum ? "이 세대는 통원 정액공제를 적용하지 않습니다 (1세대 legacy·5세대 준비중)." : "실손 세대를 선택해 주세요."}</p>
+          ) : (
+            <div className="space-y-1">
+              <p className="text-gray-700">적용 정액공제: {INS_GRADE_LABELS[effGrade]} {wonToMan(minDed)} (통원). 통원 자기부담 = 정액·정률 중 큰 값.</p>
+              {mdCovOut && insWon(covOutCharge) > 0 && (
+                <p className="text-gray-600">급여 통원 보상 추정 {wonToMan(mdCovOut.reimbursement)}{mdCovOut.lowValue ? " — 청구 실익 낮음" : ""}.</p>
+              )}
+              {mdNcRow && insWon(ncOutCharge) > 0 && (
+                <p className="text-gray-600">비급여 통원 보상 추정 {wonToMan(mdNcReimb)}{ncTotalMode ? " (총액 1회 공제)" : ` (1회×${mdNcVisits}회)`}{mdNcRow.lowValue ? " — 청구 실익 낮음" : ""}.</p>
+              )}
+              {mdInpatient && insWon(inpatientCharge) > 0 && (
+                <p className="text-gray-600">입원 보상 추정 {wonToMan(mdInpatient.reimbursement)} (정액공제 없음·정률만){mdInpatient.lowValue ? " — 청구 실익 낮음" : ""}.</p>
+              )}
+              <ul className="mt-1 list-disc pl-4 text-[11px] text-gray-400">
+                <li>통원 자기부담은 정액·정률(진료비×자기부담률) 중 큰 값으로 추정합니다.</li>
+                <li>진료비가 정액공제 이하면 보상이 없어 청구 실익이 낮을 수 있습니다.</li>
+                <li>기관 등급은 기관명 추정값이며 실제와 다를 수 있어요 — 직접 수정 가능합니다.</li>
+                <li>비급여는 회차별(1회 금액×횟수) 입력이 더 정확합니다. 총액만 입력하면 공제를 1회만 적용합니다.</li>
+                <li>1세대·5세대는 통원 정액공제 미적용, 입원은 정액 통원공제가 없습니다.</li>
+              </ul>
+            </div>
+          )
+        )}
       </InsResultCard>
 
       <InsResultCard n="②" title="실손 자기부담금 상한제">
