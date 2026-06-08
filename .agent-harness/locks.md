@@ -15,6 +15,8 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-08 `SURIT-027` - Codex - Windows authority verification completed; stale `.git/index.lock` removed after `write-tree` exited; pytest/tsc/build and O Seongsim PDF mock check passed; locks remain released.
+- 2026-06-07 `SURIT-027` - Cowork - 추가검사·재검사 판정 정교화(B q2_suspicion 검사근거 게이팅 + 가 프롬프트 4기준/103↔105 해소 + 나 same-day collapse) 구현 완료. (나)+(B) 핵심 로직 독립 검증 8건·Windows 원본 정합·기존 통합테스트 회귀 없음 확인. ai_judgment parse OK. 전체 pytest 는 analyzer 마운트 truncation 으로 차단 → Codex(Windows) 검증·푸시 대기로 잠금 해제. 과소 방지 설계결정(같은날 다종·교차일 추적관찰은 결정론 보존 + Gemini 판단)은 handoff 기록. filters/result_builder 미수정.
 - 2026-06-07 `SURIT-025` - Codex - Windows authority verification completed for insurance print/PDF output; Chrome print-media PDF render passed; locks remain released.
 - 2026-06-06 `SURIT-025` - Cowork - 실손 리포트 PDF 출력(브라우저 인쇄 + @media print, 새 의존성 없음) 구현 완료. Windows 원본 JSX 균형·백엔드 §4-1 일관성(COPAY_RATE_VERIFIED) 확인. in-sandbox tsc/build 는 마운트 truncation 으로 차단 → Codex(Windows) 검증·푸시 대기로 잠금 해제. calculator.py 미수정(이미 정합), 무관 변경 filters.py 미수정.
 - 2026-06-07 `SURIT-024` - Codex - copay-rate draft marker finalized without numeric changes; locks released.

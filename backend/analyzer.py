@@ -587,9 +587,14 @@ def _build_medical_judgment_inputs(
 
         _detail_test_events_1y = _recent_detail_test_events(_js, _d1y_dt)
         _detail_test_types_1y = _detail_test_type_count(_detail_test_events_1y)
+        # SURIT-027 (나): 같은날 동일검사 묶음이 후보 자격을 부풀리지 않도록 '횟수' 기준을
+        # distinct 진료일로 collapse 한다. 단 검사 종류(types) 기준은 그대로 유지해
+        # 같은날 다종(예: 초음파→조직검사)·교차일 신호는 보존 — 과소 방지(진짜 후속검사·
+        # 이상소견 동반 건을 결정론 단계에서 떨구지 않는다. 추적관찰/한과정 판별은 Gemini 몫).
+        _distinct_test_dates_1y = len({_e.get("date") for _e in _detail_test_events_1y if _e.get("date")})
         if (
             _detail_test_events_1y
-            and (len(_detail_test_events_1y) >= 2 or _detail_test_types_1y >= 2)
+            and (_distinct_test_dates_1y >= 2 or _detail_test_types_1y >= 2)
             and _jdc not in _seen_mj1
         ):
             _seen_mj1.add(_jdc)
@@ -599,8 +604,9 @@ def _build_medical_judgment_inputs(
                 "latest_date":       _jlatest,
                 "reference_date":    today_str,
                 "lookback":          "최근 1년",
-                "candidate_rule":    "same disease code detail tests >=2 events or >=2 types",
+                "candidate_rule":    "same code: >=2 distinct test dates OR >=2 test types (SURIT-027 same-day collapse)",
                 "test_event_count":  len(_detail_test_events_1y),
+                "test_distinct_dates": _distinct_test_dates_1y,
                 "test_type_count":   _detail_test_types_1y,
                 "detail_test_events": _detail_test_events_1y[:20],
             })
@@ -631,6 +637,22 @@ def _build_medical_judgment_inputs(
             })
 
     return _mj_type1, _mj_type2
+
+
+def _codes_with_recent_test_evidence(disease_stats: dict, _d1y_dt: datetime) -> set[str]:
+    """SURIT-027 (B): 1년 이내 실제 세부진료 검사 근거(detail_test_events)가 있는 질병코드 집합.
+
+    이 집합에 속한 코드의 Q1/Q2 항목에만 '추가검사·재검사 의심 소견'을 부착한다.
+    검사 근거가 없는 단순 1년 진단(예: 화상·피부염)에는 의심 소견을 붙이지 않는다.
+    (항목 자체는 Q2 에 그대로 유지 — 고지 누락이 아니라 '의심 꼬리표'만 미부착.)
+    """
+    codes: set[str] = set()
+    for _s in disease_stats.values():
+        if _recent_detail_test_events(_s, _d1y_dt):
+            _c = (_s.get("diag_code") or "").strip().upper()
+            if _c:
+                codes.add(_c)
+    return codes
 
 
 def _apply_medical_judgment(
@@ -860,8 +882,18 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
 
     # SURIT-BUG-014: 추가검사/재검사 확인은 건강체 Q1/Q2 + 간편 Q1에만 부착한다.
     # 건강체 Q3/Q4 및 간편 Q2/Q3는 입원·수술·통원·투약 등 해당 문항 지표만 표시한다.
-    _suspicion_prompt_items = _q1_items + _q2_health_items
-    _suspicion_apply_items = _suspicion_prompt_items + _q1_easy_items
+    # SURIT-027 (B): 실제 검사 근거(1년 내 detail_test_events)가 있는 코드에만 의심 소견 부착.
+    # 근거 없는 단순 1년 진단은 의심 소견·"추가검사 의심" 꼬리표 없이 '1년 내 진단'으로만 표시
+    # (항목 자체는 Q2 에 유지 — 고지 누락 아님).
+    _test_evidence_codes = _codes_with_recent_test_evidence(disease_stats, _d1y_dt)
+    _suspicion_prompt_items = [
+        it for it in (_q1_items + _q2_health_items)
+        if (it.get("code") or "").upper() in _test_evidence_codes
+    ]
+    _suspicion_apply_items = _suspicion_prompt_items + [
+        it for it in _q1_easy_items
+        if (it.get("code") or "").upper() in _test_evidence_codes
+    ]
     if _suspicion_prompt_items:
         try:
             _q2_findings = await _call_q2_health_findings(_suspicion_prompt_items, today_str, api_key)

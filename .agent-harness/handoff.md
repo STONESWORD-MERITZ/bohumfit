@@ -18,6 +18,132 @@
 
 Use newest entries at the top.
 
+## 2026-06-08 Codex SURIT-027 [Windows verified / push ready]
+### Changed
+- Windows 권위 환경에서 SURIT-027 구현분을 재작업 없이 검증.
+- `backend/analyzer.py` — same-day collapse, `_codes_with_recent_test_evidence`, Q1/Q2 의심 소견 검사근거 게이팅 경로 확인.
+- `backend/pipeline/ai_judgment.py` — 추가검사/재검사 4기준 프롬프트와 과소방지 문구 확인.
+- `backend/tests/test_additional_test_narrowing.py` — 신규 회귀 테스트 확인.
+- `.agent-harness/tasks/SURIT-026-additional-test-diagnosis.md`/`.agent-harness/tasks/SURIT-027-additional-test-narrowing.md` — 진단물 + 구현 태스크 산출물 포함.
+
+### Verified
+- [x] git 인덱스 정상화: Windows에도 `.git/index.lock` 잔존 확인. `git write-tree` 프로세스 종료 대기 후 fsmonitor daemon만 남은 상태에서 stale lock 제거.
+- [x] 설정 파일 방어선 확인: `tsconfig.json`, `tsconfig.app.json`, `tsconfig.node.json`, `vite.config.ts`, `vitest.config.ts`, `vercel.json` 모두 디스크에 존재. `git diff --cached --name-status` 비어 있었고 설정 파일 삭제 staged 없음.
+- [x] `ast.parse(open(..., encoding="utf-8"))` — `backend/analyzer.py`, `backend/pipeline/ai_judgment.py` OK.
+- [x] `cd backend && python -m pytest -q` — 170 passed, 7 skipped.
+- [x] `cd backend && python -m pytest tests/test_additional_test_narrowing.py -q` — 10 passed. Collect 기준 신규 테스트는 10건(태스크/요청의 11건 표기와 다름).
+- [x] 과소방지 [유지] 케이스 확인: 같은날 다종(유방초음파+조직검사) 후보 유지, 교차일 초음파→조직검사 후보 유지, 교차일 추적관찰은 Gemini 위임 후보 보존, 검사근거 보유 코드 게이팅 통과 테스트 포함.
+- [x] 제외 케이스 확인: 같은날 동일검사 collapse/단일검사 후보 제외, 화상·피부염 같은 검사근거 없는 진단은 의심 소견 미부착 테스트 포함.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` — passed.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` — passed.
+- [x] `npm run build` — passed; 기존 Vite 500KB chunk-size warning only.
+- [x] 오성심 PDF 3종 로컬 mock 실행(비밀번호 `19680220`, Gemini 호출 mock): Q2 건강체 2건 `T222` 화상, `L248` 피부염은 Q2 항목으로 유지되지만 `q2_suspicion=None`, `additional_test_hit=None` 확인. mock에서 `_call_q2_health_findings` prompt 대상 0건 → 해당 PDF에는 검사근거 있는 Q2 항목이 없어 유지 케이스 실측은 신규 회귀 테스트로 대체.
+
+### Notes
+- 전체 테스트 기준은 현재 170 passed/7 skipped. SURIT-027 신규 테스트 파일은 실제 collect 결과 10건이다.
+- `backend/filters.py` 및 `backend/pipeline/result_builder.py` diff 없음. Q1/Q3/Q4 로직 및 실손 로직 변경 없음.
+- generated `backend/__pycache__/main.cpython-312.pyc`는 restore 후 staging 제외.
+
+### Next
+- Human: 배포 후 실제 Q2 화면에서 화상·피부염 꼬리표 제거와 검사근거 있는 항목의 의심 소견 유지 여부 최종 육안 확인.
+
+## 2026-06-07 Cowork SURIT-027 [구현 완료 / in-sandbox 전체 pytest 차단 — Codex 검증·푸시]
+### Changed
+- `backend/pipeline/ai_judgment.py` — **(가)** `MEDICAL_JUDGMENT_SYSTEM_PROMPT [판단 1]` 재작성: 추가검사/재검사 정의 + 확정 4기준(①선행검사 ②후속 필요성 ③추적관찰 아닌가 ④같은날 일련검사 아닌가) 명시. 구 line 103("동일검사 14일+2회→true")의 103↔105 모순 제거 → "동일검사 반복만으로 true 금지, 이상소견 없으면 추적관찰 false". 과소 방지 단서("명백히 이상소견 동반한 후속검사·재검사는 false 로 떨구지 말 것 — 고지 누락 방지").
+- `backend/analyzer.py` —
+  · **(나)** `_build_medical_judgment_inputs` 후보 게이트: '횟수' 기준을 `len(events)` → **distinct 진료일**로 collapse(같은날 동일검사 묶음 1과정). **types(2종) 기준 유지** → 같은날 다종·교차일은 후보 보존(과소 방지). 임계값(2회/2종) 유지.
+  · **(B)** 신규 헬퍼 `_codes_with_recent_test_evidence(disease_stats, d1y)` + `run_analysis`의 의심 소견 부착을 검사근거 보유 코드로 게이팅(`_suspicion_prompt_items`/`_suspicion_apply_items` 필터). 검사근거 없는 단순 1년 진단(화상·피부염)은 의심 소견·꼬리표 미부착(항목은 Q2 유지 — 고지 누락 아님).
+- `backend/tests/test_additional_test_narrowing.py` (신규) — 양방향 회귀 11건.
+- `.agent-harness/tasks/SURIT-027-additional-test-narrowing.md`(신규), handoff/locks.
+- `backend/filters.py`·`backend/pipeline/result_builder.py` — 잠금만, **수정 없음**(Q2 항목 자체 유지, 게이팅은 analyzer).
+
+### ★ 과소 방지 설계 결정 (중요 — 검토 요망)
+- 결정론(나)은 **같은날 '동일검사' 묶음만** 횟수 collapse 한다. **같은날 '다종' 일련검사·교차일 추적관찰은 결정론에서 후보로 남긴다.**
+- 이유: 이상소견 신호가 `detail_test_events`(date/name/hospital)에 없어, 같은날 다종을 결정론으로 제외하면 진짜 후속검사(예: 같은날 초음파→조직검사+이상)를 떨굴 위험(과소). 과소가 과검보다 위험하다는 태스크 제약(★필수) 우선.
+- 따라서 [제외돼야]의 '같은날 3종 일련검사'·'교차일 추적관찰(동일검사)'은 결정론 후보로 남고, **최종 false 는 (가) Gemini 4기준**으로 판단된다. 회귀는 "결정론 후보 보존" + "프롬프트 문구 존재"로 고정(실제 false 판정은 실 PDF 로 Codex/Human 확인 권장).
+
+### Verified
+- [x] `ai_judgment.py` `ast.parse` OK (UTF-8). (가) 프롬프트 반영 확인.
+- [x] **(나)+(B) 핵심 로직 독립 검증 8건 통과**(`/tmp/diag_027.py`, helpers 기반, 비저장):
+  · [제외] 같은날 동일검사3·단일검사 → 후보 아님. · [유지/과소방지] 같은날 다종·교차일 후속 → 후보 유지. · [Gemini위임] 교차일 추적관찰 → 후보 보존. · (B) 검사근거 없음(화상·피부염)·1년밖 → 미부착, 근거 있음 → 부착.
+- [x] Windows 원본 정합(Grep/Read): analyzer 편집(collapse 590-610, 헬퍼 642, 게이팅 885-907, `_q1_easy_items` 879 정의→894 사용, return 926) 균형. 기존 통합테스트(`test_analyzer_integration`)는 `_call_q2_health_findings` try/except + q2_suspicion 미단언 → (B) 회귀 없음 확인.
+- [ ] `cd backend && python -m pytest -q` — **전체 미실행(차단)**. 사유 Notes.
+- [ ] `npx tsc` / `npm run build` — 백엔드만 변경(프런트 영향 없음). Codex 확인.
+
+### Notes
+- **⚠️ in-sandbox 전체 pytest 차단 (마운트 truncation 재발)**: 편집한 `analyzer.py`(대형) 의 sandbox 마운트 뷰가 truncation(ast.parse `'(' never closed`) → `_codes_with_recent_test_evidence` import 불가로 `test_additional_test_narrowing.py` 수집 실패. `ai_judgment.py`(소형)는 parse OK. **Windows 원본은 Grep/Read 로 완결·정합 확인**, 핵심 로직은 helpers 기반 독립 검증 통과. SURIT-022/023/025 와 동일 마운트 사고. AGENTS.md 41조 따라 Codex(Windows) 권위 검증 인계.
+- 신규 테스트는 결정론(나)·(B)·프롬프트(가) 문자열을 직접 고정. Gemini 호출 mock 불필요(순수 함수·문자열 검증). Codex 가 Windows 에서 `test_additional_test_narrowing.py` 전건 + 기준선 160 passed 회귀 없음 확인 필요.
+- 범위 밖(Q1/Q3/Q4·실손·임계값) 미변경.
+- **⚠️ 마운트 git 인덱스 손상 발견(2026-06-08 재확인)**: sandbox `git status` 가 `.git/index.lock` 잔존 + `cache entry has null sha1` 오류 + `tsconfig.json`·`tsconfig.node.json`·`vercel.json`·`vite.config.ts`·`vitest.config.ts` 를 **삭제(staged D)** 로 표시. 그러나 **해당 설정 파일은 디스크에 실제 존재**(ls 확인) — 마운트 git 인덱스 손상 아티팩트로 판단(실제 삭제 아님). sandbox 에서 `index.lock` 제거 불가(Operation not permitted). **Codex/Human 은 Windows 에서 `git status` 재확인 후, 설정 파일이 삭제로 잡히면 커밋 전 `git restore --staged <파일>` 또는 인덱스 리셋 필요**(SURIT-027 커밋에 config 삭제가 섞이지 않도록).
+
+### Next
+- Codex: SURIT-027 검증 + 푸시 —
+  ⓪ **(선행) Windows `git status` 로 인덱스 정상 확인 — tsconfig/vite.config 등이 삭제로 잡히면 스테이징에서 복구 후 진행.**
+  ① `python -c "import ast; ast.parse(open('backend/analyzer.py', encoding='utf-8').read()); print('OK')"` (+ai_judgment).
+  ② `cd backend && python -m pytest -q` — 기준선 160 passed/7 skipped 회귀 없음 + `test_additional_test_narrowing.py` 전건(특히 [유지/과소방지] 4건). 회귀 발생 시 push 금지·반려.
+  ③ `npx tsc -p tsconfig.app.json --noEmit`/`tsconfig.node.json`/`npm run build`.
+  ④ `git status --short -uall` 로 SURIT-027 범위(`backend/pipeline/ai_judgment.py`,`backend/analyzer.py`,`backend/tests/test_additional_test_narrowing.py`,`.agent-harness/tasks/SURIT-027-additional-test-narrowing.md`,`.agent-harness/handoff.md`,`.agent-harness/locks.md`)만 스테이징 — 무관 변경(filters.py 등) 제외.
+  ⑤ 한국어 커밋(`SURIT-027: 추가검사·재검사 판정 정교화 (q2_suspicion 검사근거 게이팅 + 프롬프트 4기준 + same-day collapse)`)으로 `git push origin main`.
+  ⑥ 배포 후 오성심 PDF: 화상·피부염 의심 꼬리표 제거 + 실제 검사근거 항목 유지 + (가) 추적관찰 false 확인.
+- 후속(Human): 같은날 다종 일련검사·추적관찰의 Gemini false 판정을 실 PDF 샘플로 모니터링(과소 없는지). 필요 시 detail_test_events 에 이상소견 신호 보강해 결정론 정밀도 향상 검토.
+
+## 2026-06-07 Cowork SURIT-026 [진단 전용 — 코드/커밋 없음]
+### Changed
+- (코드 변경 없음) `.agent-harness/tasks/SURIT-026-additional-test-diagnosis.md` 신규 + 본 handoff 기록만.
+
+### 산출물 1 — "추가검사 의심" 판정 경로 (읽기 추적)
+두 개의 독립 표면이 모두 "추가검사·재검사 의심"으로 노출됨:
+
+**(A) 이진 플래그 `additional_test_hit`** (실제 추가검사 판단)
+1. `disease_aggregator.py:364-374` — 세부진료(detail) 행위명이 `test_keywords` 매칭 시 `s["test_events"].append({date,name,hospital})`.
+2. `helpers._recent_detail_test_events`(412-434) 1년 필터 + `_detail_test_type_count`(distinct 검사명).
+3. `analyzer._build_medical_judgment_inputs`(568-606) **후보 게이트**: `events_1y and (len(events)>=2 or types>=2)` → Gemini type1 전송. (정기/추적/같은날 구분 없이 카운트만.)
+4. `ai_judgment._call_medical_judgment` — Gemini가 시스템 프롬프트(ai_judgment.py:98-107)로 `is_additional_test` 판정.
+5. `analyzer._apply_medical_judgment`(636-686) → `_js["_additional_test_result"]`.
+6. `result_builder.py:178-224` → `additional_test_hit = bool(is_additional_test)`. `Disclosure.tsx` 에서 `additional_test_hit && <Chip "추가검사 의심">`.
+
+**(B) 텍스트 `q2_suspicion`** (모든 Q2에 부착되는 일반 의심 소견)
+- `filters._build_q2_health_items`(429-460): 1년 이내 확정진단 **전체**를 Q2로 만들고 `needs_gemini_finding=True`.
+- `ai_judgment._call_q2_health_findings`(311+): 각 Q2 항목에 코드/병명 기반 **일반적** "의심 추가검사·재검사" 한 줄(예: 위염→"위내시경 재검 가능성") 생성 — **실제 추가검사 발생과 무관**.
+- `result_builder.py:225` → `q2_suspicion` 노출. 즉 최근 1년 진단이면 무조건 "의심 소견" 텍스트가 붙음.
+
+판정에 쓰는 데이터: test_events(검사명·날짜·병원), same_day_detail_actions, reason 내 "이상/의심/재검" 키워드. **안 쓰는 것: 추적관찰 판별, 같은날 일련검사 collapse, 선행→후속 인과/필요성.**
+
+### 산출물 2 — 현재 정의 vs 확정 정의 차이
+- ① 선행검사 존재: 후보 게이트가 "≥2회/≥2종"으로 근사하나, 인과(선행→후속) 아님.
+- ② 결과로 후속검사 필요: 프롬프트 line 102(이상소견 reason→true)로만 근사. 결정론 근거 없음.
+- ③ 단순 추적관찰 제외: **결정론 제외 전무**. 프롬프트 line 105가 "추적관찰→항상 false"라지만, **같은 프롬프트 line 103("동일검사 14일+ 간격 2회 이상 반복→true")과 충돌** — 추적관찰(정기 동일검사)이 line 103에 걸려 과검 가능.
+- ④ 같은날 일련검사 제외: **결정론 collapse 없음**. 후보 게이트가 같은날 N종을 N events로 카운트 → 한 과정인데 후보 자격 획득. 프롬프트 line 106(초진 당일 묶음 false)은 소프트 가드.
+- (B) q2_suspicion: 정의와 무관하게 **모든 1년 진단**에 일반 의심 소견 부착 → 구조적 과검 표면.
+
+### 산출물 3 — 과검 구체 사례
+- ⚠️ 오성심 실 PDF 는 샌드박스에 없어 **실데이터 재현 미수행**(추측 금지 — 미보유 명시).
+- 결정론 후보 게이트는 합성으로 **확인됨**(/tmp/diag_gate.py, 비저장):
+  - 갑상선결절 추적관찰(동일 갑상선초음파 2회/6개월, 이상소견 없음): events=2 → **후보게이트=True** (Gemini 전송 = 과검 후보).
+  - 같은날 일련검사 3종(흉부X선+심전도+혈액, 한 과정): events=3 → **후보게이트=True**.
+- 최종 true/false 는 Gemini 판단(API 미실행)이나, line 103↔105 충돌로 추적관찰이 true 로 굳을 위험 + (B) q2_suspicion 은 무조건 부착.
+
+### 산출물 4 — 수정 방향 제안 (후속 SURIT-027 권장)
+- **(나) 결정론 보조 제외 (우선·확실한 케이스)** — `analyzer._build_medical_judgment_inputs` 후보 게이트 보강:
+  · 같은날 일련검사 collapse: events 를 distinct **날짜**로 카운트(또는 같은날 묶음 1과정 처리) → 같은날 N종이 후보 자격 못 얻게.
+  · 추적관찰 패턴 제외: test_events 가 **동일 검사명만** + reason 에 이상/의심/재검 키워드 없음 + 정기 간격이면 후보에서 제외(또는 downgrade).
+- **(가) Gemini 프롬프트 정합** — `MEDICAL_JUDGMENT_SYSTEM_PROMPT` 판단1:
+  · line 103↔105 충돌 해소: "동일검사 반복이라도 이상소견·치료변화 없이 정기 간격이면 추적관찰 → false" 를 line 103보다 우선.
+  · 확정 4기준(①~④)을 명시 삽입.
+  · (B) `_call_q2_health_findings` 의 q2_suspicion 은 "의심" 톤을 "일반 참고(검사 예시)"로 약화하거나, `additional_test_hit=true` 일 때만 노출하도록 게이팅.
+- **권장: (가)+(나) 조합.** (나)로 같은날·순수 추적관찰을 결정론적으로 먼저 걸러 candidate 축소(결정성·재현성↑), (가)로 모호한 잔여를 Gemini가 4기준으로 판단. (B) q2_suspicion 게이팅 포함.
+- 후속 구현 태스크: **SURIT-027-additional-test-narrowing** (owner 지정 필요. ai_judgment.py·analyzer.py·filters.py·result_builder.py + 회귀테스트 범위).
+
+### Verified
+- [x] AGENTS.md/CLAUDE.md/locks(Active=none, ai_judgment·filters 미잠금)/handoff(SURIT-025) 확인.
+- [x] `cd backend && python -m pytest -q` — **156 passed, 7 skipped** (기준선, 코드 변경 없음).
+- [x] 후보 게이트 동작 합성 확인(비저장). 코드 수정·커밋 없음.
+
+### Notes
+- 읽기 전용 진단 — 코드/커밋 없음. SURIT-025(Disclosure.tsx, 프런트)와 파일 무충돌.
+- analyzer.py 의 sandbox 마운트 뷰는 직전 SURIT-023 편집의 truncation 잔존(ast.parse 실패)이나 Windows 원본·pytest 기준선은 정상. 본 진단은 코드 읽기(파일 도구=Windows 원본) 기반이라 영향 없음.
+- 오성심 실 PDF 미보유로 실데이터 과검 재현은 미수행(후속 태스크에서 실 PDF 회귀 권장).
+
 ## 2026-06-07 Codex SURIT-025 [Windows verified / push ready]
 ### Changed
 - Windows 권위 환경에서 SURIT-025 실손 리포트 인쇄/PDF 출력 변경을 검증.
