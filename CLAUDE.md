@@ -20,6 +20,7 @@
 - active lock이 걸린 파일은 중복 편집하지 않는다.
 - handoff의 Next는 기본적으로 `Codex` 또는 `Human`만 사용한다.
 - 과거 handoff/task/locks의 Claude 또는 Cowork 표기는 역사 기록일 뿐이며, 새 작업 지시는 Codex 단독 기준으로 해석한다.
+- 마운트 truncation/git 손상은 알려진 환경 제약이다. `.agent-harness/ENV-MOUNT-NOTES.md`를 참조하고, Cowork는 마운트에서 git 명령을 실행하지 않으며, 검증은 Windows 원본·/tmp·Codex로 수행한다.
 
 ## 태스크 ID 규칙
 - 이 프로젝트(SURIT)는 `SURIT-{번호}-{슬러그}.md` 형식을 기본으로 한다.

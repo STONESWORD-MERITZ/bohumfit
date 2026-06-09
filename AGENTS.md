@@ -68,3 +68,4 @@ For UI changes, also run the app locally and perform a browser smoke check when 
 - `.agent-harness/decisions.md`: persistent decisions.
 - `.agent-harness/locks.md`: temporary file ownership during active work.
 - `.agent-harness/verify.md`: standard validation commands.
+- `.agent-harness/ENV-MOUNT-NOTES.md`: 샌드박스 마운트 작업 시 따르는 회피 규칙(마운트 truncation·git 손상 주의, Cowork는 마운트 git 금지).
