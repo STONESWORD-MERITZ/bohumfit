@@ -41,6 +41,14 @@ export default function Layout() {
             >
               설계사 필터
             </NavLink>
+            <NavLink
+              to="/insurance"
+              className={({ isActive }) =>
+                isActive ? "text-indigo-600" : "hover:text-gray-900 transition-colors"
+              }
+            >
+              실손 계산
+            </NavLink>
           </nav>
 
           <div className="flex items-center gap-3 text-sm">

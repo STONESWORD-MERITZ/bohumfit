@@ -15,6 +15,7 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-08 `SURIT-029` - Cowork - 독립 실손 예상 보험금 계산기(수기/PDF 모드) 구현 완료. 범위: `src/lib/insuranceCalc.ts`(신규, 검증 미러 verbatim 추출)·`src/pages/InsuranceCalculator.tsx`(신규)·`src/App.tsx`(라우트)·`src/components/Layout.tsx`(네비). Disclosure.tsx·backend **무변경**(회귀 0). 미러 일치 /tmp node 검증(backend SURIT-028 참조값 일치)·신규 파일 온전 동기화·React.ReactNode tsc 이슈 선수정. in-sandbox tsc/build 는 마운트 truncated Disclosure 로 차단 → Codex(Windows) 검증·커밋·푸시 대기로 잠금 해제(ENV-MOUNT-NOTES 준수, 마운트 git 미실행). 결정 3건 handoff 기록.
 - 2026-06-09 `SURIT-028` - Codex - Windows authority verification completed; stale `.git/index.lock` removed after writer exited; pytest/tsc/build and backend-vs-TS mirror comparison passed; locks remain released.
 - 2026-06-08 `SURIT-028` - Cowork - 실손 최소공제(정액↔정률 max) + 의원 자동분류 구현 완료(additive, 기존 ①②③ 불변). 범위: `backend/insurance/constants.py`(§4-4)·`calculator.py`(§6-1 함수 4종)·`tests/test_min_deductible.py`(14케이스)·`src/pages/Disclosure.tsx`(TS미러+①-b)·설계문서 v4. 백엔드 산식 9건 독립 검증·Windows 원본 정합 확인. in-sandbox pytest/tsc 는 마운트 truncation 으로 차단 → Codex(Windows) 검증·푸시 대기로 잠금 해제(Active 미점유 — 작업 중 기록 누락, 변경범위 위와 같음). 백엔드-TS 미러 일치(케이스10) Codex 대조 요망.
 - 2026-06-08 `SURIT-027` - Codex - Windows authority verification completed; stale `.git/index.lock` removed after `write-tree` exited; pytest/tsc/build and O Seongsim PDF mock check passed; locks remain released.

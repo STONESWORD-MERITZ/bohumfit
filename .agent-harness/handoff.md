@@ -18,6 +18,142 @@
 
 Use newest entries at the top.
 
+## 2026-06-10 Codex SURIT-029 [Windows 권위 검증 완료 / push ready]
+### Changed
+- Codex 코드 변경 없음. Cowork 구현분을 Windows 원본 기준으로 검증.
+- 검증 대상: `src/lib/insuranceCalc.ts`, `src/pages/InsuranceCalculator.tsx`, `src/App.tsx`, `src/components/Layout.tsx`, `.agent-harness/tasks/SURIT-029-standalone-insurance-calc.md`, handoff/locks.
+
+### Verified
+- [x] ENV-MOUNT-NOTES 절차: `.git/index.lock` 없음, 추적 파일 `D+??` 오표시 없음, staged deletion 없음.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` — passed.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` — passed.
+- [x] `npm run lint` — passed.
+- [x] `npm test` — passed(1 file, 1 test).
+- [x] `npm run build` — passed(Vite 500KB chunk warning only).
+- [x] `cd backend && python -m pytest -q` — 185 passed, 7 skipped.
+- [x] `/insurance` browser smoke: local dev server 200, ProtectedRoute 미로그인 상태에서 `/login` redirect 정상, console error 없음.
+- [x] TS lib vs backend 3중 핵심 금액 대조 통과: 의원 3만원/r20/정액1만 → 2만원, 삼성서울병원 20만원/r20 → 16만원, 8천원 → 0/실익낮음, 4세대 비급여 상한 제외, 10분위 900만원 → 환급 57만원.
+- [x] Disclosure 기존 실손 계산 회귀: `src/pages/Disclosure.tsx` 무변경, 기존 인라인 미러 구간 존재 확인.
+- [x] PDF 모드 코드 확인: `/api/analyze` 응답 중 `covered_self_pay_by_year`/`covered_self_pay_captured`만 소비, 알릴의무 reports 미표시.
+- [x] 면책/문구 확인: "추정", "가능성", "확인 필요", "모집·상품추천·가입권유 아님" 표기. "받으세요"류 단정 표현 없음.
+
+### Notes
+- 실제 로그인 세션이 없어 `/insurance` 본문 입력 및 PDF 업로드를 브라우저에서 끝까지 수행하지는 못함. 대신 ProtectedRoute 동작과 console clean을 확인하고, 계산 결과는 TS lib ↔ backend 함수 대조로 검증함.
+- 최초 비교 시 PowerShell stdin 인코딩으로 Python 한글 기관명이 깨져 mismatch가 발생했으나, UTF-8 임시 `.py` 파일 방식으로 재검증하여 정상 일치 확인.
+- 기존 미커밋 `.agent-harness/tasks/SURIT-ENV-001-mount-truncation-diagnosis.md`는 SURIT-029 범위 밖이라 stage 제외.
+
+### Next
+- Human: 로그인 상태 브라우저에서 `/insurance` 수기/PDF 화면 최종 육안 확인 및 실제 심평원 PDF 업로드 확인.
+- Backlog: Disclosure 인라인 미러를 `src/lib/insuranceCalc.ts` import로 단일화, 경량 진료비-only 추출 엔드포인트, PDF 모드 기관종별 자동추출.
+
+## 2026-06-08 Cowork SURIT-029 [구현 완료 / Codex Windows 검증·커밋·푸시]
+### Changed
+- `src/lib/insuranceCalc.ts` (신규) — 검증된 실손 계산 미러를 **verbatim 추출**(INS_* 상수 §4-1~4-4 + ins* 함수). 산식 재구현 X. Disclosure 인라인·backend/insurance 와 동일.
+- `src/pages/InsuranceCalculator.tsx` (신규) — 독립 실손 계산기 페이지. 수기/PDF 모드 토글. lib 만 사용해 계산(① 청구 가능성 ② 자기부담금 상한 ③ 건보 상한제 + ①-b 028 최소공제). 면책·비저장. PDF 모드는 알릴의무 Q&A 미표시.
+- `src/App.tsx` — `/insurance` 라우트 + import (소형 파일 소edit).
+- `src/components/Layout.tsx` — 네비 "실손 계산" 추가 (소edit).
+- `.agent-harness/tasks/SURIT-029-standalone-insurance-calc.md` (신규), handoff/locks.
+- **Disclosure.tsx·backend 무변경** (회귀 0, ENV truncation 위험 회피).
+
+### 결정 필요 → 답 (3건)
+1. **계산기 위치**: Disclosure.tsx **인라인**(독립 컴포넌트 아님) → 신규 `src/lib/insuranceCalc.ts` 로 verbatim 추출해 신규 페이지가 import. Disclosure 무수정. 인라인↔lib 중복 단일화는 **백로그**(이번엔 재사용만, 리팩터링 금지 준수).
+2. **백엔드 진료비-only 경로**: **없음** (`/api/health`·`/api/analyze` 둘뿐). v1 PDF 모드는 **`/api/analyze` 재사용** → `covered_self_pay_by_year` 로 급여 진료비 자동 채움, 알릴의무 결과 UI 미노출. 경량 parse-only 엔드포인트(분석 미실행)는 **백로그**. **기관종별은 per-hospital 미surface → 자동추출 불가, 수동 입력**(한계 명시).
+3. **라우트/네비**: 라우트 `/insurance`(ProtectedRoute), 네비 항목 **"실손 계산"**.
+
+### Verified
+- [x] **미러 일치(동일 금액)**: `/tmp/mirror_check.js`(node)로 lib 산식이 backend SURIT-028 참조값과 일치 확인 — 의원 3만/r20/d1만→보상 2만, 종합 20만→16만, 8천→0(실익낮음), 4세대 비급여 제외, 10분위 환급. lib 는 Disclosure 인라인의 verbatim 이므로 3-way(신규페이지=Disclosure=backend) 동일.
+- [x] 신규 파일 마운트 온전 동기화: insuranceCalc.ts 104줄·InsuranceCalculator.tsx 355줄, 끝 정상(ENV: 신규 파일 첫 쓰기 온전).
+- [x] 자체 코드리뷰로 tsc 이슈 1건 선수정: 새 페이지 `React.ReactNode` → 프로젝트 컨벤션 `import { type ReactNode }` 로 교정(Disclosure 동일 패턴). import·로컬 변수 unused 없음 확인.
+- [ ] `npx tsc -p tsconfig.app.json --noEmit`/`tsconfig.node.json`/`npm run lint`/`npm run build` — **미실행(차단)**. 사유 Notes.
+
+### Notes
+- **⚠️ in-sandbox tsc/build 차단(ENV-MOUNT-NOTES)**: 프로젝트 전체 tsc 는 마운트의 truncated `Disclosure.tsx`(기존 편집 파일)를 읽어 실패하므로, 신규 파일이 온전해도 in-sandbox tsc 불가. ENV 규칙대로 마운트 git 명령 미실행, 검증은 Windows(Read)·/tmp 로 수행, 권위 검증은 Codex(Windows).
+- **PDF 모드 동작**: 기존 `/api/analyze`(인증 Bearer + FormData files/reference_date/birthdate_pw) 패턴을 Disclosure 와 동일하게 재사용. 응답에서 `covered_self_pay_by_year` 만 소비, 알릴의무 reports 미렌더. 즉 분석은 서버에서 실행되나 화면엔 실손만(과제 fallback 부합). 경량 추출 엔드포인트는 후속.
+- **비저장**: 모든 입력(세대·분위·비급여·최소공제·기관명) useState 만. PDF는 업로드만, 저장 없음. 면책 INS_DISCLAIMER 표기.
+- **마운트 git 인덱스 손상 지속**(ENV-001): Codex 는 Windows `git status` 확인 후 설정파일 staged-deletion 오표시 시 `git restore --staged` 복구(ENV-MOUNT-NOTES Recovery Checklist).
+
+### Next
+- Codex: SURIT-029 검증 + 커밋 + 푸시 (Windows) —
+  ① Windows `git status` 인덱스 정상 확인(설정파일 삭제 오표시 복구).
+  ② `npx tsc -p tsconfig.app.json --noEmit` / `tsconfig.node.json` — 신규 `src/lib/insuranceCalc.ts`·`src/pages/InsuranceCalculator.tsx`·App.tsx·Layout.tsx 타입 통과. (Disclosure 마운트 truncation 무관 — Windows 원본은 정상.)
+  ③ `npm run lint` / `npm run build`.
+  ④ 미러 일치 수동: `/insurance` 진입 → 수기 입력 결과 = 기존 분석 화면 실손 탭 = backend 동일 금액. 기존 실손 탭 회귀 없음(Disclosure 무변경).
+  ⑤ `git status --short -uall` 로 SURIT-029 범위(`src/lib/insuranceCalc.ts`,`src/pages/InsuranceCalculator.tsx`,`src/App.tsx`,`src/components/Layout.tsx`,`.agent-harness/tasks/SURIT-029-standalone-insurance-calc.md`,`.agent-harness/handoff.md`,`.agent-harness/locks.md`)만 스테이징 → 한국어 커밋(`SURIT-029: 독립 실손 예상 보험금 계산기 (수기/PDF 모드, 검증 미러 lib 추출)`) `git push origin main`.
+- 백로그(Human/Cowork): (a) Disclosure 인라인 미러를 lib import 로 단일화, (b) 경량 진료비-only 추출 엔드포인트(분석 미실행), (c) PDF 모드 기관종별 자동추출(per-hospital surfacing).
+
+## 2026-06-09 Codex SURIT-ENV-001 [마운트 회피 규칙 명문화 완료]
+### Changed
+- `.agent-harness/ENV-MOUNT-NOTES.md` 신규 생성: SURIT-ENV-001 진단에서 확인된 마운트 truncation, unlink 권한 문제, git index 손상 회피 규칙 정리.
+- `AGENTS.md`: Harness Files에 ENV-MOUNT-NOTES 참조 추가.
+- `CLAUDE.md`: 절대 규칙에 마운트 truncation/git 손상 제약 및 Cowork 마운트 git 금지 규칙 추가.
+
+### Verified
+- [x] `.git/index.lock` stale lock 제거 완료(활성 git writer 없음 확인).
+- [x] `tsconfig*`, `vite.config.ts`, `vitest.config.ts`, `vercel.json` 디스크 존재 확인 및 staged deletion 없음.
+- [x] 추가/수정 3개 파일의 ENV-MOUNT-NOTES 참조 문구 확인.
+- [x] `git diff --check` 통과.
+- [x] 문서 변경만 해당하여 pytest/build 미실행.
+
+### Notes
+- 사용자 프롬프트의 `[노트내용]` 전문은 placeholder였으므로, 실제 내용은 기존 SURIT-ENV-001 진단 기록을 근거로 작성함.
+- 커밋 범위 지시가 `ENV-MOUNT-NOTES.md + AGENTS.md + CLAUDE.md` 3개 파일로 한정되어 있어 handoff 기록은 별도 변경으로 남김.
+
+### Next
+- Human: 필요 시 마운트 truncation/git index 손상 환경 버그를 플랫폼에 보고.
+
+## 2026-06-08 Cowork SURIT-ENV-001 [환경 진단 전용 — 코드/git 변경 없음]
+### Changed
+- (저장소 코드 변경 없음) `.agent-harness/tasks/SURIT-ENV-001-mount-truncation-diagnosis.md` 신규 + 본 handoff 기록만. 통제 실험 파일은 저장소 밖 `outputs/env_probe_new.py`(repo 미오염).
+
+### 관측 데이터 (마운트 뷰 vs Windows 원본)
+| 파일 | 마운트 줄/바이트 | 마운트 꼬리 | ast.parse |
+|---|---|---|---|
+| calculator.py | 384 / 16519B | "...한 번에 구�"(mid-char) | UnicodeDecodeError(unexpected end) |
+| constants.py | 99 / 5748B | "...일반 상한��" | UnicodeDecodeError |
+| Disclosure.tsx | 906 / 43899B | — | — |
+- Windows 원본(Read 권위): calculator.py 524줄+ 지속 등 — 마운트는 부분 prefix.
+- **잘림이 SyntaxError 가 아니라 UnicodeDecodeError(멀티바이트 문자 중간 바이트에서 끊김)** → 라인 단위가 아닌 **바이트 단위 prefix 절단**.
+
+### 산출물 1 — truncation 발생 조건 (통제 실험 outputs)
+- 신규 파일 Write(env_probe_new.py, 28줄/2812B): **마운트 온전 동기화**(parse OK, 끝마커 존재).
+- 같은 파일 Edit(증가 → Windows ~3.1KB): **마운트 2812B 그대로 유지**, 새 내용이 2812B 지점("...EDI")에서 mid-char 절단, 새 끝마커 미동기화, parse 실패.
+- **결론: 마운트 파일은 '최초 동기화 시 바이트 길이'로 버퍼가 고정된다. 이후 편집으로 파일이 커지면 그 버퍼 길이에서 잘린다.** 줄 수/고정 바이트 임계는 없음(파일마다 다름 = 각자의 최초 동기화 길이). 최초 동기화가 중간에 끊기면(레이스) 부분 prefix 로 고정 → 구 repo 파일들이 현재 Windows 보다 작은 크기로 잘려 있는 이유.
+- Write(신규) = 온전 / Edit·전체Write(기존, 증가) = 잘림. (SURIT-023 에서 전체 Write 로도 복구 안 된 것과 일치 — 버퍼 길이가 고정이라.)
+
+### 산출물 2 — git 인덱스 손상 조건·시점
+- `git status` 등 git 명령이 마운트 `.git/index.lock` 생성 후 **unlink 실패**(`Operation not permitted`) → 인덱스에 `cache entry has null sha1` 발생.
+- 증상: 추적 파일(`tsconfig.json`·`vite.config.ts`·`src/pages/Login.tsx` 등 13개)이 `D `(staged 삭제) + `??`(미추적)로 **동시 오표시**. `git ls-files --error-unmatch tsconfig.json` → "did not match"(인덱스가 추적 못함). **디스크 파일은 실제 존재**(ls 확인).
+- 시점: 마운트에서 git 명령 실행 시(읽기성 `git status` 만으로도 lock 생성 시도 → 손상). index.lock 은 이번 턴 시작 시엔 없었으나(직전 SURIT-027 에서 Codex 가 Windows 에서 제거) git status 실행이 다시 lock 생성·고착.
+
+### 산출물 3 — 회복 가능 여부·조건
+- Read 도구로 Windows 원본 읽어도 마운트 재동기화 **안 됨**(calculator 384 유지).
+- 대기(2s) 후에도 **자가 회복 안 됨**(2812 고정 유지).
+- 샌드박스 bash 의 `rm`(삭제/unlink)이 마운트에서 **권한 거부**(outputs 의 본인 파일도 불가) → 버퍼 리셋용 '삭제+재생성' 불가. git index.lock 제거도 동일 이유로 불가.
+- **세션 내 회복 수단 없음.** 회복은 Windows 측(Codex)·세션 재시작에서만. (SURIT-027 에서 Codex 가 Windows 에서 index.lock 제거·검증한 선례 = Windows 측은 정상.)
+
+### 산출물 4 — 회피책 후보 (데이터 기반)
+1. **마운트 뷰를 검증 권위로 쓰지 말 것.** 편집한 파일의 구조·완결성은 Read 도구(Windows)로 대조. (현행 방식 유지·강화.)
+2. **in-sandbox 테스트는 /tmp(샌드박스 로컬, 마운트 아님)에서.** /tmp 는 truncation·권한 문제 없음(본 진단 실험·과거 diag 스크립트 모두 정상). 핵심 로직을 /tmp 독립 스크립트로 검증.
+3. **git 명령을 마운트에서 실행하지 말 것.** 읽기성 `git status` 도 index.lock 손상을 유발. git 은 Codex(Windows) 전담.
+4. 신규 파일(첫 쓰기)은 온전 동기화되므로, 가능하면 큰 변경을 새 모듈로 분리하면 마운트 검증이 가능할 수 있음(단 기존 파일 편집은 불가피).
+5. 권위 검증은 Codex(Windows) 인계(현행). 본 진단으로 "왜 차단되는지" 근거 확보.
+
+### 산출물 5 — 환경(불가) vs 회피가능 구분
+- **못 고침(환경 자체)**: ① 마운트 버퍼 고정·증가분 절단(W→M 동기화 레이어), ② 마운트 unlink/삭제 권한 거부(→ 버퍼 리셋·index.lock 정리 불가), ③ 마운트 git 인덱스 손상. 모두 샌드박스 권한 밖.
+- **회피 가능(우리 작업 방식)**: ① 검증을 Windows(Read)·/tmp·Codex 로 이원화, ② 마운트에서 git 명령 회피, ③ 마운트 wc/ast.parse 결과를 '실패'로 오판하지 않기(Windows 원본 우선), ④ 변경 단위를 신규 파일로 쪼개 마운트 검증 여지 확보.
+
+### Verified
+- [x] AGENTS.md/CLAUDE.md/locks(Active=none)/handoff 확인. 코드·git 변경 없음(관측만).
+- [x] 통제 실험(신규 동기화 OK → 편집 후 2812B 절단)·git 손상 메커니즘·삭제 권한 거부 재현.
+
+### Notes
+- `outputs/env_probe_new.py` 는 삭제 권한 거부로 잔존하나 저장소(surit-react) 밖이라 repo·커밋에 영향 없음.
+- 본 진단은 마운트 뷰 신뢰 불가가 '코드 결함'이 아니라 '환경 동기화 레이어' 문제임을 통제 실험으로 확증. 과거 SURIT-022~028 의 "in-sandbox 검증 차단" 은 모두 동일 원인.
+
+### Next
+- Human/Codex: 회피책 4항 채택 검토 — (a) 하네스 규약에 "마운트 git 명령 금지, 검증은 /tmp·Windows·Codex" 명문화, (b) 대형 편집을 신규 모듈로 분리하는 패턴, (c) 세션 시작 시 마운트 truncation 자가점검(Windows 줄수 vs 마운트 wc) 후 차이나면 Codex 검증 전제.
+- (환경 자체 수정은 샌드박스 권한 밖 — 플랫폼 측 이슈로 별도 보고 권장.)
+
 ## 2026-06-09 Codex SURIT-028 [Windows verified / push ready]
 ### Changed
 - Windows 권위 환경에서 SURIT-028 구현분을 재작업 없이 검증.
@@ -150,6 +286,53 @@ Use newest entries at the top.
   ⑥ 배포 후 오성심 PDF: 화상·피부염 의심 꼬리표 제거 + 실제 검사근거 항목 유지 + (가) 추적관찰 false 확인.
 - 후속(Human): 같은날 다종 일련검사·추적관찰의 Gemini false 판정을 실 PDF 샘플로 모니터링(과소 없는지). 필요 시 detail_test_events 에 이상소견 신호 보강해 결정론 정밀도 향상 검토.
 
+## 2026-06-08 Codex INT-047 [blocked — 대상 작업분 없음]
+### Changed
+- 코드 변경 없음.
+- 현재 워킹트리/`origin/main`에서 `INT-047-blog-approval-queue.md`, approve route, `approval/page.tsx`, `ApprovalQueue.tsx` 작업분을 찾지 못해 검증을 중단.
+
+### Verified
+- [x] `AGENTS.md` 확인.
+- [x] `.agent-harness/handoff.md` 최신 항목 확인 — 최상단은 `SURIT-025`, 병렬 미커밋 `SURIT-026` 기록만 존재. 요청한 `INT-047 Cowork 작업분` 기록 없음.
+- [x] `git fetch origin` — `origin/main`은 현재 `fe0c6bf`와 동일.
+- [x] `rg -n "INT-047|ApprovalQueue|BlogDraft|canAccessAll|complianceStatus|reviewedBy|reviewedAt|reviewNotes|prisma"` — 현재 BOHUMFIT/Vite 저장소에서 관련 구조 없음.
+- [ ] `npm run lint` — 미실행. 사유: INT-047 산출물/태스크 파일이 현재 저장소에 없어 요청 검증 대상이 없음.
+- [ ] `npm run build` — 미실행. 사유 동일.
+
+### Notes
+- 현재 저장소는 `bohumfit` Vite/React 앱 구조이며, 요청에 언급된 Next.js route/page, Prisma, `BlogDraft`, `canAccessAll`, marketing approval queue 구조가 존재하지 않는다.
+- `.agent-harness/tasks/INT-047-blog-approval-queue.md` 파일도 없음.
+- 기존 미커밋 병렬 산출물: `.agent-harness/tasks/SURIT-026-additional-test-diagnosis.md` 및 handoff의 SURIT-026 섹션은 그대로 보존.
+- `.agent-harness/locks.md`에는 `SURIT-027` Cowork 활성 잠금이 남아 있음. INT-047 범위와 직접 충돌은 아니지만 현재 하네스가 다른 작업 진행 중 상태임.
+
+### Next
+- Human: INT-047 작업분이 있는 올바른 저장소/브랜치/폴더를 알려주거나, Cowork 산출물 3파일과 task 파일을 이 워킹트리에 동기화한 뒤 Codex에 재요청.
+
+## 2026-06-07 Codex SURIT-025 [Windows verified / push ready]
+### Changed
+- Windows 권위 환경에서 SURIT-025 실손 리포트 인쇄/PDF 출력 변경을 검증.
+- `src/pages/Disclosure.tsx` — `#insurance-print-area`, `no-print`, `print-only`, `window.print()` 버튼, 면책/민감정보/생성일/입력요약 출력 경로 확인.
+- `.agent-harness/tasks/SURIT-025-insurance-pdf.md` — 태스크 수행 결과 확인.
+- SURIT-024 보류분(`COPAY_RATE_VERIFIED` 명칭/문구 정리, 수치 불변)은 SURIT-025 실손 화면 문구와 이어진 선행 변경이라 이번 publish scope에 함께 포함 판단.
+- `backend/filters.py` — `git diff -- backend/filters.py` 결과 비어 있음. 이전 `filters.py (M)` 메모는 stale로 판단, 이번 커밋 제외.
+
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` — passed.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` — passed.
+- [x] `npm run build` — passed; 기존 Vite 500KB chunk-size warning only.
+- [x] `cd backend && python -m pytest -q` — 160 passed, 7 skipped.
+- [x] Chrome headless print-media PDF render harness — `INS_PRINT_CSS` actual source 추출 후 PDF 생성/텍스트 검증 통과: 1 page, ①②③/입력요약/생성일/민감정보 경고/면책 4종 포함.
+- [x] Print exclusion check — header/nav/input/button/건강체/간편심사 sentinel text가 PDF 추출 텍스트에 없음. `#insurance-print-area` only 출력 확인.
+- [x] 화면 영향 확인 — CSS가 `@media screen`에서는 `.print-only`만 숨기고, `.no-print`/입력폼/버튼은 화면용으로 유지되는 구조 확인.
+
+### Notes
+- 실제 OS 인쇄 대화상자를 수동 클릭하지는 않고, Chrome의 실제 print CSS 렌더링(`--print-to-pdf`)과 `pdfplumber` 텍스트 추출로 자동 검증했다.
+- SURIT-026 진단 기록/태스크는 병렬 산출물로 그대로 보존하고 이번 SURIT-025 커밋 범위에서 제외한다.
+- SURIT-024는 사용자가 확정한 §4-1 자기부담률 표기 정리이며 수치 변경 없음. SURIT-025 화면 문구가 이 변경을 전제로 하므로 함께 publish한다.
+
+### Next
+- Human: 배포 후 실제 브라우저에서 실손 탭 "PDF로 저장(인쇄)" 최종 육안 확인.
+
 ## 2026-06-07 Cowork SURIT-026 [진단 전용 — 코드/커밋 없음]
 ### Changed
 - (코드 변경 없음) `.agent-harness/tasks/SURIT-026-additional-test-diagnosis.md` 신규 + 본 handoff 기록만.
@@ -206,31 +389,6 @@ Use newest entries at the top.
 - 읽기 전용 진단 — 코드/커밋 없음. SURIT-025(Disclosure.tsx, 프런트)와 파일 무충돌.
 - analyzer.py 의 sandbox 마운트 뷰는 직전 SURIT-023 편집의 truncation 잔존(ast.parse 실패)이나 Windows 원본·pytest 기준선은 정상. 본 진단은 코드 읽기(파일 도구=Windows 원본) 기반이라 영향 없음.
 - 오성심 실 PDF 미보유로 실데이터 과검 재현은 미수행(후속 태스크에서 실 PDF 회귀 권장).
-
-## 2026-06-07 Codex SURIT-025 [Windows verified / push ready]
-### Changed
-- Windows 권위 환경에서 SURIT-025 실손 리포트 인쇄/PDF 출력 변경을 검증.
-- `src/pages/Disclosure.tsx` — `#insurance-print-area`, `no-print`, `print-only`, `window.print()` 버튼, 면책/민감정보/생성일/입력요약 출력 경로 확인.
-- `.agent-harness/tasks/SURIT-025-insurance-pdf.md` — 태스크 수행 결과 확인.
-- SURIT-024 보류분(`COPAY_RATE_VERIFIED` 명칭/문구 정리, 수치 불변)은 SURIT-025 실손 화면 문구와 이어진 선행 변경이라 이번 publish scope에 함께 포함 판단.
-- `backend/filters.py` — `git diff -- backend/filters.py` 결과 비어 있음. 이전 `filters.py (M)` 메모는 stale로 판단, 이번 커밋 제외.
-
-### Verified
-- [x] `npx tsc -p tsconfig.app.json --noEmit` — passed.
-- [x] `npx tsc -p tsconfig.node.json --noEmit` — passed.
-- [x] `npm run build` — passed; 기존 Vite 500KB chunk-size warning only.
-- [x] `cd backend && python -m pytest -q` — 160 passed, 7 skipped.
-- [x] Chrome headless print-media PDF render harness — `INS_PRINT_CSS` actual source 추출 후 PDF 생성/텍스트 검증 통과: 1 page, ①②③/입력요약/생성일/민감정보 경고/면책 4종 포함.
-- [x] Print exclusion check — header/nav/input/button/건강체/간편심사 sentinel text가 PDF 추출 텍스트에 없음. `#insurance-print-area` only 출력 확인.
-- [x] 화면 영향 확인 — CSS가 `@media screen`에서는 `.print-only`만 숨기고, `.no-print`/입력폼/버튼은 화면용으로 유지되는 구조 확인.
-
-### Notes
-- 실제 OS 인쇄 대화상자를 수동 클릭하지는 않고, Chrome의 실제 print CSS 렌더링(`--print-to-pdf`)과 `pdfplumber` 텍스트 추출로 자동 검증했다.
-- SURIT-026 진단 기록/태스크는 병렬 산출물로 그대로 보존하고 이번 SURIT-025 커밋 범위에서 제외한다.
-- SURIT-024는 사용자가 확정한 §4-1 자기부담률 표기 정리이며 수치 변경 없음. SURIT-025 화면 문구가 이 변경을 전제로 하므로 함께 publish한다.
-
-### Next
-- Human: 배포 후 실제 브라우저에서 실손 탭 "PDF로 저장(인쇄)" 최종 육안 확인.
 
 ## 2026-06-06 Cowork SURIT-025 [구현 완료 / in-sandbox 검증 차단 — Codex 검증·푸시]
 ### Changed
