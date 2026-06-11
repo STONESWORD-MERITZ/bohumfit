@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<!-- BOHUMFIT-030: 고지의무 점검 리포트 템플릿 (네이비+골드 · 40~50대 가독성).
+     값은 payload 그대로 표시 — 재계산 금지. 구 브랜드명 문자열 사용 금지(BOHUMFIT 만 사용). -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+{{ font_face_css | safe }}
+:root {
+  --navy: #1F3A5F;
+  --navy-deep: #14253D;
+  --gold: #C9A227;
+  --gold-deep: #8C6D1F;
+  --gold-bg: #FBF6E7;
+  --ink: #232629;
+  --muted: #5A6270;
+  --line: #D9DEE6;
+  --bg-soft: #F4F6F9;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  font-family: 'BohumfitCJK', 'Noto Sans KR', 'Noto Sans CJK KR', 'Noto Sans CJK JP', 'Malgun Gothic', sans-serif;
+  color: var(--ink);
+  font-size: 10.5pt;
+  line-height: 1.55;
+  word-break: keep-all;
+}
+/* ── 헤더 ── */
+.brand-bar { height: 6px; background: linear-gradient(90deg, var(--navy) 70%, var(--gold) 70%); border-radius: 2px; }
+.head { display: flex; justify-content: space-between; align-items: flex-end; padding: 14px 2px 12px; }
+.wordmark { font-size: 19pt; font-weight: 800; color: var(--navy-deep); letter-spacing: 0.5px; }
+.wordmark .dot { color: var(--gold); }
+.head-meta { text-align: right; font-size: 8.5pt; color: var(--muted); line-height: 1.6; }
+.head-meta b { color: var(--navy); font-weight: 700; }
+h1.title {
+  font-size: 16pt; font-weight: 800; color: var(--navy-deep);
+  border-bottom: 2px solid var(--navy); padding-bottom: 8px; margin-bottom: 14px;
+}
+h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); margin-left: 8px; }
+
+/* ── 요약 ── */
+.summary { display: flex; gap: 10px; margin-bottom: 14px; }
+.summary .cell {
+  flex: 1; background: var(--bg-soft); border: 1px solid var(--line);
+  border-radius: 6px; padding: 9px 12px; text-align: center;
+}
+.summary .cell .k { font-size: 8.5pt; color: var(--muted); display: block; }
+.summary .cell .v { font-size: 13pt; font-weight: 800; color: var(--navy); }
+.summary .cell .v.warn { color: #A35B00; }
+
+/* ── 고지 불요 판단 기준 (콘텐츠 수정 1: 1~4 각 항목 한 줄) ── */
+.criteria {
+  background: var(--gold-bg); border: 1px solid #E5D9AE; border-left: 5px solid var(--gold);
+  border-radius: 6px; padding: 11px 14px; margin-bottom: 16px;
+  page-break-inside: avoid;
+}
+.criteria h2 { font-size: 11pt; color: var(--gold-deep); font-weight: 800; margin-bottom: 6px; }
+.criteria ol { list-style: none; counter-reset: cr; }
+.criteria ol li {
+  counter-increment: cr; display: block; white-space: normal;
+  padding: 3px 0; font-size: 9.8pt; color: var(--ink);
+}
+.criteria ol li::before {
+  content: counter(cr) ". "; font-weight: 800; color: var(--gold-deep);
+}
+.criteria .note { margin-top: 6px; font-size: 8.5pt; color: var(--muted); }
+
+/* ── 섹션 ── */
+.product-sec { margin-bottom: 18px; }
+.product-head {
+  background: var(--navy); color: #fff; border-radius: 6px 6px 0 0;
+  padding: 8px 14px; font-size: 11.5pt; font-weight: 800;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.product-head .cnt { font-size: 9pt; font-weight: 700; color: #F3E3AC; }
+.product-body { border: 1px solid var(--line); border-top: 0; border-radius: 0 0 6px 6px; padding: 10px 12px; }
+.q-block { margin-bottom: 10px; page-break-inside: avoid; }
+.q-head { display: flex; align-items: center; gap: 8px; margin: 8px 0 6px; }
+.q-badge {
+  background: var(--navy); color: #fff; font-weight: 800; font-size: 9pt;
+  border-radius: 4px; padding: 1px 8px;
+}
+.q-title { font-size: 10.5pt; font-weight: 800; color: var(--navy-deep); }
+.empty {
+  background: #EFF6EF; border: 1px solid #CFE3CF; border-radius: 6px;
+  text-align: center; padding: 14px; font-weight: 700; color: #2E6B3E; font-size: 10pt;
+}
+
+/* ── 항목 카드 ── */
+.item {
+  border: 1px solid var(--line); border-left: 4px solid var(--gold);
+  border-radius: 6px; padding: 9px 12px; margin-bottom: 7px;
+  page-break-inside: avoid;
+}
+.item .row1 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.item .nm { font-size: 11pt; font-weight: 800; color: var(--ink); }
+.item .code {
+  font-family: Consolas, monospace; font-size: 8.5pt; color: var(--muted);
+  background: var(--bg-soft); border-radius: 3px; padding: 0 5px; margin-left: 6px;
+}
+.badge-reco {
+  background: var(--gold-bg); color: var(--gold-deep); border: 1px solid var(--gold);
+  font-size: 8.5pt; font-weight: 800; border-radius: 10px; padding: 1px 9px; white-space: nowrap;
+}
+.item .dates { font-size: 8.8pt; color: var(--muted); margin-top: 3px; }
+.item .dates b { color: var(--ink); font-weight: 700; }
+.item .detail { font-size: 9.5pt; margin-top: 5px; color: var(--ink); }
+.chips { margin-top: 6px; }
+.chip {
+  display: inline-block; font-size: 8.5pt; font-weight: 700;
+  border-radius: 10px; padding: 1px 9px; margin-right: 5px; margin-bottom: 3px;
+  background: var(--bg-soft); color: var(--muted); border: 1px solid var(--line);
+}
+.chip.red { background: #FBEDEC; color: #9F2D24; border-color: #E5B5B0; }
+.chip.amber { background: #FBF3E1; color: #8A5A00; border-color: #E8D3A0; }
+.chip.green { background: #ECF5EE; color: #2E6B3E; border-color: #BFDCC6; }
+/* 추가검사·재검사 표시 (콘텐츠 수정 2 — unconfirmed 라벨은 미확정 항목 전용) */
+.review { margin-top: 6px; border-top: 1px dashed var(--line); padding-top: 5px; font-size: 8.8pt; }
+.review .lb { font-weight: 800; margin-right: 6px; }
+.review.suspected .lb { color: #8C2F86; }
+.review.suspected { color: #6E2A69; }
+.review.cleared .lb { color: #2E6B3E; }
+.review.cleared { color: #44694C; }
+.review.unconfirmed .lb { color: #A35B00; }
+.review.unconfirmed { color: #7A5A1E; }
+
+/* ── 전체 병력 요약 ── */
+.all-tbl { width: 100%; border-collapse: collapse; font-size: 8.8pt; margin-top: 4px; }
+.all-tbl th {
+  background: var(--navy); color: #fff; font-weight: 700;
+  padding: 5px 7px; text-align: left; border: 1px solid var(--navy);
+}
+.all-tbl td { border: 1px solid var(--line); padding: 4px 7px; }
+.all-tbl tr:nth-child(even) td { background: var(--bg-soft); }
+.sec-h2 {
+  font-size: 11.5pt; font-weight: 800; color: var(--navy-deep);
+  margin: 4px 0 6px; padding-left: 8px; border-left: 4px solid var(--gold);
+}
+
+/* ── 유의사항·푸터 ── */
+.disclaim {
+  background: var(--bg-soft); border: 1px solid var(--line); border-radius: 6px;
+  padding: 10px 13px; font-size: 8.6pt; color: var(--muted); margin-top: 14px;
+  page-break-inside: avoid;
+}
+.disclaim h3 { font-size: 9.5pt; color: var(--ink); margin-bottom: 4px; }
+.disclaim .sens { margin-top: 5px; font-weight: 700; color: #9F2D24; }
+.biz-foot {
+  margin-top: 12px; border-top: 2px solid var(--navy); padding-top: 8px;
+  font-size: 8.3pt; color: var(--muted); display: flex; justify-content: space-between; align-items: flex-start;
+  page-break-inside: avoid;
+}
+.biz-foot .brand { font-weight: 800; color: var(--navy); font-size: 9.5pt; }
+.biz-foot .gold { color: var(--gold-deep); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div class="brand-bar"></div>
+<div class="head">
+  <div class="wordmark">BOHUMFIT<span class="dot">.</span></div>
+  <div class="head-meta">
+    문서번호 <b>{{ doc_no }}</b><br>
+    생성일시 {{ generated_at }} · 점검 기준일 <b>{{ reference_date }}</b>
+  </div>
+</div>
+
+<h1 class="title">알릴의무(고지의무) 점검 리포트<small>건강체 · 간편심사</small></h1>
+
+<div class="summary">
+  <div class="cell"><span class="k">건강체/표준체 고지 검토</span><span class="v {{ 'warn' if std_count else '' }}">{{ std_count }}건</span></div>
+  <div class="cell"><span class="k">간편심사 고지 검토</span><span class="v {{ 'warn' if easy_count else '' }}">{{ easy_count }}건</span></div>
+  <div class="cell"><span class="k">전체 병력</span><span class="v">{{ all_diseases | length }}개</span></div>
+  {% if total_med_sum is not none %}
+  <div class="cell"><span class="k">총 투약일</span><span class="v">{{ total_med_sum }}일</span></div>
+  {% endif %}
+</div>
+
+<div class="criteria">
+  <h2>고지 불요 판단 기준</h2>
+  <ol>
+    {% for c in criteria %}
+    <li>{{ c }}</li>
+    {% endfor %}
+  </ol>
+  <p class="note">※ {{ criteria_note }} 위 기준 기간·조건에 해당하지 않는 진료 이력은 각 질문 기준 고지 불요로 판단했습니다.</p>
+</div>
+
+{% macro item_card(p) %}
+<div class="item">
+  <div class="row1">
+    <div>
+      <span class="nm">{{ p.item.name or "질병명 없음" }}</span>
+      {% if p.item.code %}<span class="code">{{ p.item.display_code or p.item.code }}</span>{% endif %}
+    </div>
+    <span class="badge-reco">고지 권고</span>
+  </div>
+  <div class="dates">
+    {% if p.period %}진료기간 <b>{{ p.period }}</b>{% if p.item.last_hospital %} · {{ p.item.last_hospital }}{% endif %}{% endif %}
+    {% if p.item.first_diagnosis_date %} &nbsp;|&nbsp; 최초진단 <b>{{ p.item.first_diagnosis_date }}</b>{% if p.item.first_hospital %} · {{ p.item.first_hospital }}{% endif %}{% endif %}
+  </div>
+  {% if p.item.detail %}<div class="detail">{{ p.item.detail }}</div>{% endif %}
+  <div class="chips">
+    {% if p.metric.visit %}<span class="chip {{ 'amber' if (p.item.visit or 0) >= 7 else '' }}">통원 {{ p.item.visit or 0 }}회</span>{% endif %}
+    {% if p.metric.inpatient %}<span class="chip red">입원 {{ p.item.inpatient or 0 }}일</span>{% endif %}
+    {% if p.metric.inpatient_count %}<span class="chip red">입원 {{ p.item.inpatient_count or 0 }}회</span>{% endif %}
+    {% if p.metric.surgery %}<span class="chip red">수술 {{ p.surgery_n }}건</span>{% endif %}
+    {% if p.metric.med %}<span class="chip {{ 'amber' if (p.item.med_days or 0) >= 30 else 'green' }}">투약 {{ p.item.med_days or 0 }}일</span>{% endif %}
+    {% if p.procedures_n %}<span class="chip amber">시술 {{ p.procedures_n }}건</span>{% endif %}
+    {% if p.suspected_n %}<span class="chip">수술 의심 {{ p.suspected_n }}건</span>{% endif %}
+    {% if p.item.treatment_ongoing is true %}<span class="chip red">치료 중</span>{% endif %}
+    {% if p.item.treatment_ongoing is false %}<span class="chip green">종결</span>{% endif %}
+  </div>
+  {% if p.review %}
+  <div class="review {{ p.review.state }}">
+    <span class="lb">{{ p.review.label }}</span>{{ p.review.text }}
+  </div>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro product_section(title, sections, count, empty_label) %}
+<div class="product-sec">
+  <div class="product-head"><span>{{ title }}</span><span class="cnt">고지 검토 {{ count }}건</span></div>
+  <div class="product-body">
+    {% if count == 0 %}
+    <div class="empty">{{ empty_label }}</div>
+    {% else %}
+      {% for sec in sections %}
+        {% if sec.rows %}
+        <div class="q-block">
+          <div class="q-head"><span class="q-badge">{{ sec.q_num }}</span><span class="q-title">{{ sec.title }}</span></div>
+          {% for p in sec.rows %}{{ item_card(p) }}{% endfor %}
+        </div>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}
+
+{{ product_section("건강체/표준체 (일반심사)", std_sections, std_count, "현재 기준으로 건강체/표준체 고지 검토 항목이 없습니다.") }}
+{{ product_section("간편심사 (유병자 3-5-5 기준)", easy_sections, easy_count, "현재 기준으로 간편심사 고지 검토 항목이 없습니다.") }}
+
+{% if all_diseases %}
+<div class="q-block">
+  <h2 class="sec-h2">전체 병력 요약</h2>
+  <table class="all-tbl">
+    <thead>
+      <tr><th>코드</th><th>질병명</th><th>진료기간</th><th>통원</th><th>입원</th><th>수술</th><th>투약</th><th>병원</th></tr>
+    </thead>
+    <tbody>
+      {% for d in all_diseases %}
+      <tr>
+        <td>{{ d.display_code or d.code }}</td>
+        <td>{{ d.name or "-" }}</td>
+        <td>{{ d.first_date }}{% if d.latest_date and d.latest_date != d.first_date %} ~ {{ d.latest_date }}{% endif %}</td>
+        <td>{{ (d.visit_count ~ "회") if d.visit_count else "-" }}</td>
+        <td>{{ (d.inpatient_days ~ "일") if d.inpatient_days else "-" }}</td>
+        <td>{{ (d.surgery_count ~ "건") if d.surgery_count else "-" }}</td>
+        <td>{{ (d.med_days ~ "일") if d.med_days else "-" }}</td>
+        <td>{{ (d.hospitals or [])[:2] | join(", ") or "-" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<div class="disclaim">
+  <h3>분석 결과 이용 시 유의사항</h3>
+  <p>{{ disclaimer }}</p>
+  <p class="sens">{{ sensitive_notice }}</p>
+</div>
+
+<div class="biz-foot">
+  <div>
+    <div class="brand">BOHUMFIT<span style="color:var(--gold);">.</span></div>
+    <div>상호 {{ biz.name }} · 대표 {{ biz.ceo }} · 사업자등록번호 {{ biz.biz_no }} · 소재지 {{ biz.address }}</div>
+    <div>문의 {{ biz.contact }} · 분석도구 <span class="gold">{{ biz.tool }}</span></div>
+  </div>
+  <div style="text-align:right;">문서번호 {{ doc_no }}<br>생성일시 {{ generated_at }}</div>
+</div>
+
+</body>
+</html>

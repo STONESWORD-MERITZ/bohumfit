@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<!-- BOHUMFIT-030: 실손 예상 보험금 분석 리포트 템플릿 (네이비+골드 · 40~50대 가독성).
+     금액·판정은 payload(화면 계산값) 그대로 표시 — 재계산 금지. 구 브랜드명 문자열 사용 금지(BOHUMFIT 만 사용). -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+{{ font_face_css | safe }}
+:root {
+  --navy: #1F3A5F;
+  --navy-deep: #14253D;
+  --gold: #C9A227;
+  --gold-deep: #8C6D1F;
+  --gold-bg: #FBF6E7;
+  --ink: #232629;
+  --muted: #5A6270;
+  --line: #D9DEE6;
+  --bg-soft: #F4F6F9;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  font-family: 'BohumfitCJK', 'Noto Sans KR', 'Noto Sans CJK KR', 'Noto Sans CJK JP', 'Malgun Gothic', sans-serif;
+  color: var(--ink);
+  font-size: 10.5pt;
+  line-height: 1.55;
+  word-break: keep-all;
+}
+.brand-bar { height: 6px; background: linear-gradient(90deg, var(--navy) 70%, var(--gold) 70%); border-radius: 2px; }
+.head { display: flex; justify-content: space-between; align-items: flex-end; padding: 14px 2px 12px; }
+.wordmark { font-size: 19pt; font-weight: 800; color: var(--navy-deep); letter-spacing: 0.5px; }
+.wordmark .dot { color: var(--gold); }
+.head-meta { text-align: right; font-size: 8.5pt; color: var(--muted); line-height: 1.6; }
+.head-meta b { color: var(--navy); font-weight: 700; }
+h1.title {
+  font-size: 16pt; font-weight: 800; color: var(--navy-deep);
+  border-bottom: 2px solid var(--navy); padding-bottom: 8px; margin-bottom: 14px;
+}
+h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); margin-left: 8px; }
+
+/* ── 입력 요약 ── */
+.inputs {
+  border: 1px solid var(--line); border-radius: 6px; margin-bottom: 14px;
+  page-break-inside: avoid;
+}
+.inputs .hd { background: var(--navy); color: #fff; font-weight: 800; font-size: 10.5pt; padding: 7px 13px; border-radius: 5px 5px 0 0; }
+.inputs table { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+.inputs td { padding: 6px 13px; border-top: 1px solid var(--line); }
+.inputs td.k { width: 34%; color: var(--muted); background: var(--bg-soft); font-weight: 700; }
+.inputs td.v b { color: var(--navy); }
+.inputs .manual-tag {
+  display: inline-block; margin-left: 6px; font-size: 8pt; font-weight: 800;
+  background: var(--gold-bg); color: var(--gold-deep); border: 1px solid var(--gold);
+  border-radius: 9px; padding: 0 7px;
+}
+
+/* ── 결과 카드 ── */
+.card {
+  border: 1px solid var(--line); border-left: 5px solid var(--navy);
+  border-radius: 6px; margin-bottom: 12px; page-break-inside: avoid;
+}
+.card .hd {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 13px; border-bottom: 1px solid var(--line); background: var(--bg-soft);
+  border-radius: 5px 0 0 0;
+}
+.card .num {
+  background: var(--navy); color: #fff; font-weight: 800; font-size: 9.5pt;
+  border-radius: 4px; padding: 1px 8px; white-space: nowrap;
+}
+.card .hd h2 { font-size: 11.5pt; font-weight: 800; color: var(--navy-deep); }
+.card .bd { padding: 10px 13px; }
+.verdict { font-size: 11pt; font-weight: 800; color: var(--ink); margin-bottom: 3px; }
+.verdict.pos { color: #2E6B3E; }
+.amount-line { font-size: 10pt; margin-bottom: 3px; }
+.amount-line b.money { color: var(--gold-deep); font-size: 11pt; }
+.caption { font-size: 8.6pt; color: var(--muted); margin-top: 4px; }
+.note-box {
+  background: var(--gold-bg); border: 1px solid #E5D9AE; border-left: 4px solid var(--gold);
+  border-radius: 5px; padding: 7px 11px; font-size: 8.8pt; color: var(--ink); margin-top: 7px;
+}
+.note-box b { color: var(--gold-deep); }
+/* 콘텐츠 수정 6: 세대별 200만원 상한 규칙 명시 */
+.rules { margin-top: 7px; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
+.rules .rule { display: flex; gap: 8px; padding: 6px 11px; font-size: 9pt; border-top: 1px solid var(--line); }
+.rules .rule:first-child { border-top: 0; }
+.rules .rule .tag { font-weight: 800; color: var(--navy); white-space: nowrap; }
+.rules .rule.hit { background: var(--gold-bg); }
+.rules .rule.hit .tag { color: var(--gold-deep); }
+.rules .rule.hit .now { margin-left: auto; font-size: 8.3pt; font-weight: 800; color: var(--gold-deep); white-space: nowrap; }
+.muted-line { color: var(--muted); font-size: 9pt; }
+ul.fine { margin: 5px 0 0 16px; font-size: 8.6pt; color: var(--muted); }
+ul.fine li { margin-bottom: 1px; }
+
+/* ── 면책·푸터 ── */
+.disclaim {
+  background: var(--bg-soft); border: 1px solid var(--line); border-radius: 6px;
+  padding: 10px 13px; font-size: 8.6pt; color: var(--muted); margin-top: 14px;
+  page-break-inside: avoid;
+}
+.disclaim h3 { font-size: 9.5pt; color: var(--ink); margin-bottom: 4px; }
+.disclaim .sens { margin-top: 5px; font-weight: 700; color: #9F2D24; }
+.biz-foot {
+  margin-top: 12px; border-top: 2px solid var(--navy); padding-top: 8px;
+  font-size: 8.3pt; color: var(--muted); display: flex; justify-content: space-between; align-items: flex-start;
+  page-break-inside: avoid;
+}
+.biz-foot .brand { font-weight: 800; color: var(--navy); font-size: 9.5pt; }
+.biz-foot .gold { color: var(--gold-deep); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div class="brand-bar"></div>
+<div class="head">
+  <div class="wordmark">BOHUMFIT<span class="dot">.</span></div>
+  <div class="head-meta">
+    문서번호 <b>{{ doc_no }}</b><br>
+    생성일시 {{ generated_at }} · 조회 연도 <b>{{ year_label }}</b>
+  </div>
+</div>
+
+<h1 class="title">실손 예상 보험금 분석 리포트<small>청구 가능성 · 자기부담 상한 · 본인부담상한제</small></h1>
+
+<div class="inputs">
+  <div class="hd">입력 정보 요약</div>
+  <table>
+    <tr><td class="k">실손 세대</td><td class="v"><b>{{ gen_label }}</b></td></tr>
+    <tr><td class="k">소득분위 (건보 상한제)</td><td class="v"><b>{{ bracket_label }}</b></td></tr>
+    <tr><td class="k">연간 급여 본인부담금</td><td class="v"><b>{{ covered_self_pay | won_man }}</b>{% if year_label != "-" %} ({{ year_label }}년){% endif %}</td></tr>
+    <tr><td class="k">비급여 금액</td><td class="v"><b>{{ non_covered | won_man }}</b><span class="manual-tag">설계사 수기 입력</span></td></tr>
+  </table>
+</div>
+
+<!-- ① 실손 청구 가능성 -->
+<div class="card">
+  <div class="hd"><span class="num">①</span><h2>실손 청구 가능성</h2></div>
+  <div class="bd">
+    {% if claim %}
+      <p class="verdict {{ 'pos' if claim.has else '' }}">{{ claim.possibility }}</p>
+      {% if claim.has %}
+      <p class="amount-line">청구 추정 <b class="money">{{ claim_range }}</b> 수준일 수 있습니다.</p>
+      {% endif %}
+      <p class="caption">급여 본인부담 {{ covered_self_pay | won_man }}{% if non_covered and non_covered > 0 %} · 비급여 {{ non_covered | won_man }}{% endif %} 기준 추정.</p>
+      <!-- 콘텐츠 수정 4: 비급여 = 설계사 수기 입력 금액 기준 산출 명시 -->
+      <div class="note-box"><b>비급여 산출 기준</b> — {{ non_covered_note }}</div>
+    {% else %}
+      <p class="muted-line">실손 세대 미선택 — 청구 추정 범위를 산출하지 않았습니다.</p>
+    {% endif %}
+  </div>
+</div>
+
+{% if min_ded %}
+<!-- ①-b 최소공제 적용 추정 (선택) -->
+<div class="card">
+  <div class="hd"><span class="num">①-b</span><h2>실손 최소공제 적용 추정 (선택)</h2></div>
+  <div class="bd">
+    <p class="amount-line">적용 정액공제: <b>{{ min_ded.grade_label }} {{ min_ded.deductible | won_man }}</b> (통원). 통원 자기부담 = 정액·정률 중 큰 값.</p>
+    {% if min_ded.cov_out and min_ded.cov_out.charge %}
+    <p class="amount-line">급여 통원 보상 추정 <b class="money">{{ min_ded.cov_out.reimbursement | won_man }}</b>{% if min_ded.cov_out.low_value %} — 청구 실익 낮음{% endif %}.</p>
+    {% endif %}
+    {% if min_ded.nc_out and min_ded.nc_out.charge %}
+    <p class="amount-line">비급여 통원 보상 추정 <b class="money">{{ min_ded.nc_out.reimbursement | won_man }}</b>{% if min_ded.nc_out.total_mode %} (총액 1회 공제){% else %} (1회×{{ min_ded.nc_out.visits or 1 }}회){% endif %}{% if min_ded.nc_out.low_value %} — 청구 실익 낮음{% endif %}.</p>
+    {% endif %}
+    {% if min_ded.inpatient and min_ded.inpatient.charge %}
+    <p class="amount-line">입원 보상 추정 <b class="money">{{ min_ded.inpatient.reimbursement | won_man }}</b> (정액공제 없음·정률만){% if min_ded.inpatient.low_value %} — 청구 실익 낮음{% endif %}.</p>
+    {% endif %}
+    <ul class="fine">
+      <li>진료비가 정액공제 이하면 보상이 없어 청구 실익이 낮을 수 있습니다.</li>
+      <li>기관 등급은 기관명 기반 추정값으로 실제와 다를 수 있습니다.</li>
+      <li>1세대·5세대는 통원 정액공제를 적용하지 않습니다.</li>
+    </ul>
+  </div>
+</div>
+{% endif %}
+
+<!-- ② 실손 자기부담금 상한제 -->
+<div class="card">
+  <div class="hd"><span class="num">②</span><h2>실손 자기부담금 상한제 (연 200만원)</h2></div>
+  <div class="bd">
+    {% if cap %}
+      <p class="verdict {{ 'pos' if cap.exceeded else '' }}">{{ "초과분 추가 보장(환급) 가능성 있음" if cap.exceeded else "상한 초과 아닐 수 있음" }}</p>
+      <p class="amount-line">연 자기부담금 합산 <b class="money">{{ cap.eligible | won_man }}</b> / 세대 상한 <b>{{ cap.cap | won_man }}</b>{% if cap.exceeded %} · 초과 <b class="money">{{ cap.excess | won_man }}</b> 수준{% endif %}.</p>
+      {% if cap.non_covered_excluded %}
+      <p class="caption">선택한 세대(4세대 이후)는 비급여 자기부담금이 상한 합산 대상이 아닙니다.</p>
+      {% endif %}
+    {% else %}
+      <p class="muted-line">실손 세대 미선택 — 자기부담금 상한 합산을 산출하지 않았습니다.</p>
+    {% endif %}
+    <!-- 콘텐츠 수정 6: 연 200만원 상한 규칙 세대별 명시 -->
+    <div class="rules">
+      <div class="rule {{ 'hit' if inputs.generation and inputs.generation <= 3 else '' }}">
+        <span class="tag">1~3세대</span><span>{{ cap_rules[0] }}</span>
+        {% if inputs.generation and inputs.generation <= 3 %}<span class="now">◀ 선택 세대 적용</span>{% endif %}
+      </div>
+      <div class="rule {{ 'hit' if inputs.generation and inputs.generation >= 4 else '' }}">
+        <span class="tag">4세대 이후</span><span>{{ cap_rules[1] }}</span>
+        {% if inputs.generation and inputs.generation >= 4 %}<span class="now">◀ 선택 세대 적용</span>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ③ 건강보험 본인부담상한제 -->
+<div class="card">
+  <div class="hd"><span class="num">③</span><h2>건강보험 본인부담상한제 (2026 기준)</h2></div>
+  <div class="bd">
+    {% if nhis %}
+      <p class="verdict {{ 'pos' if nhis.exceeded else '' }}">{{ "공단 환급 가능성 있음" if nhis.exceeded else "환급 대상 아닐 수 있음" }}</p>
+      <p class="amount-line">연 급여 본인부담 <b class="money">{{ covered_self_pay | won_man }}</b> / {{ bracket_label }} 상한 <b>{{ nhis.cap | won_man }}</b>{% if nhis.exceeded %} · 환급 <b class="money">{{ nhis.refund | won_man }}</b> 수준{% endif %}.</p>
+    {% else %}
+      <p class="muted-line">소득분위 미선택 — 본인부담상한제 환급 가능성을 산출하지 않았습니다.</p>
+    {% endif %}
+    <!-- 콘텐츠 수정 5: 환급 = 급여 본인부담금 기준(비급여 제외) 명시 -->
+    <div class="note-box"><b>산정 기준</b> — {{ nhis_cap_note }}</div>
+  </div>
+</div>
+
+<div class="disclaim">
+  <h3>유의사항</h3>
+  <p>{{ disclaimer }}</p>
+  <p>본 안내는 추정이며 확정 금액이 아닙니다. 정확한 금액·보장 여부는 보험사·공단 확인이 필요합니다.</p>
+  <p class="sens">{{ sensitive_notice }}</p>
+</div>
+
+<div class="biz-foot">
+  <div>
+    <div class="brand">BOHUMFIT<span style="color:var(--gold);">.</span></div>
+    <div>상호 {{ biz.name }} · 대표 {{ biz.ceo }} · 사업자등록번호 {{ biz.biz_no }} · 소재지 {{ biz.address }}</div>
+    <div>문의 {{ biz.contact }} · 분석도구 <span class="gold">{{ biz.tool }}</span></div>
+  </div>
+  <div style="text-align:right;">문서번호 {{ doc_no }}<br>생성일시 {{ generated_at }}</div>
+</div>
+
+</body>
+</html>

@@ -8,3 +8,8 @@ python-dotenv==1.2.2
 slowapi==0.1.9
 sentry-sdk[fastapi]==2.60.0
 httpx==0.28.1
+# BOHUMFIT-030 리포트 PDF: HTML 템플릿 + 헤드리스 Chromium 렌더.
+# 배포(Railway) 빌드 단계에 `python -m playwright install --with-deps chromium` 추가 필요.
+# 한글 폰트: 시스템 패키지 fonts-noto-cjk 설치(또는 backend/fonts/ 에 Noto CJK 파일 배치).
+jinja2==3.1.6
+playwright==1.52.0

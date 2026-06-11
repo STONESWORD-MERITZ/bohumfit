@@ -14,8 +14,9 @@ import sentry_sdk
 from sentry_sdk.integrations.fastapi import FastApiIntegration
 from sentry_sdk.integrations.logging import LoggingIntegration
 
-from fastapi import FastAPI, File, Request, UploadFile, Form, HTTPException, Depends
+from fastapi import FastAPI, File, Request, UploadFile, Form, HTTPException, Depends, Body
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -23,6 +24,12 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import httpx
 
 from analyzer import run_analysis, AnalysisError
+from pipeline.report_pdf import (
+    REPORT_TYPES,
+    ReportError,
+    ReportUnavailableError,
+    generate_report_pdf,
+)
 
 # ── 서비스 환경 ──────────────────────────────────────────────────────────────
 SENTRY_DSN  = os.environ.get("SENTRY_DSN", "")
@@ -306,7 +313,7 @@ def _serialize_reports(summary_reports: dict) -> dict:
 MAX_FILE_COUNT = 6
 MAX_FILE_SIZE  = 15 * 1024 * 1024   # 파일당 15MB
 MAX_TOTAL_SIZE = 40 * 1024 * 1024   # 총합 40MB
-# SURIT-BUG-006: 318p 대용량 PDF Gemini 응답 + 후처리 합산 ~170s 초과로 타임아웃 연장.
+# BOHUMFIT-BUG-006: 318p 대용량 PDF Gemini 응답 + 후처리 합산 ~170s 초과로 타임아웃 연장.
 # 기존: 170 (프런트 180초보다 짧게) → 300 으로 상향. 프런트 타임아웃도 함께 검토 필요.
 ANALYZE_TIMEOUT_SECONDS = 300       # 서버측 분석 상한 (318p 대용량 PDF 대응)
 
@@ -488,7 +495,7 @@ async def analyze(
         "kakao_message":        std_kakao,   # 하위 호환
         "parse_errors":         result["parse_errors"],
         "warnings":             result["retry_warnings"],
-        # SURIT-023: 실손 안내용 급여 본인부담 연도별 (additive — 고지 응답 불변).
+        # BOHUMFIT-023: 실손 안내용 급여 본인부담 연도별 (additive — 고지 응답 불변).
         "covered_self_pay_by_year": result.get("covered_self_pay_by_year", {}),
         "covered_self_pay_captured": result.get("covered_self_pay_captured", False),
         "verdict":              ai_res.get("health_verdict") or ai_res.get("simple_verdict", ""),
@@ -500,3 +507,66 @@ async def analyze(
         "meritz_easy_details":          meritz.get("exception_diseases", []) + meritz.get("rejected_diseases", []),
         "meritz_easy_message":          meritz.get("detail_message", ""),
     }
+
+
+# ── 리포트 PDF (BOHUMFIT-030) ────────────────────────────────────────────────
+REPORT_TIMEOUT_SECONDS = 60  # Chromium 렌더 포함 서버측 상한
+
+
+@app.post("/api/report/pdf")
+@limiter.limit("10/minute,60/hour")
+async def report_pdf(
+    request: Request,
+    payload: dict = Body(...),
+    user_id: str = Depends(verify_jwt),
+):
+    """고지/실손 리포트 PDF 생성 — report_type ∈ {disclosure, insurance}.
+
+    금액·판정은 프런트가 보낸 분석 결과(payload)를 그대로 표시한다(재계산 없음).
+    응답은 스트림 다운로드(application/pdf)이며, PDF·진료데이터는 서버에
+    영구 저장하지 않는다(메모리 내 휘발 처리).
+    """
+    report_type = str(payload.get("report_type") or "")
+    if report_type not in REPORT_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail="report_type 은 disclosure 또는 insurance 여야 합니다.",
+        )
+
+    try:
+        pdf = await asyncio.wait_for(
+            generate_report_pdf(report_type, payload),
+            timeout=REPORT_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("report pdf 시간 초과 (%ss)", REPORT_TIMEOUT_SECONDS)
+        raise HTTPException(
+            status_code=504,
+            detail="리포트 생성이 시간 내에 끝나지 않았어요. 잠시 후 다시 시도해 주세요.",
+        )
+    except ReportError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except ReportUnavailableError as e:
+        logger.error("report pdf 렌더러 사용 불가: %s", e)
+        raise HTTPException(
+            status_code=503,
+            detail="리포트 생성 기능을 준비 중입니다. 잠시 후 다시 시도해 주세요.",
+        )
+    except Exception as e:
+        logger.exception("report pdf endpoint failed: %s", e)
+        raise HTTPException(
+            status_code=500,
+            detail="리포트를 생성하지 못했어요. 잠시 후 다시 시도해 주세요.",
+        )
+
+    filename = f"BF-{report_type}-{date.today().strftime('%Y%m%d')}.pdf"
+    logger.info("report pdf done: type=%s bytes=%d", report_type, len(pdf))
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            # 민감정보 — 중간 캐시 금지
+            "Cache-Control": "no-store",
+        },
+    )
