@@ -1,4 +1,4 @@
-"""PDF 파싱 — analyzer.py 에서 이동."""
+﻿"""PDF 파싱 — analyzer.py 에서 이동."""
 from __future__ import annotations
 
 import functools
@@ -26,7 +26,7 @@ def _strong_header_ftype(headers) -> str:
     """표 헤더가 _FTYPE_KW 키워드와 '명확히' 일치하는 경우의 타입.
 
     헤더 OCR이 정상 추출된 강(强)신호에 해당한다. 키워드 일치가 없으면 ""
-    (= 신호 약함)을 돌려준다. SURIT-002: 분류 우선순위 판정에 사용.
+    (= 신호 약함)을 돌려준다. BOHUMFIT-002: 분류 우선순위 판정에 사용.
     """
     h_joined = " ".join(str(h) for h in headers)
     h_norm = h_joined.replace(" ", "").replace("\n", "")
@@ -64,7 +64,7 @@ def _detect_ftype_by_page_text(text: str) -> str:
     """페이지 본문 텍스트의 심평원 섹션 표제어로 PDF 표 타입을 추정한다.
 
     표제어가 줄바꿈·공백으로 끊겨도 인식되도록 공백을 제거한 뒤 대조한다
-    (SURIT-002: 헤더 OCR 누락 시 신뢰할 본문 신호의 견고성 보강).
+    (BOHUMFIT-002: 헤더 OCR 누락 시 신뢰할 본문 신호의 견고성 보강).
     """
     if not text:
         return ""
@@ -81,7 +81,7 @@ def _detect_ftype_by_page_text(text: str) -> str:
 def _resolve_ftype(headers, page_ftype: str) -> str:
     """표 헤더 신호와 페이지 본문 신호를 종합해 표 타입을 최종 결정한다.
 
-    우선순위 (SURIT-002 — 헤더 OCR 누락 시 처방 PDF가 진료내역으로
+    우선순위 (BOHUMFIT-002 — 헤더 OCR 누락 시 처방 PDF가 진료내역으로
     오분류되던 문제 보정):
       1) 헤더가 _FTYPE_KW 키워드와 명확히 일치(강신호) → 기본적으로
          헤더를 신뢰한다.

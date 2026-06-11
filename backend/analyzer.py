@@ -1,4 +1,4 @@
-"""SURIT 분석 엔진 — 오케스트레이터.
+﻿"""BOHUMFIT 분석 엔진 — 오케스트레이터.
 실제 로직은 backend/pipeline/* 에 분산되어 있다.
 
 이 파일은 run_analysis() 오케스트레이션 + 하위 호환 re-export 를 담당한다.
@@ -13,7 +13,7 @@ from filters import (
     PRODUCT_HEALTH as _PRODUCT_HEALTH,
     PRODUCT_EASY as _PRODUCT_EASY,
 )
-# SURIT-BUG-008: meritz_easy_rules.evaluate_meritz_easy 제거.
+# BOHUMFIT-BUG-008: meritz_easy_rules.evaluate_meritz_easy 제거.
 
 # ── pipeline re-export (테스트·외부 임포트 호환) ─────────────────
 from pipeline.helpers import (
@@ -56,7 +56,7 @@ from pipeline.ai_judgment import (
     _merge_ai_results,
     analyze_single_pdf,
 )
-# SURIT-023: 실손 안내용 급여 본인부담 집계 (additive — 알릴의무 로직과 독립 모듈)
+# BOHUMFIT-023: 실손 안내용 급여 본인부담 집계 (additive — 알릴의무 로직과 독립 모듈)
 from insurance.calculator import aggregate_covered_self_pay_by_year
 from pipeline.result_builder import (
     _build_reports_for_product,
@@ -66,11 +66,11 @@ from pipeline.result_builder import (
 )
 
 
-# ── SURIT-003: 초대용량 PDF AI 입력 잘림 감지 ───────────────────────
+# ── BOHUMFIT-003: 초대용량 PDF AI 입력 잘림 감지 ───────────────────────
 # ai_judgment._finalize_raw_text_for_gemini 가 cleaned_lines[:13_000] 로 줄을
 # 자르고, 길이가 300,000자를 넘으면 "... (truncated)" 표식을 붙인다. 잘림
 # 로직 자체는 변경하지 않고, analyzer 호출부에서 잘림 여부만 감지한다.
-# SURIT-ROLLBACK-001: 2000 → 3000 으로 상향. SURIT-BUG-009: 3000 → 13_000 으로 추가 상향
+# BOHUMFIT-ROLLBACK-001: 2000 → 3000 으로 상향. BOHUMFIT-BUG-009: 3000 → 13_000 으로 추가 상향
 # (BUG-008 메리츠 간편 제거로 Gemini 호출 단일화 + 300초 타임아웃 여유 — 318p 전체 커버).
 _GEMINI_LINE_CAP = 13_000  # ai_judgment 슬라이스와 동기 (기존: 800 → 2000 → 3000 → 13_000 / MAX_RAW_TEXT_LEN 30_000 → 80_000 → 100_000 → 300_000)
 
@@ -200,7 +200,7 @@ def _build_tagged_entries(
             filtered_entries.append((fname_row, line))
             continue
         days_ago = (today - dt).days
-        # SURIT-004: 5년/10년 경계는 윤년 보정 위해 달력 기준 컷오프와 비교한다.
+        # BOHUMFIT-004: 5년/10년 경계는 윤년 보정 위해 달력 기준 컷오프와 비교한다.
         # 3개월/1년은 윤년 영향이 없어 일수(days_ago) 비교를 유지한다.
         if days_ago < 0 or dt < _d10y_dt:
             continue
@@ -280,7 +280,7 @@ def _build_system_prompt(
 ) -> str:
     """상품유형별 Gemini 시스템 프롬프트 전문을 구성."""
     # ── 시스템 프롬프트 구성 ─────────────────────────────────────
-    # SURIT-BUG-008: 간편심사 제거 — 건강체 분기만 유지.
+    # BOHUMFIT-BUG-008: 간편심사 제거 — 건강체 분기만 유지.
     is_health = True
     _ = product_type  # 시그니처 호환 유지
     step2_tag_rules = (
@@ -587,7 +587,7 @@ def _build_medical_judgment_inputs(
 
         _detail_test_events_1y = _recent_detail_test_events(_js, _d1y_dt)
         _detail_test_types_1y = _detail_test_type_count(_detail_test_events_1y)
-        # SURIT-027 (나): 같은날 동일검사 묶음이 후보 자격을 부풀리지 않도록 '횟수' 기준을
+        # BOHUMFIT-027 (나): 같은날 동일검사 묶음이 후보 자격을 부풀리지 않도록 '횟수' 기준을
         # distinct 진료일로 collapse 한다. 단 검사 종류(types) 기준은 그대로 유지해
         # 같은날 다종(예: 초음파→조직검사)·교차일 신호는 보존 — 과소 방지(진짜 후속검사·
         # 이상소견 동반 건을 결정론 단계에서 떨구지 않는다. 추적관찰/한과정 판별은 Gemini 몫).
@@ -604,7 +604,7 @@ def _build_medical_judgment_inputs(
                 "latest_date":       _jlatest,
                 "reference_date":    today_str,
                 "lookback":          "최근 1년",
-                "candidate_rule":    "same code: >=2 distinct test dates OR >=2 test types (SURIT-027 same-day collapse)",
+                "candidate_rule":    "same code: >=2 distinct test dates OR >=2 test types (BOHUMFIT-027 same-day collapse)",
                 "test_event_count":  len(_detail_test_events_1y),
                 "test_distinct_dates": _distinct_test_dates_1y,
                 "test_type_count":   _detail_test_types_1y,
@@ -640,7 +640,7 @@ def _build_medical_judgment_inputs(
 
 
 def _codes_with_recent_test_evidence(disease_stats: dict, _d1y_dt: datetime) -> set[str]:
-    """SURIT-027 (B): 1년 이내 실제 세부진료 검사 근거(detail_test_events)가 있는 질병코드 집합.
+    """BOHUMFIT-027 (B): 1년 이내 실제 세부진료 검사 근거(detail_test_events)가 있는 질병코드 집합.
 
     이 집합에 속한 코드의 Q1/Q2 항목에만 '추가검사·재검사 의심 소견'을 부착한다.
     검사 근거가 없는 단순 1년 진단(예: 화상·피부염)에는 의심 소견을 붙이지 않는다.
@@ -731,15 +731,15 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
     today = datetime(reference_date.year, reference_date.month, reference_date.day)
     _d3m_dt  = today - timedelta(days=90)
     _d1y_dt  = today - timedelta(days=365)
-    _d5y_dt  = _subtract_years(today, 5)    # SURIT-004: 달력 기준 5년
-    _d10y_dt = _subtract_years(today, 10)   # SURIT-004: 달력 기준 10년
+    _d5y_dt  = _subtract_years(today, 5)    # BOHUMFIT-004: 달력 기준 5년
+    _d10y_dt = _subtract_years(today, 10)   # BOHUMFIT-004: 달력 기준 10년
     retry_warnings = []
 
     all_records, parse_errors = await _parse_all_pdfs(active_files, birthdate_pw)
     # ── disease_stats + raw_entries 빌드 ─────────────────────────
     disease_stats, cross_surgery_hints, date_warnings, raw_entries, lines_by_file = \
         build_disease_stats(all_records, today)
-    # SURIT-023: 실손 안내용 급여 본인부담(PDF '내가 낸 의료비') 연도별 집계.
+    # BOHUMFIT-023: 실손 안내용 급여 본인부담(PDF '내가 낸 의료비') 연도별 집계.
     # all_records 삭제 전에 수행한다. 고지(알릴의무) 판정 로직은 변경하지 않는다(additive).
     try:
         _covered_self_pay = aggregate_covered_self_pay_by_year(all_records)
@@ -758,7 +758,7 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
         dc["group"] for dc in drug_change_summary
         if dc.get("change_type") in ("약 종류 변경", "새 약 추가", "용량 증가")
     }
-    # SURIT-009: 두 product_type 결과를 별도로 만들어 q1/q2_health/q2_easy/q3_health/q3_easy/q4_health
+    # BOHUMFIT-009: 두 product_type 결과를 별도로 만들어 q1/q2_health/q2_easy/q3_health/q3_easy/q4_health
     # 분리에 활용. code_based_items 는 main.py 호환을 위해 product_type 기반 결과 + 신구조 합산.
     _health_items = _build_code_based_items(
         disease_stats=disease_stats,
@@ -786,8 +786,8 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
     today_str = today.strftime('%Y-%m-%d')
     d_3m  = (today - timedelta(days=90)).strftime('%Y-%m-%d')
     d_1y  = (today - timedelta(days=365)).strftime('%Y-%m-%d')
-    d_5y  = _subtract_years(today, 5).strftime('%Y-%m-%d')    # SURIT-004: 달력 기준 5년
-    d_10y = _subtract_years(today, 10).strftime('%Y-%m-%d')   # SURIT-004: 달력 기준 10년
+    d_5y  = _subtract_years(today, 5).strftime('%Y-%m-%d')    # BOHUMFIT-004: 달력 기준 5년
+    d_10y = _subtract_years(today, 10).strftime('%Y-%m-%d')   # BOHUMFIT-004: 달력 기준 10년
 
     drug_change_text = _build_drug_change_text(drug_change_summary)
     presc_end_text = _build_presc_end_text(prescription_end_details, earliest_available_date, today)
@@ -810,7 +810,7 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
             drug_change_text,
             presc_end_text,
         )
-        # SURIT-003: 초대용량 PDF로 AI 입력이 잘렸는지 감지 (잘림 로직은 불변)
+        # BOHUMFIT-003: 초대용량 PDF로 AI 입력이 잘렸는지 감지 (잘림 로직은 불변)
         if _is_gemini_input_truncated(flines, rt_part):
             truncated_files.append(fn)
         gemini_payloads.append({
@@ -820,7 +820,7 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
             "today_str": today_str,
         })
 
-    # SURIT-003: 잘림 발생 시 사용자 경고를 retry_warnings 채널로 노출
+    # BOHUMFIT-003: 잘림 발생 시 사용자 경고를 retry_warnings 채널로 노출
     truncation_warning = _build_truncation_warning(truncated_files)
     if truncation_warning:
         retry_warnings.append(truncation_warning)
@@ -871,7 +871,7 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
     del system_prompt
     gc.collect()
 
-    # ── SURIT-009: q1/q2_health/q2_easy/q3_health/q3_easy/q4_health 항목 분리 ──
+    # ── BOHUMFIT-009: q1/q2_health/q2_easy/q3_health/q3_easy/q4_health 항목 분리 ──
     _q1_items = [it for it in _health_items if it.get("duty_question") == "Q1"]
     _q2_health_items = [it for it in _health_items if it.get("duty_question") == "Q2"]
     _q3_health_items = [it for it in _health_items if it.get("duty_question") == "Q3"]
@@ -880,9 +880,9 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
     _q2_easy_items = [it for it in _easy_items if it.get("duty_question") == "Q2"]
     _q3_easy_items = [it for it in _easy_items if it.get("duty_question") == "Q3"]
 
-    # SURIT-BUG-014: 추가검사/재검사 확인은 건강체 Q1/Q2 + 간편 Q1에만 부착한다.
+    # BOHUMFIT-BUG-014: 추가검사/재검사 확인은 건강체 Q1/Q2 + 간편 Q1에만 부착한다.
     # 건강체 Q3/Q4 및 간편 Q2/Q3는 입원·수술·통원·투약 등 해당 문항 지표만 표시한다.
-    # SURIT-027 (B): 실제 검사 근거(1년 내 detail_test_events)가 있는 코드에만 의심 소견 부착.
+    # BOHUMFIT-027 (B): 실제 검사 근거(1년 내 detail_test_events)가 있는 코드에만 의심 소견 부착.
     # 근거 없는 단순 1년 진단은 의심 소견·"추가검사 의심" 꼬리표 없이 '1년 내 진단'으로만 표시
     # (항목 자체는 Q2 에 유지 — 고지 누락 아님).
     _test_evidence_codes = _codes_with_recent_test_evidence(disease_stats, _d1y_dt)
@@ -906,7 +906,7 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
             if susp:
                 it["q2_suspicion"] = susp
 
-    # ── summary_reports 빌드 (SURIT-BUG-010: health/easy 풀 분리 전달) ──
+    # ── summary_reports 빌드 (BOHUMFIT-BUG-010: health/easy 풀 분리 전달) ──
     std_reports, easy_reports, flagged_codes, _ = build_summary_reports(
         disease_stats,
         _health_items,
@@ -920,7 +920,7 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
     # ── 전체 병력 요약 ─────────────────────────────────────────
     all_disease_summary = _build_all_disease_summary(disease_stats)
 
-    # SURIT-BUG-008: 메리츠 간편보험 평가 제거. main.py 호환을 위해 빈 dict 반환.
+    # BOHUMFIT-BUG-008: 메리츠 간편보험 평가 제거. main.py 호환을 위해 빈 dict 반환.
     meritz_easy_result: dict = {}
 
     return {
@@ -928,7 +928,7 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
         "summary_reports":         {k: list(v) for k, v in summary_reports.items()},
         "standard_reports":        {k: list(v) for k, v in std_reports.items()},
         "easy_reports":            {k: list(v) for k, v in easy_reports.items()},
-        # SURIT-009: 신구조 6 키 — Q1 공통 + Q2/Q3 건강체·간편 + Q4 건강체.
+        # BOHUMFIT-009: 신구조 6 키 — Q1 공통 + Q2/Q3 건강체·간편 + Q4 건강체.
         "q1":                      _q1_items,
         "q2_health":               _q2_health_items,
         "q2_easy":                 _q2_easy_items,
@@ -936,7 +936,7 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
         "q3_easy":                 _q3_easy_items,
         "q4_health":               _q4_health_items,
         "all_disease_summary":     all_disease_summary,
-        # SURIT-023: 실손 안내용 급여 본인부담 연도별 (additive — 고지 결과 불변).
+        # BOHUMFIT-023: 실손 안내용 급여 본인부담 연도별 (additive — 고지 결과 불변).
         "covered_self_pay_by_year": _covered_self_pay["by_year"],
         "covered_self_pay_captured": _covered_self_pay["captured"],
         "flagged_codes":           flagged_codes,

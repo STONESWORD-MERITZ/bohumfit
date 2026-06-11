@@ -1,10 +1,10 @@
-# BOHUMFIT
+﻿# BOHUMFIT
 
 보험 가입 전 고지 리스크를 점검하는 AI 보조 플랫폼입니다.
 
 - 운영 도메인: `bohumfit.ai`
 - 외부 브랜드: `BOHUMFIT` / `보험핏`
-- 내부 태스크 prefix: 기존 이력 보존을 위해 `SURIT-*` 유지
+- 내부 태스크 prefix: 기존 이력 보존을 위해 `BOHUMFIT-*` 유지
 
 ## 현재 운영 방식
 

@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-"""BOHUMFIT 실비(실손) 청구 안내 — 백엔드 계산 모듈 (SURIT-022 1단계).
+﻿# -*- coding: utf-8 -*-
+"""BOHUMFIT 실비(실손) 청구 안내 — 백엔드 계산 모듈 (BOHUMFIT-022 1단계).
 
 기준 문서: .agent-harness/docs/BOHUMFIT_실비기능_설계_v3.md
 - constants: 수치 상수(세대별 자기부담률·실손 연 상한·건보 본인부담상한제 2026)

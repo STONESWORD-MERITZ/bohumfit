@@ -1,4 +1,4 @@
-"""PDF 파서 — 빈/이미지 PDF 오류 메시지 회귀 테스트.
+﻿"""PDF 파서 — 빈/이미지 PDF 오류 메시지 회귀 테스트.
 
 감사 지적: 정상 복호화됐으나 표가 없는 PDF(이미지 PDF 등)가 "비밀번호 확인"
 안내로 잘못 떨어졌다. _empty_result_message 는 원인을 구분하되, 비밀번호
@@ -47,7 +47,7 @@ def test_message_always_includes_filename():
         assert "내검사파일.pdf" in _empty_result_message("내검사파일.pdf", n_pages, text)
 
 
-# ── SURIT-002: 처방 PDF 오분류 보정 회귀 테스트 ──────────────────────
+# ── BOHUMFIT-002: 처방 PDF 오분류 보정 회귀 테스트 ──────────────────────
 #
 # 헤더 OCR이 누락·왜곡되면 처방표 헤더가 detail 구조 휴리스틱에만 약하게
 # 걸려 진료내역으로 오분류됐다. 보정 후에는 헤더 신호가 약할 때 페이지

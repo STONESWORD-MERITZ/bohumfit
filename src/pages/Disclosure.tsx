@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+﻿import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import AnalysisProgress from "../components/AnalysisProgress";
 import { useAuth } from "../lib/auth-context";
@@ -60,14 +60,14 @@ type SummaryItem = {
 };
 
 type AnalyzeResult = {
-  // SURIT-009: 신구조 — 건강체/간편 탭 + Q1~Q4 6 키 복구. easy_reports/easy_kakao 도 호환 유지.
+  // BOHUMFIT-009: 신구조 — 건강체/간편 탭 + Q1~Q4 6 키 복구. easy_reports/easy_kakao 도 호환 유지.
   flagged_count: number;
   total_q_count: number;
   total_visit_sum: number;
   total_med_sum: number;
   standard_reports: Record<string, SummaryItem[]>;
   easy_reports?: Record<string, SummaryItem[]>;
-  // SURIT-009: 신구조 6 키 (결정론 raw items list). 프런트가 점진적 마이그레이션 가능.
+  // BOHUMFIT-009: 신구조 6 키 (결정론 raw items list). 프런트가 점진적 마이그레이션 가능.
   q1?: SummaryItem[];
   q2_health?: SummaryItem[];
   q2_easy?: SummaryItem[];
@@ -79,7 +79,7 @@ type AnalyzeResult = {
   easy_kakao?: string;
   parse_errors: string[];
   warnings: string[];
-  // SURIT-023: 실손 안내용 급여 본인부담(내가 낸 의료비) 연도별 (additive — 백엔드 surfaced).
+  // BOHUMFIT-023: 실손 안내용 급여 본인부담(내가 낸 의료비) 연도별 (additive — 백엔드 surfaced).
   covered_self_pay_by_year?: Record<string, number>;
   covered_self_pay_captured?: boolean;
 };
@@ -549,7 +549,7 @@ function DisclaimerBox() {
 }
 
 // ──────────────────────────────────────────────────────────────
-// SURIT-023: 실손 청구 안내 (설계 v3-1). 백엔드 backend/insurance 모듈을 기준으로 TS 미러.
+// BOHUMFIT-023: 실손 청구 안내 (설계 v3-1). 백엔드 backend/insurance 모듈을 기준으로 TS 미러.
 //   - 프런트는 insurance 모듈을 직접 호출할 수 없어(HTTP API 부재) 동일 로직을 미러한다.
 //   - source of truth = backend/insurance + 그 단위 테스트. 수치/로직 변경 시 양쪽 동기화.
 //   - 출력은 추정 범위 + 가능성. 단정/보험 모집·추천·권유 표현 금지. 입력값 비저장(useState만).
@@ -577,7 +577,7 @@ const INS_NHIS_CAP_2026: Record<number, [number, number]> = {
 };
 const INS_DISCLAIMER = "추정값입니다. 정확한 보험금·환급금 지급 여부와 금액은 보험사 약관·심사 및 국민건강보험공단 확인이 필요합니다. 본 안내는 보험 모집·중개·권유를 목적으로 하지 않습니다.";
 
-// SURIT-028: 최소공제 미러 — backend/insurance constants §4-4 / calculator §6-1 와 동일 산식.
+// BOHUMFIT-028: 최소공제 미러 — backend/insurance constants §4-4 / calculator §6-1 와 동일 산식.
 // ⚠️ 수치/로직 변경 시 backend/insurance 와 반드시 양쪽 동기화(설계 v4 §6-3 케이스10 미러 일치).
 const INS_MIN_DEDUCTIBLE_BY_GEN: Record<number, Record<string, number> | null> = {
   1: null,                                          // legacy
@@ -616,7 +616,7 @@ function insWon(s: string): number {
   return Math.max(0, parseInt((s || "").replace(/[^\d]/g, "") || "0", 10));
 }
 
-// SURIT-025: 실손 결과만 인쇄(브라우저 인쇄→PDF). 새 의존성 없이 @media print 로 처리.
+// BOHUMFIT-025: 실손 결과만 인쇄(브라우저 인쇄→PDF). 새 의존성 없이 @media print 로 처리.
 // 화면 표시 불변(print-only 은 화면 숨김, no-print 은 인쇄 숨김). #insurance-print-area 만 인쇄.
 const INS_PRINT_CSS = `
 @media screen { .print-only { display: none !important; } }
@@ -684,7 +684,7 @@ function InsuranceSection({ coveredByYear, captured }: { coveredByYear: Record<s
   const [bracket, setBracket] = useState<number | "">("");
   const [year, setYear] = useState<string>(years.length ? years[years.length - 1] : "");
   const [receiptName, setReceiptName] = useState<string>("");
-  // SURIT-028: 최소공제 설정 (additive, 세션 내만 — 저장 안 함)
+  // BOHUMFIT-028: 최소공제 설정 (additive, 세션 내만 — 저장 안 함)
   const [minDedOn, setMinDedOn] = useState(false);
   const [providerName, setProviderName] = useState("");
   const [gradeOverride, setGradeOverride] = useState("");       // "" = 자동분류 사용
@@ -713,7 +713,7 @@ function InsuranceSection({ coveredByYear, captured }: { coveredByYear: Record<s
   const selfPayCap = genNum ? insCheckSelfPayCap(coveredShare, genNum, ncShare) : null;
   const nhisCap = typeof bracket === "number" ? insCheckNhisCap(coveredSelfPay, bracket, false) : null;
 
-  // SURIT-028: 최소공제 추정 (적용 시). 백엔드 calculator §6-1 와 동일 산식.
+  // BOHUMFIT-028: 최소공제 추정 (적용 시). 백엔드 calculator §6-1 와 동일 산식.
   const autoGrade = insClassifyProvider(providerName);
   const effGrade = gradeOverride || autoGrade;
   const minDed = genNum ? insProviderDeductible(genNum, effGrade) : null;  // 정액공제 또는 null(1·5세대/미선택)
@@ -843,7 +843,7 @@ function InsuranceSection({ coveredByYear, captured }: { coveredByYear: Record<s
         ) : <p className="text-gray-500">실손 세대를 선택하면 청구 추정 범위를 안내합니다.</p>}
       </InsResultCard>
 
-      {/* SURIT-028: ①-b 실손 최소공제 적용 추정 (additive 옵션, 기존 ①②③ 불변) */}
+      {/* BOHUMFIT-028: ①-b 실손 최소공제 적용 추정 (additive 옵션, 기존 ①②③ 불변) */}
       <InsResultCard n="①-b" title="실손 최소공제 적용 추정 (선택)">
         <div className="no-print space-y-2">
           <label className="flex items-center gap-2 text-xs font-semibold text-gray-700">
@@ -956,7 +956,7 @@ function InsuranceSection({ coveredByYear, captured }: { coveredByYear: Record<s
 }
 
 function ResultView({ result, mode }: { result: AnalyzeResult; mode: AudienceMode }) {
-  // SURIT-009: 건강체/간편 탭 + Q1~Q4 신구조 섹션 복구.
+  // BOHUMFIT-009: 건강체/간편 탭 + Q1~Q4 신구조 섹션 복구.
   const [productTab, setProductTab] = useState<"standard" | "easy" | "insurance">("standard");
   const easyReports = result.easy_reports || {};
   const stdCount = Object.values(result.standard_reports).reduce((s, arr) => s + arr.length, 0);
@@ -1346,7 +1346,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: form,
-        // SURIT-BUG-007: 서버 ANALYZE_TIMEOUT_SECONDS=300 과 동기화.
+        // BOHUMFIT-BUG-007: 서버 ANALYZE_TIMEOUT_SECONDS=300 과 동기화.
         // 기존 180_000(180s) → 350_000(350s). 서버보다 50s 여유를 둬서
         // 서버가 정상 응답할 시간을 보장하고 "signal timed out" 오류를 막는다.
         signal: AbortSignal.timeout(350_000),

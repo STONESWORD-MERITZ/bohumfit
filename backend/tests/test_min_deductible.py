@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-"""SURIT-028 실손 최소공제(정액↔정률 max) + 의원 자동분류 — §6-3 케이스 1~14.
+﻿# -*- coding: utf-8 -*-
+"""BOHUMFIT-028 실손 최소공제(정액↔정률 max) + 의원 자동분류 — §6-3 케이스 1~14.
 
 기준 문서: .agent-harness/docs/BOHUMFIT_실비기능_설계_v4.md
 additive — 기존 ①②③ 로직 회귀 없음(별도 함수).

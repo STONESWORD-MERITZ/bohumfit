@@ -1,4 +1,4 @@
-# BOHUMFIT-002: git remote 교체 + package name 정리
+﻿# BOHUMFIT-002: git remote 교체 + package name 정리
 
 project: BOHUMFIT
 owner: Codex
@@ -25,14 +25,14 @@ Do not edit:
 
 - Vercel/Railway/Supabase/Sentry dashboard settings
 - CORS/API URL
-- historical `SURIT-*` task IDs/comments
-- local folder name `surit-react`
+- historical `BOHUMFIT-*` task IDs/comments
+- local folder name `bohumfit-react`
 
 ## Requirements
 
 - Record remote before/after.
 - Run `git fetch origin` after URL change and stop on failure.
-- Change only package name fields from `surit-react` to `bohumfit`.
+- Change only package name fields from `bohumfit-react` to `bohumfit`.
 - Do not run `npm install` unless lock consistency breaks.
 
 ## Verify

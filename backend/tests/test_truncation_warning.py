@@ -1,4 +1,4 @@
-"""SURIT-003: 초대용량 PDF 잘림 감지 회귀 테스트.
+﻿"""BOHUMFIT-003: 초대용량 PDF 잘림 감지 회귀 테스트.
 
 ai_judgment._finalize_raw_text_for_gemini 의 잘림(줄 800 / 글자 30,000)을
 analyzer 호출부에서 감지하는 로직을 검증한다. 잘림 로직 자체는 변경하지 않는다.

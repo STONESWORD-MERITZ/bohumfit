@@ -1,4 +1,4 @@
-"""
+﻿"""
 analyzer.py 결정론적 통합 테스트.
 Gemini API (analyze_single_pdf, _call_medical_judgment) 는 mock.
 parse_single_pdf 도 fixture records 반환으로 교체.
@@ -84,7 +84,7 @@ def _mock_parse(monkeypatch: pytest.MonkeyPatch, records: list) -> None:
 
 # ── 시나리오 1: 10년 이내 통원 7회 이상 → Q3 ──────────────────
 
-@pytest.mark.skip(reason="SURIT-009: VISIT-7 룰이 신 Q3 정의에서 제외됨")
+@pytest.mark.skip(reason="BOHUMFIT-009: VISIT-7 룰이 신 Q3 정의에서 제외됨")
 def test_run_analysis_q3_visit_7plus(monkeypatch: pytest.MonkeyPatch) -> None:
     """동일 K05 통원 8회 → Q3 에 포함되어야 한다"""
     records = [_basic_row(f"2025-{m:02d}-15", "AK05", "치주염") for m in range(1, 9)]

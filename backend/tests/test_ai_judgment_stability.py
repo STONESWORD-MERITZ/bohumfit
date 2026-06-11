@@ -1,4 +1,4 @@
-"""SURIT-VERIFY-001: AI 판단 호출 파라미터 안정화 회귀 테스트.
+﻿"""BOHUMFIT-VERIFY-001: AI 판단 호출 파라미터 안정화 회귀 테스트.
 
 실제 Gemini 호출은 하지 않고(샌드박스에서 API 키·네트워크 불가),
 ai_judgment.py 내부에서 GenerateContentConfig 가 결정성 보조 파라미터

@@ -1,4 +1,4 @@
-"""SURIT-006: run_analysis 분해 헬퍼 단위 테스트.
+﻿"""BOHUMFIT-006: run_analysis 분해 헬퍼 단위 테스트.
 
 run_analysis 에서 추출한 내부 헬퍼들이 독립적으로 올바르게 동작하는지 검증한다.
 순수 리팩터링이므로 로직 변화는 없어야 한다.
@@ -18,7 +18,7 @@ from analyzer import (
 )
 
 HEALTH = "건강체/표준체 (일반심사)"
-# SURIT-BUG-008: 간편심사 제거 — SIMPLE 상수와 관련 테스트 삭제.
+# BOHUMFIT-BUG-008: 간편심사 제거 — SIMPLE 상수와 관련 테스트 삭제.
 
 
 def test_build_system_prompt_health():

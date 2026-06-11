@@ -1,4 +1,4 @@
-// SURIT-029: 독립 실손 예상 보험금 계산기 (알릴의무 분석과 분리된 진입점).
+﻿// BOHUMFIT-029: 독립 실손 예상 보험금 계산기 (알릴의무 분석과 분리된 진입점).
 // 계산은 src/lib/insuranceCalc.ts (검증된 미러)만 사용 — Disclosure·backend 와 동일 금액.
 // 모드: (A) 수기 직접입력 / (B) PDF 업로드(진료비 자동 채움). PDF 모드도 알릴의무 Q&A 는 표시하지 않는다.
 import { useState, type ReactNode } from "react";
@@ -50,7 +50,7 @@ export default function InsuranceCalculator() {
   const [coveredByYear, setCoveredByYear] = useState<Record<string, number>>({});
   const [pdfCaptured, setPdfCaptured] = useState<boolean | null>(null);
 
-  // 최소공제 설정 (SURIT-028)
+  // 최소공제 설정 (BOHUMFIT-028)
   const [minDedOn, setMinDedOn] = useState(false);
   const [providerName, setProviderName] = useState("");
   const [gradeOverride, setGradeOverride] = useState("");
@@ -87,7 +87,7 @@ export default function InsuranceCalculator() {
   const selfPayCap = genNum ? insCheckSelfPayCap(coveredShare, genNum, ncShare) : null;
   const nhisCap = typeof bracket === "number" ? insCheckNhisCap(coveredSelfPay, bracket, false) : null;
 
-  // 최소공제 (SURIT-028)
+  // 최소공제 (BOHUMFIT-028)
   const autoGrade = insClassifyProvider(providerName);
   const effGrade = gradeOverride || autoGrade;
   const minDed = genNum ? insProviderDeductible(genNum, effGrade) : null;
@@ -271,7 +271,7 @@ export default function InsuranceCalculator() {
         ) : <p className="text-gray-500">소득분위를 선택하면 환급 가능성을 안내합니다.</p>}
       </ResultCard>
 
-      {/* 결과 ①-b 최소공제 (SURIT-028) */}
+      {/* 결과 ①-b 최소공제 (BOHUMFIT-028) */}
       <ResultCard n="①-b" title="실손 최소공제 적용 추정 (선택)">
         <label className="flex items-center gap-2 text-xs font-semibold text-gray-700">
           <input type="checkbox" checked={minDedOn} onChange={(e) => setMinDedOn(e.target.checked)} />

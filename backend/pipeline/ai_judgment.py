@@ -1,4 +1,4 @@
-"""Gemini AI 호출 일체 — analyzer.py 에서 이동."""
+﻿"""Gemini AI 호출 일체 — analyzer.py 에서 이동."""
 from __future__ import annotations
 
 import asyncio
@@ -10,7 +10,7 @@ from google.genai import types
 
 from .helpers import AnalysisError, _worst_insurance_verdict, extract_json
 
-# ── 텍스트 필터링 보조 (SURIT-ROLLBACK-001) ────────────────────
+# ── 텍스트 필터링 보조 (BOHUMFIT-ROLLBACK-001) ────────────────────
 # 318p PDF 같은 대용량 입력에서 의미 없는 반복 헤더/노이즈/중복을 제거해
 # 잘림 상한 내에 실제 진료 데이터가 더 많이 담기도록 한다.
 
@@ -50,7 +50,7 @@ def _has_signal(line: str) -> bool:
 def _strengthen_filter(lines: list[str]) -> list[str]:
     """반복 헤더·연속 중복·노이즈 줄을 제거한다.
 
-    SURIT-ROLLBACK-001: 318p 같은 대용량 PDF에서 잘림 상한 내에 실제 진료
+    BOHUMFIT-ROLLBACK-001: 318p 같은 대용량 PDF에서 잘림 상한 내에 실제 진료
     데이터가 더 많이 들어가도록 텍스트를 압축한다. 정렬은 하지 않는다
     (analyzer 가 이미 시간 역순으로 정렬해서 넘긴다).
     """
@@ -79,7 +79,7 @@ def _strengthen_filter(lines: list[str]) -> list[str]:
     return out
 
 # ── 의학 판단 전용 시스템 프롬프트 ──────────────────────────────
-# SURIT-VERIFY-001: 결정성 향상 — 주관적 표현("재발 가능성", "재방문 가능성") 을
+# BOHUMFIT-VERIFY-001: 결정성 향상 — 주관적 표현("재발 가능성", "재방문 가능성") 을
 # 데이터 근거 기반의 결정론 조건으로 치환. 동일 입력에 대해 동일 출력을 강제한다.
 MEDICAL_JUDGMENT_SYSTEM_PROMPT = """당신은 한국 보험 언더라이팅 전문 의사입니다.
 설계사가 고객의 알릴의무를 판단할 수 있도록 의학적 관점에서 분석합니다.
@@ -136,13 +136,13 @@ def _finalize_raw_text_for_gemini(
     drug_change_text: str,
     presc_end_text: str,
 ) -> str:
-    # SURIT-ROLLBACK-001: 잘림 상한 내 데이터 밀도를 높이기 위해 필터 강화.
+    # BOHUMFIT-ROLLBACK-001: 잘림 상한 내 데이터 밀도를 높이기 위해 필터 강화.
     # 반복 헤더·연속 중복·짧은 노이즈 줄을 제거.
-    # SURIT-BUG-009: 318p PDF(약 13,000줄 / 293K자) 전체를 커버하도록 상한 대폭 상향.
+    # BOHUMFIT-BUG-009: 318p PDF(약 13,000줄 / 293K자) 전체를 커버하도록 상한 대폭 상향.
     # BUG-008 메리츠 간편 제거로 Gemini 호출이 PDF 1건당 1회만 남았고, 타임아웃 한도 300초에
     # 충분한 여유가 있어 가능. 사용자 분기표 X≥8000 티어 적용 (13,000줄 / 300K자).
     cleaned_lines = _strengthen_filter(filtered_lines)
-    # 기존: filtered_lines[:800] → 2000 → 3000 → 13_000 (SURIT-BUG-009 상향, 318p 전체 커버)
+    # 기존: filtered_lines[:800] → 2000 → 3000 → 13_000 (BOHUMFIT-BUG-009 상향, 318p 전체 커버)
     raw_text = "\n".join(cleaned_lines[:13_000])
     if visit_count_lines:
         raw_text = "[10년내 질병코드별 통원횟수 집계 — Q4 7회이상통원 판단 기준]\n" \
@@ -157,7 +157,7 @@ def _finalize_raw_text_for_gemini(
         raw_text = drug_change_text + "\n" + raw_text
     if presc_end_text:
         raw_text = presc_end_text + "\n" + raw_text
-    # 기존: MAX_RAW_TEXT_LEN = 30_000 → 80_000 → 100_000 → 300_000 (SURIT-BUG-009 상향, 318p 전체 커버)
+    # 기존: MAX_RAW_TEXT_LEN = 30_000 → 80_000 → 100_000 → 300_000 (BOHUMFIT-BUG-009 상향, 318p 전체 커버)
     MAX_RAW_TEXT_LEN = 300_000
     if len(raw_text) > MAX_RAW_TEXT_LEN:
         raw_text = raw_text[:MAX_RAW_TEXT_LEN] + "\n... (truncated)"
@@ -174,7 +174,7 @@ def _merge_ai_results(parts: list[dict]) -> dict:
         "drug_change_reason": "",
         "total_flagged": 0,
     }
-    # SURIT-BUG-008: 간편심사 제거 — simple_* 키 제외.
+    # BOHUMFIT-BUG-008: 간편심사 제거 — simple_* 키 제외.
     hit_bool_keys = [
         "q1_hit", "q2_hit", "q3_hit", "q4_hit",
     ]
@@ -197,7 +197,7 @@ def _merge_ai_results(parts: list[dict]) -> dict:
     dcr = [x.get("drug_change_reason") for x in parts if x.get("drug_change_reason")]
     merged["drug_change_reason"] = "; ".join(dcr) if dcr else ""
 
-    # SURIT-BUG-008: 간편심사 제거 — simple_* 병합 로직 삭제.
+    # BOHUMFIT-BUG-008: 간편심사 제거 — simple_* 병합 로직 삭제.
 
     merged["health_verdict"] = _worst_insurance_verdict(*(x.get("health_verdict") or "" for x in parts))
     hr = [x.get("health_reason") for x in parts if x.get("health_reason")]
@@ -261,7 +261,7 @@ async def _call_medical_judgment(
     except TypeError:
         api_client = genai.Client(api_key=api_key)
 
-    # SURIT-VERIFY-001: 결정성 보조 (temperature=0 + top_k=1 + seed 고정 + JSON mime).
+    # BOHUMFIT-VERIFY-001: 결정성 보조 (temperature=0 + top_k=1 + seed 고정 + JSON mime).
     # google-genai SDK 가 일부 파라미터를 미지원하면 TypeError → fallback 으로 안전 처리.
     try:
         config = types.GenerateContentConfig(
@@ -317,7 +317,7 @@ async def _call_medical_judgment(
 
 
 async def _call_q2_health_findings(q2_items: list[dict], reference_date, api_key: str) -> dict:
-    """SURIT-009: Q2 건강체 항목별 '추가검사·재검사 의심 소견' 텍스트 생성.
+    """BOHUMFIT-009: Q2 건강체 항목별 '추가검사·재검사 의심 소견' 텍스트 생성.
 
     q2_items 는 filters._build_q2_health_items 가 만든 결정론 결과 list.
     각 항목에 대해 코드/병명 기반으로 일반적인 의심 추가검사 한 줄을 부착한다.
@@ -362,7 +362,7 @@ async def _call_q2_health_findings(q2_items: list[dict], reference_date, api_key
     except TypeError:
         api_client = genai.Client(api_key=api_key)
 
-    # SURIT-VERIFY-001 + SURIT-009: 결정성 파라미터 유지.
+    # BOHUMFIT-VERIFY-001 + BOHUMFIT-009: 결정성 파라미터 유지.
     try:
         config = types.GenerateContentConfig(
             system_instruction=(
@@ -442,7 +442,7 @@ async def analyze_single_pdf(parsed_data: dict, product_type: str, reference_dat
     MAX_RETRIES = 5
     RETRY_DELAYS = [5, 10, 20, 40, 60]
     contents = f"고객 기준일: {today_str}\n심사 유형: {product_type}\n\n진료 데이터:\n{raw_text}"
-    # SURIT-VERIFY-001: 결정성 보조 (temperature=0 + top_k=1 + seed 고정 + JSON mime).
+    # BOHUMFIT-VERIFY-001: 결정성 보조 (temperature=0 + top_k=1 + seed 고정 + JSON mime).
     try:
         config = types.GenerateContentConfig(
             system_instruction=system_prompt,

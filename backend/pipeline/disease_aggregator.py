@@ -1,4 +1,4 @@
-"""disease_stats 빌드 + 약 변경 감지 + 처방 종료일 계산 — analyzer.py 에서 이동."""
+﻿"""disease_stats 빌드 + 약 변경 감지 + 처방 종료일 계산 — analyzer.py 에서 이동."""
 from __future__ import annotations
 
 import gc
@@ -592,7 +592,7 @@ def build_disease_stats(
     # ── AI 전달용 raw_entries 빌드 (같은 df 재사용) ──────────────
     raw_entries: list[tuple[str, str]] = []
     seen_code_dates: set = set()
-    _d10y_dt = _subtract_years(today, 10)   # SURIT-004: 달력 기준 10년
+    _d10y_dt = _subtract_years(today, 10)   # BOHUMFIT-004: 달력 기준 10년
 
     for _, row in df.iterrows():
         if row_is_junk(row): continue

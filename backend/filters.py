@@ -1,5 +1,5 @@
-"""
-SURIT 알릴의무 필터링 룰 엔진 (건강체 전용 — SURIT-BUG-008 에서 간편 제거)
+﻿"""
+BOHUMFIT 알릴의무 필터링 룰 엔진 (건강체 전용 — BOHUMFIT-BUG-008 에서 간편 제거)
 - 입력: disease_stats (Dict[group_key, disease_stats_record]), reference_date (datetime), product_type (str)
 - 출력: code_based_items: list[dict]
 
@@ -18,7 +18,7 @@ import re as _re
 from datetime import datetime, timedelta
 from typing import Any, Iterable
 
-# SURIT-005: 날짜 창 로직 중앙화 — _dts_in_range 는 helpers.py 정본을 import
+# BOHUMFIT-005: 날짜 창 로직 중앙화 — _dts_in_range 는 helpers.py 정본을 import
 from pipeline.helpers import _dts_in_range
 
 # ── keywords.json 로딩 ────────────────────────────────
@@ -30,7 +30,7 @@ def _load_kw():
 
 _KW = _load_kw()
 HEALTH_Q5_CODES            = tuple(_KW["health_q5_codes"])
-# SURIT-009: 새 코드 풀 — Q3_easy(6대) / Q4_health(10대)
+# BOHUMFIT-009: 새 코드 풀 — Q3_easy(6대) / Q4_health(10대)
 EASY_Q3_6CODES             = tuple(_KW.get("easy_q3_6codes", []))
 HEALTH_Q4_10CODES          = tuple(_KW.get("health_q4_10codes", []))
 # 건강검진·선별검사·예방접종 등 비질병 KCD 코드 (질병으로 집계하지 않음)
@@ -38,7 +38,7 @@ NON_DISEASE_CODE_PREFIXES  = tuple(_KW.get("non_disease_code_prefixes", []))
 
 
 # ── 공유 헬퍼 (helpers.py 와 동일 로직의 인라인 동본) ──
-# SURIT-005: _dts_in_range 는 helpers.py 정본 import 로 중앙화함(상단 import 참조).
+# BOHUMFIT-005: _dts_in_range 는 helpers.py 정본 import 로 중앙화함(상단 import 참조).
 #            아래 헬퍼들은 인라인 동본으로 유지한다.
 
 def _code_in(code, prefixes) -> bool:
@@ -52,7 +52,7 @@ def _code_in(code, prefixes) -> bool:
 
 
 def _subtract_years(d, years: int):
-    """기준일에서 정확히 N 달력연도 전 날짜 (SURIT-004 — 윤년 보정).
+    """기준일에서 정확히 N 달력연도 전 날짜 (BOHUMFIT-004 — 윤년 보정).
 
     helpers._subtract_years 와 동일 로직. filters.py 의 순환 임포트 회피
     정책에 따라 인라인한다. 2/29 → 비윤년이면 2/28 로 보정.
@@ -156,7 +156,7 @@ def _is_valid_disease(diag_code: str, name: str) -> bool:
 
 # ── 상수 ───────────────────────────────────────────────
 PRODUCT_HEALTH = "건강체/표준체 (일반심사)"
-# SURIT-009: 간편심사 product_type 복구 (BUG-008 에서 제거됐던 것을 재도입).
+# BOHUMFIT-009: 간편심사 product_type 복구 (BUG-008 에서 제거됐던 것을 재도입).
 PRODUCT_EASY = "간편심사 (유병자 3-5-5 기준)"
 
 # 건강체 Q1 ⑤ — 상시복용 약물 카테고리 (성분명 일부 매칭, 대소문자 무시)
@@ -179,7 +179,7 @@ CHRONIC_DRUG_CATEGORIES: dict[str, list[str]] = {
 # Q1 약물 상시복용 판정 임계 (30일 이상 단일 카테고리 지속 처방)
 Q1_CHRONIC_DRUG_DAYS_THRESHOLD = 30
 
-# SURIT-BUG-012: 건강체 Q3 통원/투약 OR 트리거 임계
+# BOHUMFIT-BUG-012: 건강체 Q3 통원/투약 OR 트리거 임계
 Q3_VISIT_COUNT_THRESHOLD = 7   # 매직넘버: 동일질병 10년내 통원 7회 이상 시 고지
 Q3_MED_DAYS_THRESHOLD    = 30  # 매직넘버: 동일질병 10년내 날짜별 최대 처방일수 누적 30일 이상 시 고지
 
@@ -241,15 +241,15 @@ def _chronic_drug_hits(drug_names: Iterable[str]) -> dict[str, list[str]]:
 def _cutoffs(reference_date: datetime) -> tuple[datetime, datetime, datetime, datetime]:
     """(d3m, d1y, d5y, d10y) 반환.
 
-    SURIT-004: 5년/10년 창은 윤년 보정을 위해 달력 연도 기준으로 계산한다.
+    BOHUMFIT-004: 5년/10년 창은 윤년 보정을 위해 달력 연도 기준으로 계산한다.
     기존 고정 일수 방식은 윤년 무시로 2~3일 짧았음.
     3개월/1년 창은 윤년 영향이 없어 고정 일수를 유지한다.
     """
     return (
         reference_date - timedelta(days=90),
         reference_date - timedelta(days=365),
-        _subtract_years(reference_date, 5),    # SURIT-004: 달력 기준 5년
-        _subtract_years(reference_date, 10),   # SURIT-004: 달력 기준 10년
+        _subtract_years(reference_date, 5),    # BOHUMFIT-004: 달력 기준 5년
+        _subtract_years(reference_date, 10),   # BOHUMFIT-004: 달력 기준 10년
     )
 
 
@@ -268,11 +268,11 @@ def build_code_based_items(
     Args:
         disease_stats: analyzer.run_analysis 가 빌드한 질병별 통합 통계.
         reference_date: 청약일/기준일 (datetime).
-        product_type: PRODUCT_HEALTH (SURIT-BUG-008 이후 건강체만 지원).
+        product_type: PRODUCT_HEALTH (BOHUMFIT-BUG-008 이후 건강체만 지원).
         drug_change_groups: 3개월 내 약 변경 감지된 group_key 집합.
                             None 이면 disease_stats[g].get("drug_change_in_3m") 사용.
     """
-    # SURIT-009: 신구조 — _split_buckets + Q1~Q4 함수 통합.
+    # BOHUMFIT-009: 신구조 — _split_buckets + Q1~Q4 함수 통합.
     # product_type=건강체 → Q1 + Q2_health + Q3_health + Q4_health
     # product_type=간편   → Q1 + Q2_easy   + Q3_easy
     items: list[dict] = []
@@ -288,12 +288,12 @@ def build_code_based_items(
 
 
 # ──────────────────────────────────────────────────────────
-# SURIT-009: 신구조 Q1~Q4 함수 (사전 버킷 분리 + 결정론 룰)
+# BOHUMFIT-009: 신구조 Q1~Q4 함수 (사전 버킷 분리 + 결정론 룰)
 # ──────────────────────────────────────────────────────────
 
 
 def _split_buckets(disease_stats: dict[str, dict[str, Any]], reference_date: datetime) -> dict:
-    """5종 버킷으로 disease_stats 를 사전 분리한다 (SURIT-009 1순위 필터).
+    """5종 버킷으로 disease_stats 를 사전 분리한다 (BOHUMFIT-009 1순위 필터).
 
     bucket_3m       : 3개월이내 진단·진료(visit+입원+수술) 발생 코드
     bucket_1y       : 1년이내 진단·진료 발생 코드
@@ -331,7 +331,7 @@ def _build_q1_items(
 ) -> list[dict]:
     """Q1 (건강체·간편 공통) — 3개월이내 질병확정진단·추가검사·재검사·투약변경.
 
-    SURIT-009: bucket_3m 항목 + drug_change 가 있는 disease_stats 전체.
+    BOHUMFIT-009: bucket_3m 항목 + drug_change 가 있는 disease_stats 전체.
     drug_change 만 단독으로 발생한 항목(bucket_3m 미진입) 도 Q1 으로 잡힌다.
     """
     items: list[dict] = []
@@ -521,7 +521,7 @@ def _build_q3_health_items(
 ) -> list[dict]:
     """Q3 건강체 — 10년이내 (입원 OR 수술 OR 통원 7회 이상 OR 투약 30일 이상).
 
-    SURIT-BUG-012: 4개 OR 트리거를 각각 독립 생성한다. 통원·투약은 입원/수술 유무와
+    BOHUMFIT-BUG-012: 4개 OR 트리거를 각각 독립 생성한다. 통원·투약은 입원/수술 유무와
     무관하게 단독으로도 항목이 뜬다. 입원=기본진료(inpatient_dates), 수술=세부진료
     (surgery_dates). 동일질병 판정은 KCD 코드 정규화 기준(_is_valid_disease).
     창 경계는 달력 10년(_subtract_years) 포함(>=).

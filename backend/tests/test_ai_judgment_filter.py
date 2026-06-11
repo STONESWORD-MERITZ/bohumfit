@@ -1,4 +1,4 @@
-"""SURIT-ROLLBACK-001: ai_judgment._strengthen_filter 회귀 테스트.
+﻿"""BOHUMFIT-ROLLBACK-001: ai_judgment._strengthen_filter 회귀 테스트.
 
 318p 같은 대용량 PDF에서 잘림 상한 내에 실제 진료 데이터가 더 많이 들어가도록
 반복 헤더·연속 중복·짧은 노이즈 줄을 제거하는 동작을 검증한다.

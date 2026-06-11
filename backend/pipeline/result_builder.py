@@ -1,4 +1,4 @@
-"""summary_reports 빌드 — analyzer.py 에서 이동."""
+﻿"""summary_reports 빌드 — analyzer.py 에서 이동."""
 from __future__ import annotations
 
 import re
@@ -90,10 +90,10 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
                                is_easy: bool = False):
     """merged_items + disease_stats → (summary_reports, flagged_codes).
 
-    SURIT-BUG-012: 탭별 질문 창(_q_since)·라벨(q_labels)을 분리한다.
+    BOHUMFIT-BUG-012: 탭별 질문 창(_q_since)·라벨(q_labels)을 분리한다.
     - 건강체: Q1→3개월, Q2→1년(진단·의심 소견), Q3→10년(입원·수술·통원·투약), Q4→5년(10대질환)
     - 간편  : Q1→3개월, Q2→10년(입원·수술), Q3→5년(6대질환)
-    간편 Q2 에 건강체 Q2 의 1년 창·의심 소견 라벨을 적용하던 결함(SURIT-BUG-012)을 끊는다.
+    간편 Q2 에 건강체 Q2 의 1년 창·의심 소견 라벨을 적용하던 결함(BOHUMFIT-BUG-012)을 끊는다.
     product_type 은 시그니처 호환을 위해 유지하되 라우팅은 is_easy 로 한다.
     """
     _ = product_type
@@ -297,10 +297,10 @@ def build_summary_reports(
 
     _d3m_dt  = today - timedelta(days=90)
     _d1y_dt  = today - timedelta(days=365)
-    _d5y_dt  = _subtract_years(today, 5)    # SURIT-004: 달력 기준 5년
-    _d10y_dt = _subtract_years(today, 10)   # SURIT-004: 달력 기준 10년
+    _d5y_dt  = _subtract_years(today, 5)    # BOHUMFIT-004: 달력 기준 5년
+    _d10y_dt = _subtract_years(today, 10)   # BOHUMFIT-004: 달력 기준 10년
 
-    # SURIT-BUG-010: health/easy 풀을 분리해 각각 merged_items 빌드.
+    # BOHUMFIT-BUG-010: health/easy 풀을 분리해 각각 merged_items 빌드.
     # health 풀은 _health_items + ai_result.flagged_items, easy 풀은 _easy_items 만.
     _ = product_type  # 시그니처 호환
 
@@ -347,7 +347,7 @@ def build_summary_reports(
                     _merge_item_into(pool_merged[merge_key], item)
         return pool_merged
 
-    # SURIT-BUG-012: 탭별 질문 창 분리 — 간편 Q2=10년, 건강체 Q2=1년.
+    # BOHUMFIT-BUG-012: 탭별 질문 창 분리 — 간편 Q2=10년, 건강체 Q2=1년.
     _health_since = {"Q1": _d3m_dt, "Q2": _d1y_dt, "Q3": _d10y_dt, "Q4": _d5y_dt}
     _easy_since   = {"Q1": _d3m_dt, "Q2": _d10y_dt, "Q3": _d5y_dt}
 

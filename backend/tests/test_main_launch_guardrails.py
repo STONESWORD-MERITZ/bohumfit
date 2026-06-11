@@ -1,4 +1,4 @@
-"""SURIT-LAUNCH-001: BOHUMFIT 오픈 전 도메인/면책 가드레일."""
+﻿"""BOHUMFIT-LAUNCH-001: BOHUMFIT 오픈 전 도메인/면책 가드레일."""
 import os
 import sys
 from datetime import date

@@ -1,6 +1,6 @@
-# Codex 프로젝트 지침
+﻿# Codex 프로젝트 지침
 
-이 파일은 기존 이름을 유지하지만, 현재 SURIT는 **Codex 단독 하네스 방식**으로 진행한다.
+이 파일은 기존 이름을 유지하지만, 현재 BOHUMFIT는 **Codex 단독 하네스 방식**으로 진행한다.
 `AGENTS.md`가 최상위 운영 규칙이고, 이 파일은 프로젝트 성격·사용자 선호·코드베이스 관례를 보완한다.
 
 ## 작업 시작 시 필수 순서
@@ -23,8 +23,8 @@
 - 마운트 truncation/git 손상은 알려진 환경 제약이다. `.agent-harness/ENV-MOUNT-NOTES.md`를 참조하고, Cowork는 마운트에서 git 명령을 실행하지 않으며, 검증은 Windows 원본·/tmp·Codex로 수행한다.
 
 ## 태스크 ID 규칙
-- 이 프로젝트(SURIT)는 `SURIT-{번호}-{슬러그}.md` 형식을 기본으로 한다.
-- 운영 문서 정리는 `SURIT-HARNESS-*`, 긴급 버그는 `SURIT-BUG-*`, 검증 태스크는 `SURIT-VERIFY-*`를 사용한다.
+- 이 프로젝트(BOHUMFIT)는 `BOHUMFIT-{번호}-{슬러그}.md` 형식을 기본으로 한다.
+- 운영 문서 정리는 `BOHUMFIT-HARNESS-*`, 긴급 버그는 `BOHUMFIT-BUG-*`, 검증 태스크는 `BOHUMFIT-VERIFY-*`를 사용한다.
 ---
 
 # CLAUDE.md
@@ -242,10 +242,10 @@ AI should always prioritize the following principles.
 
 ---
 
-## 11. SURIT 코드베이스 개요
+## 11. BOHUMFIT 코드베이스 개요
 
-이 저장소는 보험설계사용 알릴의무(고지의무) 분석 플랫폼 **SURIT** 입니다.
-진행 상황은 `PROGRESS.md`, 감사 내역은 `SURIT_종합감사보고서_2026-05-20.md` 를 참조한다.
+이 저장소는 보험설계사용 알릴의무(고지의무) 분석 플랫폼 **BOHUMFIT** 입니다.
+진행 상황은 `PROGRESS.md`, 감사 내역은 `BOHUMFIT_종합감사보고서_2026-05-20.md` 를 참조한다.
 
 ### 구조
 

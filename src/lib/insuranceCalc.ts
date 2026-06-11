@@ -1,4 +1,4 @@
-// SURIT-029: 실손 계산 공용 미러 라이브러리.
+﻿// BOHUMFIT-029: 실손 계산 공용 미러 라이브러리.
 // ⚠️ 이 파일은 Disclosure.tsx 인라인 미러 + backend/insurance(constants §4-1~4-4 / calculator)
 //    와 동일한 "504조합 검증" 산식을 verbatim 추출한 것이다. 산식 재구현 금지 — 값/로직 변경 시
 //    backend/insurance 및 Disclosure.tsx 와 반드시 3중 동기화. (중복 부채 해소는 별도 백로그.)
@@ -27,7 +27,7 @@ export const INS_NHIS_CAP_2026: Record<number, [number, number]> = {
 };
 export const INS_DISCLAIMER = "추정값입니다. 정확한 보험금·환급금 지급 여부와 금액은 보험사 약관·심사 및 국민건강보험공단 확인이 필요합니다. 본 안내는 보험 모집·중개·권유를 목적으로 하지 않습니다.";
 
-// §4-4 세대별 통원 최소공제(정액) — 기관 등급별 (SURIT-028)
+// §4-4 세대별 통원 최소공제(정액) — 기관 등급별 (BOHUMFIT-028)
 export const INS_MIN_DEDUCTIBLE_BY_GEN: Record<number, Record<string, number> | null> = {
   1: null,                                          // legacy
   2: { clinic: 10000, general: 15000, tertiary: 20000 },

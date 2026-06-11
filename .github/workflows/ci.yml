@@ -1,4 +1,4 @@
-name: CI
+﻿name: CI
 
 on:
   workflow_dispatch:
@@ -59,7 +59,7 @@ jobs:
 
       - name: Build
         env:
-          VITE_API_URL: "https://surit-react-production.up.railway.app"
+          VITE_API_URL: "https://bohumfit-react-production.up.railway.app"
           VITE_SUPABASE_URL: "https://placeholder.supabase.co"
           VITE_SUPABASE_ANON_KEY: "placeholder-anon-key"
         run: npm run build

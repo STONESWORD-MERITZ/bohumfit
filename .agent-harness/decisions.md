@@ -1,11 +1,11 @@
-# Decisions
+﻿# Decisions
 
 Record durable project decisions here. Keep entries short and dated.
 
 ### 2026-05-30 Codex-Only Harness
 
 Decision:
-SURIT work will proceed with Codex as the single working agent by default.
+BOHUMFIT work will proceed with Codex as the single working agent by default.
 
 Reason:
 The previous Claude/Cowork -> Codex verification sequence created unnecessary handoff overhead.

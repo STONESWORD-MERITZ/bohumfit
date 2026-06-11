@@ -1,12 +1,12 @@
-# Codex Operating Rules
+﻿# Codex Operating Rules
 
 This repository is now run with Codex as the single working agent.
 
 ## Project
 
-- Name: SURIT
+- Name: BOHUMFIT
 - Local path: `C:\Users\18_rk\surit-react`
-- Task prefix: `SURIT`
+- Task prefix: `BOHUMFIT`
 - Project context guide: `CLAUDE.md`
 
 `CLAUDE.md` keeps project knowledge, codebase conventions, and user working preferences. The filename remains for continuity, but the active workflow is Codex-only. New work should follow this file and the active task file first.

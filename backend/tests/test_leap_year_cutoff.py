@@ -1,4 +1,4 @@
-"""SURIT-004: 윤년 컷오프 보정 회귀 테스트.
+﻿"""BOHUMFIT-004: 윤년 컷오프 보정 회귀 테스트.
 
 5년/10년 분석 창을 고정 일수(1825/3650) 대신 달력 연도 기준으로 계산한다.
 helpers._subtract_years 와 filters._subtract_years(인라인 동본)를 검증한다.

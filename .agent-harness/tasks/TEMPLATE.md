@@ -1,6 +1,6 @@
-﻿# TASK SURIT-000
+﻿# TASK BOHUMFIT-000
 
-project: SURIT
+project: BOHUMFIT
 owner: Codex
 status: draft
 
@@ -35,7 +35,7 @@ Do not edit:
 
 - Codex handles Git staging, commit, and push if this task is approved for publication.
 - Stage only files changed for this task.
-- Commit message format: `SURIT-000: short summary`
+- Commit message format: `BOHUMFIT-000: short summary`
 
 ## Next
 

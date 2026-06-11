@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 @theme {
   --color-indigo: #4F46E5;
@@ -53,7 +53,7 @@ html, body {
     border-radius: 6px !important;
   }
 
-  .surit-result-card {
+  .bohumfit-result-card {
     break-inside: avoid;
     page-break-inside: avoid;
   }

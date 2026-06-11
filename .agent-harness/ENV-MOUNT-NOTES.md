@@ -1,6 +1,6 @@
-# ENV Mount Notes
+﻿# ENV Mount Notes
 
-SURIT-ENV-001 기준, 샌드박스 마운트와 Windows 원본 사이에는 반복 재현된 동기화 및 권한 제약이 있다. 이 문서는 마운트 환경에서 작업할 때의 회피 규칙이다.
+BOHUMFIT-ENV-001 기준, 샌드박스 마운트와 Windows 원본 사이에는 반복 재현된 동기화 및 권한 제약이 있다. 이 문서는 마운트 환경에서 작업할 때의 회피 규칙이다.
 
 ## Known Issues
 

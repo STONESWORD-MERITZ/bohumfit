@@ -1,4 +1,4 @@
-"""공용 헬퍼 함수 + 상수 + AnalysisError — analyzer.py 에서 이동."""
+﻿"""공용 헬퍼 함수 + 상수 + AnalysisError — analyzer.py 에서 이동."""
 from __future__ import annotations
 
 import functools
@@ -191,7 +191,7 @@ def parse_date(date_str: str) -> str:
 def row_is_junk(row) -> bool:
     """행이 '$ 해당없음' 플레이스홀더뿐인 무의미 행인지 판정.
 
-    SURIT-BUG-012: 과거 구현은 행 전체 문자열에 '$'나 '해당없음'이 하나라도
+    BOHUMFIT-BUG-012: 과거 구현은 행 전체 문자열에 '$'나 '해당없음'이 하나라도
     있으면 junk 로 버렸다. 그 결과 병원 통원 행이라도 약국코드 등 부수 칸이
     '$ 해당없음'이면 행 전체가 탈락했다. 실측: 내과 기침(약국코드 R05계열)은
     생존하나 산부인과 급성질염(N76.0, 약국코드 '$ 해당없음') 통원 14건이 통째로
@@ -361,7 +361,7 @@ def _code_in(code, prefixes):
 def _dts_in_range(date_set, since_dt):
     """날짜 집합에서 since_dt 이후(경계 포함, >=) 날짜만 정렬해 반환 — 날짜 창 멤버십 정본.
 
-    SURIT-005: 분석 전 모듈의 단일 진입점. filters.py 도 이 함수를 import 한다.
+    BOHUMFIT-005: 분석 전 모듈의 단일 진입점. filters.py 도 이 함수를 import 한다.
     """
     result = []
     for d in date_set:
@@ -419,7 +419,7 @@ def _parse_ymd(value: str):
 
 
 def _subtract_years(d, years: int):
-    """기준일에서 정확히 N 달력연도 전 날짜를 반환한다 (SURIT-004).
+    """기준일에서 정확히 N 달력연도 전 날짜를 반환한다 (BOHUMFIT-004).
 
     고정 일수(예: 5년=1825일, 10년=3650일)는 윤년을 무시해 실제 달력
     5년/10년보다 2~3일 짧다. 보험 고지 기준은 달력 연도(anniversary)이므로

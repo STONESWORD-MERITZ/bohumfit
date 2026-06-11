@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-"""SURIT-BUG-012 회귀 테스트.
+﻿# -*- coding: utf-8 -*-
+"""BOHUMFIT-BUG-012 회귀 테스트.
 
 - 건강체 Q3: 입원·수술 OR 통원7회 OR 투약30일(날짜별 최대 처방일수 누적) 단독 트리거 + 경계.
 - 간편 Q2: 입원·수술만 (통원·투약·1년진단 미혼입).
@@ -220,7 +220,7 @@ def test_easy_q2_visit_and_med_do_not_trigger():
 # 실측: 기침(R05) 통원 7회 / 급성질염(N76.0) 통원 14회인데 질염이 7회 룰에
 # 안 잡힘. 원인은 helpers.row_is_junk — 행 전체에 '$'/'해당없음'이 하나라도
 # 있으면 행 통째 폐기 → 질염 병원행의 약국코드 칸 '$ 해당없음' 때문에 14건 전부
-# 탈락. 기침행은 약국코드가 R05계열이라 생존. (SURIT-BUG-012)
+# 탈락. 기침행은 약국코드가 R05계열이라 생존. (BOHUMFIT-BUG-012)
 
 def _basic_row(date, code, name, dept, hosp, pharma_code=""):
     r = {"_ftype": "basic", "진료개시일": date, "주상병코드": code, "주상병명": name,
