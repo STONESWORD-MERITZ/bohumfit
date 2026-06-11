@@ -435,12 +435,11 @@ async def html_to_pdf_bytes(html: str, doc_no: str) -> bytes:
 
     try:
         async with async_playwright() as p:
-            # channel="chromium": 전체 Chromium(new headless) 사용.
-            # playwright 1.49+ 기본 headless 는 별도 chromium-headless-shell 바이너리를
-            # 요구하므로, 설치 대상을 하나로 고정하기 위해 명시한다.
-            # (배포: python -m playwright install --with-deps --no-shell chromium)
+            # Playwright가 설치한 Chromium을 사용한다.
+            # Railway/Nixpacks 빌드에서 `python -m playwright install --with-deps chromium`을
+            # 실행하면 이 경로로 렌더링된다. channel 지정은 시스템 Chromium 의존을
+            # 만들 수 있어 배포 환경에서 더 취약하다.
             browser = await p.chromium.launch(
-                channel="chromium",
                 headless=True,
                 args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
             )

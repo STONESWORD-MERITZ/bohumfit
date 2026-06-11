@@ -1,0 +1,16 @@
+# BOHUMFIT backend deployment fallback for Railway when the service root is the repo root.
+# If Railway's Root Directory is `backend/`, `backend/nixpacks.toml` is used instead.
+
+providers = ["python"]
+
+[phases.setup]
+aptPkgs = ["...", "fonts-noto-cjk"]
+
+[phases.install]
+cmds = [
+  "cd backend && pip install -r requirements.txt",
+  "cd backend && python -m playwright install --with-deps chromium"
+]
+
+[start]
+cmd = "cd backend && uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"

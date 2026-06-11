@@ -217,7 +217,7 @@ export default function InsuranceCalculator() {
             type="button"
             onClick={downloadReportPdf}
             disabled={reportLoading}
-            className="rounded-[8px] bg-gray-950 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
+            className="min-w-[112px] whitespace-nowrap rounded-[8px] bg-gray-950 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
           >
             {reportLoading ? "PDF 생성 중..." : "PDF로 저장"}
           </button>

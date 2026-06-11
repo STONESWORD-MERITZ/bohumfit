@@ -16,6 +16,37 @@
 
 # Handoff
 
+## 2026-06-11 Codex BOHUMFIT-037 [완료 - Railway PDF 런타임 보강 + 버튼 줄바꿈 방지]
+### Changed
+- `src/pages/InsuranceCalculator.tsx`
+  - `PDF 생성 중...` 버튼 문구가 줄바꿈되지 않도록 `min-w-[112px] whitespace-nowrap` 적용.
+- `backend/pipeline/report_pdf.py`
+  - Playwright 실행 시 `channel="chromium"` 제거. 빌드 단계에서 설치한 Playwright Chromium을 직접 사용하도록 변경.
+- `nixpacks.toml`, `backend/nixpacks.toml`
+  - Railway Root Directory가 레포 루트이거나 `backend/`인 경우 모두 대응하도록 Nixpacks 설정 추가.
+  - Python provider 명시, `fonts-noto-cjk` apt 패키지 추가, `python -m playwright install --with-deps chromium` 실행.
+- `backend/requirements.txt`
+  - Playwright 설치가 Nixpacks 설정에서 수행됨을 주석에 반영.
+- `.agent-harness/tasks/BOHUMFIT-037-railway-report-pdf-runtime.md`
+  - 작업 범위와 검증 기준 기록.
+### Verified
+- [x] `nixpacks.toml`, `backend/nixpacks.toml` TOML 파싱 OK
+- [x] `npx tsc -p tsconfig.app.json --noEmit`
+- [x] `npx tsc -p tsconfig.node.json --noEmit`
+- [x] `npm run lint`
+- [x] `npm test`
+- [x] `npm run build`
+- [x] `cd backend && python -m pytest -q tests/test_report_pdf.py` → 17 passed
+- [x] `cd backend && python -m pytest -q` → 202 passed / 7 skipped
+- [x] `/insurance` dev server 200 확인
+- [x] 버튼 nowrap 및 Playwright install 명령 grep 확인
+### Notes
+- 사용자가 본 `리포트 생성 기능을 준비 중입니다...`는 Railway 런타임에 Chromium/Playwright 브라우저가 없는 503 상태로 판단.
+- 이 커밋 배포 후에도 동일하면 Railway가 어느 Root Directory를 쓰는지와 Nixpacks 설정 반영 여부를 대시보드에서 확인해야 한다.
+### Next
+- Human: Railway 재배포 로그에서 `python -m playwright install --with-deps chromium` 실행 여부 확인.
+- Human: 배포 완료 후 `/insurance` PDF 저장 재시도.
+
 ## 2026-06-11 Codex BOHUMFIT-036 [완료 - 실손 청구 추정액 강조 + 030 PDF 전용화]
 ### Changed
 - `src/pages/InsuranceCalculator.tsx`
