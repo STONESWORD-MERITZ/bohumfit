@@ -73,6 +73,27 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
 .verdict.pos { color: #2E6B3E; }
 .amount-line { font-size: 10pt; margin-bottom: 3px; }
 .amount-line b.money { color: var(--gold-deep); font-size: 11pt; }
+.refund-highlight {
+  margin: 7px 0 4px;
+  padding: 9px 12px;
+  border: 1px solid #B7DDC2;
+  border-left: 5px solid #2E6B3E;
+  border-radius: 6px;
+  background: #EEF8F1;
+}
+.refund-highlight .label {
+  display: block;
+  color: #2E6B3E;
+  font-size: 9pt;
+  font-weight: 800;
+}
+.refund-highlight .money {
+  display: block;
+  color: #145C2A;
+  font-size: 17pt;
+  font-weight: 900;
+  line-height: 1.25;
+}
 .caption { font-size: 8.6pt; color: var(--muted); margin-top: 4px; }
 .note-box {
   background: var(--gold-bg); border: 1px solid #E5D9AE; border-left: 4px solid var(--gold);
@@ -127,6 +148,9 @@ ul.fine li { margin-bottom: 1px; }
     <tr><td class="k">실손 세대</td><td class="v"><b>{{ gen_label }}</b></td></tr>
     <tr><td class="k">소득분위 (건보 상한제)</td><td class="v"><b>{{ bracket_label }}</b></td></tr>
     <tr><td class="k">연간 급여 본인부담금</td><td class="v"><b>{{ covered_self_pay | won_man }}</b>{% if year_label != "-" %} ({{ year_label }}년){% endif %}</td></tr>
+    {% if inputs.covered_for_insurance and inputs.covered_for_insurance != covered_self_pay %}
+    <tr><td class="k">실손 급여 반영액</td><td class="v"><b>{{ inputs.covered_for_insurance | won_man }}</b> <span class="manual-tag">건보 상한까지만 반영</span></td></tr>
+    {% endif %}
     <tr><td class="k">비급여 금액</td><td class="v"><b>{{ non_covered | won_man }}</b><span class="manual-tag">설계사 수기 입력</span></td></tr>
   </table>
 </div>
@@ -140,7 +164,14 @@ ul.fine li { margin-bottom: 1px; }
       {% if claim.has %}
       <p class="amount-line">청구 추정 <b class="money">{{ claim_range }}</b> 수준일 수 있습니다.</p>
       {% endif %}
-      <p class="caption">급여 본인부담 {{ covered_self_pay | won_man }}{% if non_covered and non_covered > 0 %} · 비급여 {{ non_covered | won_man }}{% endif %} 기준 추정.</p>
+      <p class="caption">
+        {% if inputs.covered_for_insurance and inputs.covered_for_insurance != covered_self_pay %}
+          실손 급여 반영액 {{ inputs.covered_for_insurance | won_man }}(입력 {{ covered_self_pay | won_man }} 중 건보 상한까지만 반영)
+        {% else %}
+          급여 본인부담 {{ covered_self_pay | won_man }}
+        {% endif %}
+        {% if non_covered and non_covered > 0 %} · 비급여 {{ non_covered | won_man }}{% endif %} 기준 추정.
+      </p>
       <!-- 콘텐츠 수정 4: 비급여 = 설계사 수기 입력 금액 기준 산출 명시 -->
       <div class="note-box"><b>비급여 산출 기준</b> — {{ non_covered_note }}</div>
     {% else %}
@@ -206,7 +237,13 @@ ul.fine li { margin-bottom: 1px; }
   <div class="bd">
     {% if nhis %}
       <p class="verdict {{ 'pos' if nhis.exceeded else '' }}">{{ "공단 환급 가능성 있음" if nhis.exceeded else "환급 대상 아닐 수 있음" }}</p>
-      <p class="amount-line">연 급여 본인부담 <b class="money">{{ covered_self_pay | won_man }}</b> / {{ bracket_label }} 상한 <b>{{ nhis.cap | won_man }}</b>{% if nhis.exceeded %} · 환급 <b class="money">{{ nhis.refund | won_man }}</b> 수준{% endif %}.</p>
+      <p class="amount-line">연 급여 본인부담 <b class="money">{{ covered_self_pay | won_man }}</b> / {{ bracket_label }} 상한 <b>{{ nhis.cap | won_man }}</b>.</p>
+      {% if nhis.exceeded %}
+      <div class="refund-highlight">
+        <span class="label">예상 공단 환급</span>
+        <span class="money">{{ nhis.refund | won_man }} 수준</span>
+      </div>
+      {% endif %}
     {% else %}
       <p class="muted-line">소득분위 미선택 — 본인부담상한제 환급 가능성을 산출하지 않았습니다.</p>
     {% endif %}

@@ -15,6 +15,8 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-11 `BOHUMFIT-035` - Codex - `/insurance` PDF button connected to BOHUMFIT-030 backend report PDF endpoint; NHIS refund amount highlighted in frontend and backend report template; report PDF regression test added. tsc/lint/test/build/backend pytest passed.
+
 - 2026-06-11 `BOHUMFIT-034` - Codex - `/insurance` money input comma formatting, NHIS cap excess exclusion from insurance claim estimate, minimum-deductible card hidden, print path confirmed as browser print. tsc/lint/test/build/backend pytest passed.
 
 - 2026-06-11 `BOHUMFIT-033` - Codex - `/insurance` PDF 저장을 백엔드 PDF 생성 호출에서 현재 UI 브라우저 인쇄 방식으로 전환. tsc/lint/test/build/backend pytest 통과.

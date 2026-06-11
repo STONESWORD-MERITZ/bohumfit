@@ -47,6 +47,8 @@ export default function InsuranceCalculator() {
   const [birthdate, setBirthdate] = useState("");
   const [refDate, setRefDate] = useState(new Date().toISOString().slice(0, 10));
   const [loading, setLoading] = useState(false);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState("");
   const [pdfError, setPdfError] = useState("");
   const [coveredByYear, setCoveredByYear] = useState<Record<string, number>>({});
   const [pdfCaptured, setPdfCaptured] = useState<boolean | null>(null);
@@ -112,6 +114,76 @@ export default function InsuranceCalculator() {
     }
   }
 
+  async function downloadReportPdf() {
+    const token = session?.access_token;
+    if (!token) {
+      setReportError("로그인이 필요합니다.");
+      return;
+    }
+    if (!genNum) {
+      setReportError("실손 세대를 선택해 주세요.");
+      return;
+    }
+
+    const payload = {
+      report_type: "insurance",
+      inputs: {
+        generation: genNum,
+        generation_period: INS_GEN_RATES[genNum].period,
+        nc_option: ncOption,
+        bracket: typeof bracket === "number" ? bracket : null,
+        year: pdfLatestYear || new Date().getFullYear().toString(),
+        covered_self_pay: coveredSelfPay,
+        covered_for_insurance: coveredForInsurance,
+        non_covered: ncAmount,
+      },
+      results: {
+        claim,
+        self_pay_cap: selfPayCap ? {
+          eligible: selfPayCap.eligible,
+          cap: selfPayCap.cap,
+          exceeded: selfPayCap.exceeded,
+          excess: selfPayCap.excess,
+          non_covered_excluded: selfPayCap.nonCoveredExcluded,
+        } : null,
+        nhis_cap: nhisCap,
+        min_deductible: null,
+      },
+    };
+
+    setReportLoading(true);
+    setReportError("");
+    try {
+      const res = await fetch(`${API_BASE}/api/report/pdf`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.detail || `리포트 생성 실패 (${res.status})`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `BOHUMFIT-insurance-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "리포트 생성 중 오류가 발생했습니다.";
+      setReportError(`${msg} 현재 화면 인쇄로 대체합니다.`);
+      window.print();
+    } finally {
+      setReportLoading(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <style>{`
@@ -144,11 +216,13 @@ export default function InsuranceCalculator() {
         <div className="flex flex-col items-start gap-1 sm:items-end">
           <button
             type="button"
-            onClick={() => window.print()}
+            onClick={downloadReportPdf}
+            disabled={reportLoading}
             className="rounded-[8px] bg-gray-950 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
           >
-            PDF로 저장
+            {reportLoading ? "PDF 생성 중..." : "PDF로 저장"}
           </button>
+          {reportError && <p className="max-w-[320px] text-xs font-semibold text-amber-700 break-keep">{reportError}</p>}
         </div>
       </div>
 
@@ -292,7 +366,12 @@ export default function InsuranceCalculator() {
         {nhisCap ? (
           <>
             <p className="font-semibold text-gray-800">{nhisCap.exceeded ? "공단 환급 가능성 있음" : "환급 대상 아닐 수 있음"}</p>
-            <p className="text-gray-600">연 급여 본인부담 {wonToMan(coveredSelfPay)} / {bracket}분위 상한 {wonToMan(nhisCap.cap)}{nhisCap.exceeded ? ` · 환급 ${wonToMan(nhisCap.refund)} 수준` : ""}.</p>
+            <p className="text-gray-600">연 급여 본인부담 {wonToMan(coveredSelfPay)} / {bracket}분위 상한 {wonToMan(nhisCap.cap)}.</p>
+            {nhisCap.exceeded && (
+              <p className="mt-1 text-base font-extrabold text-emerald-700 print:text-lg">
+                예상 환급 {wonToMan(nhisCap.refund)} 수준
+              </p>
+            )}
             <p className="text-[11px] text-gray-400">급여 본인부담만 대상(비급여 제외). 요양병원 120일 초과 시 상한이 달라질 수 있습니다.</p>
           </>
         ) : <p className="text-gray-500">소득분위를 선택하면 환급 가능성을 안내합니다.</p>}

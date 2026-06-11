@@ -16,6 +16,37 @@
 
 # Handoff
 
+## 2026-06-11 Codex BOHUMFIT-035 [완료 - 실손 환급 강조 + 030 리포트 PDF 연결]
+### Changed
+- `src/pages/InsuranceCalculator.tsx`
+  - `PDF로 저장` 버튼을 브라우저 `window.print()` 직접 호출에서 `POST /api/report/pdf` 백엔드 리포트 PDF 다운로드로 연결.
+  - 리포트 payload에 현재 화면 계산값(`claim`, `self_pay_cap`, `nhis_cap`, `covered_for_insurance`)을 전달하도록 구성.
+  - 백엔드 PDF 생성 실패 시 현재 화면 인쇄 fallback 및 오류 안내 표시.
+  - 건강보험 본인부담상한제 예상 환급액을 화면/인쇄에서 큰 글자와 녹색 강조로 표시.
+- `backend/templates/report_insurance.html`
+  - BOHUMFIT-030 실손 리포트 템플릿에 환급 강조 박스(`refund-highlight`) 추가.
+  - 건보 상한 때문에 실손 급여 반영액이 입력 급여 본인부담금보다 작으면 입력 요약과 청구 가능성 설명에 별도 표기.
+- `backend/tests/test_report_pdf.py`
+  - 환급 강조 블록과 실손 급여 반영액 행 회귀 테스트 추가.
+- `.agent-harness/tasks/BOHUMFIT-035-insurance-report-pdf-highlight.md`
+  - 작업 범위와 검증 기준 기록.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit`
+- [x] `npx tsc -p tsconfig.node.json --noEmit`
+- [x] `npm run lint`
+- [x] `npm test`
+- [x] `npm run build`
+- [x] `cd backend && python -m pytest -q tests/test_report_pdf.py` → 17 passed
+- [x] `cd backend && python -m pytest -q` → 202 passed / 7 skipped
+- [x] `/insurance` dev server 200 확인
+- [x] `api/report/pdf`, `downloadReportPdf`, `refund-highlight`, `covered_for_insurance` 연결 확인
+### Notes
+- 사용자가 본 “BOHUMFIT-030이 그대로” 현상은 `/insurance` 버튼이 030 엔드포인트가 아니라 브라우저 인쇄를 직접 호출하던 것이 원인.
+- 배포 환경에서 `POST /api/report/pdf`가 503이면 Railway Playwright/Chromium 설치 상태를 확인해야 하며, 이 경우 프런트는 현재 화면 인쇄 fallback을 연다.
+### Next
+- Human: 배포 후 `/insurance`에서 PDF 다운로드가 BOHUMFIT-030 리포트 템플릿으로 생성되는지 확인.
+- Human: 예상 환급액 강조가 화면과 PDF 모두에서 충분히 눈에 띄는지 육안 확인.
+
 ## 2026-06-11 Codex BOHUMFIT-034 [완료 - 실손 입력/상한/PDF 버튼 보정]
 ### Changed
 - `src/pages/InsuranceCalculator.tsx`

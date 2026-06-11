@@ -258,6 +258,33 @@ def test_insurance_amounts_match_payload_exactly():
     assert "약 8만원" in html        # 입원 보상
 
 
+def test_insurance_refund_highlight_and_covered_for_insurance_row():
+    """BOHUMFIT-035: 공단 환급 금액 강조 + 건보 상한까지만 실손 반영한 금액 표시."""
+    payload = {
+        **INSURANCE_PAYLOAD,
+        "inputs": {
+            **INSURANCE_PAYLOAD["inputs"],
+            "covered_self_pay": 10_000_000,
+            "covered_for_insurance": 3_260_000,
+            "bracket": 6,
+            "non_covered": 500_000,
+        },
+        "results": {
+            **INSURANCE_PAYLOAD["results"],
+            "claim": {"possibility": "청구 대상일 수 있음", "low": 3_010_000, "high": 3_330_000, "has": True},
+            "nhis_cap": {"cap": 3_260_000, "exceeded": True, "refund": 6_740_000},
+            "min_deductible": None,
+        },
+    }
+    html = rp.render_report_html("insurance", payload, GEN_AT)
+    assert "refund-highlight" in html
+    assert "예상 공단 환급" in html
+    assert "약 674만원 수준" in html
+    assert "실손 급여 반영액" in html
+    assert "약 326만원" in html
+    assert "건보 상한까지만 반영" in html
+
+
 def test_insurance_no_recalculation_passthrough():
     """입력과 모순된 결과값을 줘도 그대로 표시 → 서버 재계산이 없음을 증명."""
     payload = {
