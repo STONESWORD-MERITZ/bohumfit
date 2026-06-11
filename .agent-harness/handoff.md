@@ -16,6 +16,32 @@
 
 # Handoff
 
+## 2026-06-11 Codex BOHUMFIT-034 [완료 - 실손 입력/상한/PDF 버튼 보정]
+### Changed
+- `src/pages/InsuranceCalculator.tsx`
+  - 급여 본인부담금/비급여 입력값에 천 단위 콤마 자동 포맷 적용.
+  - 실손 청구 가능성 계산 시 건강보험 본인부담상한제 초과분은 공단 환급 영역으로 보고, 실손 계산 급여 반영액에서 제외.
+  - 사용자 입력이 어려운 `실손 최소공제 자동반영` 결과 카드 제거.
+  - 실손 인쇄 요약에 `실손 급여 반영액`을 추가해 입력 금액과 실손 계산 반영 금액을 구분.
+- `.agent-harness/tasks/BOHUMFIT-034-insurance-nhis-cap-format-pdf.md`
+  - 사용자 지적 4건, 검증 명령, 예시 산식 확인 결과 기록.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit`
+- [x] `npx tsc -p tsconfig.node.json --noEmit`
+- [x] `npm run lint`
+- [x] `npm test`
+- [x] `npm run build`
+- [x] `cd backend && python -m pytest -q` → 201 passed / 7 skipped
+- [x] `/insurance` dev server 200 확인
+- [x] `InsuranceCalculator.tsx` 내 `report/pdf`, `리포트 생성`, `실손 최소공제 자동 반영`, `최소공제` 잔존 0건 확인
+- [x] 예시 산식 확인: 급여 10,000,000 / 비급여 400,000 / 4세대 / 6분위 → 실손 급여 반영액 3,260,000, 청구 추정 2,888,000, 본인부담 eligible 652,000
+### Notes
+- `/insurance` PDF 버튼은 현재 브라우저 인쇄(`window.print`)만 호출하며, 백엔드 리포트 PDF API를 호출하지 않는다.
+- 배포 후에도 `리포트 생성 기능을 준비 중입니다...`가 보이면 최신 커밋 미배포, 브라우저 캐시, 또는 이전 번들 서비스 중 여부를 확인해야 한다.
+### Next
+- Human: Vercel 최신 배포 후 `/insurance`에서 PDF 버튼이 인쇄 다이얼로그를 여는지 확인.
+- Human: 1,000만원/6분위 예시 화면에서 청구 추정이 건보 상한까지만 반영되는지 육안 확인.
+
 ## 2026-06-11 Codex BOHUMFIT-033 [완료 — 실손 PDF 현재 UI 인쇄 방식 전환]
 ### Changed
 - `src/pages/InsuranceCalculator.tsx`

@@ -5,10 +5,7 @@ import { useState, type ReactNode } from "react";
 import { useAuth } from "../lib/auth-context";
 import {
   INS_GEN_RATES,
-  INS_GRADE_LABELS,
   INS_DISCLAIMER,
-  insProviderDeductible,
-  insClaimPerRow,
   insEstimateClaim,
   insCheckSelfPayCap,
   insCheckNhisCap,
@@ -28,6 +25,11 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 const SELECT_CLS = "mt-1 w-full rounded-[6px] border border-gray-200 p-2 text-sm";
+
+function formatWonInput(value: string): string {
+  const digits = (value || "").replace(/[^\d]/g, "");
+  return digits ? Number(digits).toLocaleString("ko-KR") : "";
+}
 
 export default function InsuranceCalculator() {
   const { session } = useAuth();
@@ -58,9 +60,11 @@ export default function InsuranceCalculator() {
     ? insWon(covManual)
     : (pdfLatestYear && coveredByYear[pdfLatestYear] ? coveredByYear[pdfLatestYear] : 0);
   const ncAmount = insWon(nonCovered);
+  const nhisCap = typeof bracket === "number" ? insCheckNhisCap(coveredSelfPay, bracket, false) : null;
+  const coveredForInsurance = nhisCap ? Math.min(coveredSelfPay, nhisCap.cap) : coveredSelfPay;
 
   // ① 청구 가능성
-  const claim = genNum ? insEstimateClaim(coveredSelfPay, genNum, ncAmount, ncOption) : null;
+  const claim = genNum ? insEstimateClaim(coveredForInsurance, genNum, ncAmount, ncOption) : null;
 
   // 자기부담금 share (자기부담률 상한 기준 — Disclosure 와 동일)
   let coveredShare = 0;
@@ -70,34 +74,10 @@ export default function InsuranceCalculator() {
     const covHi = r.covered[1];
     let ncHi = r.nonCovered[1];
     if (ncOption != null && r.nonCoveredOptions && r.nonCoveredOptions[ncOption] != null) ncHi = r.nonCoveredOptions[ncOption];
-    coveredShare = Math.round(coveredSelfPay * covHi);
+    coveredShare = Math.round(coveredForInsurance * covHi);
     ncShare = Math.round(ncAmount * ncHi);
   }
   const selfPayCap = genNum ? insCheckSelfPayCap(coveredShare, genNum, ncShare) : null;
-  const nhisCap = typeof bracket === "number" ? insCheckNhisCap(coveredSelfPay, bracket, false) : null;
-
-  // BOHUMFIT-032: 독립 계산기에서는 사용자가 기관종별/건별 금액을 알기 어렵다.
-  // 등급 미상은 공용 산식의 상급 기준으로 보수 적용하고, 현재 화면 입력값 기준으로 자동 추정한다.
-  const autoGrade = "unknown";
-  const minDed = genNum ? insProviderDeductible(genNum, autoGrade) : null;
-  const covRateHi = genNum ? INS_GEN_RATES[genNum].covered[1] : 0;
-  const covRateLo = genNum ? INS_GEN_RATES[genNum].covered[0] : 0;
-  const ncRateHi = genNum
-    ? (ncOption != null && INS_GEN_RATES[genNum].nonCoveredOptions && INS_GEN_RATES[genNum].nonCoveredOptions![ncOption] != null
-        ? INS_GEN_RATES[genNum].nonCoveredOptions![ncOption]
-        : INS_GEN_RATES[genNum].nonCovered[1])
-    : 0;
-  const ncRateLo = genNum
-    ? (ncOption != null && INS_GEN_RATES[genNum].nonCoveredOptions && INS_GEN_RATES[genNum].nonCoveredOptions![ncOption] != null
-        ? INS_GEN_RATES[genNum].nonCoveredOptions![ncOption]
-        : INS_GEN_RATES[genNum].nonCovered[0])
-    : 0;
-  const mdCovLow = minDed != null ? insClaimPerRow(coveredSelfPay, covRateHi, minDed) : null;
-  const mdCovHigh = minDed != null ? insClaimPerRow(coveredSelfPay, covRateLo, minDed) : null;
-  const mdNcLow = minDed != null ? insClaimPerRow(ncAmount, ncRateHi, minDed) : null;
-  const mdNcHigh = minDed != null ? insClaimPerRow(ncAmount, ncRateLo, minDed) : null;
-  const mdAutoLow = (mdCovLow?.reimbursement || 0) + (mdNcLow?.reimbursement || 0);
-  const mdAutoHigh = (mdCovHigh?.reimbursement || 0) + (mdNcHigh?.reimbursement || 0);
   const printedAt = new Date().toLocaleString("ko-KR");
   const genLabel = genNum ? `${genNum}세대 (${INS_GEN_RATES[genNum].period})` : "미선택";
   const bracketLabel = typeof bracket === "number" ? `${bracket}분위` : "미선택";
@@ -255,11 +235,11 @@ export default function InsuranceCalculator() {
           </Field>
           {mode === "manual" && (
             <Field label="연간 급여 본인부담금 (내가 낸 의료비)">
-              <input inputMode="numeric" value={covManual} onChange={(e) => setCovManual(e.target.value)} placeholder="예: 800000" className={SELECT_CLS} />
+              <input inputMode="numeric" value={covManual} onChange={(e) => setCovManual(formatWonInput(e.target.value))} placeholder="예: 800,000" className={SELECT_CLS} />
             </Field>
           )}
           <Field label="비급여 금액 (선택)">
-            <input inputMode="numeric" value={nonCovered} onChange={(e) => setNonCovered(e.target.value)} placeholder="예: 500000" className={SELECT_CLS} />
+            <input inputMode="numeric" value={nonCovered} onChange={(e) => setNonCovered(formatWonInput(e.target.value))} placeholder="예: 500,000" className={SELECT_CLS} />
           </Field>
         </div>
         <p className="mt-3 text-[11px] text-gray-400">입력값은 저장하지 않으며 이 화면에서만 사용됩니다.</p>
@@ -273,7 +253,7 @@ export default function InsuranceCalculator() {
         </div>
 
         <div className="print-only rounded-[8px] border border-gray-200 bg-white p-3 text-xs text-gray-700">
-          <b>입력 요약</b> — 실손 세대: {genLabel} · 소득분위: {bracketLabel} · 급여 본인부담: {wonToMan(coveredSelfPay)} · 비급여: {wonToMan(ncAmount)}
+          <b>입력 요약</b> — 실손 세대: {genLabel} · 소득분위: {bracketLabel} · 급여 본인부담: {wonToMan(coveredSelfPay)} · 실손 급여 반영액: {wonToMan(coveredForInsurance)} · 비급여: {wonToMan(ncAmount)}
         </div>
 
       {/* 결과 ① */}
@@ -284,7 +264,14 @@ export default function InsuranceCalculator() {
             {claim.has && (
               <p className="text-gray-600">청구 추정 {claim.low === claim.high ? wonToMan(claim.low) : `${wonToMan(claim.low)}~${wonToMan(claim.high)}`} 수준일 수 있습니다.</p>
             )}
-            <p className="text-[11px] text-gray-400">급여 본인부담 {wonToMan(coveredSelfPay)}{ncAmount > 0 ? ` · 비급여 ${wonToMan(ncAmount)}` : ""} 기준 추정.</p>
+            <p className="text-[11px] text-gray-400">
+              실손 급여 반영액 {wonToMan(coveredForInsurance)}{coveredForInsurance !== coveredSelfPay ? ` (입력 ${wonToMan(coveredSelfPay)} 중 건보 상한 ${wonToMan(coveredForInsurance)}까지만 반영)` : ""}{ncAmount > 0 ? ` · 비급여 ${wonToMan(ncAmount)}` : ""} 기준 추정.
+            </p>
+            {coveredForInsurance !== coveredSelfPay && (
+              <p className="text-[11px] text-indigo-500 break-keep">
+                건보 본인부담상한제 초과분 {wonToMan(coveredSelfPay - coveredForInsurance)}은 공단 환급 영역으로 보고, 실손 계산에서는 상한까지만 반영했습니다.
+              </p>
+            )}
           </>
         ) : <p className="text-gray-500">실손 세대를 선택하면 청구 추정 범위를 안내합니다.</p>}
       </ResultCard>
@@ -309,26 +296,6 @@ export default function InsuranceCalculator() {
             <p className="text-[11px] text-gray-400">급여 본인부담만 대상(비급여 제외). 요양병원 120일 초과 시 상한이 달라질 수 있습니다.</p>
           </>
         ) : <p className="text-gray-500">소득분위를 선택하면 환급 가능성을 안내합니다.</p>}
-      </ResultCard>
-
-      {/* 결과 ①-b 최소공제 (BOHUMFIT-032: 입력형 옵션 제거, 자동 적용) */}
-      <ResultCard n="①-b" title="실손 최소공제 자동 반영">
-        {minDed == null ? (
-          <p className="text-gray-500">{genNum ? "이 세대는 통원 정액공제 자동 적용 대상이 아닙니다." : "실손 세대를 선택하면 최소공제 기준을 자동 반영합니다."}</p>
-        ) : (
-          <>
-            <p className="font-semibold text-gray-800">
-              자동 기준: {INS_GRADE_LABELS[autoGrade]} {wonToMan(minDed)} 공제
-            </p>
-            <p className="text-gray-600">
-              최소공제 반영 후 청구 추정 {mdAutoLow === mdAutoHigh ? wonToMan(mdAutoLow) : `${wonToMan(mdAutoLow)}~${wonToMan(mdAutoHigh)}`} 수준일 수 있습니다.
-            </p>
-            <p className="text-[11px] text-gray-400 break-keep">
-              독립 계산기는 기관종별·건별 진료비를 입력받지 않으므로 등급 미상은 상급 기준으로 보수 적용합니다.
-              실제 청구는 진료 건별 공제와 약관 심사에 따라 달라질 수 있습니다.
-            </p>
-          </>
-        )}
       </ResultCard>
 
       <p className="text-[11px] leading-relaxed text-gray-400">{INS_DISCLAIMER}</p>
