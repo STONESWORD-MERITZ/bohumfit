@@ -16,6 +16,31 @@
 
 # Handoff
 
+## 2026-06-11 Codex BOHUMFIT-033 [완료 — 실손 PDF 현재 UI 인쇄 방식 전환]
+### Changed
+- `src/pages/InsuranceCalculator.tsx`
+  - `PDF로 저장` 버튼의 백엔드 `/api/report/pdf` 호출 제거.
+  - 버튼 동작을 `window.print()`로 전환해 Railway Playwright 준비 상태와 무관하게 동작하도록 수정.
+  - `#insurance-print-area`와 print CSS 추가. 인쇄 시 현재 실손 계산 결과 카드만 출력하고, 입력 폼/모드 토글/버튼은 숨김.
+  - PDF/인쇄물에 현재 UI 기반 `실손 청구 안내 리포트`, 생성일, 입력 요약, 민감정보 취급 주의, 면책 문구 포함.
+
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` passed.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` passed.
+- [x] `npm run lint` passed.
+- [x] `npm test` passed (1 file, 1 test).
+- [x] `npm run build` passed (기존 Vite 500KB chunk warning only).
+- [x] `cd backend && python -m pytest -q` passed (201 passed, 7 skipped).
+- [x] `http://127.0.0.1:5173/insurance` dev server 200 확인.
+- [x] grep 확인: `src/pages/InsuranceCalculator.tsx`에서 `report/pdf`, `PDF 생성`, `리포트 생성` 호출/문구 제거. `window.print`, `insurance-print-area`, `print-only`, `no-print` 존재 확인.
+
+### Notes
+- 사용자가 본 `리포트 생성 기능을 준비 중입니다` 오류는 백엔드 PDF 생성/Playwright 준비 상태에 의존한 결과라, 독립 실손 계산기에서는 해당 서버 PDF 경로를 사용하지 않도록 제거했다.
+- 기존 백엔드 리포트 템플릿은 유지하되 `/insurance` 버튼에서는 쓰지 않는다. 따라서 사용자가 보는 현재 실손 계산 UI와 저장 PDF가 같은 구조로 맞춰진다.
+
+### Next
+- Human: 배포 후 `/insurance`에서 `PDF로 저장` 클릭 → 브라우저 인쇄 미리보기에서 현재 UI 결과 카드만 출력되는지 육안 확인.
+
 ## 2026-06-11 Codex BOHUMFIT-032 [완료 — 실손 최소공제 자동화 + PDF 저장 버튼]
 ### Changed
 - `src/pages/InsuranceCalculator.tsx`

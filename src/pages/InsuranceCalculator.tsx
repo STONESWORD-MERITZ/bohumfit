@@ -48,8 +48,6 @@ export default function InsuranceCalculator() {
   const [pdfError, setPdfError] = useState("");
   const [coveredByYear, setCoveredByYear] = useState<Record<string, number>>({});
   const [pdfCaptured, setPdfCaptured] = useState<boolean | null>(null);
-  const [reportLoading, setReportLoading] = useState(false);
-  const [reportError, setReportError] = useState("");
 
   const genNum = typeof gen === "number" ? gen : 0;
 
@@ -100,23 +98,9 @@ export default function InsuranceCalculator() {
   const mdNcHigh = minDed != null ? insClaimPerRow(ncAmount, ncRateLo, minDed) : null;
   const mdAutoLow = (mdCovLow?.reimbursement || 0) + (mdNcLow?.reimbursement || 0);
   const mdAutoHigh = (mdCovHigh?.reimbursement || 0) + (mdNcHigh?.reimbursement || 0);
-  const minDeductiblePayload = minDed != null ? {
-    grade_label: INS_GRADE_LABELS[autoGrade],
-    deductible: minDed,
-    cov_out: mdCovLow && coveredSelfPay > 0 ? {
-      charge: coveredSelfPay,
-      reimbursement: mdCovLow.reimbursement,
-      low_value: mdCovLow.lowValue,
-    } : null,
-    nc_out: mdNcLow && ncAmount > 0 ? {
-      charge: ncAmount,
-      reimbursement: mdNcLow.reimbursement,
-      low_value: mdNcLow.lowValue,
-      visits: 1,
-      total_mode: true,
-    } : null,
-    inpatient: null,
-  } : null;
+  const printedAt = new Date().toLocaleString("ko-KR");
+  const genLabel = genNum ? `${genNum}세대 (${INS_GEN_RATES[genNum].period})` : "미선택";
+  const bracketLabel = typeof bracket === "number" ? `${bracket}분위` : "미선택";
 
   async function runPdf() {
     const token = session?.access_token;
@@ -148,68 +132,27 @@ export default function InsuranceCalculator() {
     }
   }
 
-  async function downloadReportPdf() {
-    const token = session?.access_token;
-    if (!token) { setReportError("로그인이 필요합니다."); return; }
-    setReportLoading(true);
-    setReportError("");
-    try {
-      const payload = {
-        report_type: "insurance",
-        inputs: {
-          generation: genNum || null,
-          generation_period: genNum ? INS_GEN_RATES[genNum].period : "",
-          nc_option: ncOption,
-          bracket: typeof bracket === "number" ? bracket : null,
-          year: mode === "pdf" ? (pdfLatestYear || new Date().getFullYear().toString()) : new Date().getFullYear().toString(),
-          covered_self_pay: coveredSelfPay,
-          non_covered: ncAmount,
-        },
-        results: {
-          claim,
-          self_pay_cap: selfPayCap ? {
-            eligible: selfPayCap.eligible,
-            cap: selfPayCap.cap,
-            exceeded: selfPayCap.exceeded,
-            excess: selfPayCap.excess,
-            non_covered_excluded: selfPayCap.nonCoveredExcluded,
-          } : null,
-          nhis_cap: nhisCap,
-          min_deductible: minDeductiblePayload,
-        },
-      };
-      const res = await fetch(`${API_BASE}/api/report/pdf`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        throw new Error(d.detail || `PDF 생성 실패 (${res.status})`);
-      }
-      const blob = await res.blob();
-      const disposition = res.headers.get("content-disposition") || "";
-      const filename = /filename="?([^";]+)"?/i.exec(disposition)?.[1] || "BOHUMFIT-insurance-report.pdf";
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      setReportError(e instanceof Error ? e.message : "PDF 생성 중 오류가 발생했습니다.");
-    } finally {
-      setReportLoading(false);
-    }
-  }
-
   return (
     <div className="space-y-4">
+      <style>{`
+        @media screen {
+          .print-only { display: none !important; }
+        }
+        @media print {
+          @page { margin: 12mm; }
+          body * { visibility: hidden !important; }
+          #insurance-print-area, #insurance-print-area * { visibility: visible !important; }
+          #insurance-print-area {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            padding: 0;
+          }
+          .no-print { display: none !important; }
+          .print-only { display: block !important; }
+        }
+      `}</style>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-xl font-extrabold text-gray-950">실손 예상 보험금 계산</h1>
@@ -221,18 +164,16 @@ export default function InsuranceCalculator() {
         <div className="flex flex-col items-start gap-1 sm:items-end">
           <button
             type="button"
-            onClick={downloadReportPdf}
-            disabled={reportLoading}
+            onClick={() => window.print()}
             className="rounded-[8px] bg-gray-950 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
           >
-            {reportLoading ? "PDF 생성 중…" : "PDF로 저장"}
+            PDF로 저장
           </button>
-          {reportError && <p className="max-w-xs text-xs font-semibold text-amber-700">{reportError}</p>}
         </div>
       </div>
 
       {/* 모드 토글 */}
-      <div className="inline-flex rounded-[8px] border border-gray-200 bg-white p-1 text-sm font-bold">
+      <div className="no-print inline-flex rounded-[8px] border border-gray-200 bg-white p-1 text-sm font-bold">
         {(["manual", "pdf"] as const).map((m) => (
           <button
             key={m}
@@ -247,7 +188,7 @@ export default function InsuranceCalculator() {
 
       {/* PDF 모드 입력 */}
       {mode === "pdf" && (
-        <div className="rounded-[8px] border border-gray-100 bg-white p-4">
+        <div className="no-print rounded-[8px] border border-gray-100 bg-white p-4">
           <p className="mb-2 text-xs text-gray-500 break-keep">
             심평원 PDF에서 <b>급여 진료비(내가 낸 의료비)</b>만 추출해 자동 채웁니다. 알릴의무 Q&amp;A 결과는 이 화면에 표시하지 않습니다.
             업로드한 PDF는 진료기록 민감정보를 포함하며 저장하지 않습니다.
@@ -282,7 +223,7 @@ export default function InsuranceCalculator() {
       )}
 
       {/* 공통 입력 */}
-      <div className="rounded-[8px] border border-gray-100 bg-white p-4">
+      <div className="no-print rounded-[8px] border border-gray-100 bg-white p-4">
         <h2 className="mb-3 text-sm font-bold text-gray-800">실손 정보</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="실손 세대">
@@ -323,6 +264,17 @@ export default function InsuranceCalculator() {
         </div>
         <p className="mt-3 text-[11px] text-gray-400">입력값은 저장하지 않으며 이 화면에서만 사용됩니다.</p>
       </div>
+
+      <div id="insurance-print-area" className="space-y-4">
+        <div className="print-only">
+          <h2 className="text-lg font-extrabold text-gray-950">실손 청구 안내 리포트</h2>
+          <p className="mt-1 text-[11px] text-gray-500">생성일: {printedAt}</p>
+          <p className="mt-1 text-[11px] text-gray-500">본 문서는 진료기록 기반 민감정보를 포함할 수 있습니다. 고객 안내 및 보관 시 취급에 주의하세요.</p>
+        </div>
+
+        <div className="print-only rounded-[8px] border border-gray-200 bg-white p-3 text-xs text-gray-700">
+          <b>입력 요약</b> — 실손 세대: {genLabel} · 소득분위: {bracketLabel} · 급여 본인부담: {wonToMan(coveredSelfPay)} · 비급여: {wonToMan(ncAmount)}
+        </div>
 
       {/* 결과 ① */}
       <ResultCard n="①" title="실손 청구 가능성">
@@ -380,6 +332,7 @@ export default function InsuranceCalculator() {
       </ResultCard>
 
       <p className="text-[11px] leading-relaxed text-gray-400">{INS_DISCLAIMER}</p>
+      </div>
     </div>
   );
 }
