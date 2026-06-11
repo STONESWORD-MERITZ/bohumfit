@@ -7,7 +7,6 @@ import {
   INS_GEN_RATES,
   INS_GRADE_LABELS,
   INS_DISCLAIMER,
-  insClassifyProvider,
   insProviderDeductible,
   insClaimPerRow,
   insEstimateClaim,
@@ -49,16 +48,8 @@ export default function InsuranceCalculator() {
   const [pdfError, setPdfError] = useState("");
   const [coveredByYear, setCoveredByYear] = useState<Record<string, number>>({});
   const [pdfCaptured, setPdfCaptured] = useState<boolean | null>(null);
-
-  // 최소공제 설정 (BOHUMFIT-028)
-  const [minDedOn, setMinDedOn] = useState(false);
-  const [providerName, setProviderName] = useState("");
-  const [gradeOverride, setGradeOverride] = useState("");
-  const [covOutCharge, setCovOutCharge] = useState("");
-  const [ncOutCharge, setNcOutCharge] = useState("");
-  const [ncVisitCount, setNcVisitCount] = useState("1");
-  const [ncTotalMode, setNcTotalMode] = useState(false);
-  const [inpatientCharge, setInpatientCharge] = useState("");
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState("");
 
   const genNum = typeof gen === "number" ? gen : 0;
 
@@ -87,21 +78,45 @@ export default function InsuranceCalculator() {
   const selfPayCap = genNum ? insCheckSelfPayCap(coveredShare, genNum, ncShare) : null;
   const nhisCap = typeof bracket === "number" ? insCheckNhisCap(coveredSelfPay, bracket, false) : null;
 
-  // 최소공제 (BOHUMFIT-028)
-  const autoGrade = insClassifyProvider(providerName);
-  const effGrade = gradeOverride || autoGrade;
-  const minDed = genNum ? insProviderDeductible(genNum, effGrade) : null;
-  const covRate = genNum ? INS_GEN_RATES[genNum].covered[1] : 0;
-  const ncRate = genNum
+  // BOHUMFIT-032: 독립 계산기에서는 사용자가 기관종별/건별 금액을 알기 어렵다.
+  // 등급 미상은 공용 산식의 상급 기준으로 보수 적용하고, 현재 화면 입력값 기준으로 자동 추정한다.
+  const autoGrade = "unknown";
+  const minDed = genNum ? insProviderDeductible(genNum, autoGrade) : null;
+  const covRateHi = genNum ? INS_GEN_RATES[genNum].covered[1] : 0;
+  const covRateLo = genNum ? INS_GEN_RATES[genNum].covered[0] : 0;
+  const ncRateHi = genNum
     ? (ncOption != null && INS_GEN_RATES[genNum].nonCoveredOptions && INS_GEN_RATES[genNum].nonCoveredOptions![ncOption] != null
         ? INS_GEN_RATES[genNum].nonCoveredOptions![ncOption]
         : INS_GEN_RATES[genNum].nonCovered[1])
     : 0;
-  const mdNcVisits = Math.max(1, parseInt((ncVisitCount || "1").replace(/[^\d]/g, "") || "1", 10));
-  const mdCovOut = minDed != null ? insClaimPerRow(insWon(covOutCharge), covRate, minDed) : null;
-  const mdNcRow = minDed != null ? insClaimPerRow(insWon(ncOutCharge), ncRate, minDed) : null;
-  const mdNcReimb = mdNcRow ? (ncTotalMode ? mdNcRow.reimbursement : mdNcRow.reimbursement * mdNcVisits) : 0;
-  const mdInpatient = minDed != null ? insClaimPerRow(insWon(inpatientCharge), covRate, 0) : null;
+  const ncRateLo = genNum
+    ? (ncOption != null && INS_GEN_RATES[genNum].nonCoveredOptions && INS_GEN_RATES[genNum].nonCoveredOptions![ncOption] != null
+        ? INS_GEN_RATES[genNum].nonCoveredOptions![ncOption]
+        : INS_GEN_RATES[genNum].nonCovered[0])
+    : 0;
+  const mdCovLow = minDed != null ? insClaimPerRow(coveredSelfPay, covRateHi, minDed) : null;
+  const mdCovHigh = minDed != null ? insClaimPerRow(coveredSelfPay, covRateLo, minDed) : null;
+  const mdNcLow = minDed != null ? insClaimPerRow(ncAmount, ncRateHi, minDed) : null;
+  const mdNcHigh = minDed != null ? insClaimPerRow(ncAmount, ncRateLo, minDed) : null;
+  const mdAutoLow = (mdCovLow?.reimbursement || 0) + (mdNcLow?.reimbursement || 0);
+  const mdAutoHigh = (mdCovHigh?.reimbursement || 0) + (mdNcHigh?.reimbursement || 0);
+  const minDeductiblePayload = minDed != null ? {
+    grade_label: INS_GRADE_LABELS[autoGrade],
+    deductible: minDed,
+    cov_out: mdCovLow && coveredSelfPay > 0 ? {
+      charge: coveredSelfPay,
+      reimbursement: mdCovLow.reimbursement,
+      low_value: mdCovLow.lowValue,
+    } : null,
+    nc_out: mdNcLow && ncAmount > 0 ? {
+      charge: ncAmount,
+      reimbursement: mdNcLow.reimbursement,
+      low_value: mdNcLow.lowValue,
+      visits: 1,
+      total_mode: true,
+    } : null,
+    inpatient: null,
+  } : null;
 
   async function runPdf() {
     const token = session?.access_token;
@@ -133,14 +148,87 @@ export default function InsuranceCalculator() {
     }
   }
 
+  async function downloadReportPdf() {
+    const token = session?.access_token;
+    if (!token) { setReportError("로그인이 필요합니다."); return; }
+    setReportLoading(true);
+    setReportError("");
+    try {
+      const payload = {
+        report_type: "insurance",
+        inputs: {
+          generation: genNum || null,
+          generation_period: genNum ? INS_GEN_RATES[genNum].period : "",
+          nc_option: ncOption,
+          bracket: typeof bracket === "number" ? bracket : null,
+          year: mode === "pdf" ? (pdfLatestYear || new Date().getFullYear().toString()) : new Date().getFullYear().toString(),
+          covered_self_pay: coveredSelfPay,
+          non_covered: ncAmount,
+        },
+        results: {
+          claim,
+          self_pay_cap: selfPayCap ? {
+            eligible: selfPayCap.eligible,
+            cap: selfPayCap.cap,
+            exceeded: selfPayCap.exceeded,
+            excess: selfPayCap.excess,
+            non_covered_excluded: selfPayCap.nonCoveredExcluded,
+          } : null,
+          nhis_cap: nhisCap,
+          min_deductible: minDeductiblePayload,
+        },
+      };
+      const res = await fetch(`${API_BASE}/api/report/pdf`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.detail || `PDF 생성 실패 (${res.status})`);
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get("content-disposition") || "";
+      const filename = /filename="?([^";]+)"?/i.exec(disposition)?.[1] || "BOHUMFIT-insurance-report.pdf";
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setReportError(e instanceof Error ? e.message : "PDF 생성 중 오류가 발생했습니다.");
+    } finally {
+      setReportLoading(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-extrabold text-gray-950">실손 예상 보험금 계산</h1>
-        <p className="mt-1 text-sm text-gray-600 break-keep">
-          알릴의무 분석 없이 실손 청구 실익만 빠르게 추정합니다. 확정 금액이 아니며, 정확한 금액·보장 여부는
-          보험사·공단 확인이 필요합니다. 본 계산은 보험 모집·상품추천·가입권유가 아닙니다.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-xl font-extrabold text-gray-950">실손 예상 보험금 계산</h1>
+          <p className="mt-1 text-sm text-gray-600 break-keep">
+            알릴의무 분석 없이 실손 청구 실익만 빠르게 추정합니다. 확정 금액이 아니며, 정확한 금액·보장 여부는
+            보험사·공단 확인이 필요합니다. 본 계산은 보험 모집·상품추천·가입권유가 아닙니다.
+          </p>
+        </div>
+        <div className="flex flex-col items-start gap-1 sm:items-end">
+          <button
+            type="button"
+            onClick={downloadReportPdf}
+            disabled={reportLoading}
+            className="rounded-[8px] bg-gray-950 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
+          >
+            {reportLoading ? "PDF 생성 중…" : "PDF로 저장"}
+          </button>
+          {reportError && <p className="max-w-xs text-xs font-semibold text-amber-700">{reportError}</p>}
+        </div>
       </div>
 
       {/* 모드 토글 */}
@@ -271,72 +359,23 @@ export default function InsuranceCalculator() {
         ) : <p className="text-gray-500">소득분위를 선택하면 환급 가능성을 안내합니다.</p>}
       </ResultCard>
 
-      {/* 결과 ①-b 최소공제 (BOHUMFIT-028) */}
-      <ResultCard n="①-b" title="실손 최소공제 적용 추정 (선택)">
-        <label className="flex items-center gap-2 text-xs font-semibold text-gray-700">
-          <input type="checkbox" checked={minDedOn} onChange={(e) => setMinDedOn(e.target.checked)} />
-          최소공제 적용 (통원 자기부담 = 정액·정률 중 큰 값)
-        </label>
-        {minDedOn && (
-          <div className="mt-2 grid gap-2 sm:grid-cols-2">
-            <Field label="기관명 (등급 추정)">
-              <input value={providerName} onChange={(e) => setProviderName(e.target.value)} placeholder="예: 서울정형외과의원" className={SELECT_CLS} />
-              <span className="mt-0.5 block text-[10px] text-gray-400">추정: {INS_GRADE_LABELS[autoGrade]} — 추정이며 실제와 다를 수 있어요(우측에서 수정).</span>
-            </Field>
-            <Field label="기관 등급 (수정)">
-              <select value={gradeOverride} onChange={(e) => setGradeOverride(e.target.value)} className={SELECT_CLS}>
-                <option value="">자동 ({INS_GRADE_LABELS[autoGrade]})</option>
-                <option value="clinic">의원</option>
-                <option value="general">종합병원</option>
-                <option value="tertiary">상급종합병원</option>
-              </select>
-            </Field>
-            <Field label="급여 통원 1회 진료비">
-              <input inputMode="numeric" value={covOutCharge} onChange={(e) => setCovOutCharge(e.target.value)} placeholder="예: 30000" className={SELECT_CLS} />
-            </Field>
-            <Field label="입원 진료비 (정액공제 없음)">
-              <input inputMode="numeric" value={inpatientCharge} onChange={(e) => setInpatientCharge(e.target.value)} placeholder="예: 100000" className={SELECT_CLS} />
-            </Field>
-            <Field label={`비급여 통원 ${ncTotalMode ? "총액" : "1회 금액"}`}>
-              <input inputMode="numeric" value={ncOutCharge} onChange={(e) => setNcOutCharge(e.target.value)} placeholder="예: 30000" className={SELECT_CLS} />
-            </Field>
-            <div className="text-[11px] font-semibold text-gray-600">
-              <label className="flex items-center gap-1">
-                <input type="checkbox" checked={ncTotalMode} onChange={(e) => setNcTotalMode(e.target.checked)} />
-                비급여 총액으로 입력 (건별 권장)
-              </label>
-              {!ncTotalMode && (
-                <label className="mt-1 block">횟수
-                  <input inputMode="numeric" value={ncVisitCount} onChange={(e) => setNcVisitCount(e.target.value)} className={SELECT_CLS} />
-                </label>
-              )}
-            </div>
-          </div>
-        )}
-        {minDedOn && (
-          minDed == null ? (
-            <p className="mt-2 text-gray-500">{genNum ? "이 세대는 통원 정액공제를 적용하지 않습니다 (1세대 legacy·5세대 준비중)." : "실손 세대를 선택해 주세요."}</p>
-          ) : (
-            <div className="mt-2 space-y-1">
-              <p className="text-gray-700">적용 정액공제: {INS_GRADE_LABELS[effGrade]} {wonToMan(minDed)} (통원). 통원 자기부담 = 정액·정률 중 큰 값.</p>
-              {mdCovOut && insWon(covOutCharge) > 0 && (
-                <p className="text-gray-600">급여 통원 보상 추정 {wonToMan(mdCovOut.reimbursement)}{mdCovOut.lowValue ? " — 청구 실익 낮음" : ""}.</p>
-              )}
-              {mdNcRow && insWon(ncOutCharge) > 0 && (
-                <p className="text-gray-600">비급여 통원 보상 추정 {wonToMan(mdNcReimb)}{ncTotalMode ? " (총액 1회 공제)" : ` (1회×${mdNcVisits}회)`}{mdNcRow.lowValue ? " — 청구 실익 낮음" : ""}.</p>
-              )}
-              {mdInpatient && insWon(inpatientCharge) > 0 && (
-                <p className="text-gray-600">입원 보상 추정 {wonToMan(mdInpatient.reimbursement)} (정액공제 없음·정률만){mdInpatient.lowValue ? " — 청구 실익 낮음" : ""}.</p>
-              )}
-              <ul className="mt-1 list-disc pl-4 text-[11px] text-gray-400">
-                <li>통원 자기부담은 정액·정률(진료비×자기부담률) 중 큰 값으로 추정합니다.</li>
-                <li>진료비가 정액공제 이하면 보상이 없어 청구 실익이 낮을 수 있습니다.</li>
-                <li>기관 등급은 기관명 추정값이며 실제와 다를 수 있어요 — 직접 수정 가능합니다.</li>
-                <li>비급여는 회차별(1회 금액×횟수) 입력이 더 정확합니다. 총액만 입력하면 공제를 1회만 적용합니다.</li>
-                <li>1세대·5세대는 통원 정액공제 미적용, 입원은 정액 통원공제가 없습니다.</li>
-              </ul>
-            </div>
-          )
+      {/* 결과 ①-b 최소공제 (BOHUMFIT-032: 입력형 옵션 제거, 자동 적용) */}
+      <ResultCard n="①-b" title="실손 최소공제 자동 반영">
+        {minDed == null ? (
+          <p className="text-gray-500">{genNum ? "이 세대는 통원 정액공제 자동 적용 대상이 아닙니다." : "실손 세대를 선택하면 최소공제 기준을 자동 반영합니다."}</p>
+        ) : (
+          <>
+            <p className="font-semibold text-gray-800">
+              자동 기준: {INS_GRADE_LABELS[autoGrade]} {wonToMan(minDed)} 공제
+            </p>
+            <p className="text-gray-600">
+              최소공제 반영 후 청구 추정 {mdAutoLow === mdAutoHigh ? wonToMan(mdAutoLow) : `${wonToMan(mdAutoLow)}~${wonToMan(mdAutoHigh)}`} 수준일 수 있습니다.
+            </p>
+            <p className="text-[11px] text-gray-400 break-keep">
+              독립 계산기는 기관종별·건별 진료비를 입력받지 않으므로 등급 미상은 상급 기준으로 보수 적용합니다.
+              실제 청구는 진료 건별 공제와 약관 심사에 따라 달라질 수 있습니다.
+            </p>
+          </>
         )}
       </ResultCard>
 

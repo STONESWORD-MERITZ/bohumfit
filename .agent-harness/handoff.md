@@ -16,6 +16,34 @@
 
 # Handoff
 
+## 2026-06-11 Codex BOHUMFIT-032 [완료 — 실손 최소공제 자동화 + PDF 저장 버튼]
+### Changed
+- `src/pages/InsuranceCalculator.tsx`
+  - 독립 실손 계산기의 `실손 최소공제 적용 추정 (선택)` 수동 입력 UI를 제거.
+  - 세대 선택과 현재 화면의 급여/비급여 입력값 기준으로 최소공제를 자동 반영하도록 변경.
+  - 기관종별·건별 금액을 사용자가 알 수 없는 화면 특성상 등급 미상은 기존 공용 산식의 상급 기준으로 보수 적용.
+  - 상단에 `PDF로 저장` 버튼 추가. 현재 화면 값을 `POST /api/report/pdf` 보험 리포트 payload로 전달해 PDF 다운로드.
+- `.agent-harness/tasks/BOHUMFIT-032-insurance-auto-deductible-pdf.md` 신규 생성.
+- `.agent-harness/locks.md` 잠금 추가 후 해제.
+
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` passed.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` passed.
+- [x] `npm run lint` passed.
+- [x] `npm test` passed (1 file, 1 test).
+- [x] `npm run build` passed (기존 Vite 500KB chunk warning only).
+- [x] `cd backend && python -m pytest -q` passed (201 passed, 7 skipped).
+- [x] `http://127.0.0.1:5173/insurance` dev server 200 확인.
+- [x] grep 확인: `/insurance`에 `PDF로 저장`, `실손 최소공제 자동 반영` 존재. 기존 수동 입력 문구(`최소공제 적용 (통원`, `기관명 (등급 추정)`) 제거 확인.
+
+### Notes
+- 이 세션에서 in-app browser 제어 도구가 노출되지 않아 실제 클릭/스크린샷 smoke는 수행하지 못함. 대신 dev 서버 200, 빌드/타입, 소스 문구 검증으로 대체.
+- PDF 버튼은 로그인 토큰이 없으면 `로그인이 필요합니다.`를 표시하고, 로그인 상태에서는 기존 백엔드 `/api/report/pdf`로 보험 리포트를 다운로드한다.
+- 최소공제 자동 추정은 독립 계산기 특성상 진료 건별 공제가 아닌 현재 화면 입력값 기준의 보수 추정이다. 실제 지급액은 보험사 약관·심사 확인 필요 문구 유지.
+
+### Next
+- Human: 배포 후 로그인 상태에서 `/insurance` PDF 다운로드 버튼 클릭 및 실제 PDF 내용 육안 확인.
+
 Use newest entries at the top.
 
 ## 2026-06-11 Codex BOHUMFIT-030/031 [완료 — Windows 권위 검증 + 031 reconciliation + 분리 커밋]

@@ -15,6 +15,7 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-11 `BOHUMFIT-032` - Codex - `/insurance` 최소공제 사용자 입력 UI 제거, 자동 최소공제 추정 적용, PDF 저장 버튼 연결 완료. tsc/lint/test/build/backend pytest 통과.
 - 2026-06-11 `BOHUMFIT-030/031` - Codex - Windows authority verification and 031 reconciliation completed. Frontend gates passed, report PDF tests 16 passed with skip 0 after Playwright Chromium install, full backend suite 201 passed/7 skipped. User gate required overall pytest skip 0, so commit/push held; locks released for Human decision.
 - 2026-06-11 `BOHUMFIT-030` - Cowork - 백엔드 리포트 PDF(고지/실손 분리) 구현 완료. 범위: `backend/pipeline/report_pdf.py`·`backend/templates/report_disclosure.html`·`report_insurance.html`·`backend/tests/test_report_pdf.py`(신규), `backend/main.py`(`POST /api/report/pdf` 추가)·`backend/requirements.txt`(jinja2/playwright 고정), 태스크/handoff/locks. 콘텐츠 수정 6건 반영·산출물 구 브랜드명 0건·금액 passthrough(재계산 0)·휘발 처리. /tmp pytest 15p/1s + 엔드포인트 스텁 하네스 + PDF 2종 육안 통과. **031 차단 원인 2건(sec.items TypeError, 템플릿 주석 구 브랜드명) 해결됨** → Codex(Windows) 전체 pytest(스킵 0 확인)·커밋·푸시 대기로 잠금 해제(ENV-MOUNT-NOTES 준수, 마운트 git 미실행). 결정 3건 handoff 기록.
 - 2026-06-11 `BOHUMFIT-031` - Codex - 통제 리네임 A 범위 적용 및 검증 시도 후 해제. 030 잠금 파일(`backend/pipeline/report_pdf.py`, templates, `backend/main.py`, `backend/requirements.txt`, `backend/tests/test_report_pdf.py`, 030 task)은 수정/스테이징 제외. 전체 backend pytest는 030 리포트 템플릿 실패로 gate 미통과 → commit/push 보류.
