@@ -15,6 +15,8 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-11 `BOHUMFIT-038` - Codex - Railway Chromium install fallback implemented with `PLAYWRIGHT_BROWSERS_PATH=0`, expanded apt packages, backend start script runtime install, and LF shell script guard. Local tests/build passed; Railway Variables/log confirmation remains Human.
+
 - 2026-06-11 `BOHUMFIT-037` - Codex - Railway/Nixpacks Playwright Chromium install configured for repo-root and backend-root deployments; report renderer now uses installed Playwright Chromium; PDF loading button nowrap fixed. tsc/lint/test/build/backend pytest passed.
 
 - 2026-06-11 `BOHUMFIT-036` - Codex - claim estimate amount highlighted in frontend and report template; `/insurance` no longer auto-opens browser print fallback when BOHUMFIT-030 PDF generation fails. tsc/lint/test/build/backend pytest passed.

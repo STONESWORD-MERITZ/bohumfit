@@ -16,6 +16,74 @@
 
 # Handoff
 
+## 2026-06-11 Codex BOHUMFIT-038 [완료 - Railway Chromium 설치 미반영 수정]
+### Changed
+- `nixpacks.toml`, `backend/nixpacks.toml`
+  - `PLAYWRIGHT_BROWSERS_PATH = "0"` 추가.
+  - Chromium 의존 시스템 패키지와 `fonts-noto-cjk`를 `[phases.setup].aptPkgs`에 분리.
+  - install phase는 `python -m playwright install chromium`으로 브라우저 설치만 수행하도록 변경.
+  - start command를 `bash start.sh`로 변경해 런타임 설치 fallback 적용.
+- `backend/start.sh`
+  - 서버 시작 직전 `PLAYWRIGHT_BROWSERS_PATH=0 python -m playwright install chromium` 실행.
+  - 설치 후 `uvicorn main:app` 실행.
+- `.gitattributes`
+  - `backend/start.sh`를 LF로 고정해 Linux bash 실행 안정화.
+- `.agent-harness/tasks/BOHUMFIT-038-railway-chromium-fix.md`
+  - 확정 원인, 채택 해법, 트레이드오프, 검증 결과 기록.
+### Verified
+- [x] `nixpacks.toml`, `backend/nixpacks.toml` TOML 파싱 OK
+- [x] `backend/start.sh` CRLF 없음 확인
+- [x] `cd backend && python -m pytest -q` → 202 passed / 7 skipped
+- [x] `npx tsc -p tsconfig.app.json --noEmit`
+- [x] `npx tsc -p tsconfig.node.json --noEmit`
+- [x] `npm run build`
+- [x] `npm run lint`
+- [x] `npm test`
+### Notes
+- 운영 로그 기준 원인: 037의 Nixpacks install phase가 Railway 빌드에 반영되지 않아 Chromium 및 CJK 폰트 설치가 누락됨.
+- 채택 해법: 빌드 단계 설치 + 런타임 시작 스크립트 fallback을 둘 다 적용.
+- 트레이드오프: 첫 부팅 또는 재시작 시 Chromium 설치 확인 때문에 시간이 늘 수 있다. 이미 설치돼 있으면 빠르게 통과한다.
+- Codex 세션은 Railway 미인증 상태라 Railway Variables 직접 설정은 못 함. Dashboard Variables에 `PLAYWRIGHT_BROWSERS_PATH=0`도 Human이 추가 확인 필요.
+- 그래도 Nixpacks variables와 `backend/start.sh`에서 기본값을 export하므로 코드 경로 자체는 `PLAYWRIGHT_BROWSERS_PATH=0`을 보장한다.
+### Next
+- Human: Railway 재배포 로그에서 `python -m playwright install chromium` 실행 및 Chromium 다운로드/캐시 확인.
+- Human: Railway Variables에 `PLAYWRIGHT_BROWSERS_PATH=0` 추가 확인.
+- Human: 브라우저에서 고지/실손 PDF 2종 다운로드 E2E 및 `BIZ_ADDRESS` 주입 확인.
+
+## 2026-06-11 Codex BOHUMFIT-038 [진단 - BOHUMFIT-030 운영 PDF 장애]
+### Changed
+- `.agent-harness/tasks/BOHUMFIT-038-report-pdf-prod-diagnosis.md`
+  - 운영 PDF 장애 진단 범위와 접근 결과 기록.
+### Verified
+- [x] handoff 기존 시도 요약 확인: BOHUMFIT-033~037에서 프런트 인쇄 fallback 제거, 030 API 연결, 청구/환급 강조, Nixpacks Playwright install 설정까지 시도됨.
+- [x] 코드 분기 확인:
+  - `backend/pipeline/report_pdf.py`
+    - `from playwright.async_api import async_playwright` 실패 → `ReportUnavailableError("playwright 미설치 — PDF 렌더러를 사용할 수 없습니다.")`
+    - Playwright launch 중 `"Executable doesn't exist"` 또는 `"playwright install"` 포함 예외 → `ReportUnavailableError("Chromium 미설치 — 배포 환경에서 ... 실행이 필요합니다.")`
+  - `backend/main.py`
+    - `ReportUnavailableError` catch → `logger.error("report pdf 렌더러 사용 불가: %s", e)` 후 HTTP 503 `리포트 생성 기능을 준비 중입니다...`
+- [x] Railway CLI 확인:
+  - `npx --yes @railway/cli --version` → `railway 5.9.1`
+  - `npx --yes @railway/cli status` → `Unauthorized. Please login with railway login`
+  - `npx --yes @railway/cli whoami` → `Unauthorized. Please login with railway login`
+### Notes
+- 실제 운영 예외 원문은 이번 세션에서 확보하지 못함. 이유: Railway CLI/대시보드 인증 권한 없음.
+- 현재 코드 로그는 `ReportUnavailableError`의 사람이 만든 메시지 1줄만 남기며, 원본 Playwright 예외 traceback은 503 분기에서 직접 남기지 않는다. 임시 로깅 추가 지점은 `backend/main.py`의 `except ReportUnavailableError as e:` 또는 `backend/pipeline/report_pdf.py`의 `except Exception as e:` 내부.
+- 빌드 로그 확인 필요:
+  - 최신 배포가 `213fcb9` 이후인지.
+  - build log에 `python -m playwright install --with-deps chromium` 실행 흔적이 있는지.
+  - Railway service Root Directory가 repo root인지 `backend/`인지, 그리고 해당 `nixpacks.toml`이 실제 반영됐는지.
+  - 가능하면 컨테이너 shell에서 Playwright Chromium 존재 여부와 `fc-list | grep -i noto` 확인.
+- 판정:
+  - 코드상 후보는 (A) 설치 누락 또는 (B) 설치됐으나 launch 실패.
+  - 운영 로그 원문이 없어 A/B/C/D 중 최종 확정은 보류.
+### Next
+- Human: Railway 로그인 상태에서 아래 중 하나 실행/확인 후 결과 공유.
+  - Runtime logs: `railway logs --lines 200 --filter "report pdf" --service <backend-service>`
+  - HTTP logs: `railway logs --http --method POST --path /api/report/pdf --status ">=500" --lines 20`
+  - Build logs: `railway logs --build --latest --lines 300`
+- 운영채팅: 실제 예외 원문 확보 후 설치 누락이면 Nixpacks/Root Directory 보정, launch 실패면 시스템 라이브러리/권한/메모리 처방 결정.
+
 ## 2026-06-11 Codex BOHUMFIT-037 [완료 - Railway PDF 런타임 보강 + 버튼 줄바꿈 방지]
 ### Changed
 - `src/pages/InsuranceCalculator.tsx`
