@@ -6,7 +6,7 @@ python-multipart==0.0.29
 google-genai==2.6.0
 python-dotenv==1.2.2
 slowapi==0.1.9
-sentry-sdk[fastapi]==2.60.0
+sentry-sdk[fastapi]==2.62.0
 httpx==0.28.1
 # BOHUMFIT-030 리포트 PDF: HTML 템플릿 + 헤드리스 Chromium 렌더.
 # 배포(Railway) 빌드 단계는 nixpacks.toml에서 `python -m playwright install --with-deps chromium` 실행.
