@@ -259,7 +259,7 @@ def test_insurance_amounts_match_payload_exactly():
 
 
 def test_insurance_refund_highlight_and_covered_for_insurance_row():
-    """BOHUMFIT-035: 공단 환급 금액 강조 + 건보 상한까지만 실손 반영한 금액 표시."""
+    """BOHUMFIT-035/036: 청구 추정·공단 환급 금액 강조 + 건보 상한까지만 실손 반영한 금액 표시."""
     payload = {
         **INSURANCE_PAYLOAD,
         "inputs": {
@@ -277,6 +277,9 @@ def test_insurance_refund_highlight_and_covered_for_insurance_row():
         },
     }
     html = rp.render_report_html("insurance", payload, GEN_AT)
+    assert "claim-highlight" in html
+    assert "실손 청구 추정" in html
+    assert "약 301만원~약 333만원 수준" in html
     assert "refund-highlight" in html
     assert "예상 공단 환급" in html
     assert "약 674만원 수준" in html

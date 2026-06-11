@@ -16,6 +16,36 @@
 
 # Handoff
 
+## 2026-06-11 Codex BOHUMFIT-036 [완료 - 실손 청구 추정액 강조 + 030 PDF 전용화]
+### Changed
+- `src/pages/InsuranceCalculator.tsx`
+  - 실손 청구 가능성의 `청구 추정` 금액을 환급액과 같은 수준의 큰 글자/녹색 강조로 표시.
+  - `POST /api/report/pdf` 실패 시 더 이상 브라우저 인쇄 fallback을 자동 실행하지 않도록 변경.
+  - 실패 메시지에 BOHUMFIT 리포트 PDF 생성 환경 확인 필요 문구 표시.
+- `backend/templates/report_insurance.html`
+  - BOHUMFIT-030 실손 리포트 템플릿에 `claim-highlight` 박스 추가.
+  - 청구 추정 금액을 환급액과 동일한 강조 톤으로 표시.
+- `backend/tests/test_report_pdf.py`
+  - 청구 추정 강조 블록 회귀 테스트 추가.
+- `.agent-harness/tasks/BOHUMFIT-036-claim-highlight-report-only.md`
+  - 작업 범위와 검증 기준 기록.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit`
+- [x] `npx tsc -p tsconfig.node.json --noEmit`
+- [x] `npm run lint`
+- [x] `npm test`
+- [x] `npm run build`
+- [x] `cd backend && python -m pytest -q tests/test_report_pdf.py` → 17 passed
+- [x] `cd backend && python -m pytest -q` → 202 passed / 7 skipped
+- [x] `/insurance` dev server 200 확인
+- [x] `src/pages/InsuranceCalculator.tsx` 내 `window.print` 호출 0건 확인
+### Notes
+- 이제 PDF 버튼은 BOHUMFIT-030 백엔드 PDF 생성만 시도한다. 030 디자인이 나오지 않고 오류가 뜨면 Railway의 Playwright/Chromium 설치 또는 최신 backend 배포 상태를 확인해야 한다.
+- 브라우저 기본 인쇄 미리보기는 더 이상 자동 fallback으로 열리지 않는다.
+### Next
+- Human: 배포 후 PDF 버튼 클릭 시 파일 다운로드 여부 확인.
+- Human: 오류가 뜨면 Railway `/api/report/pdf` 로그에서 Playwright/Chromium 설치 상태 확인.
+
 ## 2026-06-11 Codex BOHUMFIT-035 [완료 - 실손 환급 강조 + 030 리포트 PDF 연결]
 ### Changed
 - `src/pages/InsuranceCalculator.tsx`

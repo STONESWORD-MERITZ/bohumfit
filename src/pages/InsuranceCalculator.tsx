@@ -177,8 +177,7 @@ export default function InsuranceCalculator() {
       URL.revokeObjectURL(url);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "리포트 생성 중 오류가 발생했습니다.";
-      setReportError(`${msg} 현재 화면 인쇄로 대체합니다.`);
-      window.print();
+      setReportError(`${msg} BOHUMFIT 리포트 PDF 생성 환경을 확인해 주세요.`);
     } finally {
       setReportLoading(false);
     }
@@ -336,7 +335,9 @@ export default function InsuranceCalculator() {
           <>
             <p className="font-semibold text-gray-800">{claim.possibility}</p>
             {claim.has && (
-              <p className="text-gray-600">청구 추정 {claim.low === claim.high ? wonToMan(claim.low) : `${wonToMan(claim.low)}~${wonToMan(claim.high)}`} 수준일 수 있습니다.</p>
+              <p className="mt-1 text-base font-extrabold text-emerald-700 print:text-lg">
+                청구 추정 {claim.low === claim.high ? wonToMan(claim.low) : `${wonToMan(claim.low)}~${wonToMan(claim.high)}`} 수준
+              </p>
             )}
             <p className="text-[11px] text-gray-400">
               실손 급여 반영액 {wonToMan(coveredForInsurance)}{coveredForInsurance !== coveredSelfPay ? ` (입력 ${wonToMan(coveredSelfPay)} 중 건보 상한 ${wonToMan(coveredForInsurance)}까지만 반영)` : ""}{ncAmount > 0 ? ` · 비급여 ${wonToMan(ncAmount)}` : ""} 기준 추정.
