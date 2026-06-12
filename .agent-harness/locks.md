@@ -15,6 +15,8 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-12 `BOHUMFIT-042` - Codex - Windows authority verification completed for `/coverage`; npm install/tsc/lint/test/build and synthetic xlsx browser smoke passed. No active locks remain.
+- 2026-06-12 `BOHUMFIT-042` - Cowork - /coverage 보장분석 페이지(업로드→매핑 확인→전 비분표) 구현 완료. 범위: `src/pages/CoverageAnalysis.tsx`·`src/lib/coverageParse.ts`·`coverageParse.test.ts`(신규), `src/App.tsx`·`src/components/Layout.tsx`(소형 편집), `package.json`(xlsx ^0.18.5), 태스크/handoff/locks. 041 lib 무수정 재사용(산식 재구현 0). /tmp tsc(strict+jsx)·vitest 13/13 + 실파일 E2E 스모크(7계약·경고 0·041 검증값 일치, repo 미포함) 통과. 파싱 가정·경고 처리 handoff 명시 → Codex(Windows) npm install·tsc/lint/test/build·브라우저 스모크·커밋·푸시 대기로 잠금 해제(ENV 준수, 마운트 git 미실행).
 - 2026-06-12 `BOHUMFIT-041(coverage-mapping)` - Codex - Windows authority verification passed for coverage mapping engine; tsc/lint/test/build passed, spot checks confirmed death decomposition, surgery interpolation, and unmapped preservation.
 
 - 2026-06-12 `BOHUMFIT-041` - Codex - Railway backend runtime diagnosis completed read-only; external health/CORS/auth checks passed, Railway CLI logs/variables blocked by auth, likely Playwright path override remains Human-confirmed.

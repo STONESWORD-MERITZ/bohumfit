@@ -16,6 +16,72 @@
 
 # Handoff
 
+## 2026-06-12 20:22 Codex BOHUMFIT-042 [완료 - Windows 권위 검증/푸시 대기]
+### Changed
+- `package.json`, `package-lock.json` — `xlsx ^0.18.5` 설치 및 lockfile 갱신.
+- `src/lib/coverageParse.ts`, `src/lib/coverageParse.test.ts` — 원천자료 엑셀 브라우저 파서와 13개 회귀 테스트 추가.
+- `src/pages/CoverageAnalysis.tsx` — `/coverage` 3단계 UI(업로드 -> 매핑 확인 -> 전 비분표) 추가.
+- `src/App.tsx`, `src/components/Layout.tsx` — 보호 라우트와 네비게이션에 보장분석 진입점 추가.
+- `.agent-harness/tasks/BOHUMFIT-042-coverage-page.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md` — 태스크/검증 기록.
+
+### Verified
+- [x] `.git/index.lock` 없음, ENV 절차상 인덱스 이상 없음.
+- [x] `npm install` 완료. `npm audit --audit-level=moderate` 결과: 5 vulnerabilities(2 moderate, 3 high). 차단 아님. `xlsx` high 2건은 upstream fix 없음으로 기록.
+- [x] `npx tsc -p tsconfig.app.json --noEmit`
+- [x] `npx tsc -p tsconfig.node.json --noEmit`
+- [x] `npm run lint`
+- [x] `npm test` - 3 files, 39 tests passed(041 25케이스 + 042 파서 13케이스 포함).
+- [x] `npm run build` - `xlsx-B7Fe_CV5.js` 별도 dynamic import 청크 생성(424.76 kB / gzip 141.51 kB). 메인 앱 청크는 `index-bWzNuV5T.js` 580.62 kB / gzip 167.14 kB.
+- [x] 브라우저 스모크(`npm run dev`, `/coverage`, 합성 xlsx): 로그인 보호 우회용 가짜 세션으로 진입, 업로드 후 2단계 매핑 테이블/3단계 비분표 렌더, unmapped 드롭다운 수동 배정 동작, 종수술 ✎ 셀 수정 시 입력 반영 확인.
+- [x] 합성 스모크 파일/스크린샷/로그 삭제 완료. 실데이터 파일 사용·커밋 없음.
+
+### Notes
+- 로컬 dev origin(`127.0.0.1:5175`)에서 운영 백엔드 `/api/health` CORS 콘솔 에러가 보였으나, `/coverage` 브라우저 내 파싱·매핑·비분표 흐름에는 영향 없음. 운영 도메인 CORS와 별개인 dev smoke 참고사항.
+- 파싱 가정 6항은 Cowork 항목과 동일하게 유지 확인.
+- 수동 배정과 종수술 제안 셀 수정은 세션 내 화면 상태만 사용하며 저장/서버 전송 없음.
+
+### Next
+- Human: `/coverage` 실데이터 육안 확인 + 종수술 기본값·암입원 배정 결정.
+- Cowork: BOHUMFIT-043 후(後) 비분표/컨설팅 플랜 UI 진행.
+
+## 2026-06-12 Cowork BOHUMFIT-042 [구현+/tmp 검증 완료 / Codex Windows 검증·커밋·푸시]
+### Changed
+- `src/lib/coverageParse.ts` (신규) — 원천자료 SheetJS 매트릭스 파서(헤더 탐지·병합셀 forward-fill·계약 그룹핑·경고 보존) + 수동 배정(applyManualAssignments)·배정 타깃 목록. 041 `parseSourceRows` 시그니처 실구현 연결.
+- `src/lib/coverageParse.test.ts` (신규, 13 테스트) — **익명 합성 픽스처만**(A생명/B화재/테스트상품, 실데이터 미포함).
+- `src/pages/CoverageAnalysis.tsx` (신규) — `/coverage` 3단계: ①업로드(브라우저 내 파싱·비저장 안내) ②매핑 확인(unmapped 드롭다운 수동 배정/제외, 세션 한정) ③전 비분표(36행, 계약 열+합계 열, 가입일·납만기 헤더, Y/N 체크, 보험료 행, 가로 스크롤 min-w, 종수술 1~4종 제안 셀 수정→`sumColumns` 재계산) + 043 예고 자리 + 면책.
+- `src/App.tsx` — `/coverage` ProtectedRoute 라우트(소형 편집). `src/components/Layout.tsx` — 네비 "보장분석"(소형 편집).
+- `package.json` — `xlsx ^0.18.5` 추가(SheetJS 미설치였음). **Codex가 Windows에서 npm install 후 package-lock.json 갱신분도 함께 스테이징 필요.**
+- `.agent-harness/tasks/BOHUMFIT-042-coverage-page.md` (신규), handoff/locks.
+- 041 lib 무수정 — `coverageMapping.parseSourceRows` 스텁·테스트 그대로 보존(실구현은 coverageParse 쪽, 산식 재구현 0).
+
+### 파싱 가정 (명시)
+1. 헤더 탐지: 상위 10행 중 '회사명'+'보장명'이 함께 있는 행 = 열 헤더. '납입기간(년)'·'가입금액(만원)' 류는 접두 일치. 필수 열 = 회사명/보장명/가입금액 — 누락 시 SourceFormatError(화면 안내).
+2. 계약 경계: 회사명 **또는** 상품명 셀에 실값이 나타나는 행에서 새 계약 시작(병합셀 양식 전제 — 상품명 없는 블록은 회사명만으로 시작). 이후 행은 forward-fill, 그룹핑 키 = 회사명|상품명|보험시기|납입기간 연속 동일.
+3. 날짜: Date 인스턴스(로컬 포맷)·엑셀 직렬값(UTC 계산)·문자열 모두 YYYY-MM-DD 통일. 9999-12-31 은 화면에서 '종신'.
+4. 보험료: 계약 첫 행 값 사용. 행마다 다르면 경고 후 첫 값 유지, 첫 행이 비어 있으면 뒤 행 값으로 보충.
+5. 담보 상태: 해지/실효/소멸/취소/만기 → 비분표 제외+경고. 그 외 미상 상태 → 포함+확인 경고. 빈 값/정상/유지 → 포함.
+6. 가입금액: 숫자 또는 "1,234"형 문자열 허용. 해석 불가 행 → 경고(미반영).
+
+### 경고 처리 (드롭 금지)
+- 실패/제외 행은 `ParseWarning{rowNo(엑셀 1-base), reason, 회사/상품/보장명}` 으로 보존, 페이지 상단 경고 목록에 전부 표시.
+
+### Verified
+- [x] /tmp 독립 환경: tsc(strict + jsx, **페이지 포함**) 통과, vitest 13/13.
+- [x] **실파일 E2E 스모크(샌드박스 한정, repo 미포함·후 삭제)**: 업로드된 '원천자료 샘플.xlsx' → 계약 7건(상품명 없는 블록 포함) 정확 분리·경고 0건·합계가 041 검증값과 완전 일치(일반사망 20,500/재해 20,500/상해 2,000/암진단 12,500만원·보험료 359,320원·unmapped 6건·신한 종수술 480 보간 1종 10).
+- [x] App/Layout/package.json 편집 후 마운트 뷰 truncation 재발(ENV 알려진 제약) — Windows 원본은 Edit 결과로 확정, 권위 검증은 Codex.
+- [ ] Windows: `npm install` → tsc(app/node)·lint·`npm test`(기존 1+041 25+042 13)·build + `/coverage` 브라우저 업로드 스모크 — Codex.
+
+### Notes
+- xlsx 는 페이지에서 `dynamic import("xlsx")` — 초기 번들 영향 최소화(vite 분할). 업로드 파일은 ArrayBuffer 로 브라우저 내 처리만, 네트워크 전송·저장 없음(1단계·헤더에 안내 문구).
+- 수동 배정 타깃 32개 = 36행 − 종수술 5행 − 보험료 1행 + 종수술 그룹 1 + '제외' 1. 배정은 타깃의 대표 보장명으로 이름 재작성 → 041 사전 매핑을 그대로 통과(lib 무수정 연결 방식).
+- 기존 `/before-after` Coming Soon 라우트는 범위 밖 — 유지(043 때 `/coverage` 후속과 정리 권장).
+- 042 태스크 ID 는 `.agent-harness/tasks/BOHUMFIT-042-coverage-page.md`.
+
+### Next
+- Codex(Windows): ① `npm install`(package-lock 갱신 포함 스테이징) ② `npx tsc -p tsconfig.app.json --noEmit`/`tsconfig.node.json` ③ `npm run lint` ④ `npm test` ⑤ `npm run build` ⑥ `/coverage` 업로드 스모크(원천자료 샘플) ⑦ 042 범위 파일만 한국어 커밋(`BOHUMFIT-042: /coverage 보장분석 페이지 (업로드→전 비분표)`) → push.
+- Human: 첫 실사용 원천자료로 매핑 사전(coverageCategories.json) 보강 검토.
+- 백로그: 043 유지/해지·감액 override·신규 제안 → 후(後) 비분표 비교 UI(041 `applyConsultingPlan`/`buildAfterTable` 사용), `coverageMapping.parseSourceRows` 스텁→coverageParse 위임 정리.
+
 ## 2026-06-12 Codex BOHUMFIT-041(coverage-mapping) [완료 - Windows 권위 검증/푸시]
 ### Changed
 - `src/lib/coverageCategories.json`

@@ -7,6 +7,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Home from "./pages/Home";
 import Disclosure from "./pages/Disclosure";
 import InsuranceCalculator from "./pages/InsuranceCalculator";
+import CoverageAnalysis from "./pages/CoverageAnalysis";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -77,6 +78,10 @@ function App() {
           <Route
             path="insurance"
             element={<ProtectedRoute><InsuranceCalculator /></ProtectedRoute>}
+          />
+          <Route
+            path="coverage"
+            element={<ProtectedRoute><CoverageAnalysis /></ProtectedRoute>}
           />
           <Route
             path="before-after"
