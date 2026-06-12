@@ -16,6 +16,42 @@
 
 # Handoff
 
+## 2026-06-12 Codex BOHUMFIT-039 [완료 - Railway backend Dockerfile 전환]
+### Changed
+- `Dockerfile`
+  - Railway Root Directory가 저장소 루트일 때 쓰는 backend 런타임 Dockerfile 추가.
+  - `mcr.microsoft.com/playwright/python:v1.52.0-noble` 기반으로 Playwright 1.52/Chromium 런타임을 이미지에 고정.
+  - `fonts-noto-cjk` 설치, `PLAYWRIGHT_BROWSERS_PATH=/ms-playwright` 설정, `backend/start.sh` CMD 재사용.
+- `backend/Dockerfile`
+  - Railway Root Directory가 `backend/`일 때 쓰는 동일 목적 Dockerfile 추가.
+- `railway.json`, `backend/railway.json`
+  - `builder=DOCKERFILE`, `dockerfilePath=Dockerfile`, `startCommand=null`로 코드 기반 Railway 설정 추가.
+  - 루트/백엔드 Root Directory 어느 쪽이어도 Dockerfile 경로가 맞도록 분리.
+- `.gitattributes`
+  - `Dockerfile`, `backend/Dockerfile` LF 고정 추가.
+- `.agent-harness/tasks/BOHUMFIT-039-dockerfile.md`
+  - 확정 진단, 채택 해법, 검증 계획, Human 확인 항목 기록.
+### Verified
+- [x] `.git/index.lock` 없음, git 인덱스 이상 없음.
+- [x] `railway.json`, `backend/railway.json` JSON parse OK.
+- [x] `Dockerfile`, `backend/Dockerfile`, `backend/start.sh` CRLF 없음.
+- [x] `npx tsc -p tsconfig.app.json --noEmit`
+- [x] `npx tsc -p tsconfig.node.json --noEmit`
+- [x] `npm run lint`
+- [x] `npm test` - 1 passed
+- [x] `npm run build`
+- [x] `cd backend && python -m pytest -q` - 202 passed / 7 skipped
+- [x] `git diff --check`
+### Notes
+- 공식 Railway 문서 기준: Railway는 source directory root의 `Dockerfile`을 사용하며, config-as-code(`railway.json`)에서 `builder=DOCKERFILE` 및 Dockerfile path를 지정할 수 있다. `startCommand=null`도 허용되어 Dockerfile `CMD` 사용 의도를 코드에 남겼다.
+- 기존 `nixpacks.toml`, `backend/nixpacks.toml`은 롤백 대비로 유지했다.
+- 로컬 Docker 검증은 불가: Windows 환경에 `docker` 명령이 설치되어 있지 않음(`docker: The term 'docker' is not recognized...`). 따라서 Docker 이미지 빌드/PDF 바이트 smoke는 Railway 배포 로그와 운영 E2E에서 확인 필요.
+- Human 참고: Railway 대시보드에 Custom Start Command가 남아 있으면 Dockerfile `CMD`를 우회할 수 있으니 비워져 있는지 확인 필요.
+### Next
+- Human: Railway 재배포 로그에서 Dockerfile builder/config source 적용 확인.
+- Human: 배포 후 `/api/report/pdf` 호출 시 `Chromium 미설치` 에러가 사라지고 PDF 바이트가 내려오는지 확인.
+- Human: 브라우저에서 고지/실손 PDF 2종 다운로드 E2E 및 `BIZ_ADDRESS` 주입 확인.
+
 ## 2026-06-11 Codex BOHUMFIT-038 [완료 - Railway Chromium 설치 미반영 수정]
 ### Changed
 - `nixpacks.toml`, `backend/nixpacks.toml`
