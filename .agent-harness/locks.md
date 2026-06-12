@@ -15,6 +15,10 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-12 `BOHUMFIT-041(coverage-mapping)` - Codex - Windows authority verification passed for coverage mapping engine; tsc/lint/test/build passed, spot checks confirmed death decomposition, surgery interpolation, and unmapped preservation.
+
+- 2026-06-12 `BOHUMFIT-041` - Codex - Railway backend runtime diagnosis completed read-only; external health/CORS/auth checks passed, Railway CLI logs/variables blocked by auth, likely Playwright path override remains Human-confirmed.
+
 - 2026-06-12 `BOHUMFIT-040` - Codex - `/insurance` PDF save button/status layout balanced; tsc/lint/test/build passed; login-protected visual final check remains Human.
 
 - 2026-06-12 `BOHUMFIT-039` - Codex - Railway backend Dockerfile transition added for repo-root and backend-root deployments; JSON/line-ending checks, tsc/lint/test/build, and backend pytest passed. Local Docker unavailable, so Railway deploy log/PDF E2E remains Human.

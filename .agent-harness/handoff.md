@@ -16,6 +16,121 @@
 
 # Handoff
 
+## 2026-06-12 Codex BOHUMFIT-041(coverage-mapping) [완료 - Windows 권위 검증/푸시]
+### Changed
+- `src/lib/coverageCategories.json`
+  - 보장분석 36행 카테고리/매핑 사전 신규 추가.
+- `src/lib/coverageMapping.ts`
+  - 보장명 정규화/매핑, 사망분해, 종수술 자동셋팅, 계약 컬럼/합계/컨설팅 전후 모델 순수 TS lib 신규 추가.
+- `src/lib/coverageMapping.test.ts`
+  - coverage mapping 회귀 25케이스 신규 추가.
+- `src/lib/json-modules.d.ts`
+  - tsconfig 무수정 JSON import 선언 신규 추가.
+- `.agent-harness/tasks/BOHUMFIT-041-coverage-mapping-engine.md`
+  - Cowork 구현 범위 및 Codex 검증 조건 기록 재확인.
+### Verified
+- [x] `.git/index.lock` 없음.
+- [x] coverage 엔진 기존 파일 수정 0건 확인. 신규 파일 4종 + coverage task 파일이 정상 untracked 범위였음.
+- [x] `npx tsc -p tsconfig.app.json --noEmit`
+- [x] `npx tsc -p tsconfig.node.json --noEmit`
+- [x] `npm run lint`
+- [x] `npm test` - 2 files, 26 tests passed (기존 1 + coverageMapping 25)
+- [x] `npm run build`
+- [x] 스팟 체크: 사망분해 `10000,30000 -> general 10000 / disaster 20000` 테스트 존재.
+- [x] 스팟 체크: 종수술 보간 `240 -> [7,20,34,68,240]` 테스트 존재.
+- [x] 스팟 체크: `unmapped` 보존/집계 테스트 존재.
+- [x] `git diff --check`
+### Notes
+- 같은 번호의 `BOHUMFIT-041-railway-runtime-diagnosis`는 별도 진단 태스크이며 slug로 구분한다.
+- 직전 진단 태스크의 handoff/locks/task 파일이 커밋 전 로컬에 남아 있었으므로, 이번 커밋에는 coverage 산출물과 함께 하네스 기록 정합성을 위해 해당 진단 task 파일도 포함한다.
+### Next
+- Cowork: `BOHUMFIT-042` `/coverage` 업로드 및 전/비분표 화면 구현.
+
+## 2026-06-12 Cowork BOHUMFIT-041(coverage-mapping) [구현+/tmp 검증 완료 / Codex Windows 검증·커밋·푸시]
+### Changed
+- `src/lib/coverageCategories.json` (신규) — 표준 카테고리 36행(표준비분표 '비교분석표' J8:J43 순서 그대로) + 보장명→카테고리 매핑 사전. 단위 명시(금액=만원, 보험료=원).
+- `src/lib/coverageMapping.ts` (신규) — 매핑 엔진 순수 lib(UI 없음). 보장명 정규화(NFKC·괄호·공백), mapCoverageName, 사망 분해, 일반종수술 자동셋팅(suggestSurgeryTiers), 계약→비분표 열(buildContractColumn), 합계(sumColumns), 테이블(buildCoverageTable), 컨설팅 모델(applyConsultingPlan/buildAfterTable), parseSourceRows 시그니처(042 자리). **산식 원본 — 재구현 금지 대상.**
+- `src/lib/coverageMapping.test.ts` (신규) — 25 테스트: 원천자료 샘플 실데이터 케이스(교보2건/신한/AIA/하나/흥국/삼성) + 사망분해 분기 + 종수술 정확/보간/외삽 + unmapped + 합계 + 후 계산(해지·감액 override·신규 제안·전후 동일 함수·입력 불변).
+- `src/lib/json-modules.d.ts` (신규) — JSON import tsc 선언(기존 tsconfig 무수정, `resolveJsonModule` 대체).
+- `.agent-harness/tasks/BOHUMFIT-041-coverage-mapping-engine.md` (신규), handoff/locks.
+- 기존 파일 수정 0건.
+
+### 매핑 사전 수록 보장명 (정규화 키 → 카테고리)
+- 사망: 일반사망 / 재해사망 / 상해사망 / 질병사망
+- 후유장해: 상해후유장해 / 상해80%이상후유장해 → 상해후유장해 · 질병후유장해 / 질병80%이상후유장해 → 질병후유장해
+- 암진단금: 암진단 / 일반암진단 / 고액암진단
+- 유사암: 유사암진단 / 소액암진단 / 특정암진단
+- 표적항암: 표적항암약물치료비 / 표적항암약물허가치료비 · 차세대암: 차세대암치료 / 차세대암치료비 · 암수술: 암수술
+- 뇌: 뇌혈관질환진단·뇌혈관진단 → 뇌혈관(초기) / 뇌졸중진단 → 뇌졸중(중기) / 뇌출혈진단 → 뇌출혈(말기) / 뇌혈관수술·뇌혈관질환수술 → 뇌혈관수술
+- 심장: 허혈성심장질환진단·허혈심장질환진단 → 허혈심질환(초기) / 급성심근경색진단·급성심근경색증진단 → 급성심근경색(말기) / 심혈관수술·심혈관질환수술·허혈성심장질환수술 → 심혈관수술
+- 종수술(그룹 → 1~5종 자동셋팅): 질병종수술 / 상해종수술 / 질병상해종수술 / 종수술
+- 수술: 상해수술·특정상해수술 → 상해수술 / 질병수술·특정질병수술 → 질병수술
+- 입원: 질병입원일당·질병입원·**암입원일당** → 질병입원 / 상해입원일당·특정상해입원일당·상해입원 → 상해입원
+- 기타 금액: 응급실내원/응급실내원비/응급실내원진료비 · 골절진단/골절진단비/중대골절진단 · 화상진단/화상진단비
+- Y/N형: 운전자특약·교통사고처리지원금·자동차사고변호사선임비용·변호사선임비용·운전자벌금 → 운전자특약 / 자동차부상치료비·자동차사고부상치료비·자동차사고부상위로금 → 자동차부상치료비 / 가족일상(생활)배상책임·일상생활배상책임 → 가족일상배상책임 / 상해실손의료비·상해입원의료비·상해통원의료비 → 상해실손 / 질병실손의료비·질병입원의료비·질병통원의료비 → 질병실손
+- **의도적 unmapped(보수적 — 수동 배정)**: 암사망, 특정질병사망, 특정상해진단, 깁스치료, 무접두 '입원일당'/'후유장해' (과대표시 방지)
+
+### 설계 결정 (자체점검 기록)
+- 36행 순서 = '비교분석표' 시트 J8:J43 권위(재해사망 포함). '최종비교분석표' 시트(37행, 재해사망 없음·암입원 있음)와 다름 — 양식 시트 간 차이는 Human 확인 사항.
+- 암입원일당 → 질병입원 합산(암=질병 계열 판단). 부적절하면 사전 1줄 수정으로 변경 가능.
+- 사망분해 명세 3분기 외 보수 분기 추가: 상해 없음→질병 유지, 질병>상해→일반=상해+질병 잔여 유지. 검증례(질병1억+상해3억→일반1억+재해2억) = 신한 계약 실데이터로 테스트.
+- 종수술: 계약 내 그룹 가입금액 **합산 후 1회 확장**(질병240+상해240=480). 1~4종 = 인접 구간 거리가중 선형 보간 후 만원 정수 반올림, 5종 = 가입금액 고정, 표 범위 밖은 경계행 비례 외삽. 전 칸 suggested 플래그(후속 UI 수정 가능). "선형 평균"을 거리가중 보간으로 해석 — 단순 평균 의도였다면 1줄 수정.
+- 사망분해·종수술 확장은 **계약(열) 단위** 적용 후 합계 산출.
+- Y/N형은 존재 여부만(금액 무시). 합계의 flag 행은 OR.
+- 컨설팅 후 = applyConsultingPlan(해지 제외 + 담보 감액 override + 보험료 수기 조정 실효화) → **전과 동일한 buildCoverageTable** 호출(후 전용 로직 없음, 테스트로 동일성 강제).
+
+### Verified
+- [x] /tmp 독립 환경(node22, typescript ~6.0.2, vitest 4.1.8): `tsc -p`(repo 옵션 미러 + **strict 추가**) 통과.
+- [x] vitest 25/25 통과 (원천자료 샘플 수치 그대로 단언).
+- [x] 신규 파일 마운트 동기화 확인. coverageMapping.ts 는 생성 후 1회 편집으로 마운트 뷰가 첫 동기화 길이(19138B)에 고정 — 19138B까지 /tmp 검증본과 완전 일치, 꼬리 5B는 Windows 원본 Grep 으로 확인(ENV-MOUNT-NOTES 알려진 아티팩트).
+- [ ] Windows: tsc(app/node)·lint·test·build — Codex.
+
+### Notes
+- **태스크 번호 충돌**: 같은 날 Codex `BOHUMFIT-041-railway-runtime-diagnosis`(완료)와 번호 중복. 사용자 지시 번호 유지, 슬러그로 구분. 번호 재정렬 필요 시 Human 판단.
+- eslint 선제 점검: no-unused-expressions 위험(`void rows`) 제거 — parseSourceRows 가 rows.length 를 사용해 throw.
+- 후속: 042 업로더(SheetJS→parseSourceRows 구현), 043 컨설팅 UI(이 lib 의 applyConsultingPlan/buildAfterTable 사용 — 산식 재구현 금지).
+
+### Next
+- Codex(Windows): ① `npx tsc -p tsconfig.app.json --noEmit` / `tsconfig.node.json` ② `npm run lint` ③ `npm test`(기존 1 + 신규 25) ④ `npm run build` ⑤ 041(coverage-mapping) 범위 5개 파일만 스테이징 → 한국어 커밋(`BOHUMFIT-041: 보장분석 매핑 엔진 (순수 TS lib)`) → push.
+- Human: '최종비교분석표' 시트와 36행 차이(재해사망/암입원), 종수술 보간 해석(거리가중 vs 단순평균), 암입원일당→질병입원 판단 확인.
+
+## 2026-06-12 Codex BOHUMFIT-041 [진단 - Railway backend runtime/Playwright path]
+### Changed
+- `.agent-harness/tasks/BOHUMFIT-041-railway-runtime-diagnosis.md`
+  - Railway runtime 진단 범위와 읽기 전용 제약 기록.
+- 코드 수정 없음.
+### Verified
+- [x] `backend/start.sh` 확인
+  - uvicorn 포트는 하드코딩 8080이 아니라 `--port "${PORT:-8000}"`.
+  - 런타임마다 `python -m playwright install chromium` 실행.
+  - `PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-0}"`는 기존 환경변수가 없을 때만 `0`을 넣음.
+- [x] `backend/Dockerfile` 확인
+  - `ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright`.
+  - build 단계에서 `python -m playwright install chromium` 실행.
+  - `EXPOSE 8000`, `CMD ["bash", "/app/start.sh"]`.
+- [x] `backend/railway.json` 확인
+  - `builder=DOCKERFILE`, `dockerfilePath=Dockerfile`, `startCommand=null`.
+- [x] 외부 공개 도메인 확인
+  - `https://surit-react-production.up.railway.app/api/health` → 200, `{"status":"ok","env":"development","version":"73c0e1c",...}`.
+  - `https://surit-react-production.up.railway.app/` → 404 (API 서버 root 미정의로 보임).
+  - `POST /api/report/pdf` 무인증 → 401, `POST /api/analyze` 무인증 → 401.
+  - `OPTIONS /api/report/pdf` with `Origin: https://bohumfit.ai` → 200, CORS allow-origin 정상.
+### Notes
+- 실제 외부 증상 한 줄: **백엔드 서비스 자체는 외부에서 200/401로 정상 응답하며 502/timeout 상태가 아니다. 문제는 로그인 후 PDF 렌더 단계에서 Chromium 경로/설치 확인이 다시 발생하는 런타임 이슈로 좁혀진다.**
+- Railway Variables/Deploy Logs는 직접 조회 불가: `railway whoami/status/logs` 모두 `Unauthorized. Please login with railway login`.
+- `PORT` Variable 실제값은 CLI 권한 때문에 확인 불가. 다만 사용자가 제공한 deploy log의 `0.0.0.0:8080`은 Railway가 `$PORT=8080`을 주입했고 `start.sh`가 이를 정상 사용한 것으로 해석된다. `EXPOSE 8000`은 혼동을 주는 metadata지만, 현재 외부 health 200 기준으로 즉시 미응답 원인은 아님.
+- Playwright 경로 추정:
+  - Dockerfile build/runtime 기본값만 보면 `/ms-playwright`로 일치한다.
+  - 그런데 런타임에서 Chromium 101.4MiB 재다운로드가 발생한다면, 038에서 안내했던 Railway Variable `PLAYWRIGHT_BROWSERS_PATH=0`이 아직 남아 Dockerfile ENV(`/ms-playwright`)를 덮는 경우가 가장 유력하다.
+  - 두 번째 가능성은 start 단계의 `python -m playwright install chromium`이 매 부팅 실행되어, 경로가 조금만 어긋나도 cold start마다 다운로드를 유발하는 구조라는 점.
+- Deploy Logs 재시작 루프 여부는 권한상 직접 확인 못 함. 사용자가 제공한 `Application startup complete` / `Uvicorn running on 0.0.0.0:8080`과 외부 health 200 기준으로는 현재 재시작 루프 증거 없음.
+### Next
+- Human 승인 후 별도 수정 태스크 제안:
+  1. Railway Variables에서 `PLAYWRIGHT_BROWSERS_PATH`가 있으면 삭제하거나 `/ms-playwright`로 맞춘다.
+  2. `backend/start.sh`에서 매 부팅 `playwright install chromium`을 제거하거나, `/ms-playwright` 실행 파일 존재 확인 후 없을 때만 설치하도록 변경한다.
+  3. 혼동 방지를 위해 `backend/Dockerfile`의 `EXPOSE 8000`을 Railway 실제 `$PORT` 관례에 맞춰 문서화하거나 `EXPOSE 8080`으로 맞추는 방안을 검토한다. 단, 현재 health 200이므로 포트 수정은 우선순위 낮음.
+  4. 수정 전 Railway Deploy Logs에서 `PLAYWRIGHT_BROWSERS_PATH` 출력값과 재다운로드 직전 로그 3~5줄을 Human이 확인하면 원인 확정 가능.
+
 ## 2026-06-12 Codex BOHUMFIT-040 [완료 - 실손 PDF 저장 UI 밸런스]
 ### Changed
 - `src/pages/InsuranceCalculator.tsx`
