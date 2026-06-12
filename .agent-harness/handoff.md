@@ -16,6 +16,79 @@
 
 # Handoff
 
+## 2026-06-12 21:02 Codex BOHUMFIT-044 [완료 - Windows 권위 검증/푸시 대기]
+### Changed
+- `src/index.css` — BOHUMFIT 네이비·골드 @theme 토큰 추가, BOM(`EF BB BF`) 보존, 레거시 indigo 토큰 보존 확인.
+- `src/components/ui/*` — Button/Card/PageHeader/DataTable/Field/Badge/Callout/EmptyState 8종 신규 컴포넌트 추가.
+- `src/components/Layout.tsx`, `src/components/Footer.tsx` — 금융 대시보드 톤의 헤더/네비/푸터 적용.
+- `src/pages/Home.tsx`, `src/pages/Login.tsx` — 홈/로그인 화면에 디자인 토큰과 ui 컴포넌트 적용.
+- `.agent-harness/tasks/BOHUMFIT-044-design-system.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md` — 태스크/검증/잠금 기록.
+
+### Verified
+- [x] `.git/index.lock` 없음.
+- [x] 변경 범위 확인: 허용 파일만 변경. `Disclosure.tsx`, `InsuranceCalculator.tsx`, `CoverageAnalysis.tsx` diff 없음.
+- [x] `src/index.css` 첫 바이트 `EF BB BF`로 BOM 보존 확인.
+- [x] `src/index.css` 레거시 indigo 토큰 잔존 확인(045 전 회귀 방지 목적).
+- [x] `npx tsc -p tsconfig.app.json --noEmit`
+- [x] `npx tsc -p tsconfig.node.json --noEmit`
+- [x] `npm run lint`
+- [x] `npm test` - 3 files, 39 tests passed.
+- [x] `npm run build` - 통과. `xlsx` 별도 청크 유지, Vite 500kB chunk warning은 기존 메인 번들 크기 경고로 기록.
+- [x] 브라우저 스모크(`npm run dev`, Playwright): `/login`, `/`, `/disclosure`, `/insurance`, `/coverage` 렌더 확인, 보호 라우트용 합성 세션으로 active nav 확인, 모바일 폭에서 네비 링크/실손 페이지 렌더 확인.
+
+### Notes
+- in-app browser REPL 도구가 현재 노출되지 않아 로컬 Playwright로 대체 검증. 스크린샷 임시 파일과 dev 로그는 커밋 전 삭제.
+- Home full-page 캡처는 스크롤 진입 애니메이션 때문에 일부 구간이 빈 공간처럼 보일 수 있었으나, DOM에는 `OUR MISSION`/`SERVICE ROADMAP`/`CORE VALUES` 섹션 텍스트가 존재하고 route smoke는 통과. 최종 룩은 Human 육안 확인 권장.
+- 골드 CTA와 네이비 계열은 Home 스크린샷에서 확인. 045 범위 3페이지는 공통 Layout 영향만 받고 파일 diff 없음.
+
+### Next
+- Human: 배포 화면 룩 확인(골드 강도·네이비 명도·Home 스크롤 애니메이션 체감).
+- Codex/Cowork: BOHUMFIT-045에서 Disclosure/실손/보장분석을 동일 토큰·컴포넌트 API로 마이그레이션.
+
+## 2026-06-12 Cowork BOHUMFIT-044 [구현+/tmp 검증 완료 / Codex Windows 검증·커밋·푸시 → Human 룩 확인]
+### Changed
+- `src/index.css` — @theme 디자인 토큰 추가(아래 목록). **레거시 토큰(indigo 등) 보존** — 045 범위 화면 회귀 방지. 파일 선두 BOM(EF BB BF) 유지 확인.
+- `src/components/ui/` 신규 8종: `Button.tsx`·`Card.tsx`·`PageHeader.tsx`·`DataTable.tsx`·`Field.tsx`(+TextInput/SelectInput)·`Badge.tsx`·`Callout.tsx`·`EmptyState.tsx`.
+- `src/components/Layout.tsx` — 금융 대시보드 톤 리라이트: 네이비→골드 브랜드 바(PDF 리포트 헤더 아이덴티티), 로고 워드마크(네이비+골드 도트), 활성 메뉴 골드 언더라인, 사용자 영역 정돈, 모바일 nav overflow-x-auto. **NAV 5항목·라우팅·NavLink(aria-current) 불변.**
+- `src/components/Footer.tsx` — 딥 네이비 푸터(문구·링크 불변).
+- `src/pages/Home.tsx` — **클래스 토큰 스왑만**(구조·카피·애니메이션·라우팅 불변): `#0F172A`→navy-950, 히어로 그라디언트 navy 계열, eyebrow indigo→gold, CTA 골드(bg-gold-400/text-navy-950), 로드맵·유즈케이스 카드 navy 계열, 통계 suffix gold-400.
+- `src/pages/Login.tsx` — ui 컴포넌트 적용 리스타일(인증 로직·링크 불변): TextInput/Button(loading)/Callout(danger), 카카오·구글 버튼 브랜드색 유지, autoComplete 속성 추가.
+- `.agent-harness/tasks/BOHUMFIT-044-design-system.md`(신규), handoff/locks.
+- **무수정**: `Disclosure.tsx`·`InsuranceCalculator.tsx`·`CoverageAnalysis.tsx`(045 범위)·`Signup`·약관/개인정보·`App.tsx`. 기능·산식·라우팅 변경 0.
+
+### 토큰 목록 (045 사양 — 그대로 사용)
+- 색상: `navy-50~950`(주조 800=#0E2F4F, 다크 섹션 950=#061625) / `gold-50~900`(포인트 400=#C9A227, 흰 배경 텍스트는 600=#8C6D1F 이상) / `success·warning·danger-{50,100,600,700}` / 표면 `canvas`(#F4F6F9)·텍스트 `ink`(#232629)·보조 `ink-soft`(#5A6270)·경계 `line`(#DCE2EA).
+- 타이포 4단: `text-display`(28px·800) / `text-title`(18px·700) / `text-body`(15px) / `text-caption`(12.5px) + 표 전용 `text-table`(13.5px). 숫자엔 `tabular-nums` 병용.
+- 효과: `shadow-card`·`shadow-raised`, `rounded-card`(12px).
+- 사용 규칙: hex 임의값 금지 → 토큰 유틸리티 참조. 골드는 절제(활성 표시·강조 수치·브랜드 도트). 다크 배경 위 텍스트는 navy-100~300.
+
+### 컴포넌트 API 요약 (045에서 그대로 사용)
+- `Button{variant: primary|secondary|danger|ghost, size: sm|md|lg, loading, full}` — loading 시 스피너+aria-busy+disabled, focus-visible 아웃라인.
+- `Card{title?, subtitle?, actions?, flush?}` — flush 는 표 등 풀블리드용.
+- `PageHeader{title, badge?, description?, actions?}`.
+- `DataTable<T>{columns:[{key,header,align?,render,minWidth?}], rows, rowKey, minWidth=640, stickyFirst?, striped?=true, footer?(tfoot 행), empty?, rowClassName?}` — 헤더 navy-800·줄무늬·tabular-nums·overflow-x-auto. 비분표·결과표 패턴.
+- `Field{label, required?, help?, error?}` + `TextInput`/`SelectInput`(토큰 입력 스타일 공유).
+- `Badge{tone: navy|gold|success|warning|danger|neutral, solid?}` — 판정 권장 매핑: 고지 권고=gold, 불요=success, 확인 필요=warning, 치료 중=danger, 질문번호=navy.
+- `Callout{variant: info|success|warning|danger|legal, title?}` — **면책·비저장 문구는 variant="legal" 로 통일**(warning/danger 는 role=alert).
+- `EmptyState{title, description?, action?}`.
+
+### Verified
+- [x] /tmp tsc(strict+jsx): ui 8종 + 기존 lib/페이지 대상 통과.
+- [x] Tailwind v4 실컴파일(@tailwindcss/cli 4.2.x) → Chromium 스크린샷 육안: `outputs/ds_showcase.png` — 헤더(브랜드 바·활성 골드 언더라인)/PageHeader/버튼 5상태/뱃지 7종/Card+Field(기본·필수·오류)/DataTable(네이비 헤더·줄무늬·합계행)/Callout 4종/EmptyState 의도대로 렌더.
+- [x] 대비(4.5:1↑): ink/white ≈14:1, gold-600/white ≈5.4:1, 푸터 navy-300/navy-950 ≈8:1, 네이비 버튼 white/navy-800 ≈12:1.
+- [x] index.css 마운트 truncation 재발(1093B 고정) — BOM 감안 prefix 일치 확인(Windows 원본 권위). 편집 파일(Home/Layout/Footer/Login) 동일 제약 — Codex Windows 검증 필요.
+- [ ] Windows: tsc(app/node)·lint·test·build + 전 라우트 브라우저 스모크 — Codex. 특히 045 범위 3페이지: 변경 영향은 전역 배경 한 단계(F8F9FC→F4F6F9)와 공통 헤더/푸터뿐, 콘텐츠 카드 기존 스타일 유지 확인.
+
+### Notes
+- Home 은 diff 가 클래스 문자열 치환만이어야 함 — 구조 변화 0 검토 포인트.
+- 레거시 @theme 토큰·인디고 잔존(045 범위 페이지)은 의도적 보존 — 045 마이그레이션 완료 후 일괄 제거 태스크 권장.
+- 쇼케이스·렌더 헬퍼는 /tmp 전용(repo 미포함).
+
+### Next
+- Codex(Windows): ① tsc(app/node) ② lint ③ test ④ build ⑤ 전 라우트 스모크 → 044 범위 파일만 한국어 커밋(`BOHUMFIT-044: 디자인 시스템 — 금융권 신뢰 톤(토큰+ui 8종+Layout/홈/로그인)`) → push.
+- Human: 룩 확인(`outputs/ds_showcase.png` + 배포 화면) — 골드 강도·네이비 명도 피드백.
+- 045: Disclosure/실손/보장분석을 위 토큰·API 로 마이그레이션(기능·산식 불변).
+
 ## 2026-06-12 20:22 Codex BOHUMFIT-042 [완료 - Windows 권위 검증/푸시 대기]
 ### Changed
 - `package.json`, `package-lock.json` — `xlsx ^0.18.5` 설치 및 lockfile 갱신.

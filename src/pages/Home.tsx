@@ -38,7 +38,7 @@ function StatCard({ value, suffix, label, delay }: { value: number; suffix: stri
   return (
     <div ref={ref} className="text-center" style={{ transitionDelay: `${delay}ms` }}>
       <p className="text-5xl font-extrabold tabular-nums text-white md:text-6xl">
-        {count}<span className="text-indigo-400">{suffix}</span>
+        {count}<span className="text-gold-400">{suffix}</span>
       </p>
       <p className="mt-3 text-sm leading-relaxed text-gray-400 break-keep">{label}</p>
     </div>
@@ -115,8 +115,8 @@ export default function Home() {
     <div className="-mx-5 -mt-8">
 
       {/* ── 1. HERO (다크 풀스크린) ──────────────────────────── */}
-      <section className="relative flex min-h-[88vh] items-center overflow-hidden bg-[#0F172A]">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0F172A] via-[#1E1B4B] to-[#0F172A]" />
+      <section className="relative flex min-h-[88vh] items-center overflow-hidden bg-navy-950">
+        <div className="absolute inset-0 bg-gradient-to-br from-navy-950 via-navy-800 to-navy-950" />
         <div
           className="absolute inset-0 opacity-[0.07]"
           style={{
@@ -126,7 +126,7 @@ export default function Home() {
           }}
         />
         <div className="relative mx-auto max-w-6xl px-6 py-20">
-          <p className="text-xs font-bold uppercase tracking-[0.3em] text-indigo-300">
+          <p className="text-xs font-bold uppercase tracking-[0.3em] text-gold-300">
             Insurance Disclosure Intelligence
           </p>
           <h1 className="mt-6 text-5xl font-extrabold leading-[1.05] tracking-tight text-white md:text-7xl">
@@ -142,7 +142,7 @@ export default function Home() {
           <div className="mt-9 flex flex-wrap gap-3">
             <Link
               to="/check"
-              className="rounded-xl bg-indigo-600 px-6 py-3.5 text-sm font-bold text-white hover:bg-indigo-500 transition"
+              className="rounded-xl bg-gold-400 px-6 py-3.5 text-sm font-bold text-navy-950 hover:bg-gold-300 transition"
             >
               고지 리스크 점검 시작 →
             </Link>
@@ -160,7 +160,7 @@ export default function Home() {
       <section className="bg-white py-24">
         <div className="mx-auto max-w-4xl px-6 text-center">
           <FadeIn>
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-indigo-600">Our Mission</p>
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-gold-600">Our Mission</p>
             <h2 className="mt-5 text-3xl font-extrabold leading-snug text-gray-950 md:text-4xl break-keep">
               보험 가입 시 고객과 설계사 모두의 권리를 지킵니다
             </h2>
@@ -174,10 +174,10 @@ export default function Home() {
       </section>
 
       {/* ── 3. STATS (다크, 카운트업) ────────────────────────── */}
-      <section className="bg-[#0F172A] py-24">
+      <section className="bg-navy-950 py-24">
         <div className="mx-auto max-w-6xl px-6">
           <FadeIn className="mb-14 text-center">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-indigo-300">By the numbers</p>
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-gold-300">By the numbers</p>
           </FadeIn>
           <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
             {STATS.map((s, i) => (
@@ -191,7 +191,7 @@ export default function Home() {
       <section className="bg-gray-50 py-24">
         <div className="mx-auto max-w-6xl px-6">
           <FadeIn className="mb-14">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-indigo-600">Service Roadmap</p>
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-gold-600">Service Roadmap</p>
             <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-gray-950 md:text-4xl break-keep">
               지금의 BOHUMFIT과 앞으로의 BOHUMFIT
             </h2>
@@ -202,7 +202,7 @@ export default function Home() {
                 <div
                   className={`rounded-2xl border p-7 h-full ${
                     r.active
-                      ? "border-indigo-200 bg-white shadow-[0_2px_20px_rgba(79,70,229,0.09)]"
+                      ? "border-navy-200 bg-white shadow-raised"
                       : "border-gray-200 bg-white"
                   }`}
                 >
@@ -210,7 +210,7 @@ export default function Home() {
                     <span
                       className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
                         r.active
-                          ? "bg-indigo-600 text-white"
+                          ? "bg-navy-800 text-white"
                           : "bg-gray-100 text-gray-500"
                       }`}
                     >
@@ -218,7 +218,7 @@ export default function Home() {
                     </span>
                     <span
                       className={`text-[11px] font-semibold ${
-                        r.active ? "text-indigo-600" : "text-gray-400"
+                        r.active ? "text-gold-600" : "text-gray-400"
                       }`}
                     >
                       {r.status}
@@ -243,7 +243,7 @@ export default function Home() {
       <section className="bg-white py-24">
         <div className="mx-auto max-w-6xl px-6">
           <FadeIn className="mb-14">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-indigo-600">Core Values</p>
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-gold-600">Core Values</p>
             <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-gray-950 md:text-4xl">
               우리가 지키는 원칙
             </h2>
@@ -252,7 +252,7 @@ export default function Home() {
             {VALUES.map((v, i) => (
               <FadeIn key={v.k} delay={i * 80}>
                 <div className="rounded-2xl border border-gray-200 bg-gray-50 px-6 py-7 h-full">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-indigo-600">{v.e}</p>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-gold-600">{v.e}</p>
                   <h3 className="mt-2 text-xl font-extrabold text-gray-950">{v.k}</h3>
                   <p className="mt-3 text-[13px] leading-6 text-gray-500 break-keep">{v.body}</p>
                 </div>
@@ -263,10 +263,10 @@ export default function Home() {
       </section>
 
       {/* ── 6. WHY 진입 (다크) ───────────────────────────────── */}
-      <section className="bg-[#0F172A] py-24">
+      <section className="bg-navy-950 py-24">
         <div className="mx-auto max-w-4xl px-6 text-center">
           <FadeIn>
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-indigo-300">Why It Matters</p>
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-gold-300">Why It Matters</p>
             <h2 className="mt-5 text-3xl font-extrabold leading-snug text-white md:text-4xl break-keep">
               고지 누락은 작은 실수가 아닙니다
             </h2>
@@ -279,7 +279,7 @@ export default function Home() {
             </p>
             <Link
               to="/why"
-              className="mt-8 inline-flex rounded-xl bg-white px-6 py-3.5 text-sm font-bold text-[#0F172A] hover:bg-gray-100 transition"
+              className="mt-8 inline-flex rounded-xl bg-white px-6 py-3.5 text-sm font-bold text-navy-950 hover:bg-gray-100 transition"
             >
               고지 누락 피해 사례 보기 →
             </Link>
@@ -291,7 +291,7 @@ export default function Home() {
       <section className="bg-white py-24">
         <div className="mx-auto max-w-6xl px-6">
           <FadeIn className="mb-14">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-indigo-600">Use cases</p>
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-gold-600">Use cases</p>
             <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-gray-950 md:text-4xl break-keep">
               누구를 위한 도구인가요
             </h2>
@@ -300,7 +300,7 @@ export default function Home() {
             <FadeIn delay={0}>
               <Link
                 to="/check"
-                className="group block rounded-2xl border border-indigo-200 bg-white p-8 shadow-[0_2px_12px_rgba(79,70,229,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_35px_rgba(79,70,229,0.12)] h-full"
+                className="group block rounded-2xl border border-navy-200 bg-white p-8 shadow-card transition hover:-translate-y-0.5 hover:shadow-raised h-full"
               >
                 <span className="inline-flex rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">
                   고객용
@@ -317,7 +317,7 @@ export default function Home() {
                     </li>
                   ))}
                 </ul>
-                <span className="mt-6 inline-flex items-center text-sm font-bold text-indigo-600">
+                <span className="mt-6 inline-flex items-center text-sm font-bold text-navy-700">
                   고지 리스크 점검 시작
                   <span aria-hidden className="ml-2 transition group-hover:translate-x-1">→</span>
                 </span>
@@ -328,7 +328,7 @@ export default function Home() {
                 to="/disclosure?mode=agent"
                 className="group block rounded-2xl border border-gray-200 bg-white p-8 transition hover:-translate-y-0.5 hover:shadow-[0_14px_35px_rgba(15,23,42,0.07)] h-full"
               >
-                <span className="inline-flex rounded-full border border-indigo-100 bg-indigo-50 px-2.5 py-0.5 text-[11px] font-bold text-indigo-700">
+                <span className="inline-flex rounded-full border border-navy-200 bg-navy-50 px-2.5 py-0.5 text-[11px] font-bold text-navy-800">
                   설계사용
                 </span>
                 <h3 className="mt-4 text-xl font-bold tracking-tight text-gray-950">알릴의무 필터</h3>
@@ -354,7 +354,7 @@ export default function Home() {
       </section>
 
       {/* ── 8. CTA (다크) ────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-[#0F172A] py-28">
+      <section className="relative overflow-hidden bg-navy-950 py-28">
         <div
           className="absolute inset-0 opacity-[0.06]"
           style={{
@@ -373,7 +373,7 @@ export default function Home() {
             </p>
             <Link
               to="/check"
-              className="mt-8 inline-flex rounded-xl bg-indigo-600 px-8 py-4 text-base font-bold text-white hover:bg-indigo-500 transition"
+              className="mt-8 inline-flex rounded-xl bg-gold-400 px-8 py-4 text-base font-bold text-navy-950 hover:bg-gold-300 transition"
             >
               고지 리스크 점검 시작 →
             </Link>

@@ -15,6 +15,8 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-12 `BOHUMFIT-044` - Codex - Windows authority verification completed; scope check, BOM/legacy token check, tsc/lint/test/build, and browser smoke passed. No active locks remain.
+- 2026-06-12 `BOHUMFIT-044` - Cowork - 디자인 시스템(금융권 신뢰 톤) 구현 완료. 범위: `src/index.css`(@theme 토큰, 레거시 보존·BOM 유지), `src/components/ui/*` 8종 신규, `Layout.tsx`·`Footer.tsx` 리라이트, `Home.tsx`(토큰 스왑만)·`Login.tsx`(ui 적용) 리스타일, 태스크/handoff/locks. 기능·산식·라우팅 변경 0, Disclosure/실손/보장분석 무수정(045 범위). /tmp tsc(strict+jsx) + Tailwind v4 실컴파일 + Chromium 쇼케이스 스크린샷(outputs/ds_showcase.png) 육안·대비(4.5:1↑) 통과. 토큰 목록·컴포넌트 API 사양 handoff 기록 → Codex(Windows) tsc/lint/test/build·전 라우트 스모크·커밋·푸시 → Human 룩 확인 → 045 대기로 잠금 해제(ENV 준수, 마운트 git 미실행).
 - 2026-06-12 `BOHUMFIT-042` - Codex - Windows authority verification completed for `/coverage`; npm install/tsc/lint/test/build and synthetic xlsx browser smoke passed. No active locks remain.
 - 2026-06-12 `BOHUMFIT-042` - Cowork - /coverage 보장분석 페이지(업로드→매핑 확인→전 비분표) 구현 완료. 범위: `src/pages/CoverageAnalysis.tsx`·`src/lib/coverageParse.ts`·`coverageParse.test.ts`(신규), `src/App.tsx`·`src/components/Layout.tsx`(소형 편집), `package.json`(xlsx ^0.18.5), 태스크/handoff/locks. 041 lib 무수정 재사용(산식 재구현 0). /tmp tsc(strict+jsx)·vitest 13/13 + 실파일 E2E 스모크(7계약·경고 0·041 검증값 일치, repo 미포함) 통과. 파싱 가정·경고 처리 handoff 명시 → Codex(Windows) npm install·tsc/lint/test/build·브라우저 스모크·커밋·푸시 대기로 잠금 해제(ENV 준수, 마운트 git 미실행).
 - 2026-06-12 `BOHUMFIT-041(coverage-mapping)` - Codex - Windows authority verification passed for coverage mapping engine; tsc/lint/test/build passed, spot checks confirmed death decomposition, surgery interpolation, and unmapped preservation.

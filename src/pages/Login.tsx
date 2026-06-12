@@ -1,6 +1,10 @@
+// BOHUMFIT-044: 로그인 리스타일 — 인증 로직·링크 불변, 디자인 토큰/ui 컴포넌트 적용.
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import Button from "../components/ui/Button";
+import Callout from "../components/ui/Callout";
+import { TextInput } from "../components/ui/Field";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -37,76 +41,74 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F8F9FC] px-4">
+    <div className="flex min-h-screen items-center justify-center bg-canvas px-4">
       <div className="w-full max-w-sm">
-        <div className="mb-10 text-center">
-          <h1 className="text-3xl font-black tracking-tight text-gray-900">
-            BOHUM<span className="text-[#4F46E5]">FIT</span>
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl font-extrabold tracking-tight text-navy-900">
+            BOHUMFIT<span className="text-gold-400">.</span>
           </h1>
-          <p className="mt-2 text-sm text-gray-400">보험 고지 리스크 점검을 시작하세요</p>
+          <p className="mt-2 text-body text-ink-soft">보험 고지 리스크 점검을 시작하세요</p>
         </div>
 
-        <div className="space-y-3">
-          <button
-            onClick={handleKakao}
-            className="flex w-full items-center justify-center rounded-[8px] py-3 text-sm font-bold transition-colors"
-            style={{ background: "#FEE500", color: "#191919" }}
-          >
-            카카오로 시작하기
-          </button>
+        <div className="rounded-card border border-line bg-white p-6 shadow-card">
+          <div className="space-y-3">
+            <button
+              onClick={handleKakao}
+              className="flex w-full items-center justify-center rounded-lg py-3 text-sm font-bold transition-opacity hover:opacity-90"
+              style={{ background: "#FEE500", color: "#191919" }}
+            >
+              카카오로 시작하기
+            </button>
 
-          <button
-            onClick={handleGoogle}
-            className="flex w-full items-center justify-center rounded-[8px] border border-gray-200 bg-white py-3 text-sm font-bold text-gray-700 shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition-colors hover:bg-gray-50"
-          >
-            Google로 시작하기
-          </button>
+            <button
+              onClick={handleGoogle}
+              className="flex w-full items-center justify-center rounded-lg border border-line bg-white py-3 text-sm font-bold text-ink transition-colors hover:bg-canvas"
+            >
+              Google로 시작하기
+            </button>
+          </div>
+
+          <div className="my-6 flex items-center gap-3" aria-hidden>
+            <div className="h-px flex-1 bg-line" />
+            <span className="text-caption font-semibold text-ink-soft/60">또는</span>
+            <div className="h-px flex-1 bg-line" />
+          </div>
+
+          <form onSubmit={handleEmail} className="space-y-3">
+            <TextInput
+              type="email"
+              placeholder="이메일"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+            />
+            <TextInput
+              type="password"
+              placeholder="비밀번호"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+            />
+
+            {error && <Callout variant="danger">{error}</Callout>}
+
+            <Button type="submit" loading={loading} full size="lg">
+              {loading ? "로그인 중..." : "이메일로 로그인"}
+            </Button>
+          </form>
         </div>
 
-        <div className="my-6 flex items-center gap-3">
-          <div className="h-px flex-1 bg-gray-200" />
-          <span className="text-xs font-semibold text-gray-300">또는</span>
-          <div className="h-px flex-1 bg-gray-200" />
-        </div>
-
-        <form onSubmit={handleEmail} className="space-y-3">
-          <input
-            type="email"
-            placeholder="이메일"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="w-full rounded-[8px] bg-white px-4 py-3 text-sm text-gray-800 shadow-[0_1px_3px_rgba(0,0,0,0.06)] placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30"
-          />
-          <input
-            type="password"
-            placeholder="비밀번호"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="w-full rounded-[8px] bg-white px-4 py-3 text-sm text-gray-800 shadow-[0_1px_3px_rgba(0,0,0,0.06)] placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30"
-          />
-
-          {error && <p className="text-xs font-semibold text-red-500">{error}</p>}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-[8px] bg-[#4F46E5] py-3 text-sm font-bold text-white shadow-[0_2px_8px_rgba(79,70,229,0.3)] transition-colors hover:bg-[#4338CA] disabled:opacity-50"
-          >
-            {loading ? "로그인 중..." : "이메일로 로그인"}
-          </button>
-        </form>
-
-        <p className="mt-6 text-center text-xs text-gray-400">
+        <p className="mt-6 text-center text-caption text-ink-soft">
           아직 계정이 없나요?{" "}
-          <Link to="/signup" className="font-bold text-[#4F46E5] hover:underline">
+          <Link to="/signup" className="font-bold text-navy-700 hover:underline">
             회원가입
           </Link>
         </p>
-        <p className="mt-4 text-center text-xs text-gray-400">
+        <p className="mt-3 text-center text-caption text-ink-soft">
           고객용 점검도{" "}
-          <Link to="/check" className="font-bold text-emerald-600 hover:underline">
+          <Link to="/check" className="font-bold text-success-600 hover:underline">
             로그인 후 이용
           </Link>
           할 수 있습니다.
