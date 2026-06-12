@@ -15,6 +15,8 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-12 `BOHUMFIT-040` - Codex - `/insurance` PDF save button/status layout balanced; tsc/lint/test/build passed; login-protected visual final check remains Human.
+
 - 2026-06-12 `BOHUMFIT-039` - Codex - Railway backend Dockerfile transition added for repo-root and backend-root deployments; JSON/line-ending checks, tsc/lint/test/build, and backend pytest passed. Local Docker unavailable, so Railway deploy log/PDF E2E remains Human.
 
 - 2026-06-11 `BOHUMFIT-038` - Codex - Railway Chromium install fallback implemented with `PLAYWRIGHT_BROWSERS_PATH=0`, expanded apt packages, backend start script runtime install, and LF shell script guard. Local tests/build passed; Railway Variables/log confirmation remains Human.

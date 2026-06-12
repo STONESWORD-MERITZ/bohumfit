@@ -188,6 +188,12 @@ export default function InsuranceCalculator() {
       <style>{`
         @media screen {
           .print-only { display: none !important; }
+          .pdf-status-text {
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+            overflow: hidden;
+          }
         }
         @media print {
           @page { margin: 12mm; }
@@ -204,24 +210,36 @@ export default function InsuranceCalculator() {
           .print-only { display: block !important; }
         }
       `}</style>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0 flex-1">
           <h1 className="text-xl font-extrabold text-gray-950">실손 예상 보험금 계산</h1>
           <p className="mt-1 text-sm text-gray-600 break-keep">
             알릴의무 분석 없이 실손 청구 실익만 빠르게 추정합니다. 확정 금액이 아니며, 정확한 금액·보장 여부는
             보험사·공단 확인이 필요합니다. 본 계산은 보험 모집·상품추천·가입권유가 아닙니다.
           </p>
         </div>
-        <div className="flex flex-col items-start gap-1 sm:items-end">
+        <div className="no-print flex w-full flex-col gap-2 sm:w-[260px] lg:items-end">
           <button
             type="button"
             onClick={downloadReportPdf}
             disabled={reportLoading}
-            className="min-w-[112px] whitespace-nowrap rounded-[8px] bg-gray-950 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
+            className="inline-flex h-10 w-full items-center justify-center gap-2 whitespace-nowrap rounded-[8px] bg-gray-950 px-4 text-sm font-bold text-white transition-colors hover:bg-gray-800 disabled:cursor-wait disabled:opacity-60 sm:w-[150px]"
           >
-            {reportLoading ? "PDF 생성 중..." : "PDF로 저장"}
+            {reportLoading && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/35 border-t-white" aria-hidden="true" />}
+            <span>{reportLoading ? "PDF 생성 중..." : "PDF로 저장"}</span>
           </button>
-          {reportError && <p className="max-w-[320px] text-xs font-semibold text-amber-700 break-keep">{reportError}</p>}
+          <div className="min-h-[34px] w-full sm:text-right">
+            {reportLoading && (
+              <p className="pdf-status-text text-xs font-semibold text-gray-500 break-keep">
+                리포트를 생성하고 있습니다. 잠시만 기다려 주세요.
+              </p>
+            )}
+            {!reportLoading && reportError && (
+              <p className="pdf-status-text text-xs font-semibold text-amber-700 break-keep" title={reportError}>
+                {reportError}
+              </p>
+            )}
+          </div>
         </div>
       </div>
 

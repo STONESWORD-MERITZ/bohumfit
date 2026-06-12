@@ -16,6 +16,29 @@
 
 # Handoff
 
+## 2026-06-12 Codex BOHUMFIT-040 [완료 - 실손 PDF 저장 UI 밸런스]
+### Changed
+- `src/pages/InsuranceCalculator.tsx`
+  - 실손 계산 상단 헤더를 제목/설명 영역과 PDF 액션 영역으로 분리.
+  - PDF 저장 버튼을 고정 폭 액션 컬럼에 배치하고, 상태/오류 문구는 버튼 아래 전용 영역에 표시.
+  - 진행 상태는 스피너 + `PDF 생성 중...` 버튼 문구로 통일하고 줄바꿈 방지 유지.
+  - 실패 문구는 최대 2줄 클램프 처리, 전체 문구는 `title`로 유지.
+  - 좁은 화면에서는 버튼 영역이 제목 아래로 자연스럽게 내려가도록 `lg:flex-row` 기준 반응형 처리.
+- `.agent-harness/tasks/BOHUMFIT-040-insurance-pdf-ui-balance.md`
+  - 작업 범위, 요구사항, 검증 계획 기록.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit`
+- [x] `npx tsc -p tsconfig.node.json --noEmit`
+- [x] `npm run lint`
+- [x] `npm test` - 1 passed
+- [x] `npm run build`
+- [x] 마크업 검토: 제목 영역 `flex-1`, PDF 액션 영역 `sm:w-[260px]`, 버튼 `whitespace-nowrap`, 상태 영역 `min-h` + 2줄 클램프 확인.
+### Notes
+- 산식, API 호출 payload, 면책 문구, 기존 계산 UI 로직 변경 없음.
+- 로컬 Playwright로 `/insurance` 접근 시 `ProtectedRoute` 때문에 로그인 화면으로 리다이렉트되어 실제 계산기 화면 스크린샷은 세션 없이 확인하지 못함. 로그인 세션에서 최종 육안 확인 필요.
+### Next
+- Human: 배포 후 로그인 상태 `/insurance`에서 데스크톱/모바일 헤더 버튼 배치와 실패 문구 2줄 처리 육안 확인.
+
 ## 2026-06-12 Codex BOHUMFIT-039 [완료 - Railway backend Dockerfile 전환]
 ### Changed
 - `Dockerfile`
