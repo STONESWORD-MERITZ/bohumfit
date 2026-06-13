@@ -1,11 +1,11 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useEffect } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import * as Sentry from "@sentry/react";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Home from "./pages/Home";
-import Disclosure from "./pages/Disclosure";
+import DisclosureHub from "./pages/DisclosureHub";
 import InsuranceCalculator from "./pages/InsuranceCalculator";
 import CoverageAnalysis from "./pages/CoverageAnalysis";
 import Login from "./pages/Login";
@@ -67,14 +67,13 @@ function App() {
         <Route path="/signup" element={<Signup />} />
         <Route element={<Layout />}>
           <Route index element={<Home />} />
+          {/* BOHUMFIT-046: 고객용/설계사용 통합 허브 — 모드는 ?mode= 파라미터 */}
           <Route
             path="disclosure"
-            element={<ProtectedRoute><Disclosure initialMode="agent" /></ProtectedRoute>}
+            element={<ProtectedRoute><DisclosureHub /></ProtectedRoute>}
           />
-          <Route
-            path="check"
-            element={<ProtectedRoute><Disclosure initialMode="customer" /></ProtectedRoute>}
-          />
+          {/* 구 고객용 경로 — 북마크·기존 링크 보존용 redirect */}
+          <Route path="check" element={<Navigate to="/disclosure?mode=customer" replace />} />
           <Route
             path="insurance"
             element={<ProtectedRoute><InsuranceCalculator /></ProtectedRoute>}

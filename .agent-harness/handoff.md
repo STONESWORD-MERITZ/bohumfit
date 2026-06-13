@@ -16,6 +16,127 @@
 
 # Handoff
 
+## 2026-06-13 17:54 Codex BOHUMFIT-047 [완료 - Windows 권위 검증/푸시 대기]
+### Changed
+- `src/components/Layout.tsx` — 046 사이드바 셸을 상단 가로 네비로 대체. 데스크탑 드롭다운 hover/click/ESC/외부클릭, 모바일 햄버거 aria/ESC/라우트 닫힘 확인. lint 이슈였던 라우트 변경 setState effect는 비동기 닫힘으로 수정.
+- `src/pages/DisclosureHub.tsx` — 046 통합 허브를 047 최종 구조로 승계. `/disclosure?mode=` 세그먼트 탭으로 모드 전환.
+- `src/App.tsx` — `/disclosure` 허브 연결, `/check` -> `/disclosure?mode=customer` redirect 유지.
+- `package.json`, `package-lock.json` — `lucide-react ^0.503.0` 설치/lock 반영.
+- `.agent-harness/tasks/BOHUMFIT-046-sidebar-ia.md`, `.agent-harness/tasks/BOHUMFIT-047-top-nav-ia.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md` — 046 처리/047 검증 기록.
+
+### Verified
+- [x] `.git/index.lock` 없음.
+- [x] Windows 원본 `Layout.tsx` 254라인/9063자 온전 확인(마운트 truncation 커밋 방지).
+- [x] 변경 범위 확인: 최종 diff는 `Layout`, `App`, `DisclosureHub`, `package*`, task/handoff/locks. `Disclosure.tsx`, `InsuranceCalculator.tsx`, `CoverageAnalysis.tsx`, `backend/templates/*` diff 없음.
+- [x] 046 사이드바 고아 코드 확인: `aside`, `md:pl-60`, `BookOpen` 등 사이드바 셸 잔존 없음. 상단 네비 최종 구조.
+- [x] `npm install` 완료. `npm audit --audit-level=moderate` 결과: 5 vulnerabilities(2 moderate, 3 high). 차단 아님. `xlsx` high 2건은 upstream fix 없음.
+- [x] `npx tsc -p tsconfig.app.json --noEmit`
+- [x] `npx tsc -p tsconfig.node.json --noEmit`
+- [x] `npm run lint`
+- [x] `npm test` - 3 files, 39 tests passed.
+- [x] `npm run build` - 통과. `lucide-react` 포함 후 2001 modules transformed. Vite 500kB chunk warning은 기존 메인 번들 크기 경고.
+- [x] 브라우저 스모크(`npm run dev`, Playwright): 메뉴 순서, 데스크탑 알릴의무 드롭다운 click/hover/ESC/외부클릭, 설계사용/고객용 진입, `/check` redirect, 허브 세그먼트 전환 시 날짜 입력 상태 보존, Home/분석 3페이지 렌더, `/coverage` 합성 xlsx 업로드, 모바일 햄버거 aria-expanded/ESC/라우트 변경 닫힘, CSP 위반 콘솔 0건.
+
+### Notes
+- 046은 별도 커밋 없이 워킹트리에 남아 있었고, 047이 사이드바 셸만 폐기하면서 `DisclosureHub`/`App` redirect/`lucide-react`는 최종 IA에 필요한 산출물로 승계했다. 그래서 046 task 파일도 기록 보존용으로 함께 커밋 대상.
+- Disclosure 내부 ModeSwitch가 허브 세그먼트/상단 드롭다운과 함께 3중 노출되는 것은 현재 의도된 후속 정리 대상.
+- 데스크탑 드롭다운은 hover와 click 고정 상태를 분리해, hover로 열림·click으로 고정·ESC/외부클릭/메뉴 선택으로 닫힘을 보장했다.
+
+### Next
+- Human: 상단 구조 확인(메뉴 순서, 드롭다운, 모바일 햄버거).
+- 다음 태스크: 분석 3페이지 내부 Mercury 적용 + ModeSwitch 3중 노출 정리.
+
+## 2026-06-13 Cowork BOHUMFIT-047 [구현+/tmp 검증 완료 / Codex Windows 검증·커밋·푸시 → Human 구조 확인]
+### Changed
+- `src/components/Layout.tsx` — **상단 가로 네비로 재작성**(046 좌측 사이드바 폐기). sticky 상단 바(캔버스+하단 헤어라인·그림자 없음), 잉크 로고, 메뉴=텍스트 링크(활성=페리윙클 텍스트+하단 2px 인디케이터, after 의사요소). '알릴의무 필터'=NavDropdown(설계사용/고객용 바로가기, 호버·클릭 열림·ESC·외부클릭 닫기). 우측 사용자 이메일+로그아웃(고스트). 모바일 햄버거→드롭다운 패널(role=menu, aria-expanded/controls, ESC·외부클릭·라우트 변경 닫기). 본문 `max-w-6xl px-5 py-8` 중앙 정렬.
+- **무수정 재사용**: `src/pages/DisclosureHub.tsx`(046 산출물 — 세그먼트 탭+`<Disclosure/>` 그대로 렌더, 047 요구와 동일), `src/App.tsx`(`/disclosure`=Hub, `/check`→`?mode=customer` redirect — 변경 없음), `package.json` lucide-react(046 추가분 유지).
+- `.agent-harness/tasks/BOHUMFIT-047-top-nav-ia.md`(신규), handoff/locks.
+- **무수정**: Disclosure/InsuranceCalculator/CoverageAnalysis/Home 내부, Footer, ui/*, index.css, PDF 템플릿.
+
+### 046 처리
+- 046(좌측 사이드바)은 Cowork 구현분이 작업 트리에 존재, **Codex 검증/커밋 기록은 locks/handoff에 없음**(미머지 상태로 판단).
+- 047 = 사이드바 Layout 을 상단 네비로 **대체**(aside·모바일 드로어 컴포넌트 제거 — Layout 재작성으로 자연 폐기). DisclosureHub·`/check` redirect·lucide-react 는 047 도 요구하는 통합 구조라 유지. 결과적으로 046 의 사이드바 셸만 폐기되고 통합/라우팅 산출물은 047 로 승계됨.
+- 사용자 지시("046 미머지면 사이드바 변경분 미채택")와 정합 — 상단 네비가 최종 셸.
+
+### 현 라우트 구조 (변경 없음)
+- Layout 밖: `/login`, `/signup`. Layout 안: `index`(Home), `/disclosure`(DisclosureHub), `/check`→redirect, `/insurance`, `/coverage`, `/before-after`(ComingSoon 자리·메뉴 미노출), `/why`, `/privacy`, `/terms`.
+- Disclosure(1245~1248행)는 `?mode=` 라이브 해석(param 우선→initialMode "agent" 폴백) — 상단 드롭다운/허브 탭 모두 이 파라미터만 변경.
+
+### Redirect 매핑표
+| 구 경로 | 신 경로 | 방식 |
+|---|---|---|
+| `/check` | `/disclosure?mode=customer` | `<Navigate replace>` (북마크 보존) |
+| `/disclosure` | 동일(허브 기본=설계사용) | 변경 없음 |
+| `/disclosure?mode=agent\|customer` | 동일 — 허브·Disclosure 해석 | 변경 없음 |
+
+### 알릴의무 통합 방식
+- 진입 2경로: ① 상단 메뉴 '알릴의무 필터' 드롭다운 → 설계사용/고객용 직접 선택(대면 빠른 진입) ② 페이지 안 세그먼트 탭(고객용|설계사용)으로 즉시 상호 전환.
+- 둘 다 **단일 라우트 `/disclosure` + `?mode=`** 변경 → 리마운트 없음 → 업로드/기준일/결과 상태 보존(대면 중 "고객용 보여주다 설계사용으로" 토글 시 손실 없음).
+- Disclosure 내부 ModeSwitch(두 카드)는 여전히 존재 — 상단 드롭다운/허브 탭과 3중 노출. **페이지 내부 Mercury 적용 태스크에서 정리 후보.**
+
+### Verified
+- [x] /tmp tsc(strict+jsx) 통과 — 실 의존성 체인(신규 상단 네비 Layout+lucide+DisclosureHub+Disclosure 1513행+auth/supabase 셤+ProtectedRoute+AnalysisProgress+Footer+ui).
+- [x] 쇼케이스 4컷: `outputs/topnav_desktop.png`(1280, 드롭다운 열림), `topnav_tablet.png`(1024 — 메뉴 한 줄 유지), `topnav_mobile.png`(390 — 햄버거 패널: 알릴의무 그룹 2항목+사용자 영역). 육안 통과.
+- [x] Layout 마운트 truncation(2785B 고정) 재발 — Windows 원본은 컨텍스트 기준 온전(prefix cmp 일치), /tmp 전체본으로 tsc 검증. ENV 아티팩트.
+- [ ] Windows: `npm install` → tsc(app/node)·lint·test·build → 라우트 스모크: ① 드롭다운 모드 진입(agent/customer) ② 허브 세그먼트 탭 전환 시 상태 보존 ③ /check redirect ④ 모바일 햄버거 ARIA/ESC/외부클릭 ⑤ 분석 3페이지·Home 표시 정상 — Codex.
+
+### Notes
+- 데스크탑 드롭다운은 hover+click 병행 — 대면 시연 중 클릭 고정/호버 미리보기 모두 대응.
+- 활성 인디케이터는 `after:` 의사요소(레이아웃 영향 없음). 모바일 패널은 keyframe 불요(조건부 렌더).
+- 046 사이드바용 lucide 아이콘 import(BookOpen 등)는 047 에서 미사용 — 상단 네비는 ChevronDown/Menu/X 만 사용(미사용 import 0, lint 통과 예상).
+
+### Next
+- Codex(Windows): npm install → 검증 → 047 범위 파일만 한국어 커밋(`BOHUMFIT-047: 상단 가로 네비 전환 + 알릴의무 드롭다운 통합(046 사이드바 대체)`) → push. (046 미머지면 047 커밋이 사이드바를 대체하므로 별도 revert 불요 — 작업 트리 기준 상단 네비가 최종.)
+- Human: 구조 확인(메뉴 순서·드롭다운·태블릿 한 줄·모바일 햄버거) + Home 랜딩 셸 분리 여부.
+- 다음: 분석 3페이지 내부 Mercury 적용 + Disclosure 내부 ModeSwitch 정리.
+
+## 2026-06-13 Cowork BOHUMFIT-046 [구현+/tmp 검증 완료 / Codex Windows 검증·커밋·푸시 → Human 구조 확인]
+### Changed
+- `src/components/Layout.tsx` — **좌측 사이드바 셸로 재작성**(Mercury 문법): 데스크탑 고정 240px(캔버스+우측 헤어라인·그림자 없음, lucide 아이콘+라벨, 활성=페리윙클 텍스트+파스텔 배경), 하단 사용자 영역(이메일·로그아웃/로그인). 모바일 = 상단 바(햄버거) → 오버레이 드로어: 항상 마운트+`motion-safe` 트랜지션(reduced-motion 시 즉시 전환), 열림 시 body 스크롤 잠금·ESC·백드롭 클릭·라우트(쿼리 포함) 변경 시 닫힘, `aria-modal/aria-expanded/aria-controls`+포커스 이동. 본문 `md:pl-60`+`max-w-5xl`(Home full-bleed `-mx-5` 산식 보존 위해 main 패딩 `px-5 py-8` 유지).
+- `src/pages/DisclosureHub.tsx` (신규) — 고객용|설계사용 세그먼트 탭(role=tablist). 탭은 `?mode=` 만 변경(replace), **기존 `<Disclosure />` 그대로 렌더(무수정·key 리마운트 없음)**.
+- `src/App.tsx` — `/disclosure`→DisclosureHub(ProtectedRoute), `/check`→`<Navigate to="/disclosure?mode=customer" replace />`. Disclosure 직접 import 제거(허브가 import). 그 외 라우트 불변.
+- `package.json` — `lucide-react ^0.503.0` 추가(미설치였음). **Codex npm install 후 package-lock 갱신분 함께 스테이징.**
+- `.agent-harness/tasks/BOHUMFIT-046-sidebar-ia.md`(신규), handoff/locks.
+- **무수정**: Disclosure/InsuranceCalculator/CoverageAnalysis/Home 내부, Footer, ui/*, index.css, PDF 템플릿.
+
+### 현 라우트 구조 파악 결과 (변경 전)
+- Layout 밖: `/login`, `/signup`. Layout 안: `index`(Home), `/disclosure`(Disclosure initialMode="agent"), `/check`(Disclosure initialMode="customer"), `/insurance`, `/coverage`, `/before-after`(ComingSoon 자리), `/why`, `/privacy`, `/terms`.
+- **핵심 발견**: Disclosure(1245~1248행)는 `?mode=` 파라미터를 **라이브 해석**(param 우선→initialMode 폴백)하고 내부 ModeSwitch(고객/설계사 카드 링크: `/check`·`/disclosure?mode=agent`)를 이미 보유.
+- 기존 구조는 /check↔/disclosure 가 **별도 라우트라 전환 시 리마운트 → 입력 상태 손실**이었음.
+
+### 모드 전환 상태 — 개선 확인
+- 허브는 단일 라우트에서 파라미터만 바꾸므로 **리마운트 없음 → 업로드 파일·기준일·결과 상태 보존**(기존보다 개선, 손실 아님).
+- 내부 ModeSwitch 카드와 허브 세그먼트 탭이 중복 노출됨(동작은 정상 — /check 링크는 redirect 경유로 동일 라우트 복귀, 리마운트 없음). **047에서 Disclosure 내부 정리 시 ModeSwitch 제거 후보.**
+
+### Redirect 매핑표
+| 구 경로 | 신 경로 | 방식 |
+|---|---|---|
+| `/check` | `/disclosure?mode=customer` | `<Navigate replace>` (북마크·Home 카드 링크 보존) |
+| `/disclosure` | 동일 (허브 기본 = 설계사용) | 변경 없음 |
+| `/disclosure?mode=agent\|customer` | 동일 — 허브·Disclosure 가 파라미터 해석 | 변경 없음 |
+| `/before-after` | 유지(메뉴 미노출, 라우트 보존) | 변경 없음 |
+
+### 결정 기록
+- **데스크탑 아이콘-only 접힘: 미채택.** 메뉴 4개에 240px 고정으로 충분, 접힘 상태 관리·툴팁·접근성 비용 대비 효용 낮음. 047+ 재검토 후보.
+- **Home 랜딩: 사이드바 셸 안 유지(index).** Home 무수정 제약상 최저위험. full-bleed 섹션(-mx-5)이 사이드바 본문 폭 기준으로 동작(main 패딩 보존으로 산식 유지). 로그인 전 전용 마케팅 셸(사이드바 없는 랜딩) 분리는 후속 판단 — Human 의견 요망.
+- 메뉴 순서: 왜 중요한가 → 알릴의무 필터(통합) → 보장분석 → 실손 계산. 이용약관/개인정보는 Footer 유지, 사용자 영역은 사이드바 하단.
+
+### Verified
+- [x] /tmp tsc(strict+jsx) 통과 — **실제 의존성 체인 포함**: 신규 Layout(lucide)+DisclosureHub+기존 Disclosure(1513행)+auth-context/AuthContext/supabase(셤 d.ts)+ProtectedRoute+AnalysisProgress+Footer+ui.
+- [x] 쇼케이스 스크린샷 2종: `outputs/sidebar_desktop.png`(1280 — 사이드바+허브 탭+본문), `outputs/sidebar_mobile_drawer.png`(390 — 드로어 열림·백드롭). 육안 통과.
+- [x] Disclosure.tsx Windows 원본 무결 확인(1513행 정상 종결 — 마운트 뷰만 70757B 절단, ENV 아티팩트. /tmp 사본은 원본 꼬리 기준 복원 후 검증).
+- [ ] Windows: `npm install`(lucide-react) → tsc(app/node)·lint·test·build → 라우트 스모크: ① /check 진입 시 /disclosure?mode=customer 도착 ② 허브 탭 전환 시 입력 상태 보존 ③ 모바일 드로어(잠금/ESC/외부클릭/라우트 닫힘) ④ Home full-bleed 깨짐 없음 ⑤ 분석 3페이지 표시 정상 — Codex.
+
+### Notes
+- 드로어는 keyframes 불요 방식(항상 마운트+transform 트랜지션) — index.css 무수정 유지.
+- 사이드바 활성 판정은 NavLink 기본(경로 기준, 쿼리 무관) — /disclosure?mode=* 모두 활성 ✓.
+- 본문 max-w-6xl→5xl 축소: 사이드바 240px 감안. 분석 3페이지 내부는 무수정이라 폭만 살짝 좁아짐(047에서 페이지별 재정렬).
+
+### Next
+- Codex(Windows): npm install → 검증 → 046 범위 파일만 한국어 커밋(`BOHUMFIT-046: 좌측 사이드바 전환 + 알릴의무 허브 통합(redirect 보존)`) → push.
+- Human: 구조 확인(메뉴 순서·허브 탭 동작·모바일 드로어) + 로그인 전 랜딩 분리 여부 의견.
+- 047: 분석 3페이지 내부 Mercury 적용(ui 컴포넌트 마이그레이션) + Disclosure 내부 ModeSwitch 정리.
+
 ## 2026-06-13 09:57 Codex BOHUMFIT-045 [운영 확인 완료]
 ### Changed
 - `.agent-harness/handoff.md` — BOHUMFIT-045 배포 후 운영 확인 결과 추가.
