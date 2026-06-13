@@ -16,6 +16,35 @@
 
 # Handoff
 
+## 2026-06-13 Codex BOHUMFIT-049 [완료 - Windows 권위 검증 / 분리 커밋]
+### Changed
+- `src/pages/Home.tsx` — 히어로 직후 `<HomeMission />` 섹션 연결, `/#mission` 해시 진입 시 앵커 스크롤 보정 추가.
+- `src/pages/HomeMission.tsx` — 메인 창업 미션 섹션 신규 추가(`id="mission"`), 대표 스토리·신뢰지표·가치 3카드·CTA.
+- `src/pages/WhyDisclosure.tsx` — 회사소개 임시 링크 `to="/"` → `to="/#mission"` 1줄 교체.
+- `.agent-harness/tasks/BOHUMFIT-049-home-mission.md`, handoff.
+
+### Verified
+- [x] `.git/index.lock` 없음, locks Active none 확인.
+- [x] Windows 원본 무결성: `Home.tsx`, `HomeMission.tsx` 한글/UTF-8 정상 확인.
+- [x] 금지 파일 diff 없음: `Disclosure.tsx`, `InsuranceCalculator.tsx`, `CoverageAnalysis.tsx`, `Layout.tsx` 무변경.
+- [x] `npx tsc -p tsconfig.app.json --noEmit`
+- [x] `npx tsc -p tsconfig.node.json --noEmit`
+- [x] `npm run lint`
+- [x] `npm test` — 3 files / 39 passed.
+- [x] `npm run build` — 성공. 기존 xlsx 청크 500k 경고만 있음.
+- [x] 브라우저 스모크(Chrome CDP, Windows): `/` 히어로 직후 `#mission` 렌더, 제목·신뢰지표·대표 1인칭/서명·가치 3카드·CTA(`/why`,`/disclosure`) 확인.
+- [x] `/why` 회사소개 링크 href `/#mission`, 클릭 후 `/` + `#mission`으로 이동 및 mission 섹션 스크롤 확인(`missionTop` 약 80px).
+- [x] 회사정보 푸터 중복 없음, indigo 클래스 0, 모바일 overflow 0, 콘솔/CSP 이슈 0.
+
+### Notes
+- 048은 `8554548`로 이미 push 완료.
+- `/#mission` 앵커는 SPA 라우팅에서 기본 스크롤이 누락되어 Home 진입 시 hash 보정 `useEffect`를 추가함.
+- 로고 파일 2개(`보험학 로고.png`, `보험학-로고.svg`)는 BOHUMFIT-050 범위로 판단해 스테이징 제외.
+
+### Next
+- Human: Home 미션 섹션/카피/신뢰지표 최종 확인.
+- Cowork/Codex: BOHUMFIT-050 로고 적용.
+
 ## 2026-06-13 Codex BOHUMFIT-048 [Windows 권위 검증 완료 / 048 분리 커밋]
 ### Changed
 - `src/pages/WhyDisclosure.tsx` — Cowork 구현분 Windows 원본 무결성 확인, 5단 서사 `/why` 페이지.
@@ -35,12 +64,51 @@
 - [x] 스크린샷 육안: 데스크톱/모바일 Mercury 톤, 한글 깨짐 없음, heading 위계와 카드 레이아웃 정상.
 
 ### Notes
+- Commit/push: `8554548` (`origin/main`).
 - 커밋 직전 워킹트리에 **BOHUMFIT-049 범위 변경**이 새로 나타났으나, 사용자 승인에 따라 048 범위만 엄격 분리 스테이징.
 - 049 범위(`Home.tsx`, `HomeMission.tsx`, `BOHUMFIT-049-home-mission.md`)와 로고 파일 2개는 스테이징 제외.
 - `/disclosure`는 보호 라우트라 실제 클릭 시 비로그인 환경에서는 `/login`으로 리다이렉트될 수 있음. 본문 CTA의 href는 `/disclosure`로 확인됨.
 
 ### Next
 - 048 push 후 BOHUMFIT-049 Windows 검증·분리 커밋 진행.
+
+## 2026-06-13 Cowork BOHUMFIT-049 [구현+/tmp 검증 완료 / Codex Windows 검증·커밋·푸시 → Human 확인]
+### Changed
+- `src/pages/HomeMission.tsx` (신규) — 메인 창업 미션·회사소개 섹션(`id="mission"`, scroll-mt-20 앵커). Mercury 라이트, ui(Badge/Card) 재사용.
+- `src/pages/Home.tsx` — 히어로 직후 기존 generic 'Our Mission' 섹션을 `<HomeMission />`로 **교체**(미션 섹션 중복 방지) + import 1줄. 히어로·나머지 섹션·훅(useCountUp/FadeIn)·라우팅 불변.
+- `.agent-harness/tasks/BOHUMFIT-049-home-mission.md`(신규), handoff/locks.
+- **무수정**: WhyDisclosure(아래 락 사유), 다른 페이지·Layout·ui/*·index.css·PDF·App 라우트.
+
+### 섹션 구성 (id="mission", 히어로 바로 아래·scroll-scrub 커버 래퍼 내부)
+- eyebrow `OUR MISSION` / 제목 "보험은 가입보다 점검이 먼저입니다".
+- 신뢰지표 Badge(navy) 1회: **"메리츠화재 정규직 지점장 · 1만 명 이상 설계사 업무 지원"**(사실 진술, 과장 없음).
+- 본문 대표 1인칭(태스크 원문 그대로 3문단) + 서명 "— 보험핏 대표 이민규".
+- 가치 3카드(Card): 고객 권리 보호 / 중립적 점검(가입권유 아님) / 데이터 기반(심평원 원자료).
+- 보조 CTA: "왜 중요한가 →" `/why`, "지금 점검하기 →" `/disclosure`.
+- 회사 기본정보(상호·대표·연락처·사업자번호)는 푸터에 있어 **중복 표기 안 함**(서명·신뢰지표만) — SSR로 174-29-01975/contact 미포함 확인.
+
+### 앵커 id
+- `id="mission"` (HomeMission 섹션 루트). 외부에서 `/#mission` 또는 `/#mission` 스크롤 앵커로 진입 가능. `scroll-mt-20`으로 상단 네비 높이 보정.
+
+### 락 충돌 처리 (WhyDisclosure 회사소개 링크 — 보류)
+- 착수 시 `BOHUMFIT-048`(Codex)가 `WhyDisclosure.tsx` **Active 락** 보유(검증·퍼블리시 중). 절대 규칙(락 파일 중복 편집 금지)에 따라 **049는 WhyDisclosure 무수정**.
+- 048에서 임시로 둔 /why '회사소개' 링크(`to="/"`)를 `/#mission` 앵커로 바꾸는 작업은 **048 락 해제 후 후속**(Codex가 048 머지 시 함께 처리하거나 소형 후속 태스크). 049는 앵커 타깃(id="mission")만 마련 — 링크만 바꾸면 즉시 연결됨.
+
+### Verified
+- [x] /tmp tsc(strict+jsx): `HomeMission.tsx` 통과(Badge/Card/Link 타입).
+- [x] SSR 렌더(vitest, Link 모킹): 마커 전부 — `id="mission"`·"보험은 가입보다 점검이 먼저입니다"·신뢰지표 문구·"보험을 파는 도구가 아니라"·"— 보험핏 대표 이민규"·가치 3카드·`href="/why"`·`href="/disclosure"`. 회사 기본정보(사업자번호/이메일) 중복 0.
+- [x] Home 편집 무결성(Windows 원본 Read): `<HomeMission />`가 히어로 직후 `relative z-10 bg-canvas` 래퍼 내부에 위치, import 1줄 추가, FadeIn 잔존 사용(다른 섹션) — orphan 없음.
+- [⚠] **Chromium 스크린샷 미생성**: 샌드박스 `libXdamage1` 부재(전 태스크와 동일·sudo/apt 불가) → headless 실행 불가. 근거: SSR 마커 + 045 토큰·ui 재사용(044~047 시각 검증분). **Codex/Human Windows 육안 요망.**
+- [ ] Windows: tsc(app/node)·lint·test·build + Home 육안(미션 섹션·`/#mission` 앵커 스크롤·CTA) — Codex. (Home.tsx 마운트 뷰 truncation 재발 — Windows 원본 권위.)
+
+### Notes
+- HomeMission 은 히어로 scroll-scrub 커버 래퍼 안에 있어 스크롤 시 자연 노출(045 연출과 정합). 다크 섹션 추가 없음(라이트 유지).
+- Home.tsx /tmp tsc 는 마운트 truncation 으로 격리 제외, HomeMission 단독 tsc + Home 편집부 Read 검증으로 갈음 — 전체 tsc 는 Codex(Windows) 권위.
+
+### Next
+- Codex(Windows): tsc/lint/test/build → Home 육안 → 049 범위(`HomeMission.tsx`,`Home.tsx`,태스크,handoff,locks)만 한국어 커밋(`BOHUMFIT-049: 메인 창업 미션 섹션 추가 (#mission 앵커)`) → push.
+- Codex/후속: **048 락 해제 후** `WhyDisclosure.tsx`의 '회사소개' 링크 `to="/"` → `to="/#mission"` 1줄 교체(앵커 타깃 준비 완료).
+- Human: Home 미션 섹션 카피·신뢰지표 표현 확인.
 
 ## 2026-06-13 Cowork BOHUMFIT-048 [구현+/tmp 검증 완료 / Codex Windows 검증·커밋·푸시 → Human 확인]
 ### Changed

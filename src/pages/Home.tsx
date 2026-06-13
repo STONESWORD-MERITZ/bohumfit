@@ -2,6 +2,7 @@
 // 다크 섹션 → 라이트(섹션 구분은 여백), 장식 오버레이 제거, 히어로 scroll-scrub 1곳 적용.
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import HomeMission from "./HomeMission";
 
 // ── 카운트업 훅 ───────────────────────────────────────────────
 function useCountUp(target: number, duration = 1800, active = false) {
@@ -113,6 +114,14 @@ function FadeIn({ children, className = "", delay = 0 }: { children: React.React
 }
 
 export default function Home() {
+  useEffect(() => {
+    if (window.location.hash !== "#mission") return;
+    const raf = requestAnimationFrame(() => {
+      document.getElementById("mission")?.scrollIntoView({ block: "start" });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
   return (
     <div className="-mx-5 -mt-8">
 
@@ -154,22 +163,8 @@ export default function Home() {
       {/* 이하 섹션은 히어로 위로 자연스럽게 올라와 덮는다 (z-index + 불투명 배경) */}
       <div className="relative z-10 bg-canvas">
 
-        {/* ── 2. MISSION ─────────────────────────────────────── */}
-        <section className="py-24">
-          <div className="mx-auto max-w-4xl px-6 text-center">
-            <FadeIn>
-              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent-600">Our Mission</p>
-              <h2 className="mt-5 text-3xl font-extrabold leading-snug tracking-tight text-ink-900 md:text-4xl break-keep">
-                보험 가입 시 고객과 설계사 모두의 권리를 지킵니다
-              </h2>
-              <p className="mt-6 text-[15px] leading-8 text-ink-soft break-keep">
-                고지 누락은 가입자에게는 보험금 부지급·계약 해지의 위험으로,
-                설계사에게는 불완전판매 분쟁의 위험으로 돌아옵니다. BOHUMFIT은 기억이나
-                구두 확인이 아닌 <strong className="text-ink-900">원자료 기반 점검</strong>으로 양측 모두를 보호합니다.
-              </p>
-            </FadeIn>
-          </div>
-        </section>
+        {/* ── 2. MISSION (BOHUMFIT-049: 창업 스토리 — id="mission" 앵커) ─── */}
+        <HomeMission />
 
         {/* ── 3. STATS (라이트 · 카운트업) ───────────────────── */}
         <section className="py-24">

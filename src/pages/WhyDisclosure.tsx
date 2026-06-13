@@ -140,7 +140,7 @@ export default function WhyDisclosure() {
 
           <p className="mt-6 text-caption text-ink-400">
             보험핏을 만든 사람들이 궁금하다면{" "}
-            <Link to="/" className="font-semibold text-accent-700 hover:underline">
+            <Link to="/#mission" className="font-semibold text-accent-700 hover:underline">
               회사소개
             </Link>
             에서 확인하세요.
