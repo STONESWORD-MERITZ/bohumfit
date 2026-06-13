@@ -16,6 +16,72 @@
 
 # Handoff
 
+## 2026-06-13 Codex BOHUMFIT-051 [완료 - Windows 권위 검증 / 커밋·푸시 준비]
+### Changed
+- `backend/assets/brand/bohumfit_logo.svg`, `backend/assets/brand/bohumfit_logo_white.svg` 신규 추가 확인.
+- `backend/pipeline/report_pdf.py`: BOHUMFIT 로고 SVG를 base64 data-URI로 주입하고 PDF 캡처 전 `img.decode()` 대기.
+- `backend/templates/report_disclosure.html`, `backend/templates/report_insurance.html`: 헤더 워드마크를 `<img class="brand-logo">`로 전환, 텍스트 폴백 유지.
+- `.agent-harness/tasks/BOHUMFIT-051-report-logo.md`, `.agent-harness/locks.md`, handoff 갱신.
+
+### Verified
+- [x] `.git/index.lock` 없음, 변경 범위가 051 허용 파일로만 제한됨. `filters.py`·`analyzer.py`·기타 산식/pipeline 파일 diff 없음.
+- [x] Windows 원본 무결 확인: `report_pdf.py` UTF-8 `ast.parse` 통과, 템플릿 2종 UTF-8 read 및 `</body></html>` 꼬리 확인.
+- [x] `cd backend && python -m pytest -q` → `202 passed, 7 skipped`.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` 통과.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` 통과.
+- [x] `npm run build` 통과. 기존 Vite chunk size warning만 있음.
+- [x] Windows 실제 리포트 PDF 생성 확인: 고지 `810012 bytes`, 실손 `663293 bytes`, 둘 다 `%PDF-` 바이트 응답.
+- [x] 헤드리스 Chrome 렌더 육안 확인: 고지·실손 리포트 모두 헤더에 BOHUMFIT 워드마크 표시, 페리윙클 M 사선·점 유지, 비율 왜곡·잘림 없음. 한글/금액/푸터 본문 회귀 없음.
+
+### Notes
+- `#5955DE`는 템플릿 원문에는 직접 노출되지 않고 base64 data-URI 내부에 포함된다. 실제 렌더 캡처에서 페리윙클 포인트 확인.
+- `bohumfit_logo_white.svg`는 이번 라이트 헤더에서는 미사용이지만 어두운 헤더 전환 대비로 함께 포함.
+- 전체 pytest의 7 skipped는 기존 의도 제외 구 룰 테스트이며 051 범위 밖.
+
+### Next
+- Human: 실제 운영/브라우저에서 고지·실손 리포트 PDF 출력 육안 최종 확인.
+
+## 2026-06-13 Cowork BOHUMFIT-051 [구현+/tmp 메커니즘 검증 완료 / Codex Windows pytest·커밋·푸시 → Human 출력 육안]
+### Changed
+- `backend/assets/brand/bohumfit_logo.svg`, `bohumfit_logo_white.svg`(신규) — `src/assets/brand/` 정식 에셋 복사. 백엔드 접근 경로 확보. XML 선언·DOCTYPE 부재 확인(xmldecl=0, doctype=0), viewBox "190 407 1099 263"(≈4.18:1).
+- `backend/pipeline/report_pdf.py` — 로고 임베드 추가:
+  - `import base64`, `_BRAND_DIR = backend/assets/brand`, `_LOGO_FILES`(color/white), `_SVG_PROLOG_RE`(`<?xml?>`/`<!DOCTYPE>` 제거), `_logo_data_uri(variant)`(SVG→base64 `data:image/svg+xml;base64,...`, 파일 없으면 빈 문자열).
+  - `_common_context()`에 `"logo_data_uri": _logo_data_uri("color")` 주입(라이트 헤더 → 컬러).
+  - `html_to_pdf_bytes()`: `set_content` 직후 `page.evaluate`로 `document.images` 전부 `img.decode()` 대기 + `wait_for_timeout(60)` — 디코드 전 캡처 시 로고 누락 방지.
+- `backend/templates/report_disclosure.html`, `report_insurance.html` — 헤더 `.head` 내 텍스트 워드마크(`<div class="wordmark">BOHUMFIT.`)를 `{% if logo_data_uri %}<img class="brand-logo" src="{{ logo_data_uri }}" alt="BOHUMFIT">{% else %}<div class="wordmark">...{% endif %}`로 교체. `.brand-logo { height:26px; width:auto; display:block; }` 추가(비율 유지). 그 외 레이아웃·문구·요약·면책·푸터 무수정.
+- `.agent-harness/tasks/BOHUMFIT-051-report-logo.md`(신규), handoff/locks.
+
+### 적용 방식 요약
+| 항목 | 처리 |
+|---|---|
+| 에셋 경로 | `backend/assets/brand/bohumfit_logo.svg`(+`_white.svg`) |
+| 임베드 | 파일 읽어 base64 `data:image/svg+xml;base64,` data-URI(프런트 @/assets 미사용) |
+| 적용 리포트 | 고지(report_disclosure)·실손(report_insurance) 헤더 양쪽 일관 |
+| 톤 처리 | 헤더 배경 라이트 → 컬러 로고. 네이비#1F3A5F+골드#C9A227 톤 유지. white는 미사용(어두운 헤더 생기면 후속) |
+| 중복 방지 | 푸터 `.biz-foot` 브랜드/연락처 기존 유지, 로고 미추가(중복 금지) |
+| data-URI 안전 | XML 선언/DOCTYPE 제거본 사용(런타임 `_SVG_PROLOG_RE`로도 재차 제거) |
+| 디코드 보장 | PDF 생성 전 `img.decode()` 대기 + 60ms 지연 |
+
+### Verified
+- [x] /tmp 메커니즘 검증(`/tmp/bf051/check2.py`, jinja2 3.0.3): (1) 컬러 data-URI 생성·XML/DOCTYPE 부재·SVG 루트·포인트색 `#5955DE`, (2) white data-URI `#FFFFFF`, (3) 헤더 스니펫(실템플릿과 동일) 렌더 시 `brand-logo` img 1개·텍스트 워드마크 폴백 미발동·임베드 SVG 디코드 OK, (4) `logo_data_uri=""` → 텍스트 워드마크 폴백 정상, (5) 고지/실손 공용 컨텍스트 → 동일 data-URI(일관성). ALL PASSED.
+- [x] 에셋 복사본 무결성: `head -c`로 `<svg ...` 시작 확인, `grep` xmldecl=0/doctype=0, color(#000000+#5955DE)/white(#FFFFFF+#5955DE).
+- [x] Windows 원본(Read 권위) 구조 확인: `report_pdf.py` 신규 함수·컨텍스트 주입·evaluate 블록 try/except/finally 정상. 두 템플릿 헤더 교체분·`.brand-logo` CSS 반영.
+- [x] 기존 테스트 비파괴 검토: `tests/test_report_pdf.py` L157·241은 `"BOHUMFIT"` **부분문자열** 존재만 검사 — 푸터 `.brand` 텍스트·`분석도구 BOHUMFIT`·면책·`alt="BOHUMFIT"`로 충족. 헤더 텍스트 워드마크나 `<img>` 부재를 검사하는 테스트 없음 → pytest 영향 없음 예상.
+- [⚠] **마운트 truncation 재확인**: bash 뷰에서 `report_pdf.py`(22348B 고정·`UnicodeDecodeError` pos 22346)·두 템플릿(footer 중간 절단)이 잘려 보임 → 마운트에서 모듈 import/전체 렌더 불가. ENV-MOUNT-NOTES대로 Windows 원본 권위, 검증은 /tmp 독립 스니펫 + Read 확인으로 대체.
+- [⚠] **실 Chromium PDF 미생성**: 샌드박스 playwright 미설치(과거 태스크 동일, libXdamage1 등 제약). 헤더 로고의 실제 PDF 시각 확인은 Codex(Windows, playwright 설치 환경)·Human 출력 육안 필요.
+- [ ] Windows: `cd backend && python -m pytest -q`(report_pdf 회귀, 스킵 0) — Codex.
+
+### Notes
+- 산식·금액·판정 변경 0(payload passthrough 유지). 헤더 워드마크 1줄 + CSS 1줄 + 백엔드 임베드 로직만 추가.
+- 로고 alt="BOHUMFIT"(스크린리더). 헤더 배경 라이트라 컬러본 사용 — white본은 이번 미사용(현 노출처 다크 헤더 없음).
+- `_logo_data_uri`는 파일 누락 시 빈 문자열 반환 → 템플릿이 기존 텍스트 워드마크로 자동 폴백(안전).
+- 050 머지 상태(08edf7d) 기준 위에서 작업. 051은 backend만 접촉(프런트 무수정).
+
+### Next
+- Codex(Windows): `cd backend && python -m pytest -q`(스킵 0 확인) → 051 범위 파일만 한국어 커밋(`BOHUMFIT-051: 리포트 PDF 헤더 브랜드 로고 적용(고지·실손)`) → `git push origin main`. (마운트 truncation — Windows 원본 권위, 마운트 git 미실행.)
+- Human: 실제 고지/실손 리포트 PDF 출력 → 헤더 로고 크기·정렬·비율(잘림·왜곡 없는지) 육안.
+- 후속 제안: 어두운 헤더 노출처 생기면 `_logo_data_uri("white")` 적용. 표지(cover) 페이지 도입 시 대형 로고 별도 검토.
+
 ## 2026-06-13 Codex BOHUMFIT-050 [완료 - Windows 권위 검증 / 커밋·푸시 대기]
 ### Changed
 - `src/assets/brand/bohumfit_logo.svg`, `bohumfit_logo_white.svg`, `bohumfit_logo.png` — 정식 브랜드 에셋 추가.

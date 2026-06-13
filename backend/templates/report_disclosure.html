@@ -30,6 +30,8 @@ html, body {
 .head { display: flex; justify-content: space-between; align-items: flex-end; padding: 14px 2px 12px; }
 .wordmark { font-size: 19pt; font-weight: 800; color: var(--navy-deep); letter-spacing: 0.5px; }
 .wordmark .dot { color: var(--gold); }
+/* BOHUMFIT-051: 헤더 워드마크 로고(컬러 SVG data-URI). viewBox 4.18:1 → width:auto 로 비율 유지. */
+.brand-logo { height: 26px; width: auto; display: block; }
 .head-meta { text-align: right; font-size: 8.5pt; color: var(--muted); line-height: 1.6; }
 .head-meta b { color: var(--navy); font-weight: 700; }
 h1.title {
@@ -158,7 +160,7 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
 
 <div class="brand-bar"></div>
 <div class="head">
-  <div class="wordmark">BOHUMFIT<span class="dot">.</span></div>
+  {% if logo_data_uri %}<img class="brand-logo" src="{{ logo_data_uri }}" alt="BOHUMFIT">{% else %}<div class="wordmark">BOHUMFIT<span class="dot">.</span></div>{% endif %}
   <div class="head-meta">
     문서번호 <b>{{ doc_no }}</b><br>
     생성일시 {{ generated_at }} · 점검 기준일 <b>{{ reference_date }}</b>
