@@ -16,6 +16,25 @@
 
 # Handoff
 
+## 2026-06-13 09:57 Codex BOHUMFIT-045 [운영 확인 완료]
+### Changed
+- `.agent-harness/handoff.md` — BOHUMFIT-045 배포 후 운영 확인 결과 추가.
+
+### Verified
+- [x] `git push origin main` 완료: `97001de`.
+- [x] `https://bohumfit.ai` 200 응답 확인.
+- [x] 운영 CSP 헤더 확인: `style-src`/`font-src`에 `https://cdn.jsdelivr.net` 반영.
+- [x] 운영 브라우저 스모크: Home 렌더, Pretendard computed font 적용, CSP 위반 콘솔 0건.
+- [x] 운영 Home hero scroll-scrub 동작 확인: Chrome에서 `animation-timeline: scroll()` 지원, 스크롤 후 `opacity/transform` 변화 확인.
+
+### Notes
+- Vercel `X-Vercel-Cache: HIT`, `Last-Modified: 2026-06-13 00:56:02 GMT` 응답으로 새 배포 반영 확인.
+- 실제 룩 감도(포인트색 강도·여백·스크롤 체감)는 Human 최종 확인 필요.
+
+### Next
+- Human: 운영 화면 룩 확인.
+- 다음 태스크: 분석 3페이지(Disclosure/실손/보장분석) Mercury 토큰 v2 적용.
+
 ## 2026-06-13 09:53 Codex BOHUMFIT-045 [완료 - Windows 권위 검증/푸시 대기]
 ### Changed
 - `src/index.css` — Mercury v2 토큰, Pretendard CDN import, Home hero scroll-scrub CSS 적용. BOM `EF BB BF` 보존.
