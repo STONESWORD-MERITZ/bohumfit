@@ -16,6 +16,75 @@
 
 # Handoff
 
+## 2026-06-13 Codex BOHUMFIT-048 [Windows 권위 검증 완료 / 048 분리 커밋]
+### Changed
+- `src/pages/WhyDisclosure.tsx` — Cowork 구현분 Windows 원본 무결성 확인, 5단 서사 `/why` 페이지.
+- `src/pages/why/whyContent.ts` — 신규 콘텐츠 데이터 파일 UTF-8 정상 확인.
+- `.agent-harness/tasks/BOHUMFIT-048-why-it-matters.md`, handoff/locks.
+
+### Verified
+- [x] ENV 점검: `.git/index.lock` 없음.
+- [x] 범위 1차 확인: `Disclosure.tsx`·`InsuranceCalculator.tsx`·`CoverageAnalysis.tsx`·`Layout.tsx`·`Home.tsx` diff 없음(검증 착수 시점).
+- [x] UTF-8/마운트 절단 점검: `WhyDisclosure.tsx`, `whyContent.ts` Windows 원본 한글 정상.
+- [x] `npx tsc -p tsconfig.app.json --noEmit`
+- [x] `npx tsc -p tsconfig.node.json --noEmit`
+- [x] `npm run lint`
+- [x] `npm test` — 3 files / 39 passed.
+- [x] `npm run build` — 성공. 기존 xlsx 청크 500k 경고만 있음.
+- [x] 브라우저 스모크(Chrome CDP, Windows): `/why` 데스크톱/모바일 5개 섹션 순서 정상, THE NUMBERS 4카드·출처·알릴의무 기준 4개·분쟁 3장면·재구성 예시 주석 확인, 본문 CTA href `/disclosure`, indigo 클래스 0, 다크 히어로 섹션 1곳, 모바일 overflow 0, 콘솔/CSP 이슈 0.
+- [x] 스크린샷 육안: 데스크톱/모바일 Mercury 톤, 한글 깨짐 없음, heading 위계와 카드 레이아웃 정상.
+
+### Notes
+- 커밋 직전 워킹트리에 **BOHUMFIT-049 범위 변경**이 새로 나타났으나, 사용자 승인에 따라 048 범위만 엄격 분리 스테이징.
+- 049 범위(`Home.tsx`, `HomeMission.tsx`, `BOHUMFIT-049-home-mission.md`)와 로고 파일 2개는 스테이징 제외.
+- `/disclosure`는 보호 라우트라 실제 클릭 시 비로그인 환경에서는 `/login`으로 리다이렉트될 수 있음. 본문 CTA의 href는 `/disclosure`로 확인됨.
+
+### Next
+- 048 push 후 BOHUMFIT-049 Windows 검증·분리 커밋 진행.
+
+## 2026-06-13 Cowork BOHUMFIT-048 [구현+/tmp 검증 완료 / Codex Windows 검증·커밋·푸시 → Human 확인]
+### Changed
+- `src/pages/WhyDisclosure.tsx` — **5단 스크롤 서사로 재작성 + Mercury 적용**(기존 indigo/다크 톤 폐기). 라우트 변경 없음(/why 유지).
+- `src/pages/why/whyContent.ts` (신규) — 섹션 데이터 분리(통계·정성 카드·메커니즘 기준·분쟁 장면). 페이지 파일 비대화·마운트 truncation 리스크 축소.
+- `.agent-harness/tasks/BOHUMFIT-048-why-it-matters.md`(신규), handoff/locks.
+- **무수정**: 다른 페이지·Layout·ui/*·index.css·PDF 템플릿·App 라우트.
+
+### 섹션 구성 (스크롤 순서)
+1. **히어로(다크 — 이 페이지 유일 강조, bg-ink-900)**: "고지 누락은 작은 실수가 아닙니다" + 홈 링크.
+2. **THE NUMBERS(라이트, 4카드)**: 정량 2 + 정성 2.
+3. **알릴의무 메커니즘**: 청약서 기준 4개 번호 카드 + 카피 "이걸 우리 기억력으로 다 체크할 수 있을까요?".
+4. **이렇게 어긋납니다(분쟁 3장면)**: 결과 Badge(지급 거절=danger / 분쟁=warning / 계약 해지=danger) + "일반적 분쟁 유형 재구성 예시" 주석.
+5. **그래서, 점검 + CTA**: '고지 필요·확인 필요·해당 없음' 포지셔닝, 중립 점검 Callout(legal), 주 CTA `Button → /disclosure`(알릴의무 통합 라우트), 회사소개 링크(임시 `/` — 049에서 /about 신설 후 교체 필요).
+
+### 사용 통계·출처 (과장 없음, 출처 표기)
+| 카드 | 수치 | 출처 표기 |
+|---|---|---|
+| 보험설계사 수 | 71.2만 명 | 2025년 말 기준 · 금융감독원 |
+| 대면 채널 판매 비중 | 생보 99.3% / 손보 71.4% | 2024년 · 보험연구원 |
+| 반복되는 분쟁 사유 | (정성) | 금감원 소비자 유의사항 반복 안내 — 수치 아님 |
+| 기억에 의존하는 구조 | (정성) | 구조 설명 — 수치 아님 |
+- 출처는 caption 톤 텍스트로 카드에 표기(외부 링크 아님 — 기관·연도 명시). 분쟁 3장면은 실제 개별 사건이 아닌 **일반 유형 재구성 예시**로 주석 명시.
+- 기존 페이지의 41.8%/88%/64.2% 통계·실제 사례 3건(출처 링크 보유)은 태스크가 THE NUMBERS를 4카드로 명시 재정의하여 **이번 구성에서 제외**. 필요 시 별도 '사례' 섹션으로 복원 가능(백로그).
+
+### CTA 연결 라우트
+- 주 CTA "알릴의무 필터로 점검하기" → `/disclosure`(047 통합 허브, 기본 설계사용). `<Link to="/disclosure"><Button size="lg"></Link>`.
+
+### Verified
+- [x] /tmp tsc(strict+jsx) 통과 — WhyDisclosure + whyContent + ui(Badge/Button/Callout) 의존 체인.
+- [x] SSR 렌더 테스트(vitest, react-router Link 모킹) 통과 + HTML 마커 검증: 5단 섹션 제목·통계(71.2/99.3·71.4)·출처(금융감독원/보험연구원)·메커니즘(7회 이상 통원)·카피·분쟁 결과 뱃지(지급 거절)·재구성 예시 주석·CTA `href="/disclosure"`·중립 점검·회사소개 전부 1회씩 존재. 다크 히어로 1곳(bg-ink-900). 출처 caption 2건 정상.
+- [⚠] **Chromium 풀페이지 스크린샷 미생성**: 이번 런에서 샌드박스 시스템 라이브러리 `libXdamage1` 부재(이전 태스크 때는 존재 — 환경 리셋 추정)로 headless 실행 불가, sudo/apt 불가로 복구 못 함. 시각 근거는 (a) SSR HTML 마커 검증 (b) 동일 045 토큰·ui 재사용(044~047 스크린샷에서 시각 언어 이미 검증). **Codex/Human 이 Windows·브라우저에서 최종 육안 확인 요망.**
+- [ ] Windows: tsc(app/node)·lint·test·build + `/why` 브라우저 확인(섹션 리듬·CTA→/disclosure·대비) — Codex.
+
+### Notes
+- whyContent.ts 마운트 뷰가 truncation(prefix 불일치 byte 68~) — Windows 원본은 Write 결과로 온전, /tmp 검증은 outputs 동등본(`whyContent_sync.ts`·`WhyDisclosure_sync.tsx`)으로 수행(코멘트 헤더만 상이, 타입·구조 동일). 권위 검증 Codex(Windows).
+- 회사소개 링크는 049 전까지 `/`(홈) 임시 — 049에서 `/about` 신설 시 이 링크 교체.
+- 045 히어로 scroll-scrub 은 Home 전용 — /why 히어로엔 미적용(정적 다크 섹션, 의도).
+
+### Next
+- Codex(Windows): tsc/lint/test/build → `/why` 육안 → 048 범위 파일만 한국어 커밋(`BOHUMFIT-048: '왜 중요한가' 5단 설득 서사 + Mercury 적용`) → push.
+- Human: /why 룩·카피·통계 표현 확인.
+- 049: 회사소개(/about) 신설 — 회사·대표 소개, /why 의 회사소개 링크 연결.
+
 ## 2026-06-13 17:54 Codex BOHUMFIT-047 [완료 - Windows 권위 검증/푸시 대기]
 ### Changed
 - `src/components/Layout.tsx` — 046 사이드바 셸을 상단 가로 네비로 대체. 데스크탑 드롭다운 hover/click/ESC/외부클릭, 모바일 햄버거 aria/ESC/라우트 닫힘 확인. lint 이슈였던 라우트 변경 setState effect는 비동기 닫힘으로 수정.
