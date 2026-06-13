@@ -1,71 +1,69 @@
-﻿@import "tailwindcss";
+﻿/* Pretendard 가변 웹폰트(다이내믹 서브셋) — 로드 실패 시 시스템 폴백.
+   CSP: vercel.json style-src/font-src 에 cdn.jsdelivr.net 허용 필요(BOHUMFIT-045). */
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css");
+@import "tailwindcss";
 
 @theme {
-  /* ── 레거시 토큰 (BOHUMFIT-045 이전 화면 호환 — 제거 금지) ─────────────── */
-  --color-indigo: #4F46E5;
-  --color-indigo-hover: #4338CA;
-  --color-indigo-light: #EEF2FF;
-  --color-bg: #F8F9FC;
-  --color-surface: #FFFFFF;
-  --color-text: #1F2937;
-  --color-text-sub: #6B7280;
+  /* ── BOHUMFIT-045 디자인 토큰 v2: Mercury 라이트 프리미엄 미니멀 ──────────
+     원칙: 헤어라인 보더가 구조의 주인공, 그림자는 호버/오버레이만, 포인트 1색.
+     사용 규칙: 임의값(hex) 금지 — 토큰 유틸리티 참조.
+     예) bg-canvas, text-ink-900, border-line, text-accent-600, rounded-card
+     (레거시 indigo/navy/gold 토큰은 참조 0 확인 후 제거 — 분석 3페이지 무영향) */
 
-  /* ── BOHUMFIT-044 디자인 토큰: 금융권 신뢰 톤 (PDF 리포트 아이덴티티 확장) ──
-     사용 규칙: 임의값(hex) 대신 아래 토큰 유틸리티를 참조한다.
-     예) bg-navy-800, text-gold-600, border-line, text-body, shadow-card */
+  /* 잉크 — 뉴트럴 스케일 (텍스트·잉크 버튼) */
+  --color-ink-50: #F7F7F5;
+  --color-ink-100: #EFEFEC;
+  --color-ink-200: #E8E8E4;
+  --color-ink-300: #D6D6D1;
+  --color-ink-400: #A8A8A4;
+  --color-ink-500: #7A7A78;
+  --color-ink-600: #5F5F66;
+  --color-ink-700: #3A3A40;
+  --color-ink-800: #2A2A30;
+  --color-ink-900: #1A1A1E;
 
-  /* 주조 — 딥 네이비 (800 = PDF 리포트 주조색 #0E2F4F) */
-  --color-navy-50: #F2F5F9;
-  --color-navy-100: #E2E9F1;
-  --color-navy-200: #C5D3E2;
-  --color-navy-300: #9DB4CC;
-  --color-navy-400: #6C8DAE;
-  --color-navy-500: #44698D;
-  --color-navy-600: #2A4A6E;
-  --color-navy-700: #1B3A5C;
-  --color-navy-800: #0E2F4F;
-  --color-navy-900: #0A2238;
-  --color-navy-950: #061625;
+  /* 포인트 1색 — 페리윙클 (CTA·활성·링크 전용) */
+  --color-accent-50: #F1F1FC;
+  --color-accent-100: #E5E5F9;
+  --color-accent-200: #CFCFF4;
+  --color-accent-300: #B0B0EC;
+  --color-accent-400: #8C8CE2;
+  --color-accent-500: #6E6EDB;
+  --color-accent-600: #5B5BD6;
+  --color-accent-700: #4949BE;
+  --color-accent-800: #3C3C9C;
+  --color-accent-900: #333380;
 
-  /* 포인트 — 골드 (절제해서: 활성 표시·강조 수치·브랜드 도트) */
-  --color-gold-50: #FBF6E7;
-  --color-gold-100: #F4E9C6;
-  --color-gold-200: #E8D69A;
-  --color-gold-300: #D9BD66;
-  --color-gold-400: #C9A227;
-  --color-gold-500: #A8861F;
-  --color-gold-600: #8C6D1F;
-  --color-gold-700: #6F541A;
-  --color-gold-800: #533E14;
-  --color-gold-900: #3A2B0E;
+  /* 시맨틱 — 저채도 파스텔 배경 + 진한 동계열 텍스트 */
+  --color-success-50: #EBF6EF;
+  --color-success-100: #D5ECDF;
+  --color-success-600: #1E7A4B;
+  --color-success-700: #176540;
+  --color-warning-50: #FBF4E4;
+  --color-warning-100: #F6E8C6;
+  --color-warning-600: #95670C;
+  --color-warning-700: #7A540A;
+  --color-danger-50: #FCEEEC;
+  --color-danger-100: #F8DAD6;
+  --color-danger-600: #C13A31;
+  --color-danger-700: #9E2F28;
 
-  /* 시맨틱 */
-  --color-success-50: #EBF7F0;
-  --color-success-100: #D2EDDE;
-  --color-success-600: #1B7A4B;
-  --color-success-700: #14603A;
-  --color-warning-50: #FDF6E7;
-  --color-warning-100: #FAE9C3;
-  --color-warning-600: #9A6700;
-  --color-warning-700: #7A5200;
-  --color-danger-50: #FCEFEE;
-  --color-danger-100: #F8D9D6;
-  --color-danger-600: #C0362C;
-  --color-danger-700: #9C2B23;
+  /* 표면·텍스트·경계 별칭 */
+  --color-canvas: #FAFAF8;     /* 따뜻한 오프화이트 캔버스 */
+  --color-ink: #2A2A30;        /* 본문 */
+  --color-ink-soft: #5F5F66;   /* 보조 (canvas 대비 ≈5.5:1) */
+  --color-line: #E8E8E4;       /* 헤어라인 */
+  --color-line-strong: #D9D9D4;
 
-  /* 표면·텍스트·경계 */
-  --color-canvas: #F4F6F9;
-  --color-ink: #232629;
-  --color-ink-soft: #5A6270;
-  --color-line: #DCE2EA;
-
-  /* 타이포 4단 — 40~50대 가독 기준 (본문 15px, 표 13.5px, 캡션 12.5px) */
-  --text-display: 1.75rem;
-  --text-display--line-height: 1.3;
+  /* 타이포 4단 — 40~50대 가독(본문 15px) + 에디토리얼 헤드라인(자간 축소) */
+  --text-display: 2rem;
+  --text-display--line-height: 1.25;
   --text-display--font-weight: 800;
+  --text-display--letter-spacing: -0.025em;
   --text-title: 1.125rem;
   --text-title--line-height: 1.45;
   --text-title--font-weight: 700;
+  --text-title--letter-spacing: -0.01em;
   --text-body: 0.9375rem;
   --text-body--line-height: 1.65;
   --text-caption: 0.78125rem;
@@ -73,10 +71,11 @@
   --text-table: 0.84375rem;
   --text-table--line-height: 1.5;
 
-  /* 그림자·반경 */
-  --shadow-card: 0 1px 3px rgba(14, 47, 79, 0.06), 0 1px 2px rgba(14, 47, 79, 0.04);
-  --shadow-raised: 0 8px 24px rgba(14, 47, 79, 0.1);
-  --radius-card: 0.75rem;
+  /* 반경·그림자 — 카드 16px·버튼 10px, 그림자는 호버/오버레이만 */
+  --radius-card: 1rem;
+  --radius-btn: 0.625rem;
+  --shadow-hover: 0 2px 8px rgba(26, 26, 30, 0.06);
+  --shadow-overlay: 0 12px 32px rgba(26, 26, 30, 0.12);
 }
 
 html, body {
@@ -87,6 +86,39 @@ html, body {
   margin: 0;
   background: var(--color-canvas);
   color: var(--color-ink);
+}
+
+/* ── Home 히어로 scroll-scrub (BOHUMFIT-045 — 히어로 1곳 전용) ──────────────
+   transform/opacity 만 사용. CSS scroll-driven 미지원 브라우저는 정적 표시(효과 생략),
+   prefers-reduced-motion 시 전체 비활성, 모바일은 scale 약화. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: scroll()) {
+    .bf-hero-wrap {
+      height: 165vh;
+    }
+    .bf-hero {
+      --bf-hero-scale: 0.94;
+      position: sticky;
+      top: 0;
+      transform-origin: 50% 28%;
+      will-change: transform, opacity;
+      animation: bf-hero-scrub linear both;
+      animation-timeline: scroll(root block);
+      animation-range: 0 90vh;
+    }
+    @media (max-width: 768px) {
+      .bf-hero {
+        --bf-hero-scale: 0.97;
+      }
+    }
+  }
+}
+
+@keyframes bf-hero-scrub {
+  to {
+    transform: scale(var(--bf-hero-scale, 0.94));
+    opacity: 0;
+  }
 }
 
 * {

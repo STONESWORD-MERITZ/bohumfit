@@ -1,4 +1,4 @@
-// BOHUMFIT-044: 로그인 리스타일 — 인증 로직·링크 불변, 디자인 토큰/ui 컴포넌트 적용.
+// BOHUMFIT-045: 로그인 Mercury 전환 — 인증 로직·링크 불변, 토큰 v2/ui 컴포넌트 적용.
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -44,17 +44,17 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center bg-canvas px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-extrabold tracking-tight text-navy-900">
-            BOHUMFIT<span className="text-gold-400">.</span>
+          <h1 className="text-3xl font-extrabold tracking-tight text-ink-900">
+            BOHUMFIT<span className="text-accent-600">.</span>
           </h1>
           <p className="mt-2 text-body text-ink-soft">보험 고지 리스크 점검을 시작하세요</p>
         </div>
 
-        <div className="rounded-card border border-line bg-white p-6 shadow-card">
+        <div className="rounded-card border border-line bg-white p-6">
           <div className="space-y-3">
             <button
               onClick={handleKakao}
-              className="flex w-full items-center justify-center rounded-lg py-3 text-sm font-bold transition-opacity hover:opacity-90"
+              className="flex w-full items-center justify-center rounded-btn py-3 text-sm font-semibold transition-opacity hover:opacity-90"
               style={{ background: "#FEE500", color: "#191919" }}
             >
               카카오로 시작하기
@@ -62,7 +62,7 @@ export default function Login() {
 
             <button
               onClick={handleGoogle}
-              className="flex w-full items-center justify-center rounded-lg border border-line bg-white py-3 text-sm font-bold text-ink transition-colors hover:bg-canvas"
+              className="flex w-full items-center justify-center rounded-btn border border-line-strong bg-white py-3 text-sm font-semibold text-ink-800 transition-colors hover:bg-ink-50"
             >
               Google로 시작하기
             </button>
@@ -70,7 +70,7 @@ export default function Login() {
 
           <div className="my-6 flex items-center gap-3" aria-hidden>
             <div className="h-px flex-1 bg-line" />
-            <span className="text-caption font-semibold text-ink-soft/60">또는</span>
+            <span className="text-caption font-medium text-ink-400">또는</span>
             <div className="h-px flex-1 bg-line" />
           </div>
 
@@ -102,13 +102,13 @@ export default function Login() {
 
         <p className="mt-6 text-center text-caption text-ink-soft">
           아직 계정이 없나요?{" "}
-          <Link to="/signup" className="font-bold text-navy-700 hover:underline">
+          <Link to="/signup" className="font-semibold text-accent-700 hover:underline">
             회원가입
           </Link>
         </p>
         <p className="mt-3 text-center text-caption text-ink-soft">
           고객용 점검도{" "}
-          <Link to="/check" className="font-bold text-success-600 hover:underline">
+          <Link to="/check" className="font-semibold text-accent-700 hover:underline">
             로그인 후 이용
           </Link>
           할 수 있습니다.

@@ -1,4 +1,4 @@
-// BOHUMFIT-044 디자인 시스템 — Field (라벨+입력+도움말) · TextInput · SelectInput
+// BOHUMFIT-045 디자인 시스템 v2(Mercury) — Field·TextInput·SelectInput. API 불변, 내부 스타일만 교체.
 import {
   type InputHTMLAttributes,
   type ReactNode,
@@ -19,7 +19,7 @@ export interface FieldProps {
 
 export default function Field({ label, required, help, error, className = "", children }: FieldProps) {
   return (
-    <label className={`block text-caption font-semibold text-ink-soft ${className}`}>
+    <label className={`block text-caption font-semibold text-ink-700 ${className}`}>
       <span>
         {label}
         {required && (
@@ -28,20 +28,21 @@ export default function Field({ label, required, help, error, className = "", ch
           </span>
         )}
       </span>
-      <div className="mt-1">{children}</div>
+      <div className="mt-1.5">{children}</div>
       {error ? (
-        <p className="mt-1 font-semibold text-danger-600">{error}</p>
+        <p className="mt-1.5 font-semibold text-danger-600">{error}</p>
       ) : (
-        help && <p className="mt-1 font-normal text-ink-soft/80">{help}</p>
+        help && <p className="mt-1.5 font-normal text-ink-soft">{help}</p>
       )}
     </label>
   );
 }
 
 const INPUT_CLS =
-  "w-full rounded-lg border border-line bg-white px-3.5 py-2.5 text-body text-ink " +
-  "placeholder:text-ink-soft/50 focus:border-navy-400 focus:outline-2 focus:outline-offset-0 " +
-  "focus:outline-navy-500/30 disabled:bg-canvas disabled:text-ink-soft";
+  "w-full rounded-btn border border-line-strong bg-white px-3.5 py-2.5 text-body text-ink " +
+  "placeholder:text-ink-400 transition-colors hover:border-ink-300 " +
+  "focus:border-accent-500 focus:outline-2 focus:outline-offset-0 focus:outline-accent-200 " +
+  "disabled:bg-ink-50 disabled:text-ink-soft";
 
 /** 토큰 적용 기본 텍스트 입력 — Field 안/밖 모두 사용 가능 */
 export function TextInput({ className = "", ...rest }: InputHTMLAttributes<HTMLInputElement>) {

@@ -1,4 +1,4 @@
-// BOHUMFIT-044 디자인 시스템 — Button (주/보조/위험/고스트 · 로딩 상태)
+// BOHUMFIT-045 디자인 시스템 v2(Mercury) — Button. API 불변(044과 동일 props), 내부 스타일만 교체.
 import { type ButtonHTMLAttributes, type ReactNode } from "react";
 
 export type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
@@ -15,10 +15,12 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const VARIANT_CLS: Record<ButtonVariant, string> = {
-  primary: "bg-navy-800 text-white shadow-card hover:bg-navy-700 active:bg-navy-900",
-  secondary: "border border-navy-200 bg-white text-navy-800 hover:bg-navy-50 active:bg-navy-100",
+  // 잉크 솔리드 — Mercury 주 버튼
+  primary: "bg-ink-900 text-white hover:bg-ink-700 active:bg-ink-900",
+  // 고스트 1px 헤어라인
+  secondary: "border border-line-strong bg-white text-ink-800 hover:bg-ink-50 active:bg-ink-100",
   danger: "bg-danger-600 text-white hover:bg-danger-700",
-  ghost: "text-navy-700 hover:bg-navy-50",
+  ghost: "text-ink-700 hover:bg-ink-50",
 };
 
 const SIZE_CLS: Record<ButtonSize, string> = {
@@ -44,8 +46,8 @@ export default function Button({
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={[
-        "inline-flex items-center justify-center gap-2 rounded-lg font-bold transition-colors",
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy-500",
+        "inline-flex items-center justify-center gap-2 rounded-btn font-semibold transition-colors",
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600",
         "disabled:cursor-not-allowed disabled:opacity-50",
         VARIANT_CLS[variant],
         SIZE_CLS[size],
@@ -59,7 +61,7 @@ export default function Button({
           aria-hidden
           className={`inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 ${
             variant === "secondary" || variant === "ghost"
-              ? "border-navy-300 border-t-navy-700"
+              ? "border-ink-300 border-t-ink-700"
               : "border-white/40 border-t-white"
           }`}
         />

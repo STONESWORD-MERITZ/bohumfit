@@ -16,6 +16,95 @@
 
 # Handoff
 
+## 2026-06-13 09:53 Codex BOHUMFIT-045 [완료 - Windows 권위 검증/푸시 대기]
+### Changed
+- `src/index.css` — Mercury v2 토큰, Pretendard CDN import, Home hero scroll-scrub CSS 적용. BOM `EF BB BF` 보존.
+- `src/components/ui/*` — Button/Card/PageHeader/DataTable/Field/Badge/Callout/EmptyState 8종 API 불변, 내부 스타일 v2 전환.
+- `src/components/Layout.tsx`, `src/components/Footer.tsx` — 라이트 헤더/네비/푸터 전환.
+- `src/pages/Home.tsx`, `src/pages/Login.tsx` — Mercury 라이트 톤 및 Home 히어로 스크럽 적용.
+- `vercel.json` — CSP `style-src`/`font-src`에 `https://cdn.jsdelivr.net` 추가.
+- `.agent-harness/tasks/BOHUMFIT-045-design-mercury.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md` — 태스크/검증/잠금 기록.
+
+### Verified
+- [x] `.git/index.lock` 없음.
+- [x] 변경 범위 확인: 허용 파일만 변경. `Disclosure.tsx`, `InsuranceCalculator.tsx`, `CoverageAnalysis.tsx`, `backend/templates/*` diff 없음.
+- [x] `src/index.css` 첫 바이트 `EF BB BF`로 BOM 보존.
+- [x] 045 변경 범위 기준 커스텀 `navy/gold/indigo` 토큰·클래스 잔존 0건. `Badge`의 `tone: "navy" | "gold"`는 API 불변을 위한 의미 재매핑으로 보존.
+- [x] `npx tsc -p tsconfig.app.json --noEmit`
+- [x] `npx tsc -p tsconfig.node.json --noEmit`
+- [x] `npm run lint`
+- [x] `npm test` - 3 files, 39 tests passed.
+- [x] `npm run build` - 통과. `xlsx` 별도 청크 유지, Vite 500kB chunk warning은 기존 메인 번들 크기 경고.
+- [x] 브라우저 스모크(`npm run dev`, Playwright): Login/Home/Layout 라이트 톤 렌더, Pretendard computed font 확인, Home hero scroll-scrub 동작 확인(`opacity/transform` 변화), reduced-motion 정적 확인, 로컬 CSP 위반 콘솔 0건.
+- [x] 분석 3페이지 회귀: `/disclosure` 구조/업로드 컨트롤, `/insurance` 계산 입력 컨트롤, `/coverage` 합성 xlsx 업로드→테이블 2개+select 생성 확인.
+
+### Notes
+- 일반 `rg indigo`는 범위 밖 기존 화면(`WhyDisclosure`, `AnalysisProgress`, 분석 페이지)의 Tailwind 클래스까지 잡는다. 이번 게이트는 045 변경 범위의 legacy token/class 잔존 여부로 판단했고 0건 확인.
+- 로컬 Vite 환경은 Vercel CSP 헤더를 적용하지 않으므로, 운영 Pretendard/CSP 확인은 push 후 실제 도메인에서 별도 확인 필요.
+- Home 스크럽은 Chrome에서 `CSS.supports('animation-timeline: scroll()') == true`로 동작 확인. 미지원 브라우저/reduced-motion에서는 정적 fallback.
+
+### Next
+- Codex: 커밋/푸시 후 운영 `bohumfit.ai`에서 Pretendard 로드(CSP 통과)와 실스크롤 동작 1회 확인.
+- Human: 배포 화면 룩 확인(포인트색 강도·여백·스크롤 연출 체감).
+- 다음 태스크: 분석 3페이지(Disclosure/실손/보장분석) 토큰 v2·ui 적용.
+
+## 2026-06-13 Cowork BOHUMFIT-045 [구현+/tmp 검증 완료 / Codex Windows 검증·커밋·푸시 → Human 룩 확인]
+### Changed
+- `src/index.css` — **토큰 v2 전면 교체**(Mercury 라이트 프리미엄), Pretendard CDN @import(최상단), Home 히어로 scroll-scrub CSS(파일 끝). BOM 보존. 044 navy/gold/레거시 indigo 토큰 **제거**(사전 grep: 범위 밖 참조 0 — 분석 3페이지는 표준 팔레트/임의 hex 사용으로 무영향).
+- `src/components/ui/*` 8종 — **API(props·export) 불변, 내부 스타일만 교체.** DataTable 의 `striped` 는 타입에 유지하되 시각 효과 제거(Mercury 문법 — 구조분해에서 제외, 무시).
+- `src/components/Layout.tsx` — 라이트 네비(캔버스 헤더+헤어라인, 잉크 로고+포인트 도트, 활성=포인트 텍스트·언더라인 없음). 044 브랜드 그라디언트 바 제거. NAV 5항목·라우팅·aria 불변.
+- `src/components/Footer.tsx` — 라이트 푸터(다크 네이비 폐기). 문구·링크 불변.
+- `src/pages/Home.tsx` — 다크 섹션 전부 라이트 전환(섹션 구분=여백), 장식 오버레이(그리드/도트/그라디언트) 제거, **히어로 scroll-scrub 적용(1곳만)**: `.bf-hero-wrap`(165vh)+sticky `.bf-hero`. 카피·링크·훅(useCountUp/FadeIn/IntersectionObserver) 불변.
+- `src/pages/Login.tsx` — 토큰 v2 적용(카카오/구글 브랜드색 유지, 인증 로직 불변).
+- `vercel.json` — CSP `style-src`/`font-src` 에 `https://cdn.jsdelivr.net` 허용(Pretendard 로드 필수 — 사전 점검에서 기존 CSP 차단 확인). 그 외 정책 불변.
+- `.agent-harness/tasks/BOHUMFIT-045-design-mercury.md`(신규), handoff/locks.
+- **무수정**: Disclosure/InsuranceCalculator/CoverageAnalysis(다음 태스크), backend/templates 리포트 PDF(네이비+골드 = 승인 산출물 유지), App.tsx.
+
+### 토큰 v2 목록 (페이지 적용 태스크 사양)
+- 캔버스/표면: `canvas`(#FAFAF8 오프화이트) · 카드=white+`line`(#E8E8E4 헤어라인)+`rounded-card`(16px) · `line-strong`(#D9D9D4).
+- 잉크 스케일: `ink-50~900`(900=#1A1A1E 헤드라인, 700~800 본문 강조, `ink`=#2A2A30 본문, `ink-soft`=#5F5F66 보조 — canvas 대비 ≈5.5:1).
+- 포인트 1색: `accent-50~900`(600=#5B5BD6 페리윙클) — CTA·활성·링크 전용. **골드 없음.**
+- 시맨틱: `success/warning/danger-{50,100,600,700}` — 파스텔 bg(50/100)+진한 텍스트(600/700).
+- 타이포(이름 044와 동일): `text-display`(32px·800·자간 -2.5%)/`text-title`(18px·700·-1%)/`text-body`(15px)/`text-caption`(12.5px)/`text-table`(13.5px)+tabular-nums.
+- 효과: `rounded-btn`(10px), `shadow-hover`/`shadow-overlay`(이외 그림자 금지 — 보더가 구조). 044 `shadow-card/raised`·`radius-card 12px` 폐기→16px.
+- 규칙: hex 임의값 금지, 색으로 위계 만들지 않기(굵기·크기로), 장식 금지.
+
+### 044 대비 변경 요약
+| 항목 | 044(네이비+골드) | 045(Mercury) |
+|---|---|---|
+| 캔버스 | #F4F6F9 쿨 그레이 | #FAFAF8 웜 오프화이트 |
+| 주조 텍스트 | navy-900 | ink-900(뉴트럴) |
+| 포인트 | gold-400 + navy | accent(페리윙클) 1색 |
+| 구조 | 그림자+보더 | 헤어라인 보더(그림자는 호버만) |
+| 표 헤더 | 네이비 솔리드+줄무늬 | 캔버스+그레이 캡션, 줄무늬 제거·호버만 |
+| 버튼 primary | navy 솔리드 | ink 솔리드(라운드 10px) |
+| 네비 활성 | 골드 언더라인 | 포인트 텍스트(언더라인 없음) |
+| 푸터 | 다크 네이비 | 라이트+헤어라인 |
+| Home 다크 섹션 | navy-950 유지 | 전부 라이트(여백 구분), 오버레이 제거 |
+| 폰트 | 시스템 스택만 | Pretendard CDN+폴백 |
+- **컴포넌트 API 불변 확인**: 8종 모두 props/타입/export 시그니처 044와 동일(tsc로 확인). Badge tone 리터럴("navy"/"gold" 등) 유지 — 의미 재매핑: "navy"=뉴트럴 잉크, "gold"=포인트. 판정 권장 매핑 유지(권고=gold→페리윙클/불요=success/확인필요=warning).
+
+### 히어로 scroll-scrub 구현 명세
+- CSS 전용(JS 0): `@media (prefers-reduced-motion: no-preference)` ∧ `@supports (animation-timeline: scroll())` 안에서만 `.bf-hero-wrap{height:165vh}`+`.bf-hero{position:sticky; animation-timeline: scroll(root); animation-range: 0 90vh}` → scale 1→0.94 + opacity 1→0 (transform/opacity만). 미지원 브라우저=완전 정적(wrapper 높이 auto·sticky 미적용 — 기능 영향 0). 모바일(≤768px) scale 0.97 약화. 이후 섹션은 `relative z-10 bg-canvas` 로 히어로를 덮음. 적용 1곳(Home 히어로)만.
+
+### Verified
+- [x] /tmp tsc(strict+jsx): ui 8종 v2 + 기존 lib/페이지 통과. (Layout/Home/Login 은 router/supabase 의존으로 /tmp 제외 — Windows tsc 가 권위.)
+- [x] Tailwind v4 실컴파일 → Chromium 쇼케이스 스크린샷 `outputs/ds_mercury_showcase.png`: 라이트 네비(활성 페리윙클)/히어로/버튼 5상태/뱃지 7종/Card+Field 3상태/캔버스 헤더 표+합계행/Callout 4종/Login 카드/EmptyState.
+- [x] 대비: ink/canvas ≈13:1, ink-soft/canvas ≈5.5:1, accent-600 텍스트/white ≈4.9:1(소형 텍스트는 700 사용), 시맨틱 600/700 모두 4.5:1↑.
+- [x] navy/gold/shadow-card 잔존 참조 grep 0(전 src). Windows 원본 마커 확인(scrub CSS·bf-hero-wrap·jsdelivr CSP).
+- [x] 마운트 truncation 재발(편집 파일 전부) — /tmp 사본은 컨텍스트 기준 재구성으로 검증(ENV 절차). index.css BOM 보존.
+- [ ] Windows: tsc(app/node)·lint·test·build + 전 라우트 스모크(분석 3페이지 시각 회귀 없음) + **배포 후 Pretendard 로드/CSP 확인 + 실스크롤로 히어로 스크럽 체감 확인**(Chrome 115+에서 동작, Safari 구버전은 정적) — Codex/Human.
+
+### Notes
+- striped prop 무시는 의도(API 호환) — 호출부 수정 불필요.
+- vercel.json CSP 변경은 보안 헤더 영향 — 검토 포인트: jsdelivr 2개 디렉티브만 추가, 나머지 동일.
+- 쇼케이스/렌더 헬퍼는 /tmp 전용(repo 미포함).
+
+### Next
+- Codex(Windows): tsc/lint/test/build → 라우트 스모크 → 045 범위 파일만 한국어 커밋(`BOHUMFIT-045: 디자인 시스템 v2 — Mercury 라이트 미니멀(토큰 교체+히어로 스크럽)`) → push.
+- Human: 룩 확인(`outputs/ds_mercury_showcase.png` + 배포 화면 스크롤 연출) — 포인트색 강도·여백 피드백.
+- 다음: 분석 3페이지(Disclosure/실손/보장분석) 토큰 v2·ui 적용 태스크.
+
 ## 2026-06-12 21:02 Codex BOHUMFIT-044 [완료 - Windows 권위 검증/푸시 대기]
 ### Changed
 - `src/index.css` — BOHUMFIT 네이비·골드 @theme 토큰 추가, BOM(`EF BB BF`) 보존, 레거시 indigo 토큰 보존 확인.

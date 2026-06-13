@@ -1,5 +1,5 @@
-// BOHUMFIT-044 디자인 시스템 — Callout (안내·경고·면책 박스 통일)
-// 면책·비저장 문구는 variant="legal" 로 통일한다.
+// BOHUMFIT-045 디자인 시스템 v2(Mercury) — Callout. API 불변, 내부 스타일만 교체.
+// 파스텔 배경 + 진한 동계열 텍스트, 좌측 강조선 제거(미니멀). 면책(legal)=옅은 그레이 박스.
 import { type ReactNode } from "react";
 
 export type CalloutVariant = "info" | "success" | "warning" | "danger" | "legal";
@@ -13,29 +13,29 @@ export interface CalloutProps {
 
 const VARIANT_CLS: Record<CalloutVariant, { box: string; title: string; body: string }> = {
   info: {
-    box: "border-navy-200 bg-navy-50 border-l-4 border-l-navy-600",
-    title: "text-navy-800",
-    body: "text-navy-900/80",
+    box: "border-accent-100 bg-accent-50",
+    title: "text-accent-800",
+    body: "text-accent-900/85",
   },
   success: {
-    box: "border-success-100 bg-success-50 border-l-4 border-l-success-600",
+    box: "border-success-100 bg-success-50",
     title: "text-success-700",
     body: "text-success-700/90",
   },
   warning: {
-    box: "border-warning-100 bg-warning-50 border-l-4 border-l-warning-600",
+    box: "border-warning-100 bg-warning-50",
     title: "text-warning-700",
     body: "text-warning-700/90",
   },
   danger: {
-    box: "border-danger-100 bg-danger-50 border-l-4 border-l-danger-600",
+    box: "border-danger-100 bg-danger-50",
     title: "text-danger-700",
     body: "text-danger-700/90",
   },
-  // 면책·법적 고지 — 차분한 회색, 본문보다 작게
+  // 면책·법적 고지 — 옅은 그레이 박스
   legal: {
-    box: "border-line bg-canvas",
-    title: "text-ink",
+    box: "border-line bg-ink-50",
+    title: "text-ink-700",
     body: "text-ink-soft",
   },
 };
@@ -45,7 +45,7 @@ export default function Callout({ variant = "info", title, className = "", child
   return (
     <div
       role={variant === "warning" || variant === "danger" ? "alert" : "note"}
-      className={`rounded-lg border px-4 py-3 ${cls.box} ${className}`}
+      className={`rounded-xl border px-4 py-3.5 ${cls.box} ${className}`}
     >
       {title && <p className={`mb-1 text-caption font-bold ${cls.title}`}>{title}</p>}
       <div className={`text-caption leading-relaxed break-keep ${cls.body}`}>{children}</div>

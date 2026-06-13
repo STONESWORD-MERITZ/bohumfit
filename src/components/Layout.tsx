@@ -1,5 +1,5 @@
-// BOHUMFIT-044: 금융 대시보드 톤 상단 네비 — 기능·라우팅 불변(시각 계층만).
-// 브랜드 바(네이비→골드)는 PDF 리포트 아이덴티티를 화면으로 확장한 것.
+// BOHUMFIT-045: Mercury 라이트 네비 — 기능·라우팅 불변(시각 계층만).
+// 밝은 캔버스 헤더 + 잉크 로고 + 활성 메뉴는 포인트색 텍스트(언더라인 없음).
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../lib/auth-context";
 import Footer from "./Footer";
@@ -17,30 +17,28 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-canvas">
-      <header className="sticky top-0 z-30 border-b border-line bg-white/95 backdrop-blur">
-        {/* 브랜드 바 — PDF 리포트 헤더와 동일한 네이비→골드 */}
-        <div aria-hidden className="h-1 bg-gradient-to-r from-navy-800 via-navy-800 via-70% to-gold-400" />
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3">
+      <header className="sticky top-0 z-30 border-b border-line bg-canvas/90 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3.5">
           <Link
             to="/"
-            className="shrink-0 text-lg font-extrabold tracking-tight text-navy-900 transition-colors hover:text-navy-700"
+            className="shrink-0 text-lg font-extrabold tracking-tight text-ink-900 transition-colors hover:text-ink-700"
           >
-            BOHUMFIT<span className="text-gold-400">.</span>
+            BOHUMFIT<span className="text-accent-600">.</span>
           </Link>
 
           <nav
             aria-label="주요 메뉴"
-            className="flex min-w-0 items-center gap-1 overflow-x-auto text-sm font-semibold"
+            className="flex min-w-0 items-center gap-1 overflow-x-auto text-sm font-medium"
           >
             {NAV_ITEMS.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
-                  `whitespace-nowrap border-b-2 px-2.5 py-1.5 transition-colors ${
+                  `whitespace-nowrap rounded-btn px-3 py-1.5 transition-colors ${
                     isActive
-                      ? "border-gold-400 text-navy-900"
-                      : "border-transparent text-ink-soft hover:text-navy-800"
+                      ? "font-semibold text-accent-700"
+                      : "text-ink-soft hover:bg-ink-50 hover:text-ink-900"
                   }`
                 }
               >
@@ -55,7 +53,7 @@ export default function Layout() {
                 <span className="hidden text-caption text-ink-soft sm:inline">{user.email}</span>
                 <button
                   onClick={signOut}
-                  className="rounded-lg border border-navy-200 bg-white px-3.5 py-1.5 text-caption font-bold text-navy-800 transition-colors hover:bg-navy-50"
+                  className="rounded-btn border border-line-strong bg-white px-3.5 py-1.5 text-caption font-semibold text-ink-800 transition-colors hover:bg-ink-50"
                 >
                   로그아웃
                 </button>
@@ -63,7 +61,7 @@ export default function Layout() {
             ) : (
               <NavLink
                 to="/login"
-                className="rounded-lg bg-navy-800 px-4 py-1.5 text-caption font-bold text-white transition-colors hover:bg-navy-700"
+                className="rounded-btn bg-ink-900 px-4 py-1.5 text-caption font-semibold text-white transition-colors hover:bg-ink-700"
               >
                 로그인
               </NavLink>
