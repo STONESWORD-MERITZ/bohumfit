@@ -16,6 +16,86 @@
 
 # Handoff
 
+## 2026-06-13 Codex BOHUMFIT-050 [완료 - Windows 권위 검증 / 커밋·푸시 대기]
+### Changed
+- `src/assets/brand/bohumfit_logo.svg`, `bohumfit_logo_white.svg`, `bohumfit_logo.png` — 정식 브랜드 에셋 추가.
+- `src/components/Layout.tsx` — 상단 네비 텍스트 워드마크를 컬러 로고 이미지로 교체, 홈 링크 유지.
+- `src/pages/Login.tsx` — 로그인 화면 중앙 로고 이미지 적용, `sr-only` 텍스트 유지.
+- `src/components/Footer.tsx` — 푸터 컬러 로고 적용.
+- `src/pages/HomeMission.tsx` — 미션 섹션 상단 로고 1회 노출.
+- `.agent-harness/tasks/BOHUMFIT-050-brand-logo.md`, handoff/locks.
+- 루트 구 로고 파일 2개 삭제: `보험핏 로고.png`, `보험핏-로고.svg`(untracked 파일, 커밋 대상 아님).
+
+### Verified
+- [x] `.git/index.lock` 없음, locks Active none 확인.
+- [x] Windows 원본 무결성: `Layout.tsx`, `Login.tsx`, `Footer.tsx`, `HomeMission.tsx` 한글/꼬리 잘림 없음 확인.
+- [x] 범위 확인: `Disclosure.tsx`, `InsuranceCalculator.tsx`, `CoverageAnalysis.tsx`, `WhyDisclosure.tsx`, `Home.tsx`, `App.tsx`, `index.css` diff 없음.
+- [x] 정식 에셋 보존: `src/assets/brand/bohumfit_logo.svg`, `_white.svg`, `.png` 존재 확인.
+- [x] 구 루트 로고 파일 삭제 확인: 루트 `*로고*`/`*보험*` 파일 없음.
+- [x] `npx tsc -p tsconfig.app.json --noEmit`
+- [x] `npx tsc -p tsconfig.node.json --noEmit`
+- [x] `npm run lint`
+- [x] `npm test` — 3 files / 39 passed.
+- [x] `npm run build` — 성공, `dist/assets/bohumfit_logo-*.svg` 포함 확인. 기존 xlsx 청크 경고만 있음.
+- [x] 브라우저 스모크(Chrome CDP, Windows): 상단 네비 로고 h=28 홈 링크 `/`, 푸터 로고 h=24, 미션 로고 h=24, 로그인 중앙 로고 h=36 + sr-only 확인.
+- [x] 스크린샷 육안: 네비/로그인/푸터/미션 모두 컬러 워드마크, 페리윙클 M사선·점 유지, 검정 평탄화 아님. 모바일 overflow 0, 콘솔/CSP 이슈 0.
+
+### Notes
+- 로그인 실제 인증은 테스트 계정 입력 없이 미실행. 인증 로직은 변경하지 않았고 로그인 화면/버튼/폼 렌더는 정상 확인.
+- white 로고와 png 폴백은 이번 노출처에서 미사용(라이트 배경 4곳). 추후 다크 배경 노출처에서 white 사용 가능.
+- 파비콘은 여전히 후속 과제: 현 워드마크는 가로형이라 정사각 미니마크 제작 후 교체 권장.
+- accent 토큰 `#5B5BD6`과 로고 포인트 `#5955DE`는 미세 차이. Human 승인 후 별도 태스크에서 통일 가능.
+
+### Next
+- Human: 네비/로그인/푸터/미션 로고 크기·정렬 육안 확인.
+- Cowork/Codex: BOHUMFIT-051 리포트 PDF 로고 적용.
+
+## 2026-06-13 Cowork BOHUMFIT-050 [구현+/tmp 검증 완료 / Codex Windows 검증·커밋·푸시+구파일 삭제 → Human 육안]
+### Changed
+- `src/components/Layout.tsx` — 네비 BrandLogo 텍스트 워드마크 → `<img src={logo} className="h-7 w-auto">`(컬러), `aria-label="BOHUMFIT 홈"`, 클릭 시 `/`. 데스크탑·모바일 공용.
+- `src/components/Footer.tsx` — 텍스트 워드마크 → 컬러 로고 `h-6`(푸터 배경 라이트라 컬러 버전).
+- `src/pages/Login.tsx` — 상단 브랜드 텍스트 → 컬러 로고 중앙 `mx-auto h-9` + `<span class="sr-only">BOHUMFIT</span>`(스크린리더).
+- `src/pages/HomeMission.tsx` — 미션 섹션 상단에 컬러 로고 1회 `h-6`(레터헤드, 과용 금지 — 1곳만).
+- `.agent-harness/tasks/BOHUMFIT-050-brand-logo.md`(신규), handoff/locks.
+- import: 모두 상대경로 `../assets/brand/bohumfit_logo.svg`(또는 페이지 기준). `@` 별칭 미설정이라 상대경로 사용.
+- **무수정**: 다른 페이지 본문·index.css·라우트·App·PDF 템플릿. 루트 구 파일 미접촉.
+
+### 적용 위치 (4지점, 컬러 버전만 사용)
+| 위치 | 파일 | 크기 | 비고 |
+|---|---|---|---|
+| 상단 네비 | Layout.tsx BrandLogo | h-7(≈28px) | 홈 링크, aria-label |
+| 로그인 | Login.tsx | h-9 중앙 | sr-only 텍스트 병기 |
+| 푸터 | Footer.tsx | h-6 | 라이트 배경 → 컬러 |
+| 메인 미션 | HomeMission.tsx | h-6 | 1회(레터헤드) |
+- white 버전(`bohumfit_logo_white.svg`)·png 폴백은 **이번 미사용**(현재 노출 4지점 모두 라이트 배경). 다크 배경 노출처 생기면 white 사용 — 후속.
+
+### 파비콘 (후속 필요)
+- 현 로고는 **가로 워드마크(viewBox 1099×263 ≈4.18:1)** — 정사각 파비콘에 부적합. 이번 태스크 `index.html`/`public` 파비콘 **미수정**. → **정사각 미니 마크(심볼 'M' 단독 등) 별도 제작 후 favicon 교체 필요**(후속 태스크 제안).
+
+### 포인트색 정합 (제안만, 범위 밖)
+- 045 토큰 포인트 `--color-accent-600: #5B5BD6`, 로고 포인트 `#5955DE` — 미세 차이(거의 식별 불가).
+- **제안**: 토큰 accent-600 을 `#5955DE`로 통일하면 로고-UI 완전 정합. 단 045 토큰 변경은 범위 밖 → 별도 태스크에서 Human 승인 후 1줄 교체 검토.
+
+### 구 파일 (Codex 삭제 위임)
+- 루트 untracked `보험학 로고.png` / `보험학-로고.svg`(구 오타·검정본)는 Cowork 미접촉, import 0건(grep 확인). **삭제는 Codex(Windows)** — 050 커밋 시 함께 정리.
+
+### Verified
+- [x] /tmp 타입 계약 tsc: `import logo from "*.svg"` → `string` → `<img src>` 통과(svg-shim 으로 vite/client 대체, 실제는 src/vite-env.d.ts `/// vite/client` 가 제공).
+- [x] 적용 4지점 import·`<img alt="BOHUMFIT">` 마커 Windows 원본 Read 확인. 구 오타/white/png 미참조(grep 0).
+- [x] 에셋 유효성: 컬러 svg XML 루트 정상, color(#000000+#5955DE)/white(#FFFFFF+#5955DE) 별도 파일(cmp differ).
+- [⚠] **Chromium 스크린샷 미생성**: 샌드박스 libXdamage1 부재(전 태스크 동일·sudo/apt 불가). 근거: 타입계약 tsc + 마커 + 단순 텍스트→img 치환(시각 회귀 낮음). **Codex/Human Windows 육안(네비/로그인/푸터/홈 로고 크기·정렬) 요망.**
+- [ ] Windows: tsc(app/node)·lint·`npm run build`(svg 에셋 번들) + 4지점 육안 — Codex. (Layout/Login/Home/Footer 마운트 뷰 truncation — Windows 원본 권위.)
+
+### Notes
+- Login 로고에 sr-only "BOHUMFIT" 병기로 h1 의미 유지(접근성).
+- 모든 로고 alt="BOHUMFIT". 네비는 링크라 aria-label 추가.
+- white/png 미사용은 의도(현 노출처 라이트). lint 의 미사용 import 경고 없음(아예 import 안 함).
+
+### Next
+- Codex(Windows): tsc/lint/build → 4지점 육안 → 050 범위 파일만 한국어 커밋(`BOHUMFIT-050: 사이트 전역 브랜드 로고 적용(네비·로그인·푸터·홈)`) + **루트 구 로고 파일 2개(`보험학 로고.png`,`보험학-로고.svg`) 삭제** → push.
+- Human: 로고 크기·정렬 육안 / 파비콘 정사각 미니마크 제작 여부 / accent 토큰 #5955DE 통일 여부 결정.
+- 후속 제안: (a) 정사각 파비콘, (b) accent-600→#5955DE 통일, (c) 다크 배경 노출처 생기면 white 로고 적용.
+
 ## 2026-06-13 Codex BOHUMFIT-049 [완료 - Windows 권위 검증 / 분리 커밋]
 ### Changed
 - `src/pages/Home.tsx` — 히어로 직후 `<HomeMission />` 섹션 연결, `/#mission` 해시 진입 시 앵커 스크롤 보정 추가.

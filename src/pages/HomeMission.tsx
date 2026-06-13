@@ -3,6 +3,7 @@
 import { Link } from "react-router-dom";
 import Badge from "../components/ui/Badge";
 import Card from "../components/ui/Card";
+import logo from "../assets/brand/bohumfit_logo.svg";
 
 const VALUES = [
   {
@@ -23,6 +24,7 @@ export default function HomeMission() {
   return (
     <section id="mission" className="scroll-mt-20 py-24">
       <div className="mx-auto max-w-4xl px-6">
+        <img src={logo} alt="BOHUMFIT" className="mb-6 h-6 w-auto" />
         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent-600">Our Mission</p>
         <h2 className="mt-4 text-3xl font-extrabold leading-snug tracking-tight text-ink-900 md:text-4xl break-keep">
           보험은 가입보다 점검이 먼저입니다

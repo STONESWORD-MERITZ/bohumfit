@@ -7,6 +7,7 @@ import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { ChevronDown, Menu, X } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
 import Footer from "./Footer";
+import logo from "../assets/brand/bohumfit_logo.svg";
 
 type SimpleItem = { kind: "link"; to: string; label: string };
 type MenuItem =
@@ -41,12 +42,8 @@ const LINK_IDLE = "font-medium text-ink-soft hover:text-ink-900 after:bg-transpa
 
 function BrandLogo({ onClick }: { onClick?: () => void }) {
   return (
-    <Link
-      to="/"
-      onClick={onClick}
-      className="shrink-0 text-lg font-extrabold tracking-tight text-ink-900 transition-colors hover:text-ink-700"
-    >
-      BOHUMFIT<span className="text-accent-600">.</span>
+    <Link to="/" onClick={onClick} className="shrink-0" aria-label="BOHUMFIT 홈">
+      <img src={logo} alt="BOHUMFIT" className="h-7 w-auto" />
     </Link>
   );
 }
