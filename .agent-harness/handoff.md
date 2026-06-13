@@ -37,6 +37,7 @@
 - [x] 회사정보 푸터 중복 없음, indigo 클래스 0, 모바일 overflow 0, 콘솔/CSP 이슈 0.
 
 ### Notes
+- Commit/push: `9468fe5` (`origin/main`).
 - 048은 `8554548`로 이미 push 완료.
 - `/#mission` 앵커는 SPA 라우팅에서 기본 스크롤이 누락되어 Home 진입 시 hash 보정 `useEffect`를 추가함.
 - 로고 파일 2개(`보험학 로고.png`, `보험학-로고.svg`)는 BOHUMFIT-050 범위로 판단해 스테이징 제외.
