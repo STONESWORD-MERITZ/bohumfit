@@ -175,7 +175,7 @@ export default function CoverageAnalysis() {
           헤더 2행(계약정보/담보정보) 양식의 .xlsx — 회사명·상품명 병합셀은 자동으로 계약 단위로 묶습니다.
           고객 계약정보는 민감정보이므로 이 화면에서만 사용하고 저장하지 않습니다.
         </p>
-        {parsing && <p className="mt-2 text-xs font-semibold text-indigo-600">파싱 중…</p>}
+        {parsing && <p className="mt-2 text-xs font-semibold text-accent-600">파싱 중…</p>}
         {parseError && <p className="mt-2 text-xs font-semibold text-amber-700">{parseError}</p>}
         {result && (
           <p className="mt-2 text-xs text-emerald-600">

@@ -15,8 +15,8 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const VARIANT_CLS: Record<ButtonVariant, string> = {
-  // 잉크 솔리드 — Mercury 주 버튼
-  primary: "bg-ink-900 text-white hover:bg-ink-700 active:bg-ink-900",
+  // 보라 솔리드 — 브랜드 CTA (BOHUMFIT-046: 잉크→보라)
+  primary: "bg-accent-600 text-white hover:bg-accent-700 active:bg-accent-800",
   // 고스트 1px 헤어라인
   secondary: "border border-line-strong bg-white text-ink-800 hover:bg-ink-50 active:bg-ink-100",
   danger: "bg-danger-600 text-white hover:bg-danger-700",
@@ -24,9 +24,10 @@ const VARIANT_CLS: Record<ButtonVariant, string> = {
 };
 
 const SIZE_CLS: Record<ButtonSize, string> = {
+  // BOHUMFIT-048 모바일 탭 타깃 44px+: md/lg 에 min-h-[2.75rem] 보장(데스크탑 무해).
   sm: "px-3 py-1.5 text-caption",
-  md: "px-4 py-2.5 text-sm",
-  lg: "px-6 py-3 text-body",
+  md: "min-h-[2.75rem] px-4 py-2.5 text-sm",
+  lg: "min-h-[2.75rem] px-6 py-3 text-body",
 };
 
 export default function Button({

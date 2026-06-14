@@ -25,10 +25,10 @@ export default function AnalysisProgress() {
   }, [start]);
 
   return (
-    <div className="rounded-2xl border border-indigo-100 bg-indigo-50/40 px-5 py-6">
+    <div className="rounded-2xl border border-accent-100 bg-accent-50/40 px-5 py-6">
       <div className="flex items-center gap-2 mb-4">
-        <span className="inline-block h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
-        <p className="text-sm font-bold text-indigo-700">분석 중…</p>
+        <span className="inline-block h-2 w-2 rounded-full bg-accent-500 animate-pulse" />
+        <p className="text-sm font-bold text-accent-700">분석 중…</p>
       </div>
       <ol className="space-y-3">
         {STEPS.map((s, i) => {
@@ -38,8 +38,8 @@ export default function AnalysisProgress() {
             <li key={s.key} className="flex items-start gap-3">
               <span
                 className={`mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold shrink-0
-                  ${state === "done"    ? "bg-indigo-600 text-white" : ""}
-                  ${state === "active"  ? "bg-white text-indigo-600 border-2 border-indigo-600 animate-pulse" : ""}
+                  ${state === "done"    ? "bg-accent-600 text-white" : ""}
+                  ${state === "active"  ? "bg-white text-accent-600 border-2 border-accent-600 animate-pulse" : ""}
                   ${state === "pending" ? "bg-white text-gray-400 border border-gray-200" : ""}`}
               >
                 {state === "done" ? "✓" : i + 1}

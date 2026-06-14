@@ -16,6 +16,30 @@
 
 # Handoff
 
+## 2026-06-14 Codex BOHUMFIT-046 [Windows authority verification / scoped stage ready]
+### Changed
+- 046 scope only staged: `src/index.css`, `src/components/ui/Button.tsx`, `src/components/coverage/CoverageTableView.tsx`, `src/App.tsx`, `src/components/AnalysisProgress.tsx`, `src/components/coverage/CoverageAfterSection.tsx`, `src/pages/BeforeAfter.tsx`, `src/pages/Disclosure.tsx`, `src/pages/Signup.tsx`, and color-only hunks from `src/pages/CoverageAnalysis.tsx` / `src/pages/InsuranceCalculator.tsx`.
+- `Button.tsx` includes the 44px md/lg min-height that Cowork tagged as 048, but it lives in the same component file and was explicitly allowed in the 046 split.
+- Excluded from staged 046: backend PDF/report files(047), `ConsentGate.tsx` and consent wiring(048), 047/048 task files.
+
+### Verified
+- [x] `.git/index.lock` absent; `locks.md` Active none.
+- [x] Cached diff contains no `ConsentGate`, `pdfConsent`, backend report/template files, or 047/048 task files.
+- [x] `src/index.css` BOM preserved in cached blob.
+- [x] Legacy color grep excluding brand assets: `indigo-`, `#5B5BD6`, `#1F3A5F`, `#14253D`, `#4F46E5`, `#4338CA`, `rgba(79, 70, 229)`, `#C9A2*` = 0.
+- [x] `npx tsc -p tsconfig.app.json --noEmit`
+- [x] `npx tsc -p tsconfig.node.json --noEmit`
+- [x] `npm run lint`
+- [x] `npm run build` (existing Vite chunk-size warning only)
+- [x] Browser smoke via Windows Chrome/CDP fallback: homepage rendered with accent `#7C3AED`, body text `#1E293B`, purple CTA present, horizontal overflow false. Local CORS health-check errors observed from `127.0.0.1` to the production API; unrelated to 046 color-token change.
+
+### Notes
+- Verification ran on the cumulative Windows working tree because 047/048 remain uncommitted, but the commit cache was inspected separately and contains only 046-scoped files/hunks.
+- Commit hash: to be reported after commit/push.
+
+### Next
+- Codex: commit/push 046, then continue with 047 split commit.
+
 ## 2026-06-14 BOHUMFIT-045 coverage export Windows verification - Codex
 
 Status: verified, committed-ready.

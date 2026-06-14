@@ -250,7 +250,7 @@ export default function InsuranceCalculator() {
             key={m}
             type="button"
             onClick={() => setMode(m)}
-            className={`rounded-[6px] px-4 py-1.5 transition-colors ${mode === m ? "bg-[#4F46E5] text-white" : "text-gray-500 hover:text-gray-800"}`}
+            className={`rounded-[6px] px-4 py-1.5 transition-colors ${mode === m ? "bg-[#7C3AED] text-white" : "text-gray-500 hover:text-gray-800"}`}
           >
             {m === "manual" ? "수기 입력" : "PDF 자동 채움"}
           </button>
@@ -278,7 +278,7 @@ export default function InsuranceCalculator() {
             </Field>
             <div className="flex items-end">
               <button type="button" onClick={runPdf} disabled={loading}
-                className="rounded-[8px] bg-[#4F46E5] px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
+                className="rounded-[8px] bg-[#7C3AED] px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
                 {loading ? "분석 중…" : "진료비 추출"}
               </button>
             </div>
@@ -361,7 +361,7 @@ export default function InsuranceCalculator() {
               실손 급여 반영액 {wonToMan(coveredForInsurance)}{coveredForInsurance !== coveredSelfPay ? ` (입력 ${wonToMan(coveredSelfPay)} 중 건보 상한 ${wonToMan(coveredForInsurance)}까지만 반영)` : ""}{ncAmount > 0 ? ` · 비급여 ${wonToMan(ncAmount)}` : ""} 기준 추정.
             </p>
             {coveredForInsurance !== coveredSelfPay && (
-              <p className="text-[11px] text-indigo-500 break-keep">
+              <p className="text-[11px] text-accent-500 break-keep">
                 건보 본인부담상한제 초과분 {wonToMan(coveredSelfPay - coveredForInsurance)}은 공단 환급 영역으로 보고, 실손 계산에서는 상한까지만 반영했습니다.
               </p>
             )}
@@ -404,8 +404,8 @@ export default function InsuranceCalculator() {
 
 function ResultCard({ n, title, children }: { n: string; title: string; children: ReactNode }) {
   return (
-    <div className="rounded-[8px] border-l-4 border-indigo-200 bg-white px-4 py-3 text-sm">
-      <h3 className="mb-1 font-bold text-[#4F46E5]">{n} {title}</h3>
+    <div className="rounded-[8px] border-l-4 border-accent-200 bg-white px-4 py-3 text-sm">
+      <h3 className="mb-1 font-bold text-[#7C3AED]">{n} {title}</h3>
       <div className="space-y-0.5">{children}</div>
     </div>
   );

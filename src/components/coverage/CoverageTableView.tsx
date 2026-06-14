@@ -54,8 +54,8 @@ export default function CoverageTableView({
     <div className="overflow-x-auto">
       <table className={`w-full ${minWidthClass} border-collapse text-xs`}>
         <thead>
-          <tr className="bg-[#1F3A5F] text-white">
-            <th className="sticky left-0 z-10 bg-[#1F3A5F] px-3 py-2 text-left">구분</th>
+          <tr className="bg-ink-800 text-white">
+            <th className="sticky left-0 z-10 bg-ink-800 px-3 py-2 text-left">구분</th>
             {columns.map((c) => (
               <th key={c.contractId} className="min-w-[96px] px-2 py-2 text-center font-bold">
                 <div className="truncate">{c.insurer}</div>
@@ -65,7 +65,7 @@ export default function CoverageTableView({
                 {renderColumnTag && <div className="mt-1 flex justify-center">{renderColumnTag(c.contractId)}</div>}
               </th>
             ))}
-            <th className="min-w-[90px] bg-[#14253D] px-2 py-2 text-center">합계</th>
+            <th className="min-w-[90px] bg-ink-900 px-2 py-2 text-center">합계</th>
           </tr>
           <tr className="bg-gray-50 text-gray-500">
             <th className="sticky left-0 z-10 bg-gray-50 px-3 py-1.5 text-left font-semibold">가입일</th>
@@ -88,7 +88,7 @@ export default function CoverageTableView({
         </thead>
         <tbody className="divide-y divide-gray-50">
           {COVERAGE_CATEGORIES.map((cat) => (
-            <tr key={cat.id} className={cat.kind === "premium" ? "border-t-2 border-[#1F3A5F] bg-gray-50" : ""}>
+            <tr key={cat.id} className={cat.kind === "premium" ? "border-t-2 border-ink-800 bg-gray-50" : ""}>
               <td className="sticky left-0 z-10 bg-white px-3 py-1.5 font-semibold text-gray-700">{cat.label}</td>
               {columns.map((col) => {
                 const v = col.cells[cat.id];
@@ -133,7 +133,7 @@ export default function CoverageTableView({
                   </td>
                 );
               })}
-              <td className="bg-gray-50 px-2 py-1.5 text-right font-bold text-[#1F3A5F]">
+              <td className="bg-gray-50 px-2 py-1.5 text-right font-bold text-ink-900">
                 {cat.kind === "flag"
                   ? totals[cat.id] === true
                     ? "Y"

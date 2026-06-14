@@ -36,7 +36,7 @@ export default function Signup() {
             <br />
             메일의 링크를 누르면 가입이 완료됩니다.
           </p>
-          <Link to="/login" className="text-sm font-bold text-[#4F46E5] hover:underline">
+          <Link to="/login" className="text-sm font-bold text-[#7C3AED] hover:underline">
             로그인으로 돌아가기
           </Link>
         </div>
@@ -49,7 +49,7 @@ export default function Signup() {
       <div className="w-full max-w-sm">
         <div className="mb-10 text-center">
           <h1 className="text-3xl font-black tracking-tight text-gray-900">
-            BOHUM<span className="text-[#4F46E5]">FIT</span>
+            BOHUM<span className="text-[#7C3AED]">FIT</span>
           </h1>
           <p className="mt-2 text-sm text-gray-400">보험핏 계정 만들기</p>
         </div>
@@ -61,7 +61,7 @@ export default function Signup() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full rounded-[8px] bg-white px-4 py-3 text-sm text-gray-800 shadow-[0_1px_3px_rgba(0,0,0,0.06)] placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30"
+            className="w-full rounded-[8px] bg-white px-4 py-3 text-sm text-gray-800 shadow-[0_1px_3px_rgba(0,0,0,0.06)] placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/30"
           />
           <input
             type="password"
@@ -70,7 +70,7 @@ export default function Signup() {
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={10}
-            className="w-full rounded-[8px] bg-white px-4 py-3 text-sm text-gray-800 shadow-[0_1px_3px_rgba(0,0,0,0.06)] placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30"
+            className="w-full rounded-[8px] bg-white px-4 py-3 text-sm text-gray-800 shadow-[0_1px_3px_rgba(0,0,0,0.06)] placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/30"
           />
 
           <div className="mt-4 space-y-2 text-sm">
@@ -117,7 +117,7 @@ export default function Signup() {
           <button
             type="submit"
             disabled={loading || !agreeTerms || !agreePrivacy || !agreeMedical}
-            className="w-full rounded-[8px] bg-[#4F46E5] py-3 text-sm font-bold text-white shadow-[0_2px_8px_rgba(79,70,229,0.3)] transition-colors hover:bg-[#4338CA] disabled:opacity-50"
+            className="w-full rounded-[8px] bg-[#7C3AED] py-3 text-sm font-bold text-white shadow-[0_2px_8px_rgba(124,58,237,0.3)] transition-colors hover:bg-[#6D28D9] disabled:opacity-50"
           >
             {loading ? "가입 중..." : "회원가입"}
           </button>
@@ -125,7 +125,7 @@ export default function Signup() {
 
         <p className="mt-6 text-center text-xs text-gray-400">
           이미 계정이 있나요?{" "}
-          <Link to="/login" className="font-bold text-[#4F46E5] hover:underline">
+          <Link to="/login" className="font-bold text-[#7C3AED] hover:underline">
             로그인
           </Link>
         </p>

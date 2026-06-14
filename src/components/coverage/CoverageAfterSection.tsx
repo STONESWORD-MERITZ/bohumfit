@@ -373,7 +373,7 @@ export default function CoverageAfterSection({ contracts, beforeTotals, beforeCo
             + 직접 계약 추가
           </Button>
         </div>
-        {proposalParsing && <p className="mt-2 text-xs font-semibold text-indigo-600">파싱 중…</p>}
+        {proposalParsing && <p className="mt-2 text-xs font-semibold text-accent-600">파싱 중…</p>}
         {proposalError && <p className="mt-2 text-xs font-semibold text-amber-700">{proposalError}</p>}
         {proposalResult && (
           <p className="mt-2 text-xs text-emerald-600">
@@ -480,7 +480,7 @@ export default function CoverageAfterSection({ contracts, beforeTotals, beforeCo
                 <button
                   type="button"
                   onClick={() => addManualCoverage(mp.id)}
-                  className="mt-1 text-[11px] font-semibold text-indigo-600 hover:underline"
+                  className="mt-1 text-[11px] font-semibold text-accent-600 hover:underline"
                 >
                   + 담보 행 추가
                 </button>

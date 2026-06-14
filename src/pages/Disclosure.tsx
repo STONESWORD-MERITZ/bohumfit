@@ -179,7 +179,7 @@ function Chip({ label, tone = "gray" }: { label: string; tone?: string }) {
     amber: "bg-amber-100 text-amber-700",
     emerald: "bg-emerald-100 text-emerald-700",
     orange: "bg-orange-100 text-orange-600",
-    indigo: "bg-indigo-100 text-indigo-600",
+    indigo: "bg-accent-100 text-accent-600",
     rose: "bg-rose-100 text-rose-600",
   };
   return (
@@ -365,7 +365,7 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
             </span>
           )}
         </div>
-        <span className="shrink-0 rounded-[8px] bg-[#4F46E5] px-2 py-0.5 text-[11px] font-bold text-white">
+        <span className="shrink-0 rounded-[8px] bg-[#7C3AED] px-2 py-0.5 text-[11px] font-bold text-white">
           {qNum}
         </span>
       </div>
@@ -426,8 +426,8 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
               {item.surgery_suspected!.slice(0, 3).join(", ")}
             </p>
           )}
-          <p className={clinicalReviewText ? "text-indigo-600" : "text-gray-500"}>
-            <span className={clinicalReviewText ? "mr-1.5 text-indigo-300" : "mr-1.5 text-gray-400"}>
+          <p className={clinicalReviewText ? "text-accent-600" : "text-gray-500"}>
+            <span className={clinicalReviewText ? "mr-1.5 text-accent-300" : "mr-1.5 text-gray-400"}>
               추가검사·재검사
             </span>
             {clinicalReviewText || "자동 의심 소견 없음 - 원자료 기준 추가검사·재검사 여부 확인"}
@@ -505,7 +505,7 @@ function DisclosureSection({
             return (
               <section key={qTitle} className="overflow-hidden rounded-[8px] bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
                 <div className="flex items-center gap-2.5 border-b border-gray-100 px-5 py-3.5">
-                  <span className="shrink-0 rounded-[8px] bg-[#4F46E5] px-2.5 py-1 text-xs font-bold text-white">
+                  <span className="shrink-0 rounded-[8px] bg-[#7C3AED] px-2.5 py-1 text-xs font-bold text-white">
                     {qNum}
                   </span>
                   <h3 className="text-sm font-bold text-gray-800">{cleanQTitle(qTitle)}</h3>
@@ -669,8 +669,8 @@ function insCheckNhisCap(annualCovered: number, bracket: number, nursingLongStay
 
 function InsResultCard({ n, title, children }: { n: string; title: string; children: ReactNode }) {
   return (
-    <div className="rounded-[8px] border-l-4 border-indigo-200 bg-white px-4 py-3 text-sm">
-      <h4 className="mb-1 font-bold text-[#4F46E5]">{n} {title}</h4>
+    <div className="rounded-[8px] border-l-4 border-accent-200 bg-white px-4 py-3 text-sm">
+      <h4 className="mb-1 font-bold text-[#7C3AED]">{n} {title}</h4>
       <div className="space-y-0.5">{children}</div>
     </div>
   );
@@ -738,7 +738,7 @@ function InsuranceSection({ coveredByYear, captured }: { coveredByYear: Record<s
     <div className="space-y-4">
       <style dangerouslySetInnerHTML={{ __html: INS_PRINT_CSS }} />
 
-      <div className="no-print rounded-[8px] bg-indigo-50 p-3 text-xs leading-relaxed text-indigo-900">
+      <div className="no-print rounded-[8px] bg-accent-50 p-3 text-xs leading-relaxed text-accent-900">
         실손보험 <b>청구 가능성</b>과 상한제 <b>환급 가능성</b>을 추정해 안내합니다. 확정 금액이 아니며,
         정확한 금액·보장 여부는 보험사·공단 확인이 필요합니다. 본 안내는 보험 모집·상품 추천·가입 권유가 아닙니다.
       </div>
@@ -814,7 +814,7 @@ function InsuranceSection({ coveredByYear, captured }: { coveredByYear: Record<s
         <button
           type="button"
           onClick={() => window.print()}
-          className="rounded-[8px] bg-[#4F46E5] px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-indigo-700"
+          className="rounded-[8px] bg-accent-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-accent-700"
         >
           PDF로 저장(인쇄)
         </button>
@@ -981,7 +981,7 @@ function ResultView({ result, mode }: { result: AnalyzeResult; mode: AudienceMod
       ))}
 
       <div className="mb-5 rounded-[8px] bg-white p-5 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
-        <h2 className="text-xs font-bold text-[#4F46E5]">{copy.resultTitle}</h2>
+        <h2 className="text-xs font-bold text-[#7C3AED]">{copy.resultTitle}</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-4">
           <Metric label="건강체 고지" value={`${stdCount}건`} tone={stdCount ? "text-amber-600" : "text-emerald-600"} />
           <Metric label="간편 고지" value={`${easyCount}건`} tone={easyCount ? "text-amber-600" : "text-emerald-600"} />
@@ -1006,18 +1006,18 @@ function ResultView({ result, mode }: { result: AnalyzeResult; mode: AudienceMod
                 aria-selected={active}
                 onClick={() => setProductTab(tab)}
                 className={`relative flex-1 py-3.5 text-sm font-bold transition-all ${
-                  active ? "text-[#4F46E5]" : "text-gray-400 hover:text-gray-600"
+                  active ? "text-[#7C3AED]" : "text-gray-400 hover:text-gray-600"
                 }`}
               >
                 {label}
                 {count > 0 && (
                   <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-xs font-semibold ${
-                    active ? "bg-indigo-100 text-indigo-600" : "bg-gray-100 text-gray-500"
+                    active ? "bg-accent-100 text-accent-600" : "bg-gray-100 text-gray-500"
                   }`}>
                     {count}
                   </span>
                 )}
-                {active && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#4F46E5]" />}
+                {active && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#7C3AED]" />}
               </button>
             );
           })}
@@ -1073,8 +1073,8 @@ function ModeSwitch({ mode }: { mode: AudienceMode }) {
         to="/disclosure?mode=agent"
         className={`rounded-[8px] border p-4 transition ${
           mode === "agent"
-            ? "border-indigo-300 bg-indigo-50"
-            : "border-gray-200 bg-white hover:border-indigo-200"
+            ? "border-accent-300 bg-accent-50"
+            : "border-gray-200 bg-white hover:border-accent-200"
         }`}
       >
         <p className="text-sm font-extrabold text-gray-900">설계사용</p>
@@ -1192,7 +1192,7 @@ function TourOverlay({
       {rect ? (
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed border-2 border-white bg-transparent ring-2 ring-[#4F46E5]/40"
+          className="pointer-events-none fixed border-2 border-white bg-transparent ring-2 ring-[#7C3AED]/40"
           style={spotlightStyle}
         />
       ) : (
@@ -1224,7 +1224,7 @@ function TourOverlay({
               <span
                 key={dotIndex}
                 className={`h-2 rounded-full ${
-                  dotIndex + 1 === displayIndex ? "w-7 bg-[#4F46E5]" : "w-2 bg-gray-200"
+                  dotIndex + 1 === displayIndex ? "w-7 bg-[#7C3AED]" : "w-2 bg-gray-200"
                 }`}
               />
             ))}
@@ -1232,7 +1232,7 @@ function TourOverlay({
           <button
             type="button"
             onClick={onNext}
-            className="rounded-[8px] bg-[#4F46E5] px-5 py-3 text-sm font-extrabold text-white shadow-sm hover:bg-[#4338CA]"
+            className="rounded-[8px] bg-[#7C3AED] px-5 py-3 text-sm font-extrabold text-white shadow-sm hover:bg-[#6D28D9]"
           >
             {isLast ? "완료" : "다음"}
           </button>
@@ -1378,14 +1378,14 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
         <button
           type="button"
           onClick={() => replayTour(result ? "post" : "pre")}
-          className="rounded-[8px] border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-500 hover:border-[#4F46E5]/40 hover:text-[#4F46E5]"
+          className="rounded-[8px] border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-500 hover:border-[#7C3AED]/40 hover:text-[#7C3AED]"
         >
           {result ? "결과 가이드 다시보기" : "필터 가이드 다시보기"}
         </button>
       </div>
 
       <div className="mb-6">
-        <p className="mb-1 text-xs font-bold tracking-wider text-[#4F46E5]">{copy.badge}</p>
+        <p className="mb-1 text-xs font-bold tracking-wider text-[#7C3AED]">{copy.badge}</p>
         <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">{copy.title}</h1>
         <p className="mt-1 text-sm leading-6 text-gray-500 break-keep">{copy.subtitle}</p>
       </div>
@@ -1398,7 +1398,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
               type="date"
               value={refDate}
               onChange={(e) => setRefDate(e.target.value)}
-              className="w-full rounded-[8px] bg-gray-50 px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30"
+              className="w-full rounded-[8px] bg-gray-50 px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/30"
             />
             <p className="mt-2 text-xs leading-5 text-gray-400">{copy.dateHelp}</p>
           </div>
@@ -1412,19 +1412,19 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
               placeholder="예: 19900101"
               value={birthdate}
               onChange={(e) => setBirthdate(e.target.value)}
-              className="w-full rounded-[8px] bg-gray-50 px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30"
+              className="w-full rounded-[8px] bg-gray-50 px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/30"
             />
             <p className="mt-2 text-xs leading-5 text-gray-400">암호화 PDF라면 생년월일 8자리를 입력해 주세요.</p>
           </div>
         </div>
 
-        <div data-tour="upload" className="mt-5 rounded-[8px] border-2 border-dashed border-indigo-200 bg-indigo-50 p-6 text-center transition hover:border-indigo-400">
+        <div data-tour="upload" className="mt-5 rounded-[8px] border-2 border-dashed border-accent-200 bg-accent-50 p-6 text-center transition hover:border-accent-400">
           <input
             ref={fileRef}
             type="file"
             accept=".pdf"
             multiple
-            className="block w-full cursor-pointer text-sm text-gray-600 file:mr-4 file:rounded-[8px] file:border-0 file:bg-[#4F46E5] file:px-5 file:py-2.5 file:text-sm file:font-bold file:text-white hover:file:bg-[#4338CA]"
+            className="block w-full cursor-pointer text-sm text-gray-600 file:mr-4 file:rounded-[8px] file:border-0 file:bg-[#7C3AED] file:px-5 file:py-2.5 file:text-sm file:font-bold file:text-white hover:file:bg-[#6D28D9]"
           />
           <p className="mt-3 text-xs text-gray-500">
             {copy.uploadHelp} 파일은 최대 {MAX_FILE_COUNT}개, 개별 {MAX_FILE_SIZE / 1024 / 1024}MB, 총합 {MAX_TOTAL_SIZE / 1024 / 1024}MB까지 업로드할 수 있습니다.
@@ -1436,7 +1436,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
             type="checkbox"
             checked={consent}
             onChange={(e) => setConsent(e.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 accent-[#4F46E5]"
+            className="mt-0.5 h-4 w-4 shrink-0 accent-[#7C3AED]"
           />
           <span className="break-keep">
             업로드하는 진료자료에는 <b className="font-bold text-gray-700">민감정보(건강에 관한 정보)</b>가 포함됩니다.
@@ -1451,7 +1451,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
               type="checkbox"
               checked={subjectConsent}
               onChange={(e) => setSubjectConsent(e.target.checked)}
-              className="mt-0.5 h-4 w-4 shrink-0 accent-[#4F46E5]"
+              className="mt-0.5 h-4 w-4 shrink-0 accent-[#7C3AED]"
             />
             <span className="break-keep">
               고객 등 제3자의 진료자료를 업로드하는 경우, 정보주체에게 BOHUMFIT 분석 목적·민감정보 처리·AI 위탁 처리 내용을 안내했고
@@ -1463,7 +1463,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
         <button
           onClick={analyze}
           disabled={loading || !consent || (mode === "agent" && !subjectConsent)}
-          className="mt-5 w-full rounded-[8px] bg-[#4F46E5] py-3 text-sm font-bold text-white shadow-[0_2px_8px_rgba(79,70,229,0.3)] transition-colors hover:bg-[#4338CA] disabled:opacity-50"
+          className="mt-5 w-full rounded-[8px] bg-[#7C3AED] py-3 text-sm font-bold text-white shadow-[0_2px_8px_rgba(124,58,237,0.3)] transition-colors hover:bg-[#6D28D9] disabled:opacity-50"
         >
           {loading ? "분석 중..." : copy.button}
         </button>

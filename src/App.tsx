@@ -26,7 +26,7 @@ function FallbackUI() {
         </p>
         <button
           onClick={() => location.reload()}
-          className="mt-5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white"
+          className="mt-5 rounded-xl bg-accent-600 px-5 py-2.5 text-sm font-bold text-white"
         >
           새로고침
         </button>
@@ -38,7 +38,7 @@ function FallbackUI() {
 function BeforeAfterComingSoon() {
   return (
     <section className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
-      <p className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-600">
+      <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent-600">
         Coming Soon
       </p>
       <h1 className="mt-3 text-2xl font-extrabold text-gray-950">보장분석은 준비 중입니다</h1>
