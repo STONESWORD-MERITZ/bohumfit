@@ -1,90 +1,24 @@
-// BOHUMFIT-044: 최종비교분석표 — 전/후 요약 비교 (표시 전용).
-// - 값은 043에서 이미 계산된 041 집계값(beforeTotals/afterTotals)을 그대로 매핑·표시한다 — 재계산 금지.
-// - 양식의 일부 행(상해사망 결합/일반입원·암입원 분리)은 lib 변경 없이 렌더 레이어에서만 처리한다.
-// - 특이사항 메모는 이 세션(메모리) 안에서만 유지된다 — 저장 없음.
-import { useState } from "react";
+// BOHUMFIT-044/045: 최종비교분석표 — 전/후 요약 비교 (표시 전용) + 엑셀 다운로드 트리거.
+// - 값은 043에서 계산된 041 집계값(beforeTotals/afterTotals)을 그대로 매핑·표시한다 — 재계산 금지.
+// - 행 정의(FINAL_ROWS/KEY_DISEASES)·매핑 헬퍼는 coverageExport.ts(단일 소스)에서 import → 엑셀과 양식 일치.
+// - 특이사항 메모·엑셀 트리거는 상위(CoverageAfterSection)가 소유한다(엑셀에 memo 포함 위해 prop 화).
 import Card from "../ui/Card";
 import Badge from "../ui/Badge";
+import Button from "../ui/Button";
+import {
+  FINAL_ROWS,
+  KEY_DISEASES,
+  dir,
+  flagOf,
+  numOf,
+  type Totals,
+} from "../../lib/coverageExport";
 
-type Totals = Record<string, number | boolean>;
-type FinalRowKind = "amount" | "flag" | "premium" | "none";
-
-interface FinalRow {
-  label: string;
-  /** 합산할 041 카테고리 id (빈 배열 = lib 미분류 표시 전용 행) */
-  ids: string[];
-  kind: FinalRowKind;
-  note?: string;
-}
-
-// 양식 순서 그대로 (약 37행). ids 는 041 카테고리 id 매핑.
-const FINAL_ROWS: FinalRow[] = [
-  // 양식에 재해사망 행이 없어 상해사망 = 상해(injury)+재해(disaster) 합산 표시(분해 잔액 손실 방지)
-  { label: "일반사망", ids: ["general_death"], kind: "amount" },
-  { label: "상해사망", ids: ["injury_death", "disaster_death"], kind: "amount", note: "재해사망 포함" },
-  { label: "질병사망", ids: ["disease_death"], kind: "amount" },
-  { label: "상해후유장해", ids: ["injury_disability"], kind: "amount" },
-  { label: "질병후유장해", ids: ["disease_disability"], kind: "amount" },
-  { label: "일반암진단금", ids: ["cancer_diagnosis"], kind: "amount" },
-  { label: "유사암진단금", ids: ["minor_cancer_diagnosis"], kind: "amount" },
-  { label: "표적항암치료", ids: ["targeted_anticancer"], kind: "amount" },
-  { label: "차세대암치료", ids: ["next_gen_anticancer"], kind: "amount" },
-  { label: "암수술비", ids: ["cancer_surgery"], kind: "amount" },
-  { label: "뇌혈관(초기)", ids: ["cerebrovascular_early"], kind: "amount" },
-  { label: "뇌졸중(중기)", ids: ["stroke_mid"], kind: "amount" },
-  { label: "뇌출혈(말기)", ids: ["cerebral_hemorrhage_late"], kind: "amount" },
-  { label: "뇌혈관수술비", ids: ["cerebrovascular_surgery"], kind: "amount" },
-  { label: "허혈성(초기)", ids: ["ischemic_heart_early"], kind: "amount" },
-  { label: "급성심(말기)", ids: ["ami_late"], kind: "amount" },
-  { label: "심혈관수술비", ids: ["cardiovascular_surgery"], kind: "amount" },
-  { label: "일반종수술 1종", ids: ["general_surgery_type1"], kind: "amount" },
-  { label: "일반종수술 2종", ids: ["general_surgery_type2"], kind: "amount" },
-  { label: "일반종수술 3종", ids: ["general_surgery_type3"], kind: "amount" },
-  { label: "일반종수술 4종", ids: ["general_surgery_type4"], kind: "amount" },
-  { label: "일반종수술 5종", ids: ["general_surgery_type5"], kind: "amount" },
-  { label: "상해수술", ids: ["injury_surgery"], kind: "amount" },
-  { label: "질병수술", ids: ["disease_surgery"], kind: "amount" },
-  { label: "일반입원", ids: [], kind: "none", note: "표준 카테고리 미분류(원천은 질병/상해입원 매핑)" },
-  { label: "상해입원", ids: ["injury_hospitalization"], kind: "amount" },
-  { label: "질병입원", ids: ["disease_hospitalization"], kind: "amount", note: "암입원 포함" },
-  { label: "암입원", ids: [], kind: "none", note: "질병입원에 포함 — 별도 분리 불가" },
-  { label: "골절진단비", ids: ["fracture_diagnosis"], kind: "amount" },
-  { label: "화상진단비", ids: ["burn_diagnosis"], kind: "amount" },
-  { label: "운전자특약", ids: ["driver_rider"], kind: "flag" },
-  { label: "자부상치료비", ids: ["car_injury_treatment"], kind: "flag" },
-  { label: "상해의료비", ids: ["injury_medical_indemnity"], kind: "flag" },
-  { label: "질병의료비", ids: ["disease_medical_indemnity"], kind: "flag" },
-  { label: "가족일상배상", ids: ["family_liability"], kind: "flag" },
-  { label: "응급실내원비", ids: ["er_visit"], kind: "amount" },
-  { label: "보험료", ids: ["premium"], kind: "premium" },
-];
-
-// 우측 핵심 질병 요약 (구분 → 카테고리 id)
-const KEY_DISEASES: ReadonlyArray<{ label: string; id: string }> = [
-  { label: "암", id: "cancer_diagnosis" },
-  { label: "뇌 초기", id: "cerebrovascular_early" },
-  { label: "뇌 중기", id: "stroke_mid" },
-  { label: "뇌 말기", id: "cerebral_hemorrhage_late" },
-  { label: "심장 초기", id: "ischemic_heart_early" },
-  { label: "심장 말기", id: "ami_late" },
-];
-
-function numOf(totals: Totals, ids: string[]): number {
-  return ids.reduce((s, id) => s + (typeof totals[id] === "number" ? (totals[id] as number) : 0), 0);
-}
-function flagOf(totals: Totals, ids: string[]): boolean {
-  return ids.some((id) => totals[id] === true);
-}
 function fmtAmount(v: number): string {
   return v > 0 ? v.toLocaleString() : "-";
 }
 function fmtPremium(v: number): string {
   return v > 0 ? `${v.toLocaleString()}원` : "-";
-}
-
-/** 방향: 1 증가 / -1 감소 / 0 동일 */
-function dir(before: number, after: number): -1 | 0 | 1 {
-  return after > before ? 1 : after < before ? -1 : 0;
 }
 
 function DirArrow({ d, premium = false }: { d: -1 | 0 | 1; premium?: boolean }) {
@@ -106,11 +40,22 @@ function rowToneClass(d: -1 | 0 | 1, premium: boolean): string {
 export interface FinalComparisonProps {
   beforeTotals: Totals;
   afterTotals: Totals;
+  /** 특이사항 메모 (상위 소유 — 엑셀 내보내기에 포함) */
+  memo: string;
+  onMemoChange: (v: string) => void;
+  /** 엑셀(.xlsx) 다운로드 트리거 */
+  onExport: () => void;
+  exporting?: boolean;
 }
 
-export default function FinalComparison({ beforeTotals, afterTotals }: FinalComparisonProps) {
-  const [memo, setMemo] = useState("");
-
+export default function FinalComparison({
+  beforeTotals,
+  afterTotals,
+  memo,
+  onMemoChange,
+  onExport,
+  exporting = false,
+}: FinalComparisonProps) {
   return (
     <Card
       title="7단계 — 최종비교분석표"
@@ -218,7 +163,7 @@ export default function FinalComparison({ beforeTotals, afterTotals }: FinalComp
               특이사항 (설계사 메모)
               <textarea
                 value={memo}
-                onChange={(e) => setMemo(e.target.value)}
+                onChange={(e) => onMemoChange(e.target.value)}
                 rows={4}
                 placeholder="리모델링 사유·고객 요청·후속 안내 등 (저장되지 않음)"
                 className="mt-1.5 w-full rounded-btn border border-line-strong bg-white px-3 py-2 text-xs text-ink placeholder:text-ink-400 focus:border-accent-500 focus:outline-2 focus:outline-offset-0 focus:outline-accent-200"
@@ -229,16 +174,20 @@ export default function FinalComparison({ beforeTotals, afterTotals }: FinalComp
         </div>
       </div>
 
-      {/* 범례 + 045 예고 */}
+      {/* 범례 */}
       <div className="flex flex-wrap items-center gap-2 border-t border-line px-4 py-3">
         <Badge tone="gold">▲ 증가·신규</Badge>
         <Badge tone="danger">▼ 감소·해지</Badge>
         <Badge tone="neutral">— 변동 없음</Badge>
         <span className="ml-auto text-[10px] text-ink-400">전/후 모두 041 집계값 표시 — 재계산 없음</span>
       </div>
-      <div className="border-t border-dashed border-line bg-ink-50 px-4 py-3 text-center">
-        <p className="text-caption font-bold uppercase tracking-[0.2em] text-ink-400">Next</p>
-        <p className="mt-0.5 text-sm font-bold text-ink-600">다음: 엑셀 출력 (준비 중)</p>
+
+      {/* 엑셀 다운로드 (045 — 045 예고 자리 대체) */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line px-4 py-3">
+        <p className="text-[11px] text-ink-400">엑셀(.xlsx)은 브라우저에서 생성되며 저장되지 않습니다 — 전·후 비분표 + 최종표 3시트.</p>
+        <Button onClick={onExport} loading={exporting}>
+          엑셀 다운로드 (.xlsx)
+        </Button>
       </div>
     </Card>
   );

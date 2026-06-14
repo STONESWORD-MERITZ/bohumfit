@@ -30,6 +30,7 @@ import CoverageTableView from "./CoverageTableView";
 import FinalComparison from "./FinalComparison";
 import Badge from "../ui/Badge";
 import Button from "../ui/Button";
+import { exportCoverageXlsx } from "../../lib/coverageExport";
 
 function parseManwonInput(s: string): number {
   return Math.max(0, parseInt((s || "").replace(/[^\d]/g, "") || "0", 10));
@@ -38,11 +39,13 @@ function parseManwonInput(s: string): number {
 export interface CoverageAfterSectionProps {
   /** 전 비분표에 쓰인 계약(수동 배정 반영본). 후 = 이 계약들의 유지/감액 + 신규 제안. */
   contracts: Contract[];
-  /** 전 비분표 합계(041 sumColumns 결과, 제안셀 수정 반영) — 최종비교분석표 좌측 '전' 열에 사용. */
+  /** 전 비분표 합계(041 sumColumns 결과, 제안셀 수정 반영) — 최종표 좌측 '전' 열·엑셀 전 시트에 사용. */
   beforeTotals: Record<string, number | boolean>;
+  /** 전 비분표 계약 열(제안셀 수정 반영) — 엑셀 '비교분석표'(전) 시트에 사용. */
+  beforeColumns: ContractColumn[];
 }
 
-export default function CoverageAfterSection({ contracts, beforeTotals }: CoverageAfterSectionProps) {
+export default function CoverageAfterSection({ contracts, beforeTotals, beforeColumns }: CoverageAfterSectionProps) {
   // A. 기존 계약 처리 (세션 내만)
   const [statusById, setStatusById] = useState<Record<string, ContractStatus>>({});
   const [covOverrides, setCovOverrides] = useState<Record<string, Record<number, number>>>({});
@@ -56,6 +59,9 @@ export default function CoverageAfterSection({ contracts, beforeTotals }: Covera
   const [proposalAssignments, setProposalAssignments] = useState<Record<string, string>>({});
   // C. 후 비분표 종수술 제안 셀 수정 (contractId → catId → 만원)
   const [afterCellEdits, setAfterCellEdits] = useState<Record<string, Record<string, number>>>({});
+  // 045. 특이사항 메모(엑셀 포함) + 엑셀 생성 중 표시 — 세션 내만
+  const [memo, setMemo] = useState("");
+  const [exporting, setExporting] = useState(false);
 
   const proposalFileRef = useRef<HTMLInputElement>(null);
   const targets = useMemo(() => listAssignableTargets(), []);
@@ -224,6 +230,22 @@ export default function CoverageAfterSection({ contracts, beforeTotals }: Covera
     );
 
   const hasAfterData = planned.length > 0;
+
+  // 045. 엑셀(.xlsx) 내보내기 — 화면 집계값 직렬화만(xlsx dynamic import, 브라우저 내·비저장)
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      await exportCoverageXlsx({
+        before: { columns: beforeColumns, totals: beforeTotals, contracts },
+        after: { columns: afterColumns, totals: afterTotals, contracts: planned },
+        memo,
+      });
+    } catch {
+      // 사용자 취소·환경 문제 — 저장하지 않으며 화면 상태도 유지
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -554,8 +576,17 @@ export default function CoverageAfterSection({ contracts, beforeTotals }: Covera
         </section>
       )}
 
-      {/* ── BOHUMFIT-044: 최종비교분석표 (후 비분표가 있을 때만) ── */}
-      {hasAfterData && <FinalComparison beforeTotals={beforeTotals} afterTotals={afterTotals} />}
+      {/* ── BOHUMFIT-044/045: 최종비교분석표 + 엑셀 다운로드 (후 비분표가 있을 때만) ── */}
+      {hasAfterData && (
+        <FinalComparison
+          beforeTotals={beforeTotals}
+          afterTotals={afterTotals}
+          memo={memo}
+          onMemoChange={setMemo}
+          onExport={handleExport}
+          exporting={exporting}
+        />
+      )}
     </div>
   );
 }

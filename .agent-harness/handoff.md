@@ -16,6 +16,89 @@
 
 # Handoff
 
+## 2026-06-14 BOHUMFIT-045 coverage export Windows verification - Codex
+
+Status: verified, committed-ready.
+
+Changed:
+- `src/lib/coverageExport.ts` 신규: FINAL_ROWS/KEY_DISEASES 단일 소스, `buildSheets`, `exportCoverageXlsx`, `coverageFileName`.
+- `src/components/coverage/FinalComparison.tsx`: 최종표 정의 import 전환, 특이사항 prop화, 엑셀 다운로드 버튼 연결.
+- `src/components/coverage/CoverageAfterSection.tsx`: `beforeColumns` prop, memo/exporting state, `handleExport` 연결.
+- `src/pages/CoverageAnalysis.tsx`: `beforeColumns={displayColumns}` 전달.
+- `.agent-harness/tasks/BOHUMFIT-045-coverage-export.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md`.
+
+Fix applied during Windows gate:
+- 첫 시트명이 `비교분석표`로 생성되어 요구사항과 달랐음. `coverageExport.ts`에서 `비교분석표(전)`으로 보정함.
+
+Verified:
+- `.git/index.lock` 없음.
+- `locks.md` 구조 정상: `## Active` / `## Released` 유지, Active none.
+- Windows 원본 무결성 확인: `coverageExport.ts`, `FinalComparison.tsx`, `CoverageAfterSection.tsx`, `CoverageAnalysis.tsx` 모두 NUL 0 / UTF-8 replacement 0 / 꼬리 절단 없음.
+- 범위 확인: `src/lib/coverageMapping.ts`, `src/lib/coverageParse.ts` diff 없음. 041/042 lib 불변.
+- `npx tsc -p tsconfig.app.json --noEmit` 통과.
+- `npx tsc -p tsconfig.node.json --noEmit` 통과.
+- `npm run lint` 통과.
+- `npm test` 통과: 3 files, 39 tests passed.
+- `npm run build` 통과. `xlsx-B7Fe_CV5.js` 별도 dynamic chunk 유지, 메인 번들 급증 없음. Vite chunk-size warning은 기존 성격.
+- Browser smoke: Windows Chrome CDP fallback으로 `/coverage` 합성 xlsx 업로드 -> 전 비분표 -> 해지 토글 -> 신규 제안 업로드 -> 후 비분표 -> 최종표 -> `엑셀 다운로드 (.xlsx)` 클릭 성공.
+- 다운로드 파일명: `보험핏_보장분석_20260614.xlsx` 정상.
+- 다운로드 workbook 재오픈 검증:
+  - 시트 3개: `비교분석표(전)`, `비교분석표(후)`, `최종비교분석표`.
+  - 숫자 셀 number 타입 확인: 일반사망 합계 10000, 보험료 합계 70000, 후 암진단금 4000 등.
+  - 최종표 상해사망 결합값 21000/21000 확인(`injury_death + disaster_death`), `재해사망 포함` 주석 확인.
+  - 암입원 행 `질병입원에 포함 — 별도 분리 불가` 주석 확인.
+  - 특이사항 memo `특이사항 smoke memo` 포함 확인.
+
+Notes:
+- Browser MCP Node REPL surface가 현재 노출되지 않아 Windows Chrome DevTools Protocol fallback으로 실제 렌더/다운로드를 검증함.
+- smoke는 fake Supabase local session + 합성 xlsx만 사용했으며, 실데이터 파일은 사용하지 않음.
+- `.xlsx` 검증 후 임시 파일/다운로드/캡처/로그 모두 삭제함.
+- 표준 양식 xlsx 원본은 repo에 없어 화면 레이아웃 기준으로 출력함. 실제 표준 양식이 확보되면 서식/병합/열폭 정교화는 후속으로 권장.
+
+Next:
+- Human: 다운로드된 엑셀을 실제 Excel에서 열어 양식 육안 확인.
+- BOHUMFIT 보장분석 본체 041~045 완료. 후속 후보: 표준 양식 기반 서식 정교화, 암입원 별도 category lib 확장.
+
+## 2026-06-14 Cowork BOHUMFIT-045 [구현+/tmp 검증 완료 / Codex Windows tsc·lint·test·build·다운로드 스모크·커밋·푸시 → Human 엑셀 열람]
+### Changed
+- `src/lib/coverageExport.ts`(신규) — 보장분석 엑셀 워크북 빌더. 화면 041 집계값 직렬화만(재계산 0).
+  - 최종표 단일 소스: `FINAL_ROWS`(37행)·`KEY_DISEASES`(6)·`numOf/flagOf/dir`·`Totals/FinalRow` 보유(044 인라인 정의를 이리로 이관 → 화면·엑셀 양식 일치).
+  - `buildSheets(input)`(순수): 3시트 AOA — `비교분석표`(전)/`비교분석표(후)`/`최종비교분석표`. 비분표=회사/상품/가입일/납만기 + 36행 + 합계열. 숫자 셀 number 타입, flag "Y"/"".
+  - `exportCoverageXlsx(input, fileName?)`: `await import("xlsx")`(042 패턴, 메인 번들 영향 최소) → aoa_to_sheet → `XLSX.writeFile`(브라우저 다운로드·디스크 비저장). `coverageFileName()`=`보험핏_보장분석_YYYYMMDD.xlsx`(한글).
+- `src/components/coverage/FinalComparison.tsx`(전면 재작성) — FINAL_ROWS 등 coverageExport에서 import(인라인 제거), memo를 prop화(`memo/onMemoChange`), 045 예고 자리를 Mercury `Button` '엑셀 다운로드 (.xlsx)'(`onExport/exporting`)로 교체. 표시 로직·레이아웃 불변.
+- `src/components/coverage/CoverageAfterSection.tsx`(편집) — `beforeColumns` prop 추가, `memo`/`exporting` state lift, `handleExport`(exportCoverageXlsx 호출: before={beforeColumns,beforeTotals,contracts}, after={afterColumns,afterTotals,planned}, memo), FinalComparison에 memo/onMemoChange/onExport/exporting 전달.
+- `src/pages/CoverageAnalysis.tsx`(편집) — `<CoverageAfterSection ... beforeColumns={displayColumns}/>`(전 표 열 전달).
+- `.agent-harness/tasks/BOHUMFIT-045-coverage-export.md`(신규), handoff/locks.
+- **무수정**: 041/042/043 lib 산식, CoverageTableView, 다른 페이지/실손/고지/PDF. xlsx 의존성(이미 042 도입) 추가 없음.
+
+### 시트 구성·양식 정합
+| 시트 | 내용 |
+|---|---|
+| 비교분석표 | 전 비분표: 계약 열(회사/상품/가입일/납만기) + 표준 36행(COVERAGE_CATEGORIES) + 합계열 |
+| 비교분석표(후) | 후 비분표(유지+신규), 동일 36행 |
+| 최종비교분석표 | 전\|주요보장\|후 37행 + 핵심질병 전→후 6행 + 특이사항(memo) |
+- 상해사망 = injury_death+disaster_death 합산, 암입원/일반입원 표시 전용(값 없음·주석) — 044 화면과 동일(FINAL_ROWS 단일 소스라 자동 일치).
+- 표준 양식 xlsx(`표준비분표_양식_.xlsx`)는 **repo 부재** → 042가 양식에서 도출한 화면 레이아웃(CoverageTableView)을 비분표 시트 기준으로 사용. 셀 병합·서식은 최소(값·행순서 우선). handoff 가정 명시.
+
+### Verified
+- [x] /tmp strict tsc(앱 옵션 미러 +strict): `coverageExport.ts` + 041 lib(+xlsx dynamic import 타입) **통과**(실 node_modules 링크).
+- [x] /tmp `buildSheets` 단위테스트 18/18(합성 익명): 시트 3개·이름, 전 헤더 ["회사","가나생명","다라생명","합계"], 행수 40(4메타+36), 일반사망 합계 10000(number), 보험료 80000(number), 후 시트 암진단금 8000(유지5000+신규3000), 최종 헤더, 상해사망 결합 전20000/후25000(number), 암입원 표시전용 ""+"질병입원에 포함" 주석, 핵심질병·memo 포함.
+- [x] /tmp **실제 .xlsx 생성→재읽기** 5/5: `XLSX.writeFile` 파일 생성, 시트 3개·한글 시트명 보존(`["비교분석표","비교분석표(후)","최종비교분석표"]`), A1="회사", 일반사망 셀 number 타입·값 10000.
+- [x] 신규 lib 마운트 무결성(말미 정상). 편집/재작성 3파일 Windows 원본(Read) 확인: FinalComparison 195줄(import·props·다운로드 Button 말미 정상), CoverageAfterSection handleExport(L235)·render props(L580~) 정상, 페이지 beforeColumns 전달.
+- [⚠] **마운트 truncation**: 재작성 `FinalComparison.tsx`·편집 `CoverageAfterSection.tsx`(tail 절단)·`CoverageAnalysis.tsx`(NUL) 마운트 뷰 절단 → in-sandbox 전체 체인 tsc·실제 브라우저 다운로드 미실행. coverageExport(신규)는 온전. Windows 원본 권위.
+- [ ] Windows: `npx tsc -p tsconfig.app.json`/`tsconfig.node.json`·`npm run lint`·`npm test`·`npm run build` + /coverage 다운로드 스모크(엑셀 열어 3시트·값) — Codex.
+
+### Notes
+- xlsx는 dynamic import 유지 → 메인 번들 영향 없음(042 동일). writeFile은 브라우저에서 Blob+anchor 다운로드(서버 미전송·디스크 비저장).
+- memo(특이사항)는 CoverageAfterSection이 소유(엑셀 포함 위해 lift), FinalComparison은 prop으로 표시·입력만. 저장 0.
+- FINAL_ROWS 단일 소스화로 화면(최종표)과 엑셀 시트3가 항상 동일 — 양식 정합 보장.
+- 다운로드 버튼은 hasAfterData일 때만 노출(데이터 없으면 미표시). 한글 파일명은 modern 브라우저 다운로드에서 안전; 문제 시 영문 fallback은 후속(현재 한글 고정).
+
+### Next
+- Codex(Windows): tsc(app/node)·lint·test·build·/coverage 다운로드 스모크 → 045 범위 파일만 한국어 커밋(`BOHUMFIT-045: 보장분석 결과 엑셀(.xlsx) 내보내기(전/후/최종 3시트)`) → push. (마운트 git 미실행, Windows 권위.)
+- Human: 다운로드한 .xlsx 실제 열어 3시트·행순서·합계·number 셀·최종표 양식 육안.
+- 후속(백로그): 표준 양식 xlsx 확보 시 셀 병합/서식 정합, lib 암입원 카테고리 신설(별도 행 정확 표기), 한글 파일명 영문 fallback 옵션.
+
 ## 2026-06-14 BOHUMFIT-044 final-comparison Windows verification - Codex
 
 Status: verified, ready to commit/push.
