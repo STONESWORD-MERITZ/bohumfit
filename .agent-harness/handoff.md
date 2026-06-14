@@ -16,6 +16,67 @@
 
 # Handoff
 
+## 2026-06-14 Codex BOHUMFIT-049 [Windows authority verification / publish]
+### Changed
+- `src/index.css`: accent/primary token definitions switched from violet to deep forest green (`#15663D`, `#0F4E2F`, `#E3F0E8`), with text gray/black tokens unchanged.
+- `.agent-harness/tasks/BOHUMFIT-049-green-scan-tokens.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md`: 049 task and verification records.
+
+### Verified
+- [x] Scope gate: app-code diff is `src/index.css` only; no `.ts`, `.tsx`, or backend logic files changed.
+- [x] `src/index.css` BOM preserved (`EF BB BF`).
+- [x] `npx tsc -p tsconfig.app.json --noEmit`
+- [x] `npx tsc -p tsconfig.node.json --noEmit`
+- [x] `npm run lint`
+- [x] `npm run build` -> passed; existing Vite chunk-size warning only.
+- [x] Browser smoke via Windows Chrome/Playwright fallback at `127.0.0.1:5181`: `accent-600` computed to `rgb(21, 102, 61)` on Home, Why, and Disclosure; mobile overflow-x false.
+- [x] Token-referenced UI areas follow the green token automatically; visible Korean text looked normal in smoke snippets.
+
+### Notes
+- Remaining violet is expected and matches the 050 backlog: frontend hardcoded hex in `ConsentGate.tsx`, `BeforeAfter.tsx`, `Disclosure.tsx`, `InsuranceCalculator.tsx`, `Signup.tsx`; backend PDF brand-bar in `backend/templates/report_disclosure.html` and `backend/templates/report_insurance.html`.
+- Logo asset color `#5955DE` remains separate from 050 unless Human decides to regenerate/recolor the logo.
+- Final 049 commit hash is reported in chat after push because a commit cannot contain its own final hash without a second bookkeeping commit.
+
+### Next
+- BOHUMFIT-050: hardcoded frontend/backend violet remnants to green, logo color decision separate.
+
+## 2026-06-14 Cowork BOHUMFIT-049 [스캔+토큰 교체 완료 / Codex Windows 검증·커밋 → 050(잔재 치환)]
+### Changed
+- `src/index.css`(@theme, BOM 보존) — **보라→포레스트 그린** 토큰 정의만 교체(색 외 변경 0):
+  - accent 램프 10단계 violet→green: 50 #F0F7F3 / 100 #E3F0E8 / 200 #C7E1D2 / 300 #9FCBB1 / 400 #5FA47E / 500 #2E8056 / 600 **#15663D** / 700 **#0F4E2F** / 800 #0C3F26 / 900 #09301D.
+  - `--color-primary #7C3AED→#15663D`, `--color-primary-strong #6D28D9→#0F4E2F`, `--color-primary-soft #EDE9FE→#E3F0E8`. text/-strong/-muted 유지.
+- `.agent-harness/tasks/BOHUMFIT-049-green-scan-tokens.md`(신규), handoff/locks.
+- **무수정**: 그 외 전부(기능·카피·구조·하드코딩·SVG·backend). 토큰 참조처는 자동 그린.
+
+### 보라 인벤토리 (전 src + backend 스캔)
+**(A) 토큰 정의 — 049에서 교체 완료**: index.css `--color-accent-50..900`(10) + `--color-primary/-strong/-soft`.
+**(B) 토큰 참조(accent-* 클래스 — 자동 그린, 무수정)**: Home(15)·Disclosure(12)·WhyDisclosure(7)·FinalComparison(5)·AnalysisProgress(5)·Callout(3)·Layout(3)·Login(2)·HomeMission(2)·Button(2)·CoverageAfterSection(2)·App(2)·InsuranceCalculator(1)·DisclosureHub(1)·CoverageAnalysis(1)·Field(1)·Badge(1)·ConsentGate(1).
+**(C) 하드코딩 보라 hex — ★050 범위**:
+  - `BeforeAfter.tsx` L33 text-[#7C3AED], L52·66 file:bg-[#7C3AED]/hover:file:bg-[#6D28D9], L74 bg/hover+shadow rgba(124,58,237,.3).
+  - `Disclosure.tsx` L368·508 bg 배지, L673·984·1388 text, L1009 active text, L1020·1227 bg dot, L1195 ring/40, L1235 bg+hover, L1381 hover border/text, L1401·1415 focus ring/30, L1427 file:bg/hover, **L1439·1454 accent-[#7C3AED] 체크박스**, L1466 bg+hover+shadow rgba.
+  - `InsuranceCalculator.tsx` L256·291 bg-[#7C3AED].
+  - `Signup.tsx` L39·52·128 text, L64·73 focus ring/30, L120 bg+hover+shadow rgba.
+  - `ConsentGate.tsx` L24(현 마운트 버전, accent-[#7C3AED] 체크박스).
+  - 보라 hex 종류: `#7C3AED`(다수)·`#6D28D9`(hover)·`rgba(124,58,237,0.3)`(그림자). → 050에서 `#15663D`/`#0F4E2F`/`rgba(21,102,61,0.3)`로.
+**(D) violet-/purple- Tailwind 클래스**: **0건**(코드베이스는 accent-* 토큰 사용).
+**(E) SVG/인라인**: 로고 `bohumfit_logo.svg`·`bohumfit_logo_white.svg` L69 `fill="#5955DE"` — ★**로고는 별도 판단(이번·050 미변경, 로고 재제작 시 #15663D 정합 제안)**. 그 외 인라인 보라 없음(체크박스 accent-[]는 C에 포함).
+**(F) backend PDF**: `report_disclosure.html` L30·`report_insurance.html` L29 brand-bar `#7C3AED` → 050에서 `#15663D`.
+
+### 050 범위 (잔재 치환)
+- (C) 하드코딩 hex(`#7C3AED`→`#15663D`, `#6D28D9`→`#0F4E2F`, `rgba(124,58,237,*)`→`rgba(21,102,61,*)`) — Disclosure/Signup/BeforeAfter/InsuranceCalculator/ConsentGate.
+- (F) backend brand-bar `#7C3AED`→`#15663D`(템플릿 2종).
+- (E) 로고는 제외(재제작 별도). 권장: 하드코딩을 가능하면 `accent-600`/`primary` 토큰으로 단일소스화.
+
+### Verified
+- [x] index.css BOM 보존(true, 4975B). primary #15663D·strong #0F4E2F·soft #E3F0E8·accent-600 #15663D 반영. 토큰영역 보라 hex 잔존 0.
+- [x] 포레스트 톤 확인(#15663D·#0F4E2F·#2E8056 — 라임/네온 아님, 차분한 딥 그린).
+- [x] 대비(WCAG): white/primary#15663D 7.00, strong#0F4E2F/white 9.76, primary/white 7.00, text#1E293B/soft#E3F0E8 12.47, white/accent-500#2E8056 4.84 — 모두 ≥4.5:1.
+- [x] 049는 `.ts/.tsx` 0개 수정(CSS 토큰값만) → tsc 무영향. (/tmp ConsentGate tsc의 'Invalid character'는 ConsentGate 마운트 뷰 NUL 절단 아티팩트로 049와 무관 — ConsentGate는 048에서 온전본 strict tsc 통과 이력.)
+- [ ] Windows: `npm run build`(토큰 컴파일)·라이트 육안(버튼·링크·배지·활성 인디케이터가 그린) — Codex.
+
+### Next
+- Codex(Windows): build·육안 → 049 범위(index.css) 한국어 커밋(`BOHUMFIT-049: 브랜드 포인트 보라→포레스트 그린(토큰 정의)`) → push. (마운트 git 미실행.)
+- 그 위에 050: (C)(F) 하드코딩 보라 hex 잔재를 그린으로 치환(로고 제외). 가능 시 토큰화.
+
 ## 2026-06-14 Codex BOHUMFIT-048 [Windows authority verification / publish]
 ### Changed
 - `src/components/ConsentGate.tsx`: reusable customer-consent gate added for designer-upload flows; Cowork mojibake/user-facing copy was repaired to normal Korean.

@@ -22,23 +22,24 @@
   --color-ink-800: #2A2A30;
   --color-ink-900: #1A1A1E;
 
-  /* 포인트 1색 — 보라 Violet (CTA·활성·링크·브랜드 전용, 아껴 사용) — BOHUMFIT-046 페리윙클 대체 */
-  --color-accent-50: #F5F3FF;
-  --color-accent-100: #EDE9FE;
-  --color-accent-200: #DDD6FE;
-  --color-accent-300: #C4B5FD;
-  --color-accent-400: #A78BFA;
-  --color-accent-500: #8B5CF6;
-  --color-accent-600: #7C3AED;
-  --color-accent-700: #6D28D9;
-  --color-accent-800: #5B21B6;
-  --color-accent-900: #4C1D95;
+  /* 포인트 1색 — 포레스트 그린 (CTA·활성·링크·브랜드 전용, 아껴 사용) — BOHUMFIT-049 보라 대체.
+     ★차분한 포레스트 톤만(라임·네온 금지). 어두운 #0F4E2F ~ 기본 #15663D ~ 옅은 #E3F0E8. */
+  --color-accent-50: #F0F7F3;
+  --color-accent-100: #E3F0E8;
+  --color-accent-200: #C7E1D2;
+  --color-accent-300: #9FCBB1;
+  --color-accent-400: #5FA47E;
+  --color-accent-500: #2E8056;
+  --color-accent-600: #15663D;
+  --color-accent-700: #0F4E2F;
+  --color-accent-800: #0C3F26;
+  --color-accent-900: #09301D;
 
-  /* ── BOHUMFIT-046 통합 3색 원칙: 짙은회색·검정·보라 (골드 미사용) ──────────
-     로고 색 미확정 → 변수로 분리(값 교체 쉽게). primary = accent-600(보라). */
-  --color-primary: #7C3AED;        /* 브랜드·CTA·링크 (= accent-600) */
-  --color-primary-strong: #6D28D9; /* hover·pressed (= accent-700) */
-  --color-primary-soft: #EDE9FE;   /* 배경·배지 (= accent-100) */
+  /* ── BOHUMFIT-049 통합 3색: 짙은회색·검정·그린(포레스트) (골드·보라 미사용) ──
+     로고 색 미확정 → 변수로 분리(값 교체 쉽게). primary = accent-600(그린). */
+  --color-primary: #15663D;        /* 브랜드·CTA·링크 (= accent-600) */
+  --color-primary-strong: #0F4E2F; /* hover·pressed (= accent-700) */
+  --color-primary-soft: #E3F0E8;   /* 배경·배지 (= accent-100) */
   --color-text: #1E293B;           /* 본문 기본 글자(짙은 회색) */
   --color-text-strong: #0A0A0A;    /* 고유명사 강조 전용(검정) */
   --color-text-muted: #475569;     /* 보조·설명 */
