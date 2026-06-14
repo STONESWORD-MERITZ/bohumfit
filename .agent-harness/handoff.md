@@ -16,6 +16,34 @@
 
 # Handoff
 
+## 2026-06-14 Codex BOHUMFIT-048 [Windows authority verification / publish]
+### Changed
+- `src/components/ConsentGate.tsx`: reusable customer-consent gate added for designer-upload flows; Cowork mojibake/user-facing copy was repaired to normal Korean.
+- `src/pages/CoverageAnalysis.tsx`: source xlsx upload is disabled until customer consent is checked.
+- `src/pages/InsuranceCalculator.tsx`: PDF mode now shows the same consent gate; PDF file input and `진료비 추출` are disabled until consent is checked.
+- `.agent-harness/tasks/BOHUMFIT-048-agent-consent-mobile.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md`: 048 verification/publish record.
+
+### Verified
+- [x] 046 already merged: `f6ea376`.
+- [x] 047 already merged: `9794031`.
+- [x] Scope gate: no changes in `src/lib/coverageMapping.ts`, `src/lib/coverageParse.ts`, `src/lib/insuranceCalc.ts`, or `src/pages/Disclosure.tsx`.
+- [x] `npx tsc -p tsconfig.app.json --noEmit`
+- [x] `npx tsc -p tsconfig.node.json --noEmit`
+- [x] `npm run lint`
+- [x] `npm test` -> 3 files, 39 tests passed.
+- [x] `npm run build` -> passed; existing Vite chunk-size warning only.
+- [x] Mobile browser smoke via Windows Chrome/Playwright fallback at `127.0.0.1:5180`: `/coverage` consent gate visible, upload input disabled before consent and enabled after consent, touch label 124px, overflow-x false.
+- [x] `/insurance` PDF mode smoke: PDF input and `진료비 추출` disabled before consent, both enabled after consent; extract button height 44px; consent/non-storage/customer-held text visible; overflow-x false.
+- [x] `/disclosure?mode=agent` smoke: existing disclosure route/gate still loads; overflow-x false.
+
+### Notes
+- Browser plugin Node execution surface was unavailable in this session, so visual/DOM smoke used Windows Chrome + Python Playwright fallback.
+- The committed handoff cannot contain its own final Git hash without a second bookkeeping commit; final 048 hash is reported in the chat after push.
+
+### Next
+- Human: mobile real-device check for the consent gate and 44px tap targets.
+- Human: send final unified business identity/address values when ready.
+
 ## 2026-06-14 Codex BOHUMFIT-047 [Windows authority verification / scoped stage ready]
 ### Changed
 - 047 scope staged only: `backend/pipeline/report_pdf.py`, `backend/templates/report_disclosure.html`, `backend/templates/report_insurance.html`, `.agent-harness/tasks/BOHUMFIT-047-sales-pdf.md`.
@@ -33,7 +61,7 @@
 
 ### Notes
 - Business identity still needs final confirmation/injection: `BIZ_ADDRESS` remains env-driven and may render `-` until production env is set.
-- Commit hash: to be reported after commit/push.
+- Commit hash: `9794031`.
 
 ### Next
 - Codex: commit/push 047, then continue with 048 split commit.
@@ -57,10 +85,122 @@
 
 ### Notes
 - Verification ran on the cumulative Windows working tree because 047/048 remain uncommitted, but the commit cache was inspected separately and contains only 046-scoped files/hunks.
-- Commit hash: to be reported after commit/push.
+- Commit hash: `f6ea376`.
 
 ### Next
 - Codex: commit/push 046, then continue with 047 split commit.
+
+## 2026-06-14 Cowork BOHUMFIT-048 [구현+/tmp 검증 완료 / Codex Windows tsc·lint·test·build·커밋 → Human 모바일 실기기]
+### Changed
+- `src/components/ConsentGate.tsx`(신규) — 설계사→고객 동의 게이트(재사용). "설계사가 고객 본인 자료를 대신 업로드 → 분석 목적·민감정보·AI 위탁 안내 후 동의 확보" 체크 + 개인정보처리방침 링크 + 비저장·고객 보유·'직접 보여주는 참고자료' 안내. 모바일 44px(라벨 행 min-h-11·체크박스 h-5 w-5). 토큰(ink/line/accent) 사용.
+- `src/pages/CoverageAnalysis.tsx` — `consent` state + `<ConsentGate>` 노출, 동의 전 파일 입력 `disabled={!consent}`(min-h-44).
+- `src/pages/InsuranceCalculator.tsx` — PDF 모드 `pdfConsent` + `<ConsentGate>`, 동의 전 '진료비 추출' 버튼 `disabled={loading || !pdfConsent}`(min-h-44).
+- `src/components/ui/Button.tsx` — md/lg `min-h-[2.75rem]`(44px) 탭 타깃(데스크탑 무해).
+- `.agent-harness/tasks/BOHUMFIT-048-agent-consent-mobile.md`(신규), handoff/locks.
+- **무수정**: `Disclosure.tsx`(이미 agent 모드 + 정보주체 동의 게이트 `consent`/`subjectConsent`·버튼 게이팅 보유 → 중복 금지), 산식·계산 lib, 라우팅.
+
+### A. 동의 게이트 강화 방식
+- 기존: Disclosure만 동의 게이트(민감정보 + 고객 제3자 동의 2단). **누락이던 보장분석·실손 업로드**에 동일 취지 ConsentGate 신설 적용 → 미동의 시 업로드/추출 불가.
+- '설계사가 고객 대신' 맥락 + 비저장/고객 보유/모집 비주체 톤 명시.
+
+### B. 모바일 변경점 / 44px 적용 범위
+- ui Button md/lg min-h 44px(전역 CTA). ConsentGate 라벨 행 min-h 44 + 체크박스 20px. 보장분석 파일 입력·실손 추출 버튼 min-h 44.
+- 기존 표는 overflow-x-auto 유지(가로스크롤 대응) — 무수정. 데스크탑 회귀 없음(44px·게이트 추가뿐).
+
+### C. 결과 보유 원칙
+- ConsentGate 하단 고정 안내: "업로드 자료·분석 결과 저장 안 함, 출력물은 고객 본인 보유 — 설계사가 직접 보여주는 참고자료". (모집 비주체)
+
+### Verified
+- [x] /tmp strict tsc: `ConsentGate.tsx`(+react/react-router-dom 타입) 통과.
+- [x] 마커: ConsentGate 사용(CoverageAnalysis L159·InsuranceCalculator L270), 게이팅(`disabled={!consent}`·`disabled={loading || !pdfConsent}`), 44px(Button md/lg·ConsentGate·업로드/버튼).
+- [⚠] **마운트 truncation + 스크린샷 부재**: 편집한 CoverageAnalysis/InsuranceCalculator in-sandbox 전체 tsc·모바일 뷰포트 스크린샷 미실행(ConsentGate 신규는 온전). Windows 원본 권위.
+- [ ] Windows: `npx tsc -p tsconfig.app.json`/`tsconfig.node.json`·`npm run lint`·`npm test`·`npm run build` + 모바일 뷰포트(동의 전 업로드 비활성·44px·동선) — Codex/Human.
+
+### Next
+- Codex(Windows): tsc/lint/test/build → 048 범위 파일 한국어 커밋(`BOHUMFIT-048: 고객 동의 게이트(보장분석·실손)+모바일 44px 탭타깃`) → push. (마운트 git 미실행.)
+- Human: 모바일 실기기에서 동의 게이트·44px·업로드→결과 동선 확인.
+- 후속(백로그): Disclosure 게이트와 ConsentGate 문구 통일, 전 페이지 모바일 audit(여백/폰트).
+
+## 2026-06-14 Cowork BOHUMFIT-047 [구현+/tmp 검증 완료 / Codex Windows pytest·샘플 PDF·커밋 → 048]
+### Changed
+- `backend/pipeline/report_pdf.py` — 면책 강화(영업 수준) + 푸터 도메인:
+  - `BUSINESS_FOOTER`에 `"domain": "BOHUMFIT.AI"` 추가. 사업자 정보(상호/대표/사업자번호/주소 env)는 현재 값 유지(⚠ 통합 사업자 확정 전).
+  - `DISCLOSURE_DISCLAIMER`/`INSURANCE_DISCLAIMER` 재작성: ①모집 비주체(점검·분석 참고자료) ②추정·심사/지급 미확정 ③비저장·출력물 고객 보유 ④모집·중개·상품추천·가입권유 비목적. ('참고용 보조자료' 문구 유지 → 기존 pytest 호환.)
+- `backend/templates/report_disclosure.html`·`report_insurance.html` — 네이비+골드 → 3색 정리(:root 단일 소스):
+  - `--navy #1F3A5F→#1F2937(슬레이트)`, `--navy-deep #14253D→#111827`, `--gold #C9A227→#6B7280(중립회색)`, `--gold-deep #8C6D1F→#374151`, `--gold-bg #FBF6E7→#F3F4F6`, `--ink #232629→#1E293B`, `--muted #5A6270→#475569`.
+  - brand-bar 골드 포인트 → 보라 `#7C3AED`(헤더 1포인트, 절제). 골드 보더 `#E5D9AE→#E5E7EB`.
+  - 푸터에 `{{ biz.domain }}`(BOHUMFIT.AI) 추가.
+- `.agent-harness/tasks/BOHUMFIT-047-sales-pdf.md`(신규), handoff/locks.
+- **무수정**: 산식·결과값·레이아웃·헤더 로고(051)·PDF 렌더 로직(data-URI/디코드 대기 그대로).
+
+### 면책 문구 전문
+- 고지: "본 자료는 보험 가입 권유·모집을 위한 것이 아니라, 고객이 보유하거나 제안받은 보험의 알릴의무(고지) 사항을 점검·분석하기 위한 참고용 보조자료입니다. 점검 결과는 업로드한 진료자료를 바탕으로 AI가 산출한 추정이며, 의학적 진단이나 보험사 심사·인수·보험금 지급 여부를 확정하지 않습니다. 실제 알릴의무 대상과 범위는 보험사별 청약서 문항·약관·인수지침에 따라 달라질 수 있으므로, 청약 전 반드시 해당 청약서 문항과 대조해 주세요. 본 서비스는 분석 결과를 저장하지 않으며, 출력물은 고객 본인이 보유·관리합니다. 고지 누락에 대한 최종 책임은 청약자 본인에게 있습니다."
+- 실손: "본 자료는 보험 가입 권유·모집을 위한 것이 아니라, 보유하거나 제안받은 보험의 보장을 점검·분석하기 위한 참고자료입니다. 표기된 금액은 추정값이며, 실제 보험금·환급금 지급 여부와 금액은 보험사 약관·심사 및 국민건강보험공단 확인이 필요합니다. 본 안내는 보험 모집·중개·상품추천·가입권유를 목적으로 하지 않으며, 분석 결과를 저장하지 않고 출력물은 고객 본인이 보유합니다."
+
+### 사업자 정보 — 확정 필요 (placeholder)
+- 상호 보험핏 / 대표 이민규 / 사업자번호 174-29-01975 / 주소 = env `BIZ_ADDRESS`(미설정 시 "-"). **'통합 사업자(보험핏×핏히어)' 확정 시 상호·대표·번호·주소 갱신 필요.** 현재 값 그대로 유지.
+
+### 색 전후
+| 요소 | 전(네이비+골드) | 후(3색) |
+|---|---|---|
+| 헤더/표 헤더/강조 | navy #1F3A5F | 슬레이트 #1F2937 |
+| 골드 액센트(기준박스·배지·금액강조) | #C9A227 | 중립회색 #6B7280 |
+| brand-bar 포인트 | 골드 | 보라 #7C3AED(1포인트) |
+| 본문 | #232629 | #1E293B |
+- 보라는 brand-bar 1곳만(절제) + 헤더 로고가 브랜드색 담당. 본문은 흰 배경+짙은회색+헤어라인(인쇄 가독성 우선).
+
+### Verified
+- [x] 백엔드 골드 리터럴 grep **0**(`#C9A227/#8C6D1F/#FBF6E7/#E5D9AE` + `var(--gold) 70%` 0). brand-bar `#7C3AED`·슬레이트 `#1F2937` 각 1.
+- [x] Windows 원본(Read) 확인: 푸터 `{{ biz.domain }}` 반영(L283), 면책 신문구·domain 상수 반영.
+- [x] /tmp Jinja 렌더 스모크 9/9: 도메인 표기·소재지 유지·면책 4요소(모집비주체·추정·비저장/고객보유·모집중개비목적)·'참고용 보조자료'(pytest 호환)·골드 리터럴 0.
+- [⚠] **마운트 truncation + playwright 부재**: 실 Chromium PDF 생성·전체 `pytest` in-sandbox 미실행(템플릿 footer 마운트 절단·report_pdf 절단). 마커는 Windows 원본 권위로 확인.
+- [ ] Windows: `cd backend && python -m pytest -q`(report_pdf 회귀, 특히 L160 '참고용 보조자료'·L243 '보험 모집…'·L157 footer 토큰) + 샘플 PDF 2종 육안(면책·도메인·색) — Codex.
+
+### Next
+- Codex(Windows): backend pytest + 샘플 PDF 육안 → 047 범위 파일 한국어 커밋(`BOHUMFIT-047: 영업용 PDF 면책 강화·도메인 표기·네이비+골드→3색`) → push. (마운트 git 미실행.)
+- Human: 사업자(통합) 확정 값 회신 → 별도 갱신. 그 위에 048 진행.
+
+## 2026-06-14 Cowork BOHUMFIT-046 [구현+/tmp 검증 완료 / Codex Windows tsc·lint·build·육안·커밋 → 047]
+### Changed
+- `src/index.css`(@theme, BOM 보존) — accent 스케일 페리윙클→**보라(Violet)** 램프(50 #F5F3FF … 600 #7C3AED, 700 #6D28D9, 800 #5B21B6, 900 #4C1D95). 3색 토큰 추가(`--color-primary/-strong/-soft`, `--color-text/-strong/-muted`). 본문 alias repoint(`--color-ink` #2A2A30→#1E293B, `--color-ink-soft` #5F5F66→#475569).
+- `src/components/ui/Button.tsx` — primary 변형 `bg-ink-900`→`bg-accent-600`(보라 CTA), hover/active accent-700/800.
+- `src/components/coverage/CoverageTableView.tsx` — 네이비 하드코딩 제거: `#1F3A5F`→`ink-800`, `#14253D`(합계)→`ink-900`, 총계/보더 `text-/border-[#1F3A5F]`→`ink-900/ink-800`.
+- indigo→accent(보라) 클래스 치환: `App.tsx`·`AnalysisProgress.tsx`·`CoverageAnalysis.tsx`·`CoverageAfterSection.tsx`.
+- 레거시 인디고 하드코딩 hex 치환(`#4F46E5`→`#7C3AED`, `#4338CA`→`#6D28D9`, 그림자 rgba(79,70,229)→rgba(124,58,237)): `Disclosure.tsx`·`InsuranceCalculator.tsx`·`Signup.tsx`·`BeforeAfter.tsx`.
+- `.agent-harness/tasks/BOHUMFIT-046-design-tokens-3color.md`(신규), handoff/locks.
+- **무수정**: 로고 파일(bohumfit_logo.svg/_white.svg), 산식·계산 lib, 라우팅, 페이지 본문 로직/구조(색 클래스만).
+
+### 토큰 매핑표
+| 역할 | 토큰 | 값 |
+|---|---|---|
+| 본문 글자(대부분) | --color-text / --color-ink | #1E293B(짙은회색) |
+| 고유명사 강조 | --color-text-strong | #0A0A0A(검정, 점진 적용) |
+| 보조·설명 | --color-text-muted / --color-ink-soft | #475569 |
+| 브랜드·CTA·링크 | --color-primary / accent-600 | #7C3AED(보라) |
+| hover·pressed | --color-primary-strong / accent-700 | #6D28D9 |
+| 배경·배지 | --color-primary-soft / accent-100 | #EDE9FE |
+
+### 골드 제거
+- **src에는 골드 hex 0건**(스캔 확인) — 골드는 backend PDF 템플릿(네이비+골드)에만 존재 → **047에서 제거**. Badge `tone="gold"`는 accent 매핑이라 자동으로 보라(리터럴 골드 아님).
+
+### Verified
+- [x] 잔존 grep **0**(로고 제외): `indigo-`·`#5B5BD6`·`#1F3A5F`·`#14253D`·`#4F46E5`·`#4338CA`·`rgba(79,70,229)`·`#C9A2*` 전부 0. (로고 `#5955DE`는 의도적 미접촉.)
+- [x] index.css BOM 보존(true, 4975B), @theme 토큰 반영 확인.
+- [x] 대비(WCAG): white/보라#7C3AED 5.70, 보라#6D28D9/white 7.10, text#1E293B/soft#EDE9FE 12.32, muted#475569/white 7.58, white/ink-800 14.26 — 모두 ≥4.5:1.
+- [⚠] **마운트 truncation**: 편집 다수 파일(Disclosure/CoverageAfterSection/Layout/Home 등) 마운트 뷰 NUL/절단 → in-sandbox 전체 tsc/build·스크린샷 미실행. 색 변경은 className 문자열/CSS값뿐이라 타입 영향 없음(Edit는 Windows 원본에 정확 치환). Windows 원본 권위.
+- [ ] Windows: `npx tsc -p tsconfig.app.json`/`tsconfig.node.json`·`npm run lint`·`npm run build` + 라이트 육안(네비 활성·버튼·배지·표 헤더 보라/회색) — Codex.
+
+### Notes / 결정
+- 페리윙클·네이비·인디고를 보라/회색으로 전면 통일. amber/red/green 시맨틱(경고·위험·성공)은 브랜드색 아님 → 유지(3색 원칙은 브랜드·텍스트 위계 대상).
+- 레거시 페이지(Disclosure/InsuranceCalculator/Signup/BeforeAfter)는 토큰 미사용이라 하드코딩 hex를 보라값으로 직접 치환(색 일치 우선). 추후 토큰화(bg-accent-600 등) 단일소스 정리는 후속 권장.
+- 검정(#0A0A0A) '고유명사 전용'은 토큰(`--color-text-strong`) 제공까지 완료, 컴포넌트별 적용은 점진(현재 헤딩은 ink-900 근접흑 유지).
+
+### 로고 색 제안 (확정 필요)
+- 로고 포인트색은 현재 `#5955DE`(페리윙클 계열). 신규 primary `#7C3AED`(보라)와 미세 불일치. **제안**: 로고 포인트를 `#7C3AED`로 맞추면 브랜드 완전 정합. 단 로고는 이번 미접촉 — Human 승인 후 별도 태스크에서 svg `fill` 1줄 교체(컬러·화이트 2파일).
+
+### Next
+- Codex(Windows): tsc(app/node)·lint·build·라이트 육안 → 046 범위 파일 한국어 커밋(`BOHUMFIT-046: 통합 3색 디자인 토큰(짙은회색·검정·보라, 골드/페리윙클/인디고 제거)`) → push. (마운트 git 미실행.)
+- 그 위에 047(영업 PDF) 진행.
 
 ## 2026-06-14 BOHUMFIT-045 coverage export Windows verification - Codex
 

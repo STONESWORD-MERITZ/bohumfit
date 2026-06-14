@@ -12,6 +12,7 @@ import {
   insWon,
   wonToMan,
 } from "../lib/insuranceCalc";
+import ConsentGate from "../components/ConsentGate";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
@@ -44,6 +45,8 @@ export default function InsuranceCalculator() {
 
   // PDF 모드
   const [files, setFiles] = useState<FileList | null>(null);
+  // BOHUMFIT-048 고객 동의 게이트(PDF 모드) — 설계사가 고객 진료 PDF 대신 업로드
+  const [pdfConsent, setPdfConsent] = useState(false);
   const [birthdate, setBirthdate] = useState("");
   const [refDate, setRefDate] = useState(new Date().toISOString().slice(0, 10));
   const [loading, setLoading] = useState(false);
@@ -264,11 +267,18 @@ export default function InsuranceCalculator() {
             심평원 PDF에서 <b>급여 진료비(내가 낸 의료비)</b>만 추출해 자동 채웁니다. 알릴의무 Q&amp;A 결과는 이 화면에 표시하지 않습니다.
             업로드한 PDF는 진료기록 민감정보를 포함하며 저장하지 않습니다.
           </p>
+          <ConsentGate
+            agreed={pdfConsent}
+            onChange={setPdfConsent}
+            note="심평원 PDF에는 고객의 진료기록(민감정보)이 포함됩니다."
+            className="mb-3"
+          />
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="심평원 PDF">
               <input type="file" accept="application/pdf" multiple
+                disabled={!pdfConsent}
                 onChange={(e) => setFiles(e.target.files)}
-                className="mt-1 w-full text-xs text-gray-500" />
+                className="mt-1 w-full text-xs text-gray-500 disabled:cursor-not-allowed disabled:opacity-50 file:min-h-[44px]" />
             </Field>
             <Field label="기준일(청약/조회일)">
               <input type="date" value={refDate} onChange={(e) => setRefDate(e.target.value)} className={SELECT_CLS} />
@@ -277,8 +287,8 @@ export default function InsuranceCalculator() {
               <input value={birthdate} onChange={(e) => setBirthdate(e.target.value)} placeholder="예: 900101" className={SELECT_CLS} />
             </Field>
             <div className="flex items-end">
-              <button type="button" onClick={runPdf} disabled={loading}
-                className="rounded-[8px] bg-[#7C3AED] px-4 py-2 text-sm font-bold text-white disabled:opacity-50">
+              <button type="button" onClick={runPdf} disabled={loading || !pdfConsent}
+                className="min-h-[44px] rounded-[8px] bg-[#7C3AED] px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">
                 {loading ? "분석 중…" : "진료비 추출"}
               </button>
             </div>

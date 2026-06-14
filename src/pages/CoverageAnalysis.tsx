@@ -24,6 +24,7 @@ import {
 } from "../lib/coverageParse";
 import CoverageTableView from "../components/coverage/CoverageTableView";
 import CoverageAfterSection from "../components/coverage/CoverageAfterSection";
+import ConsentGate from "../components/ConsentGate";
 
 const DISCLAIMER =
   "본 비교분석표는 업로드한 원천자료를 기준으로 정리한 참고용 자료입니다. 실제 보장 내용·보험금 지급 여부는 " +
@@ -44,6 +45,8 @@ export default function CoverageAnalysis() {
   const [assignments, setAssignments] = useState<Record<string, string>>({});
   // 3단계 종수술 제안값 셀 수정 (contractId → categoryId → 만원) — 세션 내만 유지
   const [cellEdits, setCellEdits] = useState<Record<string, Record<string, number>>>({});
+  // BOHUMFIT-048 고객 동의 게이트 — 설계사가 고객 자료를 대신 업로드하므로 동의 전 업로드 불가
+  const [consent, setConsent] = useState(false);
 
   const reset = () => {
     setFileName("");
@@ -153,13 +156,20 @@ export default function CoverageAnalysis() {
       {/* ── 1단계: 업로드 ── */}
       <section className="rounded-[8px] border border-gray-100 bg-white p-4">
         <h2 className="mb-2 text-sm font-bold text-gray-800">1단계 — 원천자료 업로드</h2>
+        <ConsentGate
+          agreed={consent}
+          onChange={setConsent}
+          note="원천자료(계약·담보 엑셀)에는 고객 계약정보가 포함됩니다."
+          className="mb-3"
+        />
         <div className="flex flex-wrap items-center gap-3">
           <input
             ref={fileRef}
             type="file"
             accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            disabled={!consent}
             onChange={(e) => void handleFile(e.target.files?.[0] ?? null)}
-            className="text-xs text-gray-500"
+            className="min-h-[44px] text-xs text-gray-500 disabled:cursor-not-allowed disabled:opacity-50"
           />
           {fileName && (
             <button
