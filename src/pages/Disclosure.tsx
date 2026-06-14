@@ -365,7 +365,7 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
             </span>
           )}
         </div>
-        <span className="shrink-0 rounded-[8px] bg-[#7C3AED] px-2 py-0.5 text-[11px] font-bold text-white">
+        <span className="shrink-0 rounded-[8px] bg-accent-600 px-2 py-0.5 text-[11px] font-bold text-white">
           {qNum}
         </span>
       </div>
@@ -505,7 +505,7 @@ function DisclosureSection({
             return (
               <section key={qTitle} className="overflow-hidden rounded-[8px] bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
                 <div className="flex items-center gap-2.5 border-b border-gray-100 px-5 py-3.5">
-                  <span className="shrink-0 rounded-[8px] bg-[#7C3AED] px-2.5 py-1 text-xs font-bold text-white">
+                  <span className="shrink-0 rounded-[8px] bg-accent-600 px-2.5 py-1 text-xs font-bold text-white">
                     {qNum}
                   </span>
                   <h3 className="text-sm font-bold text-gray-800">{cleanQTitle(qTitle)}</h3>
@@ -670,7 +670,7 @@ function insCheckNhisCap(annualCovered: number, bracket: number, nursingLongStay
 function InsResultCard({ n, title, children }: { n: string; title: string; children: ReactNode }) {
   return (
     <div className="rounded-[8px] border-l-4 border-accent-200 bg-white px-4 py-3 text-sm">
-      <h4 className="mb-1 font-bold text-[#7C3AED]">{n} {title}</h4>
+      <h4 className="mb-1 font-bold text-accent-600">{n} {title}</h4>
       <div className="space-y-0.5">{children}</div>
     </div>
   );
@@ -981,7 +981,7 @@ function ResultView({ result, mode }: { result: AnalyzeResult; mode: AudienceMod
       ))}
 
       <div className="mb-5 rounded-[8px] bg-white p-5 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
-        <h2 className="text-xs font-bold text-[#7C3AED]">{copy.resultTitle}</h2>
+        <h2 className="text-xs font-bold text-accent-600">{copy.resultTitle}</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-4">
           <Metric label="건강체 고지" value={`${stdCount}건`} tone={stdCount ? "text-amber-600" : "text-emerald-600"} />
           <Metric label="간편 고지" value={`${easyCount}건`} tone={easyCount ? "text-amber-600" : "text-emerald-600"} />
@@ -1006,7 +1006,7 @@ function ResultView({ result, mode }: { result: AnalyzeResult; mode: AudienceMod
                 aria-selected={active}
                 onClick={() => setProductTab(tab)}
                 className={`relative flex-1 py-3.5 text-sm font-bold transition-all ${
-                  active ? "text-[#7C3AED]" : "text-gray-400 hover:text-gray-600"
+                  active ? "text-accent-600" : "text-gray-400 hover:text-gray-600"
                 }`}
               >
                 {label}
@@ -1017,7 +1017,7 @@ function ResultView({ result, mode }: { result: AnalyzeResult; mode: AudienceMod
                     {count}
                   </span>
                 )}
-                {active && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#7C3AED]" />}
+                {active && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent-600" />}
               </button>
             );
           })}
@@ -1192,7 +1192,7 @@ function TourOverlay({
       {rect ? (
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed border-2 border-white bg-transparent ring-2 ring-[#7C3AED]/40"
+          className="pointer-events-none fixed border-2 border-white bg-transparent ring-2 ring-accent-600/40"
           style={spotlightStyle}
         />
       ) : (
@@ -1224,7 +1224,7 @@ function TourOverlay({
               <span
                 key={dotIndex}
                 className={`h-2 rounded-full ${
-                  dotIndex + 1 === displayIndex ? "w-7 bg-[#7C3AED]" : "w-2 bg-gray-200"
+                  dotIndex + 1 === displayIndex ? "w-7 bg-accent-600" : "w-2 bg-gray-200"
                 }`}
               />
             ))}
@@ -1232,7 +1232,7 @@ function TourOverlay({
           <button
             type="button"
             onClick={onNext}
-            className="rounded-[8px] bg-[#7C3AED] px-5 py-3 text-sm font-extrabold text-white shadow-sm hover:bg-[#6D28D9]"
+            className="rounded-[8px] bg-accent-600 px-5 py-3 text-sm font-extrabold text-white shadow-sm hover:bg-accent-700"
           >
             {isLast ? "완료" : "다음"}
           </button>
@@ -1378,14 +1378,14 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
         <button
           type="button"
           onClick={() => replayTour(result ? "post" : "pre")}
-          className="rounded-[8px] border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-500 hover:border-[#7C3AED]/40 hover:text-[#7C3AED]"
+          className="rounded-[8px] border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-500 hover:border-accent-600/40 hover:text-accent-600"
         >
           {result ? "결과 가이드 다시보기" : "필터 가이드 다시보기"}
         </button>
       </div>
 
       <div className="mb-6">
-        <p className="mb-1 text-xs font-bold tracking-wider text-[#7C3AED]">{copy.badge}</p>
+        <p className="mb-1 text-xs font-bold tracking-wider text-accent-600">{copy.badge}</p>
         <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">{copy.title}</h1>
         <p className="mt-1 text-sm leading-6 text-gray-500 break-keep">{copy.subtitle}</p>
       </div>
@@ -1398,7 +1398,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
               type="date"
               value={refDate}
               onChange={(e) => setRefDate(e.target.value)}
-              className="w-full rounded-[8px] bg-gray-50 px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/30"
+              className="w-full rounded-[8px] bg-gray-50 px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-accent-600/30"
             />
             <p className="mt-2 text-xs leading-5 text-gray-400">{copy.dateHelp}</p>
           </div>
@@ -1412,7 +1412,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
               placeholder="예: 19900101"
               value={birthdate}
               onChange={(e) => setBirthdate(e.target.value)}
-              className="w-full rounded-[8px] bg-gray-50 px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/30"
+              className="w-full rounded-[8px] bg-gray-50 px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-accent-600/30"
             />
             <p className="mt-2 text-xs leading-5 text-gray-400">암호화 PDF라면 생년월일 8자리를 입력해 주세요.</p>
           </div>
@@ -1424,7 +1424,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
             type="file"
             accept=".pdf"
             multiple
-            className="block w-full cursor-pointer text-sm text-gray-600 file:mr-4 file:rounded-[8px] file:border-0 file:bg-[#7C3AED] file:px-5 file:py-2.5 file:text-sm file:font-bold file:text-white hover:file:bg-[#6D28D9]"
+            className="block w-full cursor-pointer text-sm text-gray-600 file:mr-4 file:rounded-[8px] file:border-0 file:bg-accent-600 file:px-5 file:py-2.5 file:text-sm file:font-bold file:text-white hover:file:bg-accent-700"
           />
           <p className="mt-3 text-xs text-gray-500">
             {copy.uploadHelp} 파일은 최대 {MAX_FILE_COUNT}개, 개별 {MAX_FILE_SIZE / 1024 / 1024}MB, 총합 {MAX_TOTAL_SIZE / 1024 / 1024}MB까지 업로드할 수 있습니다.
@@ -1436,7 +1436,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
             type="checkbox"
             checked={consent}
             onChange={(e) => setConsent(e.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 accent-[#7C3AED]"
+            className="mt-0.5 h-4 w-4 shrink-0 accent-[#15663D]"
           />
           <span className="break-keep">
             업로드하는 진료자료에는 <b className="font-bold text-gray-700">민감정보(건강에 관한 정보)</b>가 포함됩니다.
@@ -1451,7 +1451,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
               type="checkbox"
               checked={subjectConsent}
               onChange={(e) => setSubjectConsent(e.target.checked)}
-              className="mt-0.5 h-4 w-4 shrink-0 accent-[#7C3AED]"
+              className="mt-0.5 h-4 w-4 shrink-0 accent-[#15663D]"
             />
             <span className="break-keep">
               고객 등 제3자의 진료자료를 업로드하는 경우, 정보주체에게 BOHUMFIT 분석 목적·민감정보 처리·AI 위탁 처리 내용을 안내했고
@@ -1463,7 +1463,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
         <button
           onClick={analyze}
           disabled={loading || !consent || (mode === "agent" && !subjectConsent)}
-          className="mt-5 w-full rounded-[8px] bg-[#7C3AED] py-3 text-sm font-bold text-white shadow-[0_2px_8px_rgba(124,58,237,0.3)] transition-colors hover:bg-[#6D28D9] disabled:opacity-50"
+          className="mt-5 w-full rounded-[8px] bg-accent-600 py-3 text-sm font-bold text-white shadow-[0_2px_8px_rgba(21,102,61,0.3)] transition-colors hover:bg-accent-700 disabled:opacity-50"
         >
           {loading ? "분석 중..." : copy.button}
         </button>

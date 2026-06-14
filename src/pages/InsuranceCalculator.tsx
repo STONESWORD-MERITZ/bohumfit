@@ -253,7 +253,7 @@ export default function InsuranceCalculator() {
             key={m}
             type="button"
             onClick={() => setMode(m)}
-            className={`rounded-[6px] px-4 py-1.5 transition-colors ${mode === m ? "bg-[#7C3AED] text-white" : "text-gray-500 hover:text-gray-800"}`}
+            className={`rounded-[6px] px-4 py-1.5 transition-colors ${mode === m ? "bg-accent-600 text-white" : "text-gray-500 hover:text-gray-800"}`}
           >
             {m === "manual" ? "수기 입력" : "PDF 자동 채움"}
           </button>
@@ -288,7 +288,7 @@ export default function InsuranceCalculator() {
             </Field>
             <div className="flex items-end">
               <button type="button" onClick={runPdf} disabled={loading || !pdfConsent}
-                className="min-h-[44px] rounded-[8px] bg-[#7C3AED] px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">
+                className="min-h-[44px] rounded-[8px] bg-accent-600 px-4 py-2 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">
                 {loading ? "분석 중…" : "진료비 추출"}
               </button>
             </div>
@@ -415,7 +415,7 @@ export default function InsuranceCalculator() {
 function ResultCard({ n, title, children }: { n: string; title: string; children: ReactNode }) {
   return (
     <div className="rounded-[8px] border-l-4 border-accent-200 bg-white px-4 py-3 text-sm">
-      <h3 className="mb-1 font-bold text-[#7C3AED]">{n} {title}</h3>
+      <h3 className="mb-1 font-bold text-accent-600">{n} {title}</h3>
       <div className="space-y-0.5">{children}</div>
     </div>
   );

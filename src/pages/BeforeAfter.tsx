@@ -30,7 +30,7 @@ export default function BeforeAfter() {
     <div>
       {/* 헤더 */}
       <div className="mb-6">
-        <p className="text-xs font-bold text-[#7C3AED] tracking-wider mb-1">보장 분석</p>
+        <p className="text-xs font-bold text-accent-600 tracking-wider mb-1">보장 분석</p>
         <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">비포 & 에프터</h1>
         <p className="text-sm text-gray-400 mt-1">
           기존 보장내역과 신규 제안서를 비교하여 리모델링 근거를 제시하세요.
@@ -49,7 +49,7 @@ export default function BeforeAfter() {
                 ref={beforeRef}
                 type="file"
                 accept=".pdf"
-                className="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-[#7C3AED] file:text-white hover:file:bg-[#6D28D9] cursor-pointer"
+                className="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-accent-600 file:text-white hover:file:bg-accent-700 cursor-pointer"
               />
             </div>
           </div>
@@ -63,7 +63,7 @@ export default function BeforeAfter() {
                 type="file"
                 accept=".pdf"
                 multiple
-                className="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-[#7C3AED] file:text-white hover:file:bg-[#6D28D9] cursor-pointer"
+                className="block w-full text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-accent-600 file:text-white hover:file:bg-accent-700 cursor-pointer"
               />
             </div>
           </div>
@@ -71,7 +71,7 @@ export default function BeforeAfter() {
 
         <button
           onClick={handleAnalyze}
-          className="w-full mt-5 py-3 bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-bold rounded-xl text-sm transition-colors shadow-[0_2px_8px_rgba(124,58,237,0.3)]"
+          className="w-full mt-5 py-3 bg-accent-600 hover:bg-accent-700 text-white font-bold rounded-xl text-sm transition-colors shadow-[0_2px_8px_rgba(21,102,61,0.3)]"
         >
           분석 시작
         </button>

@@ -21,7 +21,7 @@ export default function ConsentGate({ agreed, onChange, note, className = "" }: 
           type="checkbox"
           checked={agreed}
           onChange={(e) => onChange(e.target.checked)}
-          className="mt-0.5 h-5 w-5 shrink-0 accent-[#7C3AED]"
+          className="mt-0.5 h-5 w-5 shrink-0 accent-[#15663D]"
           aria-label="고객 본인 동의 확인"
         />
         <span className="break-keep">

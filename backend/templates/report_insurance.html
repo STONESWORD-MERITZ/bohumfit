@@ -7,7 +7,7 @@
 <style>
 {{ font_face_css | safe }}
 :root {
-  /* BOHUMFIT-047: 네이비+골드 → 3색(짙은 슬레이트·중립 회색). 골드 전면 제거. 보라는 brand-bar 1포인트만. */
+  /* BOHUMFIT-050: 3색 체계 유지. brand-bar 포인트는 딥 포레스트 그린으로 통일. */
   --navy: #1F2937;
   --navy-deep: #111827;
   --gold: #6B7280;
@@ -26,7 +26,7 @@ html, body {
   line-height: 1.55;
   word-break: keep-all;
 }
-.brand-bar { height: 6px; background: linear-gradient(90deg, var(--navy) 70%, #7C3AED 70%); border-radius: 2px; }
+.brand-bar { height: 6px; background: linear-gradient(90deg, var(--navy) 70%, #15663D 70%); border-radius: 2px; }
 .head { display: flex; justify-content: space-between; align-items: flex-end; padding: 14px 2px 12px; }
 .wordmark { font-size: 19pt; font-weight: 800; color: var(--navy-deep); letter-spacing: 0.5px; }
 .wordmark .dot { color: var(--gold); }
