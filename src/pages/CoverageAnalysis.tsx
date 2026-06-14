@@ -293,8 +293,10 @@ export default function CoverageAnalysis() {
         </section>
       )}
 
-      {/* BOHUMFIT-043: 컨설팅 후 설계 + 후 비분표 (전 비분표가 준비된 뒤에만 노출) */}
-      {result && displayColumns.length > 0 && <CoverageAfterSection contracts={effectiveContracts} />}
+      {/* BOHUMFIT-043/044: 컨설팅 후 설계 + 후 비분표 + 최종비교분석표 (전 비분표가 준비된 뒤에만 노출) */}
+      {result && displayColumns.length > 0 && (
+        <CoverageAfterSection contracts={effectiveContracts} beforeTotals={totals} />
+      )}
 
       <p className="text-[11px] leading-relaxed text-gray-400 break-keep">{DISCLAIMER}</p>
     </div>

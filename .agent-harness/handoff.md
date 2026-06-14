@@ -16,6 +16,80 @@
 
 # Handoff
 
+## 2026-06-14 BOHUMFIT-044 final-comparison Windows verification - Codex
+
+Status: verified, ready to commit/push.
+
+Changed:
+- `src/components/coverage/FinalComparison.tsx` 신규: 전/후 37행 최종비교분석표, 핵심질병 전후 화살표, 특이사항 입력.
+- `src/components/coverage/CoverageAfterSection.tsx`: `beforeTotals` prop 수신 및 최종비교분석표 렌더.
+- `src/pages/CoverageAnalysis.tsx`: 전 비분표 합계(`totals`)를 후 비분표 섹션으로 전달.
+- `.agent-harness/tasks/BOHUMFIT-044-final-comparison.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md`.
+
+Verified:
+- `.git/index.lock` 없음, locks Active none 확인.
+- Windows 원본 무결성 확인: `CoverageAfterSection.tsx`, `CoverageAnalysis.tsx`, `FinalComparison.tsx` 모두 NUL 0 / UTF-8 replacement 0 / 꼬리 절단 없음.
+- 범위 확인: `src/lib/coverageMapping.ts`, `src/lib/coverageParse.ts` diff 없음. 표시 전용 변경만 확인.
+- `npx tsc -p tsconfig.app.json --noEmit` 통과.
+- `npx tsc -p tsconfig.node.json --noEmit` 통과.
+- `npm run lint` 통과.
+- `npm test` 통과: 3 files, 39 tests passed.
+- `npm run build` 통과. Vite chunk-size warning만 있음.
+- Browser smoke: Windows Chrome CDP fallback으로 `/coverage` 합성 xlsx 업로드 -> 전 비분표 -> 해지 토글 -> 신규 제안 업로드 -> 후 비분표 -> 최종비교분석표 흐름 통과.
+- 최종표 확인: 37행 전/주요보장/후 렌더, 상해사망 행 `injury_death + disaster_death` 결합 및 "재해사망 포함" 주석 확인, 암입원 표시 전용 행 및 "질병입원에 포함" 주석 확인.
+- 핵심질병 전후 화살표 영역 확인: 암/뇌 초기/뇌 중기/뇌 말기/심장 초기/심장 말기 렌더.
+- 특이사항 textarea 입력 동작 확인.
+- 모바일 폭에서 최종표 표시 및 가로 스크롤 컨테이너 확인, 콘솔 에러 0.
+
+Notes:
+- Browser MCP surface가 현재 노출되지 않아 Windows Chrome DevTools Protocol fallback으로 실제 렌더를 검증함.
+- smoke는 fake Supabase local session + 합성 xlsx만 사용했으며, 실데이터 파일은 사용하지 않음.
+- 암입원은 lib 확장 없이 표시 전용 행으로 처리. lib 차원의 별도 암입원 분리는 백로그 유지.
+- smoke 임시 파일과 캡처는 검증 후 삭제함.
+
+Next:
+- Human: `/coverage` 실데이터 육안 확인.
+- Cowork/Next task: BOHUMFIT-045 엑셀 출력.
+
+## 2026-06-14 Cowork BOHUMFIT-044 [구현+/tmp 검증 완료 / Codex Windows tsc·lint·test·build·스모크·커밋·푸시 → Human 확인 → 045]
+### Changed
+- `src/components/coverage/FinalComparison.tsx`(신규) — 최종비교분석표(표시 전용). props `beforeTotals`/`afterTotals`(041 집계값) 매핑·표시만, 재계산 0.
+  - A. 좌측 3열표(리모델링 전 | 주요보장 | 리모델링 후) 37행(양식 순서). 증가=accent(페리윙클)·감소/해지=danger·동일=뉴트럴. 보험료 행은 방향만 표시·중립색.
+  - C. 우측 핵심질병 전→후 화살표(암/뇌초기/뇌중기/뇌말기/심장초기/심장말기) + 특이사항 textarea(세션 내 비저장).
+  - 하단 범례 + "다음: 엑셀 출력(준비 중)"(045 예고, 기능 없음).
+- `src/components/coverage/CoverageAfterSection.tsx`(편집) — `beforeTotals` prop 추가, 후 비분표 아래 `<FinalComparison beforeTotals afterTotals/>` 렌더(기존 044 텍스트 예고 제거).
+- `src/pages/CoverageAnalysis.tsx`(편집) — `<CoverageAfterSection contracts={effectiveContracts} beforeTotals={totals}/>`(전 표 합계 전달).
+- `.agent-harness/tasks/BOHUMFIT-044-final-comparison.md`(신규), handoff/locks.
+- **무수정**: 041 coverageMapping.ts(집계값만 사용)·042/043 lib, CoverageTableView, 다른 페이지/실손/고지/PDF.
+
+### 항목→카테고리 매핑 (값은 041 sumColumns 결과 그대로)
+- 단일 매핑 31행(일반사망=general_death … 응급실내원비=er_visit, 보험료=premium).
+- **상해사망 = injury_death + disaster_death 합산**: 양식에 재해사망 행이 없어 사망분해 잔액(재해) 손실을 막기 위한 **표시 전용 결합**(lib 불변). note "재해사망 포함".
+- flag 5행(운전자특약/자부상/상해·질병의료비/가족일상배상): Y/–, before Y→after – = 해지(danger), – →Y = 신규(accent).
+
+### 암입원 처리 (B — 중요)
+- 041 표준 카테고리에 암입원 없음(질병입원 disease_hospitalization 에 병합). 최종표는 **암입원 별도 행이되 값 분리 불가** → `ids:[]` 표시 전용 행 + 주석 "질병입원에 포함 — 별도 분리 불가". 질병입원 행에 "암입원 포함" 주석.
+- 일반입원도 lib 미분류(원천이 질병/상해입원 매핑) → 표시 전용 행("표준 카테고리 미분류") 0/–.
+- **백로그**: lib 카테고리 확장(암입원 신설 + 매핑 사전 분리)을 하면 별도 행 정확 표기 가능. 이번 범위 밖 — 045 이후 별도 태스크 제안.
+
+### Verified
+- [x] /tmp strict tsc(앱 tsconfig 옵션 미러 +strict): `FinalComparison.tsx` + ui(Card/Badge) 통과(실 node_modules 링크).
+- [x] /tmp 표시 매핑 로직 단위테스트 14/14(합성 익명): 일반사망 감소(-1), 상해사망 결합 before20000→after25000(+1), 질병사망 동일(0), 암진단 증가(+1), 보험료 감소(-1), 종수술5종 해지로 0(-1), 가족일상배상 flag Y→해지(-1), 일반입원/암입원 none=0, 핵심질병 화살표(뇌초기 0·심장말기 신규+1·암+1).
+- [x] 신규 파일 마운트 무결성(말미 정상). 편집 2파일 Windows 원본(Read) 확인: CoverageAfterSection FinalComparison 렌더(L558)·props·말미 정상, 페이지 beforeTotals 전달.
+- [⚠] **마운트 truncation**: 편집한 `CoverageAfterSection.tsx`(25377자 NUL)·`CoverageAnalysis.tsx`(17693자 NUL) 마운트 뷰 절단 → in-sandbox 전체 체인 tsc 불가. FinalComparison(신규)·ui는 온전. Windows 원본 권위.
+- [ ] Windows: `npx tsc -p tsconfig.app.json`/`tsconfig.node.json`·`npm run lint`·`npm test`·`npm run build` + /coverage 스모크(업로드→유지/해지·감액·신규→후 비분표→최종표 전/후·화살표·특이사항) — Codex.
+
+### Notes
+- 전/후 값은 043 계산 결과 재사용: 전=페이지 `totals`(sumColumns(displayColumns), 전 표 제안셀 수정 반영), 후=CoverageAfterSection `afterTotals`. FinalComparison은 매핑·비교만.
+- 디자인: Card/Badge(Mercury) 재사용 + 표는 CoverageTableView 패턴(ink-900 헤더). DataTable은 3열 전|항목|후 + 셀 색상 구조와 맞지 않아 커스텀 표 사용(레이아웃 제어).
+- 보험료 증감은 보장 이득이 아니라 비용 변화라 중립색(▲/▼ ink). 보장 행만 증가=accent/감소=danger.
+- 특이사항 메모는 useState만(저장 0). 비저장 안내 유지.
+
+### Next
+- Codex(Windows): tsc(app/node)·lint·test·build·/coverage 스모크 → 044 범위 파일만 한국어 커밋(`BOHUMFIT-044: 최종비교분석표(전/후 비교·핵심질병 화살표·암입원 표시전용)`) → push. (마운트 git 미실행, Windows 권위.)
+- Human: /coverage 최종표 육안(전/후 금액·증감색·화살표·암입원 주석·특이사항).
+- 후속: 045 엑셀 출력, lib 암입원 카테고리 신설(백로그).
+
 ## 2026-06-14 Codex BOHUMFIT-043 [완료 - Windows 권위 검증 / 커밋·푸시 준비]
 ### Changed
 - `src/components/coverage/CoverageTableView.tsx` 신규: 전/후 비분표 공용 표 컴포넌트.

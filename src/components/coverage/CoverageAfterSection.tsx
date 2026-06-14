@@ -27,6 +27,7 @@ import {
   type SourceParseResult,
 } from "../../lib/coverageParse";
 import CoverageTableView from "./CoverageTableView";
+import FinalComparison from "./FinalComparison";
 import Badge from "../ui/Badge";
 import Button from "../ui/Button";
 
@@ -37,9 +38,11 @@ function parseManwonInput(s: string): number {
 export interface CoverageAfterSectionProps {
   /** 전 비분표에 쓰인 계약(수동 배정 반영본). 후 = 이 계약들의 유지/감액 + 신규 제안. */
   contracts: Contract[];
+  /** 전 비분표 합계(041 sumColumns 결과, 제안셀 수정 반영) — 최종비교분석표 좌측 '전' 열에 사용. */
+  beforeTotals: Record<string, number | boolean>;
 }
 
-export default function CoverageAfterSection({ contracts }: CoverageAfterSectionProps) {
+export default function CoverageAfterSection({ contracts, beforeTotals }: CoverageAfterSectionProps) {
   // A. 기존 계약 처리 (세션 내만)
   const [statusById, setStatusById] = useState<Record<string, ContractStatus>>({});
   const [covOverrides, setCovOverrides] = useState<Record<string, Record<number, number>>>({});
@@ -551,12 +554,8 @@ export default function CoverageAfterSection({ contracts }: CoverageAfterSection
         </section>
       )}
 
-      {/* ── 044 예고 — 기능 없음 ── */}
-      <section className="rounded-[8px] border border-dashed border-gray-300 bg-gray-50 p-4 text-center">
-        <p className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">Next</p>
-        <p className="mt-1 text-sm font-bold text-gray-600">다음: 최종비교분석표 (준비 중)</p>
-        <p className="mt-1 text-[11px] text-gray-400">전(前)·후(後)를 나란히 비교하는 최종 분석표가 이어집니다.</p>
-      </section>
+      {/* ── BOHUMFIT-044: 최종비교분석표 (후 비분표가 있을 때만) ── */}
+      {hasAfterData && <FinalComparison beforeTotals={beforeTotals} afterTotals={afterTotals} />}
     </div>
   );
 }
