@@ -5,7 +5,6 @@
 import { useMemo, useRef, useState } from "react";
 import {
   CATEGORY_BY_ID,
-  COVERAGE_CATEGORIES,
   GENERAL_SURGERY_GROUP,
   buildCoverageTable,
   mapCoverageName,
@@ -23,32 +22,16 @@ import {
   type SourceCell,
   type SourceParseResult,
 } from "../lib/coverageParse";
-
-const SURGERY_EDITABLE_IDS = [
-  "general_surgery_type1",
-  "general_surgery_type2",
-  "general_surgery_type3",
-  "general_surgery_type4",
-] as const;
+import CoverageTableView from "../components/coverage/CoverageTableView";
+import CoverageAfterSection from "../components/coverage/CoverageAfterSection";
 
 const DISCLAIMER =
   "본 비교분석표는 업로드한 원천자료를 기준으로 정리한 참고용 자료입니다. 실제 보장 내용·보험금 지급 여부는 " +
   "각 보험사 약관과 증권을 따르며, 본 화면은 보험 모집·중개·상품추천·가입권유를 목적으로 하지 않습니다.";
 
-function won(v: number): string {
-  return v > 0 ? v.toLocaleString() : "-";
-}
-
 function parseManwonInput(s: string): number {
   const n = parseInt((s || "").replace(/[^\d]/g, "") || "0", 10);
   return Math.max(0, n);
-}
-
-/** 납만기 표시: 납입기간(년) 우선, 없으면 보험종기(9999 = 종신) */
-function payEndLabel(payYears?: string, endDate?: string): string {
-  if (payYears && payYears !== "00") return `${parseInt(payYears, 10) || payYears}년`;
-  if (endDate?.startsWith("9999")) return "종신";
-  return endDate || "-";
 }
 
 export default function CoverageAnalysis() {
@@ -295,100 +278,12 @@ export default function CoverageAnalysis() {
               합계에 즉시 반영됩니다. 금액 단위: 만원(보험료 합계만 원).
             </p>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[920px] border-collapse text-xs">
-              <thead>
-                <tr className="bg-[#1F3A5F] text-white">
-                  <th className="sticky left-0 z-10 bg-[#1F3A5F] px-3 py-2 text-left">구분</th>
-                  {displayColumns.map((c) => (
-                    <th key={c.contractId} className="min-w-[96px] px-2 py-2 text-center font-bold">
-                      <div className="truncate">{c.insurer}</div>
-                      <div className="max-w-[140px] truncate text-[10px] font-medium text-gray-200">
-                        {c.productName || "-"}
-                      </div>
-                    </th>
-                  ))}
-                  <th className="min-w-[90px] bg-[#14253D] px-2 py-2 text-center">합계</th>
-                </tr>
-                <tr className="bg-gray-50 text-gray-500">
-                  <th className="sticky left-0 z-10 bg-gray-50 px-3 py-1.5 text-left font-semibold">가입일</th>
-                  {displayColumns.map((c) => (
-                    <th key={c.contractId} className="px-2 py-1.5 text-center font-medium">
-                      {c.startDate || "-"}
-                    </th>
-                  ))}
-                  <th className="px-2 py-1.5 text-center">-</th>
-                </tr>
-                <tr className="border-b border-gray-200 bg-gray-50 text-gray-500">
-                  <th className="sticky left-0 z-10 bg-gray-50 px-3 py-1.5 text-left font-semibold">납만기</th>
-                  {displayColumns.map((c) => (
-                    <th key={c.contractId} className="px-2 py-1.5 text-center font-medium">
-                      {payEndLabel(c.payYears, effectiveContracts.find((ct) => ct.id === c.contractId)?.endDate)}
-                    </th>
-                  ))}
-                  <th className="px-2 py-1.5 text-center">-</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {COVERAGE_CATEGORIES.map((cat) => (
-                  <tr key={cat.id} className={cat.kind === "premium" ? "border-t-2 border-[#1F3A5F] bg-gray-50" : ""}>
-                    <td className="sticky left-0 z-10 bg-white px-3 py-1.5 font-semibold text-gray-700">
-                      {cat.label}
-                    </td>
-                    {displayColumns.map((col) => {
-                      const v = col.cells[cat.id];
-                      const editable =
-                        col.suggested[cat.id] &&
-                        (SURGERY_EDITABLE_IDS as readonly string[]).includes(cat.id);
-                      if (cat.kind === "flag") {
-                        return (
-                          <td key={col.contractId} className="px-2 py-1.5 text-center">
-                            {v === true ? <span className="font-bold text-emerald-600">Y</span> : <span className="text-gray-300">-</span>}
-                          </td>
-                        );
-                      }
-                      if (cat.kind === "premium") {
-                        return (
-                          <td key={col.contractId} className="px-2 py-1.5 text-right font-bold text-gray-800">
-                            {(v as number) > 0 ? `${(v as number).toLocaleString()}원` : "-"}
-                          </td>
-                        );
-                      }
-                      return (
-                        <td key={col.contractId} className={`px-2 py-1.5 text-right ${editable ? "bg-amber-50" : ""}`}>
-                          {editable ? (
-                            <span className="inline-flex items-center gap-1">
-                              <span className="text-[10px] text-amber-500">✎</span>
-                              <input
-                                inputMode="numeric"
-                                value={String(v as number)}
-                                onChange={(e) => setCellEdit(col.contractId, cat.id, e.target.value)}
-                                className="w-16 rounded-[4px] border border-amber-200 bg-white px-1 py-0.5 text-right text-xs"
-                                aria-label={`${col.insurer} ${cat.label} 제안값 수정`}
-                              />
-                            </span>
-                          ) : (
-                            <span className={(v as number) > 0 ? "text-gray-800" : "text-gray-300"}>
-                              {won(v as number)}
-                            </span>
-                          )}
-                        </td>
-                      );
-                    })}
-                    <td className="bg-gray-50 px-2 py-1.5 text-right font-bold text-[#1F3A5F]">
-                      {cat.kind === "flag"
-                        ? totals[cat.id] === true
-                          ? "Y"
-                          : "-"
-                        : cat.kind === "premium"
-                          ? `${(totals[cat.id] as number).toLocaleString()}원`
-                          : won(totals[cat.id] as number)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <CoverageTableView
+            columns={displayColumns}
+            totals={totals}
+            contracts={effectiveContracts}
+            onCellEdit={setCellEdit}
+          />
           {table.unmapped.length > 0 && (
             <p className="border-t border-gray-100 px-4 py-2 text-[11px] text-amber-700">
               미배정 담보 {table.unmapped.length}건은 비분표에 반영되지 않았습니다 — 2단계에서 배정하거나 제외를
@@ -398,16 +293,8 @@ export default function CoverageAnalysis() {
         </section>
       )}
 
-      {/* 043 예고 — 기능 없음 */}
-      {result && (
-        <section className="rounded-[8px] border border-dashed border-gray-300 bg-gray-50 p-4 text-center">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">Next</p>
-          <p className="mt-1 text-sm font-bold text-gray-600">다음 단계: 해지/유지·신규 제안 설계 (준비 중)</p>
-          <p className="mt-1 text-[11px] text-gray-400">
-            유지/해지 선택, 담보별 감액, 신규 제안 계약을 반영한 후(後) 비분표 비교 기능이 이어집니다.
-          </p>
-        </section>
-      )}
+      {/* BOHUMFIT-043: 컨설팅 후 설계 + 후 비분표 (전 비분표가 준비된 뒤에만 노출) */}
+      {result && displayColumns.length > 0 && <CoverageAfterSection contracts={effectiveContracts} />}
 
       <p className="text-[11px] leading-relaxed text-gray-400 break-keep">{DISCLAIMER}</p>
     </div>

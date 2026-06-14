@@ -16,6 +16,81 @@
 
 # Handoff
 
+## 2026-06-14 Codex BOHUMFIT-043 [완료 - Windows 권위 검증 / 커밋·푸시 준비]
+### Changed
+- `src/components/coverage/CoverageTableView.tsx` 신규: 전/후 비분표 공용 표 컴포넌트.
+- `src/components/coverage/CoverageAfterSection.tsx` 신규: 컨설팅 후 상태 입력, 유지/해지, 담보 감액, 신규 제안 업로드/직접 추가, 후 비분표.
+- `src/pages/CoverageAnalysis.tsx`: 기존 전 비분표 마크업을 공용 컴포넌트로 치환하고 후 비분표 섹션 연결.
+- `.agent-harness/tasks/BOHUMFIT-043-coverage-after.md`, handoff/locks 갱신.
+
+### Verified
+- [x] `.git/index.lock` 없음. Windows 원본 `CoverageAnalysis.tsx` NUL 0, UTF-8 꼬리 정상.
+- [x] 신규 2파일 UTF-8 read 정상. 실제 한글 replacement 문자 0.
+- [x] 변경 범위 확인: `src/lib/coverageMapping.ts`, `src/lib/coverageParse.ts` diff 없음. 산식/파서 재구현 없음.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` 통과.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` 통과.
+- [x] `npm run lint` 통과.
+- [x] `npm test` 통과: `3 files / 39 passed`.
+- [x] `npm run build` 통과. 기존 Vite chunk size warning만 있음.
+- [x] `/coverage` 브라우저 스모크(합성 xlsx, fake local Supabase session, local health stub): 원천자료 업로드 → 전 비분표 → 후 섹션 렌더 확인.
+- [x] A: 담보 감액 override `질병사망 10,000 → 5,000` 입력 반영 확인, 계약 `해지` 토글 시 후 비분표에서 유지/해지 상태 반영 확인.
+- [x] B: 신규 제안 xlsx 업로드 `C손보/신규제안감마` 인식, 미매핑 수동배정 UI 유지, `직접 계약 추가` 동작 확인.
+- [x] C: 후 비분표 = 유지/감액 반영 + 신규 제안 합산 렌더 확인, 종수술 셀 수정(`77`) 후 합계 재계산 경로 확인.
+- [x] 모바일 390px 스모크: `.overflow-x-auto` 가로스크롤 존재, 후 비분표/한글 표시 정상.
+- [x] 콘솔/CSP 이슈 0건. 단, 기본 `.env`의 외부 API health warm-up은 로컬 origin CORS를 일으켜 smoke에서는 `VITE_API_URL=http://127.0.0.1:8765` health stub으로 분리 검증.
+
+### Notes
+- 브라우저 스모크는 고객/실데이터 없이 익명 합성 xlsx만 사용했다. 임시 xlsx/스크립트/스크린샷/dev 로그는 커밋 전 삭제 완료.
+- `/coverage`는 로그인 보호 라우트라, headless 격리 프로필에서는 fake local Supabase session으로 UI-only smoke를 수행했다. 서버 저장/전송 없음.
+- 041/042 기존 테스트 39개가 모두 통과해 파서/매핑 회귀 없음.
+
+### Next
+- Human: `/coverage` 실제 실데이터 육안 확인.
+- Cowork/Next: BOHUMFIT-044 최종비교분석표.
+
+## 2026-06-13 Cowork BOHUMFIT-043 [구현+/tmp 검증 완료 / Codex Windows tsc·lint·test·build·스모크·커밋·푸시 → Human 확인 → 044]
+### Changed
+- `src/components/coverage/CoverageTableView.tsx`(신규) — 전/후 공용 비분표 표 컴포넌트. 042 전 비분표 마크업을 그대로 추출(네이비 #1F3A5F 헤더·sticky 구분열·36행·합계열·종수술 ✎ 제안셀 수정). props: `columns/totals/contracts/onCellEdit?/renderColumnTag?/minWidthClass?`. 산식 없음 — props 표시만.
+- `src/components/coverage/CoverageAfterSection.tsx`(신규) — 컨설팅 후 설계 UI + 후 비분표. 041/042 lib 호출만:
+  - A. 기존 계약: 계약 단위 유지/해지 토글(Button), 유지 계약 담보 단위 감액 override(overrideAmountManwon)·조정 보험료(overridePremiumWon) 입력. 해지=Badge 표시+applyConsultingPlan 제외.
+  - B. 신규 제안: `parseSourceMatrix` 업로드(브라우저 내·비저장)+경고, 미매핑 `applyManualAssignments`+`listAssignableTargets` 수동 배정, '직접 계약 추가'로 회사/상품/보험료+담보행 수기 보완. id prefix `prop-*`/`manual-*`(충돌 방지).
+  - C. 후 비분표: `applyConsultingPlan([...유지,...제안])`→`buildCoverageTable`(전과 동일 순수함수)→CoverageTableView. 종수술 제안셀 수정→`sumColumns` 재계산. 열에 유지/신규 Badge. 하단 044 예고(기능 없음).
+- `src/pages/CoverageAnalysis.tsx`(편집) — 전 비분표 표 마크업을 `<CoverageTableView .../>`로 치환(파일 축소), 미사용 헬퍼(won/payEndLabel/SURGERY_EDITABLE_IDS)·COVERAGE_CATEGORIES import 제거, 043 예고 자리를 `<CoverageAfterSection contracts={effectiveContracts}/>`로 교체.
+- `.agent-harness/tasks/BOHUMFIT-043-coverage-after.md`(신규), handoff/locks.
+- **무수정**: 041 coverageMapping.ts·042 coverageParse.ts(lib 재사용만), 다른 페이지/실손/고지/PDF 템플릿.
+
+### 후 비분표 구성 (요약)
+| 항목 | 처리(모두 041/042 lib 호출) |
+|---|---|
+| 해지 | 계약 토글 → `applyConsultingPlan`이 해지 계약 제외, 표에서 빠짐 |
+| 감액 | 담보 `overrideAmountManwon` → applyConsultingPlan이 실효값으로 bake → 사망분해·종수술 자동 재산출 |
+| 보험료 조정 | 계약 `overridePremiumWon` → 후 보험료 행 반영 |
+| 신규 제안 | 업로드(parseSourceMatrix)+수기, `applyManualAssignments`로 미매핑 배정, planned에 합류 |
+| 계산 | 전/후 동일 `buildCoverageTable`/`sumColumns` — 후 전용 로직 0 |
+| 종수술 셀 | suggested 셀만 수정, 수정 시 sumColumns 재합산 |
+
+### Verified
+- [x] /tmp strict tsc(앱 tsconfig 옵션 미러: verbatimModuleSyntax·noUnusedLocals/Parameters·erasableSyntaxOnly·moduleResolution bundler·jsx react-jsx, +strict): 신규 컴포넌트 2종 + 041/042 lib + ui(Button/Badge) **통과**(실 node_modules 링크).
+- [x] /tmp 계산 단위테스트 16/16 통과(합성 익명 데이터):
+  - decomposeDeath(5000,30000)=injury_excess general5000/disaster25000; suggestSurgeryTiers(1000)=[20,50,100,500,1000].
+  - 전: general_death 10000·disaster 20000·cancer 5000·premium 80000·surgery5 1000·열2.
+  - 후(ct2 해지 + ct1 질병사망 10000→5000 감액 + 보험료 50000→40000 + 신규 암진단 3000): planned=[ct1,prop-1](해지 제외), general_death 5000·disaster 25000·cancer 8000·premium 60000·surgery5 0·열2.
+  - `buildAfterTable` == `applyConsultingPlan`+`buildCoverageTable`(컴포넌트 경로) 합계 동일.
+- [x] 신규 파일 2종·lib·ui 마운트 무결성 확인(말미 정상). 페이지 통합부 Windows 원본(Read) 확인: import/CoverageTableView·CoverageAfterSection 사용·말미 정상, 제거 심볼 dangling 0(grep).
+- [⚠] **마운트 truncation**: 편집한 `CoverageAnalysis.tsx`는 마운트 뷰에서 NUL 절단(기존 파일 편집 특성) → in-sandbox 페이지 tsc 불가. Windows 원본 권위. 신규 컴포넌트는 마운트 온전.
+- [ ] Windows: `npx tsc -p tsconfig.app.json`/`tsconfig.node.json`·`npm run lint`·`npm test`·`npm run build` + /coverage 브라우저 스모크(업로드→유지/해지·감액·신규→후 비분표) — Codex.
+
+### Notes
+- /coverage는 045 Mercury 미이행 페이지(045가 보장분석 제외). 전/후 표 일관 위해 기존 페이지 Tailwind 톤 유지 + ui Badge/Button만 부분 재사용. 전면 Mercury 이행은 별도 후속 권장.
+- 감액 override는 담보 index 기준(effectiveContracts 기준 — applyManualAssignments 적용 후, 제외 담보 빠진 인덱스라 일관).
+- 종수술 감액 시 surgeryGroupBase 축소 → 후 표의 1~5종 제안 자동 재산출(lib). 의도된 동작.
+- CoverageAnalysis.tsx는 표 추출로 **줄어듦**(truncation 노출 감소). 신규 무거운 로직은 별도 파일 분리(ENV 준수).
+
+### Next
+- Codex(Windows): tsc(app/node)·lint·test·build·/coverage 스모크 → 043 범위 파일만 한국어 커밋(`BOHUMFIT-043: 컨설팅 후 설계+후 비분표(해지/감액/신규 제안, 전후 공용 계산)`) → push. (마운트 git 미실행, Windows 권위.)
+- Human: /coverage에서 유지/해지·감액·신규 업로드→후 비분표 육안.
+- 후속: 044 최종비교분석표(전/후 나란히 비교), /coverage Mercury 이행 검토.
+
 ## 2026-06-13 Codex BOHUMFIT-051 [완료 - Windows 권위 검증 / 커밋·푸시 준비]
 ### Changed
 - `backend/assets/brand/bohumfit_logo.svg`, `backend/assets/brand/bohumfit_logo_white.svg` 신규 추가 확인.
