@@ -7,13 +7,14 @@
 <style>
 {{ font_face_css | safe }}
 :root {
-  --navy: #1F3A5F;
-  --navy-deep: #14253D;
-  --gold: #C9A227;
-  --gold-deep: #8C6D1F;
-  --gold-bg: #FBF6E7;
-  --ink: #232629;
-  --muted: #5A6270;
+  /* BOHUMFIT-047: 네이비+골드 → 3색(짙은 슬레이트·중립 회색). 골드 전면 제거. 보라는 brand-bar 1포인트만. */
+  --navy: #1F2937;
+  --navy-deep: #111827;
+  --gold: #6B7280;
+  --gold-deep: #374151;
+  --gold-bg: #F3F4F6;
+  --ink: #1E293B;
+  --muted: #475569;
   --line: #D9DEE6;
   --bg-soft: #F4F6F9;
 }
@@ -26,7 +27,7 @@ html, body {
   word-break: keep-all;
 }
 /* ── 헤더 ── */
-.brand-bar { height: 6px; background: linear-gradient(90deg, var(--navy) 70%, var(--gold) 70%); border-radius: 2px; }
+.brand-bar { height: 6px; background: linear-gradient(90deg, var(--navy) 70%, #7C3AED 70%); border-radius: 2px; }
 .head { display: flex; justify-content: space-between; align-items: flex-end; padding: 14px 2px 12px; }
 .wordmark { font-size: 19pt; font-weight: 800; color: var(--navy-deep); letter-spacing: 0.5px; }
 .wordmark .dot { color: var(--gold); }
@@ -48,11 +49,11 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
 }
 .summary .cell .k { font-size: 8.5pt; color: var(--muted); display: block; }
 .summary .cell .v { font-size: 13pt; font-weight: 800; color: var(--navy); }
-.summary .cell .v.warn { color: #A35B00; }
+.summary .cell .v.warn { color: var(--accent); }
 
 /* ── 고지 불요 판단 기준 (콘텐츠 수정 1: 1~4 각 항목 한 줄) ── */
 .criteria {
-  background: var(--gold-bg); border: 1px solid #E5D9AE; border-left: 5px solid var(--gold);
+  background: var(--gold-bg); border: 1px solid #E5E7EB; border-left: 5px solid var(--gold);
   border-radius: 6px; padding: 11px 14px; margin-bottom: 16px;
   page-break-inside: avoid;
 }
@@ -74,7 +75,7 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
   padding: 8px 14px; font-size: 11.5pt; font-weight: 800;
   display: flex; justify-content: space-between; align-items: center;
 }
-.product-head .cnt { font-size: 9pt; font-weight: 700; color: #F3E3AC; }
+.product-head .cnt { font-size: 9pt; font-weight: 700; color: #E5E7EB; }
 .product-body { border: 1px solid var(--line); border-top: 0; border-radius: 0 0 6px 6px; padding: 10px 12px; }
 .q-block { margin-bottom: 10px; page-break-inside: avoid; }
 .q-head { display: flex; align-items: center; gap: 8px; margin: 8px 0 6px; }
@@ -114,7 +115,7 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
   background: var(--bg-soft); color: var(--muted); border: 1px solid var(--line);
 }
 .chip.red { background: #FBEDEC; color: #9F2D24; border-color: #E5B5B0; }
-.chip.amber { background: #FBF3E1; color: #8A5A00; border-color: #E8D3A0; }
+.chip.amber { background: #F3F4F6; color: #374151; border-color: #D1D5DB; }
 .chip.green { background: #ECF5EE; color: #2E6B3E; border-color: #BFDCC6; }
 /* 추가검사·재검사 표시 (콘텐츠 수정 2 — unconfirmed 라벨은 미확정 항목 전용) */
 .review { margin-top: 6px; border-top: 1px dashed var(--line); padding-top: 5px; font-size: 8.8pt; }
@@ -123,8 +124,8 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
 .review.suspected { color: #6E2A69; }
 .review.cleared .lb { color: #2E6B3E; }
 .review.cleared { color: #44694C; }
-.review.unconfirmed .lb { color: #A35B00; }
-.review.unconfirmed { color: #7A5A1E; }
+.review.unconfirmed .lb { color: #374151; }
+.review.unconfirmed { color: #475569; }
 
 /* ── 전체 병력 요약 ── */
 .all-tbl { width: 100%; border-collapse: collapse; font-size: 8.8pt; margin-top: 4px; }
@@ -136,7 +137,7 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
 .all-tbl tr:nth-child(even) td { background: var(--bg-soft); }
 .sec-h2 {
   font-size: 11.5pt; font-weight: 800; color: var(--navy-deep);
-  margin: 4px 0 6px; padding-left: 8px; border-left: 4px solid var(--gold);
+  margin: 4px 0 6px; padding-left: 8px; border-left: 4px solid #CBD5E1;
 }
 
 /* ── 유의사항·푸터 ── */
@@ -279,7 +280,7 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
   <div>
     <div class="brand">BOHUMFIT<span style="color:var(--gold);">.</span></div>
     <div>상호 {{ biz.name }} · 대표 {{ biz.ceo }} · 사업자등록번호 {{ biz.biz_no }} · 소재지 {{ biz.address }}</div>
-    <div>문의 {{ biz.contact }} · 분석도구 <span class="gold">{{ biz.tool }}</span></div>
+    <div>문의 {{ biz.contact }} · {{ biz.domain }} · 분석도구 <span class="gold">{{ biz.tool }}</span></div>
   </div>
   <div style="text-align:right;">문서번호 {{ doc_no }}<br>생성일시 {{ generated_at }}</div>
 </div>

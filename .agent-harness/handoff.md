@@ -16,6 +16,28 @@
 
 # Handoff
 
+## 2026-06-14 Codex BOHUMFIT-047 [Windows authority verification / scoped stage ready]
+### Changed
+- 047 scope staged only: `backend/pipeline/report_pdf.py`, `backend/templates/report_disclosure.html`, `backend/templates/report_insurance.html`, `.agent-harness/tasks/BOHUMFIT-047-sales-pdf.md`.
+- Strengthened report disclaimers with the four required elements: not an insurance solicitation/recommendation, estimated/reference-only output, not stored and customer-held, not for brokerage/recruiting purpose.
+- Reworked report palette from navy/gold to slate/neutral gray with one restrained violet brand-bar point; removed remaining amber/brown literals from disclosure report cards/section counts.
+- Footer now includes `BOHUMFIT.AI`.
+
+### Verified
+- [x] Windows source integrity: `report_pdf.py`, `report_disclosure.html`, `report_insurance.html` NUL 0 / UTF-8 replacement 0 / complete tails.
+- [x] Cached diff excludes formula/analysis files (`filters.py`, `analyzer.py`, non-report pipeline files) and excludes frontend 048 files.
+- [x] Gold/brown literal grep in backend templates/report code: 0 for legacy gold/brown values.
+- [x] `cd backend && python -m pytest -q` -> 202 passed, 7 skipped.
+- [x] Generated actual sample PDFs for disclosure and insurance; both returned `%PDF-` bytes and rendered to PNG with Korean text, logo, amounts, footer and layout intact.
+- [x] Visual check: disclosure/insurance PDFs use white background, dark gray text and borders, violet only as restrained brand/review point; footer shows `BOHUMFIT.AI`; disclaimer box includes non-solicitation/reference/estimated/non-storage/customer-held wording.
+
+### Notes
+- Business identity still needs final confirmation/injection: `BIZ_ADDRESS` remains env-driven and may render `-` until production env is set.
+- Commit hash: to be reported after commit/push.
+
+### Next
+- Codex: commit/push 047, then continue with 048 split commit.
+
 ## 2026-06-14 Codex BOHUMFIT-046 [Windows authority verification / scoped stage ready]
 ### Changed
 - 046 scope only staged: `src/index.css`, `src/components/ui/Button.tsx`, `src/components/coverage/CoverageTableView.tsx`, `src/App.tsx`, `src/components/AnalysisProgress.tsx`, `src/components/coverage/CoverageAfterSection.tsx`, `src/pages/BeforeAfter.tsx`, `src/pages/Disclosure.tsx`, `src/pages/Signup.tsx`, and color-only hunks from `src/pages/CoverageAnalysis.tsx` / `src/pages/InsuranceCalculator.tsx`.
