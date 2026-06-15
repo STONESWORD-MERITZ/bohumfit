@@ -1,6 +1,6 @@
-﻿# Codex Operating Rules
+﻿# Cowork→Codex Operating Rules (Two-Track)
 
-This repository is now run with Codex as the single working agent.
+This repository runs a two-track Cowork→Codex flow: Cowork implements in the sandbox; Codex verifies on Windows and publishes.
 
 ## Project
 
@@ -9,14 +9,17 @@ This repository is now run with Codex as the single working agent.
 - Task prefix: `BOHUMFIT`
 - Project context guide: `CLAUDE.md`
 
-`CLAUDE.md` keeps project knowledge, codebase conventions, and user working preferences. The filename remains for continuity, but the active workflow is Codex-only. New work should follow this file and the active task file first.
+`CLAUDE.md` keeps project knowledge, codebase conventions, and user working preferences. The filename remains for continuity, but the active workflow is a two-track Cowork→Codex flow. New work should follow this file and the active task file first.
 
 ## Agent Roles
 
-- Codex: planning, code reading, architecture judgment, implementation, refactoring, tests, lint/build verification, browser smoke checks, handoff notes, scoped Git staging, commit, and push when the user asks to publish.
+This repository runs a two-track Cowork→Codex flow:
+
+- Cowork (sandbox/mount): planning, code reading, architecture judgment, implementation, refactoring, /tmp verification (tsc and unit checks against Windows-original integrity), handoff notes, and lock management. Cowork never runs git on the mount; staging, commit, and push are deferred to Codex.
+- Codex (Windows authority): authoritative verification (tsc, lint, test, build, backend pytest, browser smoke checks), scoped Git staging, commit, and push when the task or user asks to publish.
 - User: priority, product direction, production approval, and decisions that affect business behavior or risky data changes.
 
-Each active task has one current owner: Codex, unless the user explicitly says otherwise. Any old Claude/Cowork references in historical handoff entries are archival context only and do not define the current process.
+Each active task is implemented by Cowork and published by Codex, unless the user explicitly assigns otherwise. Cowork records its lock and handoff; Codex verifies on Windows and publishes. Old Claude/Cowork references in historical handoff entries are archival context only.
 
 ## Required Workflow
 
@@ -25,7 +28,7 @@ Each active task has one current owner: Codex, unless the user explicitly says o
 3. Read `CLAUDE.md` as project context when useful.
 4. Read or create the relevant task file in `.agent-harness/tasks/`.
 5. Check `.agent-harness/locks.md` before editing files.
-6. Check `git status --short -uall` before making changes.
+6. Codex checks `git status --short -uall` on Windows before staging. Cowork does not run git on the mount (see `ENV-MOUNT-NOTES.md`).
 7. Keep edits inside the task scope unless the user approves an expanded scope.
 8. Run the verification commands listed in the task or `.agent-harness/verify.md`.
 9. Update `.agent-harness/handoff.md` with changed files, verification results, notes, and remaining issues.
@@ -43,6 +46,8 @@ Each active task has one current owner: Codex, unless the user explicitly says o
 - For production-impacting changes, finish local verification first and leave final live validation to the user unless explicitly asked to check deployment.
 
 ## Standard Verification
+
+Track split (gates and commands unchanged): Cowork runs sandbox `/tmp` checks (tsc/unit) and confirms Windows-original integrity; Codex runs the full PowerShell gate below on Windows as the authority, then commits/pushes.
 
 Use `.agent-harness/verify.md` as the source of truth. Current standard commands:
 

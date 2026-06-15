@@ -6,7 +6,7 @@ Use this file to record active Codex file ownership during a task.
 
 ## Rules
 
-- New work is Codex-only unless the user explicitly assigns another owner.
+- New work follows the Cowork→Codex two-track unless the user explicitly assigns another owner or owner sequence.
 - Add active locks before editing task-scoped files.
 - Release locks when the task is complete, blocked, or handed back to the user.
 - Keep this file operational and short. Historical lock detail lives in git history and `handoff.md`.

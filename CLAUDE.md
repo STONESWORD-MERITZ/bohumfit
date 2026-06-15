@@ -1,17 +1,17 @@
 ﻿# Codex 프로젝트 지침
 
-이 파일은 기존 이름을 유지하지만, 현재 BOHUMFIT는 **Codex 단독 하네스 방식**으로 진행한다.
+이 파일은 기존 이름을 유지하지만, 현재 BOHUMFIT는 **Cowork→Codex 투트랙 하네스 방식**으로 진행한다(Cowork 샌드박스 구현 · Codex Windows 검증·커밋·푸시).
 `AGENTS.md`가 최상위 운영 규칙이고, 이 파일은 프로젝트 성격·사용자 선호·코드베이스 관례를 보완한다.
 
 ## 작업 시작 시 필수 순서
 1. `AGENTS.md`를 먼저 읽는다.
 2. `.agent-harness/handoff.md`의 최신 항목으로 현재 상태를 확인한다.
 3. 지정된 `.agent-harness/tasks/{태스크ID}.md`를 읽거나, 문서 정리/긴급 수정이면 필요한 범위만 새 태스크로 기록한다.
-4. `.agent-harness/locks.md`로 active lock이 비어 있는지 확인하고, 편집 범위에 Codex 잠금을 추가한다.
-5. `git status --short -uall`로 변경 범위를 확인한다.
-6. 태스크 파일 또는 `.agent-harness/verify.md`의 검증 명령을 실행한다.
+4. `.agent-harness/locks.md`로 active lock 충돌이 없는지 확인하고, 편집 범위에 본인(Cowork 또는 Codex) 잠금을 추가한다.
+5. `git status --short -uall`은 Codex가 Windows에서 확인한다(Cowork는 마운트 git 미실행).
+6. 태스크 파일 또는 `.agent-harness/verify.md`의 검증 명령을 실행한다(Cowork=/tmp, Codex=Windows 권위).
 7. 완료 후 `handoff.md` 상단에 변경/검증/이슈/다음 행동을 표준 포맷으로 기록한다.
-8. `locks.md`에서 Codex 잠금을 해제한다.
+8. `locks.md`에서 본인 잠금을 해제한다.
 9. 사용자가 publish를 요청했거나 태스크 완료 조건에 push가 있으면, 검증 통과 후 Codex가 태스크 범위 파일만 stage → commit → push 한다.
 
 ## 절대 규칙
@@ -19,7 +19,7 @@
 - 검증 미실행 시 반드시 정확한 이유를 handoff에 남긴다.
 - active lock이 걸린 파일은 중복 편집하지 않는다.
 - handoff의 Next는 기본적으로 `Codex` 또는 `Human`만 사용한다.
-- 과거 handoff/task/locks의 Claude 또는 Cowork 표기는 역사 기록일 뿐이며, 새 작업 지시는 Codex 단독 기준으로 해석한다.
+- 새 작업 지시는 Cowork→Codex 투트랙 기준으로 해석한다(Cowork 구현·검증 준비 → Codex Windows 권위 검증·커밋·푸시). 과거 handoff/task/locks의 표기는 역사 기록이다.
 - 마운트 truncation/git 손상은 알려진 환경 제약이다. `.agent-harness/ENV-MOUNT-NOTES.md`를 참조하고, Cowork는 마운트에서 git 명령을 실행하지 않으며, 검증은 Windows 원본·/tmp·Codex로 수행한다.
 
 ## 태스크 ID 규칙

@@ -16,6 +16,47 @@
 
 # Handoff
 
+## 2026-06-15 13:42 Codex BOHUMFIT-HARNESS-twotrack [Windows authority verification / publish]
+### Changed
+- `.agent-harness/locks.md`: active-rule wording aligned to the Cowork→Codex two-track flow.
+- `.agent-harness/tasks/BOHUMFIT-HARNESS-twotrack.md`: replacement-spec wording normalized so active task docs no longer retain legacy single-agent phrases.
+- `AGENTS.md`, `CLAUDE.md`, `PROGRESS.md`: Cowork-authored two-track documentation changes verified on Windows.
+- `.agent-harness/handoff.md`: Codex verification/publish result added.
+
+### Verified
+- [x] `git diff --check` on Windows -> passed (CRLF warnings only).
+- [x] Scope gate: tracked changes are documentation/harness only (`AGENTS.md`, `CLAUDE.md`, `PROGRESS.md`, twotrack task, handoff, locks). Code files unchanged. Existing untracked local `brand/` reference assets intentionally untouched/uncommitted.
+- [x] Active docs/task/locks residue check: legacy single-agent wording patterns are 0 in `AGENTS.md`, `CLAUDE.md`, `PROGRESS.md`, `.agent-harness/tasks/BOHUMFIT-HARNESS-twotrack.md`, `.agent-harness/locks.md`. Historical handoff entries remain archival.
+- [x] Preservation check: `ENV-MOUNT-NOTES` references, `BOHUMFIT-{번호}-{슬러그}` task-ID rule, and verification commands (`npm run lint`, `npm test`, `npm run build`, `python -m pytest -q`) remain present.
+- [x] Code verification not run: documentation-only change with no TS/backend/runtime file changes.
+
+### Notes
+- `.agent-harness/verify.md` was read through grep checks and left unchanged.
+- Commit/push is being performed by Codex on Windows per the updated two-track flow.
+
+### Next
+- Human: 투트랙 전환 승인.
+
+## 2026-06-15 Cowork BOHUMFIT-HARNESS-twotrack [문서 전환 완료 / Codex git diff --check·커밋·푸시]
+### Changed (문서만 — 코드 0)
+- `AGENTS.md` — (A) 서두 `single working agent`→`two-track Cowork→Codex flow`(제목 포함), L12 `Codex-only`→`two-track`. (B) Agent Roles에 Cowork 역할 신설 + 소유권 재정의(Cowork 구현·Codex 발행). (C) Required Workflow L6 git status는 Codex(Windows) 수행·Cowork 마운트 git 금지 명시, Standard Verification에 Cowork(/tmp)·Codex(Windows 권위) 분담 1줄(명령 불변).
+- `CLAUDE.md` — (D) 서두 `Codex 단독 하네스`→`Cowork→Codex 투트랙 하네스`, 필수순서 잠금/주체 문구(본인 잠금·git는 Codex·검증 Cowork/tmp·Codex 권위), 절대규칙 `Codex 단독 기준 해석`→`투트랙 기준 해석`.
+- `PROGRESS.md` — 운영 방식 헤더 L5 + 본문 "Codex 단독 운영 기준"→"Cowork→Codex 투트랙 운영 기준"·"⑤ … 효율 조언" 제목·L62 진행문구를 투트랙으로.
+- `.agent-harness/tasks/BOHUMFIT-HARNESS-twotrack.md`(신규·A~D 블록 정의), handoff/locks.
+
+### 보존(불변) 확인
+- `ENV-MOUNT-NOTES.md` 및 참조 문구(AGENTS L71·CLAUDE L23) 그대로, 태스크ID 규칙(`BOHUMFIT-{번호}-{슬러그}`/HARNESS/BUG/VERIFY) 그대로, Standard Verification 명령(npm lint/test/build·`python -m pytest -q`)·verify.md 그대로(Windows 원본 Read로 확인).
+
+### Verified
+- [x] 잔존 `single working agent`/`Codex-only`/`Codex 단독` grep **0**(AGENTS/CLAUDE/PROGRESS).
+- [x] 투트랙 표기 반영, 보존 항목(ENV-MOUNT-NOTES·태스크ID·검증명령) 무손상(AGENTS Standard Verification 블록 L50-65 Windows 원본 확인).
+- [x] PROGRESS.md BOM 보존.
+- [코드 무변경] tsc/test/build 불필요(문서만, TS/로직 변경 0) — 사유 기록.
+- [⚠] `git diff --check`는 **마운트 git 금지**로 Cowork 미실행 → Codex(Windows)가 수행. (마운트 뷰는 다중 편집 후 truncation 가능 — Windows 원본 권위.)
+
+### Next
+- Codex(Windows): `git diff --check` 확인 → 문서 4파일(AGENTS.md·CLAUDE.md·PROGRESS.md·task) + handoff/locks 한국어 커밋(`BOHUMFIT-HARNESS-twotrack: 운영 방식 Codex 단독→Cowork→Codex 투트랙`) → push. (마운트 git 미실행.)
+
 ## 2026-06-15 13:16 Codex BOHUMFIT-056 [Windows authority verification / publish]
 ### Changed
 - `src/components/Layout.tsx`: header `BohumFit 보험핏` wordmark call size reduced from `30` to `18` so rendered height aligns closer to right nav text; desktop nav gap changed from `gap-6` to `gap-8` for FitHere-like spacing.
