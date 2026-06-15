@@ -70,6 +70,16 @@ def _visit_count_in_range(stat: dict[str, Any], since_dt) -> int:
     return len(_dts_in_range(stat.get("visit_dates", set()), since_dt))
 
 
+def _adm_in_range(admissions, since_dt) -> int:
+    """BOHUMFIT-061: 입원 admission((개시일,기관)) 중 창 내 건수. 같은날 다른 기관=별개."""
+    n = 0
+    for d, _h in admissions:
+        dt = _parse_ymd(d)
+        if dt and dt >= since_dt:
+            n += 1
+    return n
+
+
 def _parse_ymd(value: str):
     try:
         return datetime.strptime(value, "%Y-%m-%d")
@@ -393,7 +403,7 @@ def _build_q1_items(
                 reason=f"3개월이내 입원 ({inp3m_days}일)",
                 date=max(inp_3m), weight=wt,
                 is_inpatient=True, inpatient_days=inp3m_days,
-                inpatient_count=len(inp_3m),
+                inpatient_count=_adm_in_range(s.get("inpatient_admissions", set()), d3m),
                 visit_count=visit_3m, med_days=presc_3m,
                 evidence={"dates": inp_3m, "actual_days": inp3m_days},
             ))
@@ -497,7 +507,7 @@ def _build_q2_easy_items(
                 reason=f"10년이내 입원 ({inp10y_days}일)",
                 date=max(inp_10y), weight=wt,
                 is_inpatient=True, inpatient_days=inp10y_days,
-                inpatient_count=len(inp_10y),
+                inpatient_count=_adm_in_range(s.get("inpatient_admissions", set()), d10y),
                 rule_id="R-E-Q2-INP-10Y",
                 evidence={"dates": inp_10y, "actual_days": inp10y_days},
             ))
@@ -561,7 +571,7 @@ def _build_q3_health_items(
                 reason=f"10년이내 입원 ({inp10y_days}일) — 기본진료 확인",
                 date=max(inp_10y), weight=wt,
                 is_inpatient=True, inpatient_days=inp10y_days,
-                inpatient_count=len(inp_10y),
+                inpatient_count=_adm_in_range(s.get("inpatient_admissions", set()), d10y),
                 visit_count=visit_10y_count, med_days=presc_10y,
                 evidence={"dates": inp_10y, "actual_days": inp10y_days},
             ))
@@ -574,7 +584,7 @@ def _build_q3_health_items(
                 date=max(surg_10y), weight=wt,
                 is_surgery=True, surgery_name=sn,
                 is_inpatient=bool(inp_10y), inpatient_days=inp10y_days,
-                inpatient_count=len(inp_10y),
+                inpatient_count=_adm_in_range(s.get("inpatient_admissions", set()), d10y),
                 visit_count=visit_10y_count, med_days=presc_10y,
                 evidence={"dates": surg_10y, "surgery": sn},
             ))
@@ -639,7 +649,7 @@ def _build_q3_easy_items(
             reason=f"5년이내 6대중증질환: {nm} ({dc})",
             date=max(all_5y), weight="critical",
             is_inpatient=bool(inp_5y), inpatient_days=inp5y_days,
-            inpatient_count=len(inp_5y),
+            inpatient_count=_adm_in_range(s.get("inpatient_admissions", set()), d5y),
             visit_count=_visit_count_in_range(s, d5y),
             is_surgery=bool(surg_5y), surgery_name=sn if surg_5y else None,
             rule_id="R-E-Q3-MAJOR-5Y",
@@ -686,7 +696,7 @@ def _build_q4_health_items(
             reason=f"5년이내 10대질환: {nm} ({dc})",
             date=max(all_5y), weight="critical" if wt == "critical" else "high",
             is_inpatient=bool(inp_5y), inpatient_days=inp5y_days,
-            inpatient_count=len(inp_5y),
+            inpatient_count=_adm_in_range(s.get("inpatient_admissions", set()), d5y),
             visit_count=_visit_count_in_range(s, d5y),
             is_surgery=bool(surg_5y), surgery_name=sn if surg_5y else None,
             rule_id="R-H-Q4-MAJOR-5Y",

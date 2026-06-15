@@ -16,6 +16,33 @@
 
 # Handoff
 
+## 2026-06-15 Codex BOHUMFIT-060/061 [Windows authority verification / publish]
+### Changed
+- BOHUMFIT-060 diagnosis task file confirmed as `.agent-harness/tasks/BOHUMFIT-060-inpatient-days-filter-diagnosis.md` (requested slug `BOHUMFIT-060-history-filter-diagnosis.md` does not exist in the repo).
+- `backend/pipeline/helpers.py`: KCD disclosure grouping now uses 3-character groups and keeps valid non-M54 general-department rows.
+- `backend/pipeline/disease_aggregator.py`: inpatient admission identity is date + normalized provider with 0-day admissions ignored; cross-surgery/high-cost index now uses the same KCD3 group key as `disease_stats`.
+- `backend/filters.py`: inpatient counts use admission events via `_adm_in_range(...)` instead of distinct dates.
+- `backend/tests/test_history_filter_fix.py`: anonymous synthetic 061 regression tests added.
+- Existing tests adjusted for KCD3 grouping: `test_bug012_q2_q3.py`, `test_analyzer_integration.py`, `test_analyzer_snapshot.py`.
+
+### Verified
+- [x] Windows original integrity: edited backend files have no NUL/replacement chars; `helpers.py` is 496 lines on Windows.
+- [x] `cd backend && python -m pytest -q` -> **208 passed, 7 skipped**.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> passed.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> passed.
+- [x] `npm run lint` -> passed.
+- [x] `npm test` -> **39 passed**.
+- [x] `npm run build` -> passed (existing Vite chunk-size warning only).
+- [x] Answer cases: same-day different-hospital admissions = 2, 0-day admission ignored, M75 visits = 7, L02 visits = 9 with pharmacy excluded, non-M54 general rows preserved, K29 window counts 3m/1y/5y = 1/2/3, same input twice deterministic, M54/M79 stay separate.
+- [x] No original PDF / real medical fixture staged.
+
+### Notes
+- Full pytest initially exposed stale 4-character-code expectations and one cross-index mismatch after KCD3 grouping; fixed within 061 scope by aligning tests and using grouped code for cross-surgery/high-cost indexing.
+- Pre-existing untracked `brand/` source assets and pamphlet output files remain intentionally excluded.
+
+### Next
+- Human: ?? PDF 3? E2E? ???M75?L02???? ??? ?? ??.
+
 ## 2026-06-15 17:22 Codex BOHUMFIT-058 [Windows authority verification / publish]
 ### Changed
 - `src/pages/why/whyContent.ts`: `MECHANISM_STEPS` 3단 서사 데이터 추가 확인.

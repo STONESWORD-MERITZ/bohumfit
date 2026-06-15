@@ -41,6 +41,7 @@ def new_disease():
         "med_dates_pharma_episode": {},
         "drug_names_in_90": set(), "drug_names_before_90": set(),
         "tests_found": set(), "test_events": [], "inpatient_dates": set(), "inpatient_periods": [],
+        "inpatient_admissions": set(),
         "surgeries": set(), "surgery_dates": set(), "hospitals": set(),
         "procedures": set(),
         "procedure_dates": set(),
@@ -318,8 +319,9 @@ def build_disease_stats(
                     continue
                 is_inpatient = "입원" in in_out or "입원" in name_str
                 if is_inpatient:
-                    s["inpatient_dates"].add(clean_date)
-                    if m_days > 0:
+                    if m_days > 0:  # BOHUMFIT-061: 0일 입원은 입원 이력에서 무시
+                        s["inpatient_dates"].add(clean_date)
+                        s["inpatient_admissions"].add((clean_date, _norm_provider_name(hospital)))
                         prev_inp = s["_inpatient_days_map"].get(clean_date, 0)
                         s["_inpatient_days_map"][clean_date] = max(prev_inp, m_days)
                         s.setdefault("inpatient_periods", []).append({
@@ -329,8 +331,6 @@ def build_disease_stats(
                         })
                         if _add_days(clean_date, m_days) > s["latest_date"]:
                             s["latest_date"] = _add_days(clean_date, m_days)
-                    elif clean_date not in s["_inpatient_days_map"]:
-                        s["_inpatient_days_map"][clean_date] = 0
                 else:
                     s["visit_dates"].add(clean_date)
                     s.setdefault("visit_events", []).append(clean_date)
@@ -440,8 +440,9 @@ def build_disease_stats(
                     else: s["drug_names_before_90"].add(drug)
             elif ftype == "nhis":
                 if in_out == "입원":
-                    s["inpatient_dates"].add(clean_date)
-                    if m_days > 0:
+                    if m_days > 0:  # BOHUMFIT-061: 0일 입원 무시
+                        s["inpatient_dates"].add(clean_date)
+                        s["inpatient_admissions"].add((clean_date, _norm_provider_name(hospital)))
                         prev_inp = s["_inpatient_days_map"].get(clean_date, 0)
                         s["_inpatient_days_map"][clean_date] = max(prev_inp, m_days)
                         s.setdefault("inpatient_periods", []).append({
@@ -472,7 +473,8 @@ def build_disease_stats(
             if clean_date > s["latest_date"]: s["latest_date"] = clean_date
             if clean_date < s["first_date"]:  s["first_date"]  = clean_date
 
-            ckey = _cross_key(code_str, name_str)
+            # BOHUMFIT-061: disease_stats 키와 동일한 KCD3 그룹으로 교차 인덱스를 만든다.
+            ckey = _cross_key(grouped_code_str, name_str)
             if ckey:
                 idx = cross_day_index[(ckey, clean_date)]
                 if ftype in ("basic", "unknown"):

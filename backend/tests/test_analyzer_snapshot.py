@@ -261,10 +261,10 @@ def test_detail_code_name_surgery_links_to_basic_diagnosis():
     ]
 
     stats, hints, *_ = build_disease_stats(records, datetime(2026, 5, 22))
-    assert "K599" in stats
-    assert stats["K599"]["surgery_dates"] == {"2023-01-12"}
-    assert "결장경하종양수술-폴립 절제술" in stats["K599"]["surgeries"]
-    assert "절제용SNARE" not in stats["K599"]["surgeries"]
+    assert "K59" in stats
+    assert stats["K59"]["surgery_dates"] == {"2023-01-12"}
+    assert "결장경하종양수술-폴립 절제술" in stats["K59"]["surgeries"]
+    assert "절제용SNARE" not in stats["K59"]["surgeries"]
     assert any("교차확정" in h and "752,590원" in h for h in hints)
 
 
@@ -309,8 +309,8 @@ def test_detail_dental_extraction_but_not_scaling_is_surgery():
     ]
 
     stats, *_ = build_disease_stats(records, datetime(2026, 5, 22))
-    assert stats["K0531"]["surgery_dates"] == {"2023-06-28"}
-    assert stats["K0531"]["surgeries"] == {"발치술[1치당]-구치"}
+    assert stats["K05"]["surgery_dates"] == {"2023-06-28"}
+    assert stats["K05"]["surgeries"] == {"발치술[1치당]-구치"}
 
 
 def test_detail_confirmed_surgery_keyword_variants():
@@ -343,9 +343,9 @@ def test_detail_confirmed_surgery_keyword_variants():
     ]
 
     stats, *_ = build_disease_stats(records, datetime(2026, 5, 22))
-    assert stats["S5250"]["surgery_dates"] == {"2024-05-01"}
-    assert "관혈적정복술및내고정술" in stats["S5250"]["surgeries"]
-    assert "FIXATION SCREW" not in stats["S5250"]["surgeries"]
+    assert stats["S52"]["surgery_dates"] == {"2024-05-01"}
+    assert "관혈적정복술및내고정술" in stats["S52"]["surgeries"]
+    assert "FIXATION SCREW" not in stats["S52"]["surgeries"]
 
 
 def test_detail_low_level_laser_rehab_is_not_surgery():
@@ -371,8 +371,8 @@ def test_detail_low_level_laser_rehab_is_not_surgery():
     ]
 
     stats, *_ = build_disease_stats(records, datetime(2026, 5, 22))
-    assert stats["S134"]["surgery_dates"] == set()
-    assert stats["S134"]["surgeries"] == set()
+    assert stats["S13"]["surgery_dates"] == set()
+    assert stats["S13"]["surgeries"] == set()
 
 
 def test_high_basic_cost_without_surgery_keyword_is_surgery_suspected():
@@ -391,8 +391,8 @@ def test_high_basic_cost_without_surgery_keyword_is_surgery_suspected():
     ]
 
     stats, hints, *_ = build_disease_stats(records, datetime(2026, 5, 22))
-    assert stats["K210"]["surgery_dates"] == set()
-    assert stats["K210"]["surgery_suspected_dates"] == {"2024-01-15"}
+    assert stats["K21"]["surgery_dates"] == set()
+    assert stats["K21"]["surgery_suspected_dates"] == {"2024-01-15"}
     assert any("수술의심" in h and "550,000원" in h for h in hints)
 
 

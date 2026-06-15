@@ -128,7 +128,7 @@ def test_run_analysis_q1_recent_inpatient(monkeypatch: pytest.MonkeyPatch) -> No
     q1_keys = [k for k in result["summary_reports"] if "1번" in k]
     assert q1_keys, f"Q1 키 없음: {list(result['summary_reports'].keys())}"
     codes = {it["code"] for it in result["summary_reports"][q1_keys[0]]}
-    assert "N840" in codes
+    assert "N84" in codes
 
 
 # ── 시나리오 3: 비-질병 항목(진찰료) 결과 카드에서 차단 ─────────

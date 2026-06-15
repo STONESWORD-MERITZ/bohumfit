@@ -258,11 +258,11 @@ def test_vulvovaginitis_visit_14_triggers_q3_rule():
                                "우리산부인과", pharma_code="$ 해당없음"))
 
     ds, _, _, _, _ = build_disease_stats(recs, today)
-    assert "N760" in ds, f"질염 그룹 누락: {list(ds.keys())}"
+    assert "N76" in ds, f"질염 그룹 누락: {list(ds.keys())}"  # BOHUMFIT-061: KCD3 그룹핑(N760→N76)
     d10y = _cutoffs(today)[3]
-    assert _visit_count_in_range(ds["N760"], d10y) >= 14
+    assert _visit_count_in_range(ds["N76"], d10y) >= 14
     q3 = _build_q3_health_items(ds, today)
-    vulvo = [it for it in q3 if it["code"] == "N760" and it["_rule_id"] == "R-H-Q3-VISIT-7"]
+    vulvo = [it for it in q3 if it["code"] == "N76" and it["_rule_id"] == "R-H-Q3-VISIT-7"]
     assert vulvo, f"질염 통원 7회 룰 미발동: {_rule_ids(q3)}"
 
 

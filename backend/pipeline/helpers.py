@@ -156,9 +156,13 @@ DISCLOSURE_CODE_GROUPS = {
 
 def disclosure_group_code(code: str) -> str:
     c = normalize_code(code)
-    for prefix, group in DISCLOSURE_CODE_GROUPS.items():
-        if c.startswith(prefix):
-            return group["code"]
+    if not c:
+        return ""
+    # BOHUMFIT-061: KCD 3자리(영문1+숫자2) 그룹핑. 양방 A/한방 B 접두는 normalize_code 에서 제거됨.
+    # M54·M79 등은 서로 다른 3자리라 자연히 분리 유지된다.
+    m = re.match(r"^([A-Z]\d{2})", c)
+    if m:
+        return m.group(1)
     return c
 
 
@@ -171,7 +175,8 @@ def disclosure_group_name(code: str, fallback: str = "") -> str:
 
 
 def _keep_basic_general_row(code: str) -> bool:
-    return disclosure_group_code(code) in {"M54"}
+    # BOHUMFIT-061: 일반의 진료라도 유효 상병코드면 보존(공란/$ 만 제외). 과거 M54 한정 보존 폐지.
+    return bool(normalize_code(code))
 
 
 def parse_date(date_str: str) -> str:
