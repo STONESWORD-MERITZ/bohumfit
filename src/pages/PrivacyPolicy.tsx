@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 
 const COMPANY = {
-  privacyOfficer: "BOHUMFIT 개인정보 보호 담당자",
+  privacyOfficer: "BohumFit 개인정보 보호 담당자",
   privacyContact: "privacy@bohumfit.ai",
   privacyEmail: "privacy@bohumfit.ai",
   effectiveDate: "2026-05-30",
@@ -11,7 +11,7 @@ const SECTIONS: { title: string; body: string }[] = [
   {
     title: "제1조 (목적)",
     body:
-      "본 개인정보처리방침은 BOHUMFIT(보험핏, 이하 '서비스')이 보험 고지 리스크 점검 서비스를 제공함에 있어 이용자의 개인정보를 어떤 항목에서, 어떤 목적으로, 어떤 방식으로 처리하는지를 안내하기 위해 마련되었습니다.",
+      "본 개인정보처리방침은 BohumFit(보험핏, 이하 '서비스')이 보험 고지 리스크 점검 서비스를 제공함에 있어 이용자의 개인정보를 어떤 항목에서, 어떤 목적으로, 어떤 방식으로 처리하는지를 안내하기 위해 마련되었습니다.",
   },
   {
     title: "제2조 (수집하는 개인정보 항목 및 수집 방법)",

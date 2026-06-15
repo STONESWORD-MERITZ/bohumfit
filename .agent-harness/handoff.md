@@ -16,6 +16,57 @@
 
 # Handoff
 
+## 2026-06-15 Codex BOHUMFIT-053 [Windows authority verification / publish]
+### Changed
+- `src/components/Footer.tsx`, `src/pages/Disclosure.tsx`, `src/pages/Home.tsx`, `src/pages/HomeMission.tsx`, `src/pages/InsuranceCalculator.tsx`, `src/pages/PrivacyPolicy.tsx`, `src/pages/Terms.tsx`: visible product-name body copy changed from `BOHUMFIT` to `BohumFit`.
+- `src/pages/Home.tsx`: hero section aligned to top with `items-start`; hero inner spacing changed from `py-20` to `pt-16 pb-20` while preserving `min-h-[88vh]`.
+- `.agent-harness/tasks/BOHUMFIT-053-text-sweep-hero-spacing.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md`: 053 task and verification records.
+
+### Verified
+- [x] Scope gate: only allowed frontend display files plus task/handoff/locks changed. No backend, formula lib, color, `src/index.css`, analyzer, filters, or pipeline changes.
+- [x] Preservation gate: `console.error("[BOHUMFIT] ...")` and `BOHUMFIT-insurance-*.pdf` filename remain uppercase; domain strings `bohumfit.ai`/`BOHUMFIT.AI` unchanged; task-ID comments preserved.
+- [x] Windows integrity: edited files UTF-8 decode OK, NUL 0, replacement char 0.
+- [x] `npx tsc -p tsconfig.app.json --noEmit`
+- [x] `npx tsc -p tsconfig.node.json --noEmit`
+- [x] `npm run lint`
+- [x] `npm test` -> 39 passed.
+- [x] `npm run build` -> passed; existing Vite chunk-size warning only.
+- [x] Dev smoke at `127.0.0.1:5185`: desktop and mobile hero use `items-start`; nav-to-eyebrow spacing is 64px; no visible Korean replacement chars; green logo period remains `rgb(21, 102, 61)`.
+- [x] Page smoke: Home, Privacy, Terms, Login-protected Insurance/Disclosure routes show `BohumFit` where applicable and no mojibake/replacement chars.
+
+### Notes
+- Backend/PDF report text remains `BOHUMFIT` intentionally because report tests assert that string today; backend display-name unification should be done with pytest updates in a separate task.
+- Final commit hash is reported in chat after push because a commit cannot reliably contain its own final hash without a separate bookkeeping commit.
+
+### Next
+- Human: visually confirm home hero spacing on production/mobile.
+- Future task: backend/PDF `BOHUMFIT` display-name unification with report test updates.
+
+## 2026-06-15 Cowork BOHUMFIT-053 [구현+/tmp 검증 완료 / Codex Windows tsc·test·build·커밋 → Human 육안]
+### Changed (표시 텍스트 + 히어로 상단 여백만 — 색·기능·구조 0)
+- 본문 표기 `BOHUMFIT`→`BohumFit`(화면 표시 텍스트, 13곳): `Footer.tsx`(serviceName·본문·© 3), `Disclosure.tsx`(결과 안내·동의 2문장 3), `Home.tsx`(히어로 본문·"지금의/앞으로의" 3), `HomeMission.tsx`(미션 1), `PrivacyPolicy.tsx`(담당자·제1조 2), `Terms.tsx`(제1조 1), `InsuranceCalculator.tsx`(에러 메시지 1).
+- `Home.tsx` 히어로 상단 간격 축소: `bf-hero … items-center`→`items-start`, 내용 `py-20`→`pt-16 pb-20`(상단 80→64px, 네비 직후 시작). `min-h-[88vh]`·다른 섹션 불변.
+- `.agent-harness/tasks/BOHUMFIT-053-text-sweep-hero-spacing.md`(신규), handoff/locks.
+
+### 보존(변경 금지) — 확인
+- 콘솔 로그 태그 `console.error("[BOHUMFIT] …")`(Disclosure L15)·다운로드 파일명 `BOHUMFIT-insurance-…pdf`(InsuranceCalculator L176) → 기능/식별 문자열로 유지(잔존 대문자 BOHUMFIT은 이 2건뿐).
+- 도메인 `BOHUMFIT.AI`/`bohumfit.ai`, task-ID 주석, **backend 전부**(report 템플릿·report_pdf.py "BOHUMFIT": pytest L157/241 `"BOHUMFIT" in html` 검사 → 미변경, 테스트 호환 우선).
+- 프런트 테스트 의존 문자열 없음(grep 확인).
+
+### 히어로 여백 전후
+- 전: `items-center`(88vh 세로 중앙)+`py-20` → 네비~eyebrow 과도 공백. 후: `items-start`+`pt-16`(64px) → 네비 직후 ~64px(48~72px 목표 내), `pb-20` 하단 리듬. 핏히어 코드 repo 부재 → 표준값.
+
+### Verified
+- [x] 잔존 대문자 `BOHUMFIT`(주석/도메인 제외)=**2건(보존 대상: 콘솔태그·파일명)**뿐. 표시 13곳 `BohumFit` 적용.
+- [x] 히어로 `items-start`·`pt-16 pb-20`(L130/131) 반영.
+- [x] 변경=표시 텍스트 + Tailwind 여백 클래스만 → 타입·로직 0. 프런트 테스트(39)·backend pytest 검사 문자열 미변경(호환).
+- [⚠] **마운트 truncation + 스크린샷 부재**: in-sandbox 전체 tsc/test/build·히어로 스크린샷 미실행 → Windows 원본 권위.
+- [ ] Windows: `npx tsc`(app/node)·`npm run lint`·`npm test`(39)·`npm run build` + 홈 히어로 상단 간격(데스크탑/모바일)·`BohumFit` 표기 육안 — Codex/Human.
+
+### Next
+- Codex(Windows): tsc/lint/test/build + 육안 → 053 범위 커밋(`BOHUMFIT-053: 본문 표기 BohumFit 통일 + 홈 히어로 상단 간격 축소`)·push. Human: 히어로 여백·표기 육안.
+- 후속: backend "BOHUMFIT" 표기 통일(pytest 동시 갱신 별도).
+
 ## 2026-06-15 Codex BOHUMFIT-052 [Windows authority verification / publish]
 ### Changed
 - `src/components/BrandWordmark.tsx`: visible lockup changed from `BOHUMFIT.` to `BohumFit.`; green period remains `accent-600`.

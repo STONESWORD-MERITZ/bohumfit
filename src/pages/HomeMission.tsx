@@ -42,7 +42,7 @@ export default function HomeMission() {
           </p>
           <p>
             그래서 회사를 나왔습니다. 고지사항을 비롯한 고객의 권리를 지키는 시스템과 조직을 만들기
-            위해서입니다. BOHUMFIT은 건강보험심사평가원 원자료를 분석해, 고객과 설계사가 함께 확인해야 할
+            위해서입니다. BohumFit은 건강보험심사평가원 원자료를 분석해, 고객과 설계사가 함께 확인해야 할
             고지 리스크를 한 화면에 정리합니다.
           </p>
           <p className="font-semibold text-ink-900">

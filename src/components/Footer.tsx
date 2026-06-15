@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import BrandWordmark from "./BrandWordmark";
 
 const BIZ = {
-  serviceName: "BOHUMFIT",
+  serviceName: "BohumFit",
   contact: "contact@bohumfit.ai",
 };
 
@@ -29,11 +29,11 @@ export default function Footer() {
           </nav>
         </div>
         <p className="mt-5 max-w-3xl leading-5 break-keep">
-          BOHUMFIT이 제공하는 분석 결과는 AI 보조 도구가 산출한 참고 자료입니다.
+          BohumFit이 제공하는 분석 결과는 AI 보조 도구가 산출한 참고 자료입니다.
           보험 가입·인수·보험금 지급을 보장하지 않으며, 최종 판단은 보험회사 청약서·약관·인수 기준에 따라 결정됩니다.
         </p>
         <p className="mt-6 border-t border-line pt-4 text-ink-400">
-          © {new Date().getFullYear()} BOHUMFIT
+          © {new Date().getFullYear()} BohumFit
         </p>
       </div>
     </footer>

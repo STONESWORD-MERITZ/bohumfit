@@ -127,8 +127,8 @@ export default function Home() {
 
       {/* ── 1. HERO (Mercury 라이트 · scroll-scrub — 히어로 1곳만) ───────── */}
       <div className="bf-hero-wrap">
-        <section className="bf-hero flex min-h-[88vh] items-center overflow-hidden bg-canvas">
-          <div className="mx-auto w-full max-w-6xl px-6 py-20">
+        <section className="bf-hero flex min-h-[88vh] items-start overflow-hidden bg-canvas">
+          <div className="mx-auto w-full max-w-6xl px-6 pt-16 pb-20">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accent-600">
               Insurance Disclosure Intelligence
             </p>
@@ -139,7 +139,7 @@ export default function Home() {
             </h1>
             <p className="mt-7 max-w-xl text-lg leading-8 text-ink-soft break-keep">
               보험은 가입하는 순간이 아니라 보험금을 청구하는 순간 진실이 드러납니다.
-              BOHUMFIT은 건강보험심평원 원자료를 분석해 고객과 설계사가 확인해야 할
+              BohumFit은 건강보험심평원 원자료를 분석해 고객과 설계사가 확인해야 할
               고지 리스크를 한 화면에 정리합니다.
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
@@ -186,7 +186,7 @@ export default function Home() {
             <FadeIn className="mb-14">
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent-600">Service Roadmap</p>
               <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-ink-900 md:text-4xl break-keep">
-                지금의 BOHUMFIT과 앞으로의 BOHUMFIT
+                지금의 BohumFit과 앞으로의 BohumFit
               </h2>
             </FadeIn>
             <div className="grid gap-6 md:grid-cols-3">
