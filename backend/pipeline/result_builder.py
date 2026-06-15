@@ -5,6 +5,7 @@ import re
 from collections import defaultdict
 from datetime import datetime
 
+from filters import _sum_daily_max_presc  # BOHUMFIT-031: 헤더와 동일 집계 함수 재사용
 from .helpers import (
     _dts_in_range,
     _inpatient_end_dates_in_range,
@@ -155,7 +156,13 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
             ds_inpatient_days  = sum(_ds_inp_map.get(d, 1) for d in _ds_inp_dates) if _ds_inp_dates else 0
             ds_inpatient_count = len(_ds_inp_dates)
             ds_visit_count     = _visit_count_in_range(_ds, since_dt)
-            ds_med_days        = _max_presc(_ds.get("med_dates_pharma", {}), since_dt)
+            # BOHUMFIT-031: 배지 투약일수를 헤더 판정과 동일 집계·동일 원천·동일 창으로 정합.
+            # 헤더(filters Q3)는 med_dates_pharma_episode 를 _sum_daily_max_presc(날짜별
+            # 최대의 누적 합계)로, since_dt(질문 창)에 맞춰 산출한다(Q3 건강체=10년).
+            # 기존 _max_presc(단일 일자 최대)는 누적 합계와 불일치했음(BOHUMFIT-030 진단).
+            # 동일 함수를 그대로 호출해 배지=헤더를 보장한다.
+            _med_src           = _ds.get("med_dates_pharma_episode") or _ds.get("med_dates_pharma", {})
+            ds_med_days        = _sum_daily_max_presc(_med_src, since_dt)
         else:
             dates_sorted       = sorted([d for d in m["dates"] if d])
             first_date         = dates_sorted[0]  if dates_sorted else ""
