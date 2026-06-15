@@ -13,6 +13,8 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-15 BOHUMFIT-056 - Codex - 헤더 `BohumFit 보험핏` 워드마크를 nav 텍스트 높이에 맞춰 축소하고 데스크톱 우측 네비 gap 정돈 완료. 범위: `Layout.tsx` + task/handoff/locks. `Logo.tsx` 내부 비율·색·폰트·파비콘 무변경. 검증: tsc app/node, lint, test 39 passed, build, dev screenshot smoke. Next: Human production visual check.
+
 - 2026-06-15 BOHUMFIT-055 - Codex - 헤더/사이트 로고를 엠블럼 없는 텍스트 워드마크 `BohumFit 보험핏`으로 전환 완료. 범위: `Logo.tsx` + task/handoff/locks. favicon 엠블럼 유지. 검증: tsc app/node, lint, test 39 passed, build, dev HTTP smoke. Next: Human 생산 화면/탭 파비콘 육안.
 
 - 2026-06-15 BOHUMFIT-054 - Codex - 보험핏 정식 한국어 로고/파비콘/메타 적용 완료. 범위: `Logo.tsx` 신규, `Layout/Footer/Login/HomeMission` 로고 교체, `BrandWordmark` 및 구 보라 로고 에셋 삭제, `index.html`/`favicon.svg`/`og-image.svg`/표시 문구 `보험핏` 전환. 검증: tsc app/node, lint, test 39 passed, build, dev HTTP smoke, residue grep. Next: Human 생산 화면/탭 파비콘 육안.

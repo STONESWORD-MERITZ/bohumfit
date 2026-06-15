@@ -43,7 +43,7 @@ const LINK_IDLE = "font-medium text-ink-soft hover:text-ink-900 after:bg-transpa
 function BrandLogo({ onClick }: { onClick?: () => void }) {
   return (
     <Link to="/" onClick={onClick} className="shrink-0" aria-label="보험핏 홈">
-      <Logo size={30} />
+      <Logo size={18} />
     </Link>
   );
 }
@@ -191,7 +191,7 @@ export default function Layout() {
             <BrandLogo />
 
             {/* 데스크탑·태블릿 가로 메뉴 */}
-            <nav aria-label="주요 메뉴" className="hidden items-center gap-6 md:flex">
+            <nav aria-label="주요 메뉴" className="hidden items-center gap-8 md:flex">
               {NAV.map((item) =>
                 item.kind === "link" ? (
                   <NavLink

@@ -16,6 +16,27 @@
 
 # Handoff
 
+## 2026-06-15 13:16 Codex BOHUMFIT-056 [Windows authority verification / publish]
+### Changed
+- `src/components/Layout.tsx`: header `BohumFit 보험핏` wordmark call size reduced from `30` to `18` so rendered height aligns closer to right nav text; desktop nav gap changed from `gap-6` to `gap-8` for FitHere-like spacing.
+- `.agent-harness/tasks/BOHUMFIT-056-header-wordmark-scale-nav-spacing.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md`: task record and lock lifecycle.
+
+### Verified
+- [x] Scope gate: only header/nav component plus harness files changed. `Logo.tsx` internal English/Korean ratio, alignment, colors, fonts, favicon, page logic, and formulas unchanged.
+- [x] `npx tsc -p tsconfig.app.json --noEmit`
+- [x] `npx tsc -p tsconfig.node.json --noEmit`
+- [x] `npm run lint`
+- [x] `npm test` -> 39 passed.
+- [x] `npm run build` -> passed; existing Vite chunk-size warning only.
+- [x] `npm run dev` at `127.0.0.1:5187` + Windows Chrome headless screenshot: header wordmark is compact, close to nav text height, and right nav spacing is cleaner; favicon/emblem remains untouched.
+
+### Notes
+- `brand/` remains an existing untracked local reference asset folder and was intentionally left untouched/uncommitted.
+- Browser plugin control tools were not exposed in this session, so local Chrome headless screenshot was used for visual verification.
+
+### Next
+- Human: production visual check after deploy that the header wordmark feels FitHere-sized on real browser/device.
+
 ## 2026-06-15 12:42 Codex BOHUMFIT-055 [Windows authority verification / publish]
 ### Changed
 - `src/components/Logo.tsx`: header/site logo changed from emblem + `보험핏` to text-only FitHere-style wordmark `BohumFit 보험핏`; emblem/SVG/`variant` support removed from the header logo component.
