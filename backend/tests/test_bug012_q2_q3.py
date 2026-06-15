@@ -77,14 +77,14 @@ def test_q3_visit_threshold_is_7():
 
 def test_q3_health_med_30_flags():
     """투약 30일 → R-H-Q3-MED-30D 발동 (단독)."""
-    ds = {"K21": _disease(pharma_dates={"2020-06-15": 30}, first="2020-06-15", latest="2020-06-15")}
+    ds = {"K21": _disease(pharma_dates={"2024-06-15": 30}, first="2024-06-15", latest="2024-06-15")}
     items = _build_q3_health_items(ds, REF)
     assert "R-H-Q3-MED-30D" in _rule_ids(items)
 
 
 def test_q3_health_med_29_not_flagged():
     """투약 29일 → 미발동."""
-    ds = {"K21": _disease(pharma_dates={"2020-06-15": 29}, first="2020-06-15", latest="2020-06-15")}
+    ds = {"K21": _disease(pharma_dates={"2024-06-15": 29}, first="2024-06-15", latest="2024-06-15")}
     items = _build_q3_health_items(ds, REF)
     assert "R-H-Q3-MED-30D" not in _rule_ids(items)
 
@@ -94,11 +94,11 @@ def test_q3_health_med_daily_max_accumulates_across_dates():
     ds = {
         "K21": _disease(
             pharma_dates={
-                "2020-06-15": {"drug-a": 5, "drug-b": 3},
-                "2020-07-01": {"drug-c": 25},
+                "2024-06-15": {"drug-a": 5, "drug-b": 3},
+                "2024-07-01": {"drug-c": 25},
             },
-            first="2020-06-15",
-            latest="2020-07-01",
+            first="2024-06-15",
+            latest="2024-07-01",
         )
     }
     items = _build_q3_health_items(ds, REF)
@@ -112,11 +112,11 @@ def test_q3_health_med_same_day_takes_max_only():
     ds_29 = {
         "K21": _disease(
             pharma_dates={
-                "2020-06-15": {"drug-a": 20, "drug-b": 15},
-                "2020-07-01": 9,
+                "2024-06-15": {"drug-a": 20, "drug-b": 15},
+                "2024-07-01": 9,
             },
-            first="2020-06-15",
-            latest="2020-07-01",
+            first="2024-06-15",
+            latest="2024-07-01",
         )
     }
     assert "R-H-Q3-MED-30D" not in _rule_ids(_build_q3_health_items(ds_29, REF))
@@ -124,11 +124,11 @@ def test_q3_health_med_same_day_takes_max_only():
     ds_30 = {
         "K21": _disease(
             pharma_dates={
-                "2020-06-15": {"drug-a": 20, "drug-b": 15},
-                "2020-07-01": 10,
+                "2024-06-15": {"drug-a": 20, "drug-b": 15},
+                "2024-07-01": 10,
             },
-            first="2020-06-15",
-            latest="2020-07-01",
+            first="2024-06-15",
+            latest="2024-07-01",
         )
     }
     items = _build_q3_health_items(ds_30, REF)
@@ -136,16 +136,16 @@ def test_q3_health_med_same_day_takes_max_only():
 
 
 def test_q3_health_med_boundary_included_and_invalid_date_skipped():
-    """10년 경계일은 포함하고, 잘못된 날짜 키는 무시한다."""
+    """1825일 전은 포함하고(BOHUMFIT-032: 투약 판정창=1825일), 잘못된 날짜 키는 무시한다."""
     ds = {
         "K21": _disease(
             pharma_dates={
-                "2016-05-12": 30,
+                "2021-05-13": 30,
                 "bad-date": 999,
-                "2016-05-11": 999,
+                "2021-05-12": 999,
             },
-            first="2016-05-12",
-            latest="2016-05-12",
+            first="2021-05-13",
+            latest="2021-05-13",
         )
     }
     items = _build_q3_health_items(ds, REF)
@@ -208,7 +208,7 @@ def test_easy_q2_pure_inpatient_surgery_only():
 def test_easy_q2_visit_and_med_do_not_trigger():
     """통원 7회 + 투약 30일만 있고 입원·수술 없으면 간편 Q2 항목 0건."""
     visits = [f"2020-01-{d:02d}" for d in range(1, 8)]
-    ds = {"K21": _disease(visits=visits, pharma_dates={"2020-06-15": 30}, first="2020-01-01")}
+    ds = {"K21": _disease(visits=visits, pharma_dates={"2024-06-15": 30}, first="2020-01-01")}
     items = _build_q2_easy_items(ds, REF)
     assert items == [], f"간편 Q2 는 입원·수술만이어야 하나 발동됨: {_rule_ids(items)}"
     # 같은 데이터로 건강체 Q3 는 통원·투약 단독 발동

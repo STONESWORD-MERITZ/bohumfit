@@ -5,7 +5,7 @@ import re
 from collections import defaultdict
 from datetime import datetime
 
-from filters import _sum_daily_max_presc  # BOHUMFIT-031: 헤더와 동일 집계 함수 재사용
+from filters import _q3_med_since, _sum_daily_max_presc  # BOHUMFIT-031/032: 헤더와 동일 투약 집계·창 재사용
 from .helpers import (
     _dts_in_range,
     _inpatient_end_dates_in_range,
@@ -88,7 +88,7 @@ def _merged_item_sort_key(entry) -> tuple:
 
 
 def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d1y, d10y, d5y,
-                               is_easy: bool = False):
+                               is_easy: bool = False, q3_med_since=None):
     """merged_items + disease_stats → (summary_reports, flagged_codes).
 
     BOHUMFIT-BUG-012: 탭별 질문 창(_q_since)·라벨(q_labels)을 분리한다.
@@ -162,7 +162,10 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
             # 기존 _max_presc(단일 일자 최대)는 누적 합계와 불일치했음(BOHUMFIT-030 진단).
             # 동일 함수를 그대로 호출해 배지=헤더를 보장한다.
             _med_src           = _ds.get("med_dates_pharma_episode") or _ds.get("med_dates_pharma", {})
-            ds_med_days        = _sum_daily_max_presc(_med_src, since_dt)
+            # BOHUMFIT-032: 건강체 Q3 '투약 30일' 판정창은 고정 1825일. 헤더(filters)와 동일 창·집계로
+            # 배지=헤더를 유지한다. 입원·통원 표시창(since_dt=10년)은 불변.
+            _med_since         = q3_med_since if (not is_easy and q == "Q3" and q3_med_since is not None) else since_dt
+            ds_med_days        = _sum_daily_max_presc(_med_src, _med_since)
         else:
             dates_sorted       = sorted([d for d in m["dates"] if d])
             first_date         = dates_sorted[0]  if dates_sorted else ""
@@ -361,12 +364,14 @@ def build_summary_reports(
 
     merged_health = _build_pool(code_based_items_health, True,  _health_since)
     merged_easy   = _build_pool(code_based_items_easy,   False, _easy_since)
+    _health_q3_med_since = _q3_med_since(today)
 
     std_reports, std_flagged = _build_reports_for_product(
         merged_health, disease_stats,
         "건강체/표준체 (일반심사)",
         _d3m_dt, _d1y_dt, _d10y_dt, _d5y_dt,
         is_easy=False,
+        q3_med_since=_health_q3_med_since,
     )
     easy_reports, easy_flagged = _build_reports_for_product(
         merged_easy, disease_stats,

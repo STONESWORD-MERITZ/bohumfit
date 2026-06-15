@@ -4,14 +4,13 @@
 # 최대)로 산출돼, 헤더 Q3 판정값 _sum_daily_max_presc(날짜별 최대의 누적 합계)와 어긋났다.
 # 정답 (A): 배지를 헤더와 동일 집계·동일 원천(med_dates_pharma_episode)·동일 창으로 정합.
 #
-# ※ 창 주의: 지시서는 "5년"을 전제했으나, 코드상 건강체 Q3 투약 판정창은 10년(d10y)이다
-#   (filters R-H-Q3-MED-30D reason="10년이내...", _q_since["Q3"]=d10y). 헤더 로직 변경 최소화·
-#   배지==헤더 우선 원칙에 따라 배지를 헤더의 실제 창(10년)에 맞춘다. 따라서 경계 테스트도
-#   10년 달력 경계 기준으로 검증한다. (5년 사업규칙 여부는 헤더 판정 자체의 문제 → Human 결정.)
+# ※ BOHUMFIT-032: 건강체 Q3 '투약 30일' 판정창은 고정 1825일이다(입원·수술·통원은 10년 유지).
+#   배지(result_builder)도 헤더와 동일 1825일 창·집계를 써 배지==헤더를 유지한다.
 from datetime import datetime, timedelta
 
 from filters import (
     _build_q3_health_items,
+    _q3_med_since,
     _sum_daily_max_presc,
     _cutoffs,
     Q3_MED_DAYS_THRESHOLD,
@@ -21,7 +20,8 @@ from pipeline.result_builder import build_summary_reports
 
 TODAY = datetime(2026, 6, 15)
 REF = datetime(2026, 6, 15)
-_D3M, _D1Y, _D5Y, D10Y = _cutoffs(REF)
+_D3M, _D1Y, _D5Y, _D10Y = _cutoffs(REF)  # 달력 5년 경계
+MED5Y = _q3_med_since(REF)              # BOHUMFIT-032: 투약 판정창 1825일
 
 Q3_TITLE = "[3번질문] 10년 이내 입원·수술·통원·투약"
 
@@ -67,7 +67,7 @@ def _q3_summary_row(ds, code):
 def test_badge_equals_header_sum_when_max_differs():
     # 두 날짜 20일 + 12일 → SUM=32(헤더), MAX=20(구 배지). 32>=30 → MED-30D 발동.
     ds = mk_disease("J32", "만성부비동염", {_ymd(100): {"이비인후과A": 20}, _ymd(50): {"이비인후과A": 12}})
-    header_sum = _sum_daily_max_presc(ds["J32"]["med_dates_pharma_episode"], D10Y)
+    header_sum = _sum_daily_max_presc(ds["J32"]["med_dates_pharma_episode"], MED5Y)
     assert header_sum == 32
     row, items = _q3_summary_row(ds, "J32")
     assert row is not None, "Q3 행이 있어야 함(투약 32일 발동)"
@@ -84,7 +84,7 @@ def test_sum_28_no_med_trigger():
     ds = mk_disease("N95", "폐경후위축성질염",
                     {_ymd(120): {"산부인과A": 14}, _ymd(80): {"산부인과A": 14}},
                     visit_days=visits)
-    assert _sum_daily_max_presc(ds["N95"]["med_dates_pharma_episode"], D10Y) == 28
+    assert _sum_daily_max_presc(ds["N95"]["med_dates_pharma_episode"], MED5Y) == 28
     row, items = _q3_summary_row(ds, "N95")
     assert row is not None and row["med_days"] == 28        # 배지 28
     assert not any(it.get("_rule_id") == "R-H-Q3-MED-30D" for it in items)  # 30일 미발동
@@ -95,7 +95,7 @@ def test_sum_28_no_med_trigger():
 def test_sum_31_triggers():
     ds = mk_disease("B35", "체부백선",
                     {_ymd(120): {"피부과A": 14}, _ymd(80): {"피부과A": 14}, _ymd(40): {"피부과A": 3}})
-    assert _sum_daily_max_presc(ds["B35"]["med_dates_pharma_episode"], D10Y) == 31
+    assert _sum_daily_max_presc(ds["B35"]["med_dates_pharma_episode"], MED5Y) == 31
     row, items = _q3_summary_row(ds, "B35")
     assert row is not None and row["med_days"] == 31
     assert any(it.get("_rule_id") == "R-H-Q3-MED-30D" for it in items)
@@ -104,24 +104,23 @@ def test_sum_31_triggers():
 # ── 4) 단일 30 → 발동 ────────────────────────────────────────────────────
 def test_single_30_triggers():
     ds = mk_disease("E11", "당뇨", {_ymd(200): {"내과A": 30}})
-    assert _sum_daily_max_presc(ds["E11"]["med_dates_pharma_episode"], D10Y) == 30
+    assert _sum_daily_max_presc(ds["E11"]["med_dates_pharma_episode"], MED5Y) == 30
     row, items = _q3_summary_row(ds, "E11")
     assert row is not None and row["med_days"] == 30
     assert any(it.get("_rule_id") == "R-H-Q3-MED-30D" for it in items)
 
 
-# ── 5) 판정창 경계: 10년 달력 경계일 포함(>=), 하루 전 제외 ───────────────
-#   창은 고정 일수가 아니라 달력 기준(_subtract_years)이다 → 경계는 D10Y 날짜 그 자체.
+# ── 5) 판정창 경계: 1825일 전 포함(>=), 1826일 전 제외 ─────────────────
 def test_window_boundary_include_exact_exclude_past():
-    on_day  = D10Y.strftime("%Y-%m-%d")                       # 경계 정확일 → 포함(>=)
-    off_day = (D10Y - timedelta(days=1)).strftime("%Y-%m-%d") # 경계 하루 전 → 제외
+    on_day  = _ymd(1825)  # 1825일 전 → 포함
+    off_day = _ymd(1826)  # 1826일 전 → 제외
     on = mk_disease("K21", "역류성식도염", {on_day: {"내과A": 30}})
-    assert _sum_daily_max_presc(on["K21"]["med_dates_pharma_episode"], D10Y) == 30
+    assert _sum_daily_max_presc(on["K21"]["med_dates_pharma_episode"], MED5Y) == 30
     row_on, items_on = _q3_summary_row(on, "K21")
     assert row_on is not None and row_on["med_days"] == 30
     assert any(it.get("_rule_id") == "R-H-Q3-MED-30D" for it in items_on)
     off = mk_disease("K21", "역류성식도염", {off_day: {"내과A": 30}})
-    assert _sum_daily_max_presc(off["K21"]["med_dates_pharma_episode"], D10Y) == 0
+    assert _sum_daily_max_presc(off["K21"]["med_dates_pharma_episode"], MED5Y) == 0
     row_off, items_off = _q3_summary_row(off, "K21")
     assert row_off is None
     assert not any(it.get("_rule_id") == "R-H-Q3-MED-30D" for it in items_off)
@@ -131,7 +130,7 @@ def test_window_boundary_include_exact_exclude_past():
 def test_badge_header_identity_general():
     ds = mk_disease("M54", "요통",
                     {_ymd(900): {"정형A": 7}, _ymd(600): {"정형A": 28}, _ymd(300): {"정형B": 5}})
-    header = _sum_daily_max_presc(ds["M54"]["med_dates_pharma_episode"], D10Y)  # 7+28+5=40
+    header = _sum_daily_max_presc(ds["M54"]["med_dates_pharma_episode"], MED5Y)  # 7+28+5=40
     assert header == 40
     row, items = _q3_summary_row(ds, "M54")
     assert row is not None

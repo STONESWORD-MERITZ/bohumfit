@@ -132,6 +132,11 @@ def _sum_daily_max_presc(med_dict, since_dt) -> int:
     return total
 
 
+def _q3_med_since(reference_date: datetime) -> datetime:
+    """BOHUMFIT-032: 건강체 Q3 투약 30일 전용 5년 창."""
+    return reference_date - timedelta(days=Q3_MED_WINDOW_DAYS)
+
+
 # KCD-7 상병코드 패턴: 영문 1자(A~Z) + 숫자 2~4자 + 옵션 숫자/문자
 _KCD_RE = _re.compile(r"^[A-Z]\d{2,4}[A-Z0-9]?$")
 
@@ -191,7 +196,8 @@ Q1_CHRONIC_DRUG_DAYS_THRESHOLD = 30
 
 # BOHUMFIT-BUG-012: 건강체 Q3 통원/투약 OR 트리거 임계
 Q3_VISIT_COUNT_THRESHOLD = 7   # 매직넘버: 동일질병 10년내 통원 7회 이상 시 고지
-Q3_MED_DAYS_THRESHOLD    = 30  # 매직넘버: 동일질병 10년내 날짜별 최대 처방일수 누적 30일 이상 시 고지
+Q3_MED_DAYS_THRESHOLD    = 30  # 매직넘버: 동일질병 5년내 날짜별 최대 처방일수 누적 30일 이상 시 고지
+Q3_MED_WINDOW_DAYS       = 1825  # BOHUMFIT-032: 투약 30일 판정창은 고정 1825일(1826일 전 제외)
 
 # 가중치
 _WEIGHT_CRITICAL_PREFIXES = ("C", "I60", "I61", "I62", "I63", "I64", "I21", "I22", "K74")
@@ -559,7 +565,7 @@ def _build_q3_health_items(
         inp_map  = s.get("_inpatient_days_map", {})
         inp10y_days = sum(inp_map.get(d, 1) for d in inp_10y) if inp_10y else 0
         med_pharma = s.get("med_dates_pharma_episode") or s.get("med_dates_pharma", {})
-        presc_10y = _sum_daily_max_presc(med_pharma, d10y)
+        presc_5y = _sum_daily_max_presc(med_pharma, _q3_med_since(reference_date))  # BOHUMFIT-032: 투약창=1825일(입원·수술·통원은 d10y 유지)
 
         ci = lambda **kw: _make_item(code=dc, disease=nm, hospital=hp,
                                      first_diagnosis_date=fd, **kw)
@@ -572,7 +578,7 @@ def _build_q3_health_items(
                 date=max(inp_10y), weight=wt,
                 is_inpatient=True, inpatient_days=inp10y_days,
                 inpatient_count=_adm_in_range(s.get("inpatient_admissions", set()), d10y),
-                visit_count=visit_10y_count, med_days=presc_10y,
+                visit_count=visit_10y_count, med_days=presc_5y,
                 evidence={"dates": inp_10y, "actual_days": inp10y_days},
             ))
 
@@ -585,7 +591,7 @@ def _build_q3_health_items(
                 is_surgery=True, surgery_name=sn,
                 is_inpatient=bool(inp_10y), inpatient_days=inp10y_days,
                 inpatient_count=_adm_in_range(s.get("inpatient_admissions", set()), d10y),
-                visit_count=visit_10y_count, med_days=presc_10y,
+                visit_count=visit_10y_count, med_days=presc_5y,
                 evidence={"dates": surg_10y, "surgery": sn},
             ))
 
@@ -595,18 +601,18 @@ def _build_q3_health_items(
                 q="Q3", rule_id="R-H-Q3-VISIT-7",
                 reason=f"10년이내 통원 {Q3_VISIT_COUNT_THRESHOLD}회 이상 ({visit_10y_count}회) — 기본진료 확인",
                 date=ld, weight=wt,
-                visit_count=visit_10y_count, med_days=presc_10y,
+                visit_count=visit_10y_count, med_days=presc_5y,
                 evidence={"visit_count": visit_10y_count, "dates": visit_10y},
             ))
 
-        # R-H-Q3-MED-30D: 10년이내 투약 30일 이상 (입원/수술 유무 무관 — 단독 트리거)
-        if presc_10y >= Q3_MED_DAYS_THRESHOLD:
+        # R-H-Q3-MED-30D: BOHUMFIT-032 — 5년이내 투약 30일 이상 (입원/수술 유무 무관 — 단독 트리거)
+        if presc_5y >= Q3_MED_DAYS_THRESHOLD:
             items.append(ci(
                 q="Q3", rule_id="R-H-Q3-MED-30D",
-                reason=f"10년이내 투약 {Q3_MED_DAYS_THRESHOLD}일 이상 ({presc_10y}일) — 처방조제 확인",
+                reason=f"5년이내 투약 {Q3_MED_DAYS_THRESHOLD}일 이상 ({presc_5y}일) — 처방조제 확인",
                 date=ld, weight=wt,
-                visit_count=visit_10y_count, med_days=presc_10y,
-                evidence={"presc_days": presc_10y, "source": "처방조제"},
+                visit_count=visit_10y_count, med_days=presc_5y,
+                evidence={"presc_days": presc_5y, "source": "처방조제"},
             ))
 
     return items
