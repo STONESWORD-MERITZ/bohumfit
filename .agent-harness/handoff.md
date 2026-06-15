@@ -16,6 +16,32 @@
 
 # Handoff
 
+## 2026-06-15 19:31 Codex BOHUMFIT-062 [Windows authority verification / publish]
+### Changed
+- Confirmed actual task file: `.agent-harness/tasks/BOHUMFIT-062-nonsurgery-exclusion.md` (requested Korean slug is not present in the repo).
+- `backend/pipeline/surgery_exclusions.py`: new single-source `NON_SURGERY_NAMES` plus `is_non_surgery_excluded(...)` for non-surgery code-name exclusions.
+- `backend/pipeline/helpers.py`: `_is_surgery_match(...)` now exits false for excluded non-surgery names.
+- `backend/pipeline/disease_aggregator.py`: `_is_detail_surgery_match(...)` and NHIS surgery OR-branch now apply the same exclusion guard.
+- `backend/tests/test_surgery_exclusions.py`: 4 anonymous synthetic regressions covering the four excluded names, spacing variants, real surgery preservation, and detail aggregation.
+
+### Verified
+- [x] Windows original integrity: target files exist, have no NUL/replacement chars, and tails are intact; `helpers.py` is **499 lines**.
+- [x] `cd backend && python -m pytest -q` -> **212 passed, 7 skipped**.
+- [x] `cd backend && python -m pytest -q tests/test_surgery_exclusions.py -vv` -> **4 passed**.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> passed.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> passed.
+- [x] `npm run lint` -> passed.
+- [x] `npm test` -> **39 passed**.
+- [x] `npm run build` -> passed (existing Vite chunk-size warning only).
+- [x] No original/canonical PDF or unrelated untracked brand/pamphlet assets staged.
+
+### Notes
+- Surgery detection patterns/algorithm were not changed; only the central non-surgery exclusion list and guards were added.
+- Canonical PDF visual verification remains a Human task because the source PDF contains real medical information and was not staged or committed.
+
+### Next
+- Human: 캐노니컬 PDF(최유미 세부진료)로 1·2·3 화면 전부에서 아래 4건이 수술로 미집계되는지 육안 확인: 후두내주입(순번 1071, 2021-04-15 미래이비인후과의원), 수액제주입로를통한주사(순번 1108, 2020-12-19 엠허브의원), 치관수복물또는보철물의 제거[1치당]-간단한것, 치관수복물또는보철물의 제거[1치당]-복잡한것. 실제 수술(충수절제술 등)은 정상 집계되는지도 회귀 확인.
+
 ## 2026-06-15 Codex BOHUMFIT-060/061 [Windows authority verification / publish]
 ### Changed
 - BOHUMFIT-060 diagnosis task file confirmed as `.agent-harness/tasks/BOHUMFIT-060-inpatient-days-filter-diagnosis.md` (requested slug `BOHUMFIT-060-history-filter-diagnosis.md` does not exist in the repo).
@@ -41,7 +67,113 @@
 - Pre-existing untracked `brand/` source assets and pamphlet output files remain intentionally excluded.
 
 ### Next
-- Human: ?? PDF 3? E2E? ???M75?L02???? ??? ?? ??.
+- Human: 실제 PDF 3종 E2E로 입원·M75·L02·단기창 결과를 육안 확인.
+
+## 2026-06-15 Cowork BOHUMFIT-062 [구현+회귀 통과(/tmp) / Codex Windows pytest·tsc·build → 커밋]
+### Changed (수술 감지 알고리즘 불변 — 제외 리스트만)
+- `backend/pipeline/surgery_exclusions.py`(신규) — `NON_SURGERY_NAMES`(공백 제거 정규화 후 exact) + `is_non_surgery_excluded(name)`. **비수술 코드명 추가는 이 한 곳**(확장 용이, mount truncation 회피용 소형 단일 소스).
+- `backend/pipeline/helpers.py` — `import is_non_surgery_excluded` + `_is_surgery_match` 최상단 가드(제외 시 False).
+- `backend/pipeline/disease_aggregator.py` — `import` + `_is_detail_surgery_match` 최상단 가드 + nhis 수술 OR-branch에 `and not is_non_surgery_excluded(name_str)`(전 경로 차단).
+- `backend/tests/test_surgery_exclusions.py`(신규, 익명/합성 4테스트).
+- `.agent-harness/tasks/BOHUMFIT-062-nonsurgery-exclusion.md`(신규), handoff/locks.
+
+### 제외 4건(전역·질병/창 무관)
+수액제주입로를통한주사 / 치관수복물또는보철물의 제거[1치당]-간단한것 / 〃-복잡한것 / 후두내주입.
+
+### 전후
+- 4건: `_is_surgery_match`·`_is_detail_surgery_match` **True→False**(공백 변형 포함). 같은날 basic+detail 합성에서 surgery·surgery_dates **미집계**.
+- 실제 수술(비용적출술·하비갑개점막하절제술·충수절제술·백내장수술): 여전히 True(정상 집계) — 회귀로 보장.
+
+### 프런트
+- 수술 감지 **중복 없음**(`src/`에 _is_surgery/패턴/4코드명 grep 0). Disclosure.tsx 등은 백엔드 `surgery_count`/`surgeries` 플래그 표시만 → **백엔드만 변경**.
+
+### Verified
+- [x] /tmp(061 적용 base, 온전 사본) pytest: 관련+신규 = **90 passed, 6 skipped**(061 base 86 → 062 신규 4). `test_surgery_exclusions.py` 4/4.
+- [x] surgery_exclusions.py 마운트 무결(724B). helpers/aggregator에 062 가드 반영(grep 확인).
+- [⚠] **마운트 truncation**: 편집 후 helpers 마운트 뷰 480줄/검증본 499줄로 동결 → 실파일 사본 in-sandbox pytest 절단 실패. **/tmp 동일패치본 90 passed = 권위**. Windows 원본 완결(Codex pytest 권위).
+- [코드 영향] frontend tsc/lint/build은 backend 무관(변경 0). 원본 PDF 미사용·미커밋.
+- [ ] Windows(Codex): `cd backend && python -m pytest -q`(전체)·tsc app/node·build. 캐노니컬 PDF(최유미 세부진료)로 1·2·3 화면 고지대상 제외 육안(4는 유닛 커버).
+
+### Next
+- Codex(Windows): 전체 pytest + tsc/build → 062 범위 커밋(`BOHUMFIT-062: 비수술 코드명 수술 오분류 전역 제외(surgery_exclusions)`) → push. (마운트 git 미실행.)
+- 후속: 제외 코드명 추가는 `surgery_exclusions.NON_SURGERY_NAMES` 한 곳에만.
+
+## 2026-06-15 Cowork BOHUMFIT-061 [구현+회귀 통과(/tmp) / Codex Windows pytest·tsc·lint·build → 커밋]
+### Changed
+- `backend/pipeline/helpers.py` — `disclosure_group_code`→**KCD 3자리 그룹핑**(`^[A-Z]\d{2}`, 공란/$→""). `_keep_basic_general_row`→`bool(normalize_code(code))`(일반의 비M54 drop 폐지, 유효 코드면 보존).
+- `backend/pipeline/disease_aggregator.py` — `new_disease`에 `inpatient_admissions:set()` 추가. basic·nhis 입원 블록: **`m_days>0`일 때만 입원 인정(0일 무시)**, `inpatient_admissions.add((개시일, _norm_provider_name(기관)))` → 같은날 다른 병원=별개.
+- `backend/filters.py` — `_adm_in_range(admissions, since)` 추가. 6개 `inpatient_count=len(inp_*)` → `_adm_in_range(...)`(d3m/d10y/d5y) = **admission 건수**(날짜 수 아님). 일수(sum max/date)·창 경계 불변.
+- `backend/tests/test_history_filter_fix.py`(신규, 익명 합성 6케이스), `backend/tests/test_bug012_q2_q3.py`(KCD3 반영 기대값 `N760`→`N76`, 입력 `AN760` 유지).
+- `.agent-harness/tasks/BOHUMFIT-061-history-filter-fix.md`(신규), handoff/locks.
+
+### 전후 3케이스 (실 build_disease_stats, 5년창)
+| 케이스 | 이전 | 이후 |
+|---|---|---|
+| 같은날 다른 병원 입원(6일/2일, KCD3 S33) | 1건(2일·병원 손실) | **2건** |
+| #47(0일)+#48(6일)+#49(2일) 같은코드 | 3건(0일 과집계) | **2건**(0일 무시) |
+| 진단과='일반의'+유효 비M54 | 0건(전량 drop) | **보존(1건)** |
+
+### Verified
+- [x] **backend pytest(/tmp 사본, 원본 무결 — ENV-MOUNT 우회)**: 관련 서브셋 + 신규 = **86 passed, 6 skipped**(baseline 80 → 신규 6 추가). 신규 `test_history_filter_fix.py` 6/6. (heavy-dep 모듈 analyzer/ai/main/report_pdf은 google-genai/fastapi 부재로 collection 제외 — 본 변경과 무관.)
+- [x] 결정론 유지(집합/맵 기반, 정렬 출력). 창/경계 불변. M54·M79 등 3자리 분리 유지(단위테스트).
+- [x] Windows 원본 무결성: 편집 4파일 Read 확인(helpers 495줄 완결 등).
+- [⚠] **마운트 truncation**: 편집 후 backend .py 마운트 뷰가 편집 전 길이로 동결(helpers 483/495줄) → 실파일 사본 in-sandbox pytest는 절단으로 실패. **/tmp 동일 패치본(495줄)이 86 passed = 권위 검증**. Windows 원본은 완결(Codex pytest 권위).
+- [코드 영향] frontend tsc/lint/build은 **backend 무관**(변경 0) → 영향 없음. 원본 PDF 미사용·미커밋.
+- [ ] Windows(Codex): `cd backend && python -m pytest -q`(전체)·`npx tsc app/node`·`npm run lint`·`npm run build`.
+
+### Next
+- Codex(Windows): 전체 pytest + tsc/lint/build → 061 범위 파일 한국어 커밋(`BOHUMFIT-061: 입원 admission 단위 집계(0일 무시·같은날 다른병원 분리)+KCD3 그룹핑+일반의 보존`) → push. (마운트 git 미실행.)
+
+## 2026-06-15 Cowork BOHUMFIT-060 [진단 완료(읽기 전용·코드 무변경) / Next: Human(061 승인)]
+### 진단 범위·제약
+- 실제 PDF(자동차보험_기본진료정보-장기범.pdf)는 **샌드박스 미보유**(uploads 비어 있음 — PII 미커밋, 규정 준수). → `pdf_parser` 단계는 **정적 분석**, `disease_aggregator`→`filters` 단계는 **합성 행으로 실파이프라인 재현**(코드 무변경, 읽기 전용 실행).
+
+### 근본 원인 (코드 증거)
+입원 이벤트의 **식별 단위가 (disclosure그룹코드, 진료개시일)뿐**이고, 병원명·개별 입원(admission)은 식별에 포함되지 않는다.
+- `disease_aggregator.py` L321 `s["inpatient_dates"].add(clean_date)` — **날짜 set**(코드별 `s`). L323-324 `_inpatient_days_map[date]=max(prev, m_days)` — **날짜별 max 일수**. L341-342 `hospital_dates.setdefault(clean_date, hospital)` — 병원명도 **날짜 키**(첫 병원만).
+- `filters.py` L564 `inpatient_count=len(inp_10y)`(=창 내 **distinct 날짜 수**), L550 `inp10y_days=sum(max/date)`. → **입원 '건수'가 아니라 '날짜 수'**, 일수는 날짜별 max 합.
+- 집계 전 **drop 게이트 2종**: `build_disease_stats` L214 `if not clean_date or not code_str: continue`(상병코드 공란/`$` → 입원 행 통째 누락), L220/268 `진단과=='일반의' & not _keep_basic_general_row(코드)` → drop(`_keep_basic_general_row`는 **M54만 True**, helpers L173).
+
+### 증거 — 합성 재현(실 build_disease_stats + filters._dts_in_range, 기준일 2026-06-15·5년창)
+| 시나리오 | 결과 | 판정 |
+|---|---|---|
+| A. 같은날짜+같은코드(리치한방6/인화재단2) | 날짜1·**count=1·days=6**, hosp=리치한방만 | **과소집계**(인화재단2일·병원 손실) → H1·H5 |
+| B. 다른날짜+같은코드 | 날짜2·count=2·days=8 | 정상(기대값) |
+| C. 다른코드+같은날짜 | 코드별 2아이템·각 count=1 | 2건이 2개 질병아이템으로 분산(표시 의존) |
+| D. 한 행 상병코드 공란 | 공란행 drop·**count=1** | **누락** → H3 |
+| E. 진단과='일반의'+비M54 | disease_stats **EMPTY(0건)** | **전량 누락** → H4 |
+| F. #47(0일)+#48(6일)+#49(2일) 같은코드·0일 별도날짜 | **count=3**·days=8(0일 날짜 포함) | **과집계**(0일 입원이 1건) → H2 |
+
+### 가설 검증 결과
+- H1(코드+날짜 set 병합 과소집계): **확인**(A·D). H2(0일 입원 과집계): **확인**(F). H3(코드 공란 drop): **확인**(D). H4(일반의&비M54 drop): **확인**(E, 단 '진단과' 컬럼 존재 시에만 발동 — get_val 키 `진단과`). H5(병원 날짜키 손실): **확인**(A).
+- **기대 2건이 정확히 나오는 경우는 B(다른 날짜+같은 코드)뿐**. 실제 PDF에서 어떤 메커니즘이 발동했는지는 **(추론)** — PDF 미보유로 #47/#48/#49의 실제 상병코드·진료개시일 확인 불가. 증상(0일 행 #47 존재)상 **H2 과집계(3건) 또는 H1 병합(1건)** 가능성이 높음(추론).
+
+### 제안 수정 방향 (구현 금지 — 061에서)
+1. 입원 식별을 **admission 단위**로: (코드, 진료개시일, 요양기관명) 또는 입원기간(start+요양일수) 구간 기준 카운트 → 같은 날짜 다른 병원/에피소드 분리.
+2. **0일 입원**은 입원 건수에서 제외(또는 '당일 입퇴원' 별도 표기) → #47 과집계 방지.
+3. 상병코드 공란 입원 행을 통째 drop하지 말고 **입원 사실은 별도 트랙 보존**(코드 없는 입원도 입원 이력 반영).
+4. `진단과=='일반의'` drop 규칙이 **입원 행에는 적용되지 않도록** 예외화.
+5. 병원명을 **입원 이벤트별 보존**(날짜 키 setdefault 탈피).
+- 변경 시 회귀 테스트 필수(아래 익명 픽스처).
+
+### 익명화 픽스처 초안 (PII 없음 — 061 회귀 테스트용)
+```python
+# 5년 내 입원 2건이 정확히 2건/각 일수로 반영돼야 한다.
+RECORDS = [
+  {"진료개시일":"2024-03-10","요양기관명":"한방병원A","입내원구분":"입원","요양일수":"6","상병코드":"S335","상병명":"요추 염좌","_ftype":"basic"},
+  {"진료개시일":"2024-03-10","요양기관명":"요양병원B","입내원구분":"입원","요양일수":"2","상병코드":"S335","상병명":"요추 염좌","_ftype":"basic"},
+  {"진료개시일":"2024-03-09","요양기관명":"한방병원A","입내원구분":"입원","요양일수":"0","상병코드":"S335","상병명":"요추 염좌","_ftype":"basic"},
+]
+# 기대(수정 후): 5년내 입원 admission 2건(6일·2일), 0일 행은 입원건수 제외, 병원 2곳 보존.
+```
+
+### Verified / Notes
+- [x] 읽기 전용: 파이프라인 파일 무수정. 합성 재현은 모듈 import 후 호출(파일 변경 0).
+- [x] 원본 PDF 미사용(미보유) → PII 노출·커밋 0.
+- [코드 무변경] tsc/pytest 불필요(진단 전용).
+
+### Next
+- **Human**: 위 근본원인·증거 검토 후 **수정 태스크 BOHUMFIT-061 승인 여부 결정**(우선순위: H1 병합/H2 0일/H3 공란/H4 일반의 중 어디까지 고칠지). 승인 시 Cowork가 회귀테스트 동반 수정 → Codex Windows 검증·커밋.
 
 ## 2026-06-15 17:22 Codex BOHUMFIT-058 [Windows authority verification / publish]
 ### Changed

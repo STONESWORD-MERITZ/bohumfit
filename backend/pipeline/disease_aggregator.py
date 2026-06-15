@@ -33,6 +33,7 @@ from .helpers import (
     row_is_junk,
     test_keywords,
 )
+from .surgery_exclusions import is_non_surgery_excluded  # BOHUMFIT-062
 
 
 def new_disease():
@@ -156,6 +157,8 @@ _DETAIL_CONFIRMED_SURGERY_KEYWORDS = (
 
 def _is_detail_surgery_match(text: str) -> bool:
     if not text or _is_detail_support_only(text):
+        return False
+    if is_non_surgery_excluded(text):  # BOHUMFIT-062: 비수술 코드명 전역 제외
         return False
     compact = re.sub(r"\s+", "", text)
     return (
@@ -457,7 +460,7 @@ def build_disease_stats(
                 else:
                     s["visit_dates"].add(clean_date)
                     s.setdefault("visit_events", []).append(clean_date)
-                if _is_surgery_match(name_str) or any(kw in name_str for kw in nhis_surg_keywords):
+                if (_is_surgery_match(name_str) or any(kw in name_str for kw in nhis_surg_keywords)) and not is_non_surgery_excluded(name_str):
                     s["surgeries"].add(name_str)
                     if clean_date: s["surgery_dates"].add(clean_date)
                 for kw in test_keywords:

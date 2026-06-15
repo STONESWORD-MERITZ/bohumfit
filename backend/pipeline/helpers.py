@@ -9,6 +9,8 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 
+from .surgery_exclusions import is_non_surgery_excluded  # BOHUMFIT-062
+
 # ── keywords.json 로딩 ────────────────────────────────────────────
 _KW_PATH = os.path.join(os.path.dirname(__file__), "..", "keywords.json")
 
@@ -223,6 +225,8 @@ def row_is_junk(row) -> bool:
 
 def _is_surgery_match(text: str) -> bool:
     if not text:
+        return False
+    if is_non_surgery_excluded(text):  # BOHUMFIT-062: 비수술 코드명 전역 제외
         return False
     has_positive = any(kw in text for kw in surg_keywords)
     if not has_positive:
