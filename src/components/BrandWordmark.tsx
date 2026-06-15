@@ -1,4 +1,4 @@
-// BOHUMFIT-051: 텍스트 로고 락업 "BOHUMFIT 보험핏" (워드마크 이미지 대체, 재사용).
+// BOHUMFIT-051: 텍스트 로고 락업 "BohumFit 보험핏" (워드마크 이미지 대체, 재사용).
 // - 영문 메인(굵게·잉크) + 한글 보조(작게·muted). 포인트는 마침표(.)만 그린(accent-600).
 // - 사이트 폰트(Pretendard) 그대로 — 별도 웹폰트 추가 없음. 색 토큰(ink/accent) 참조.
 // - 핏히어 "FitHere 핏히어" 락업과 같은 결(영문 메인 + 한글 보조).
@@ -24,7 +24,7 @@ export default function BrandWordmark({ size = "md", className = "" }: BrandWord
   return (
     <span className={`inline-flex items-baseline gap-1.5 ${className}`}>
       <span className={`font-extrabold tracking-tight text-ink-900 ${EN_SIZE[size]}`}>
-        BOHUMFIT<span className="text-accent-600">.</span>
+        BohumFit<span className="text-accent-600">.</span>
       </span>
       <span className={`font-semibold text-ink-soft ${KO_SIZE[size]}`}>보험핏</span>
     </span>

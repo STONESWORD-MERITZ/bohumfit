@@ -16,6 +16,33 @@
 
 # Handoff
 
+## 2026-06-15 Codex BOHUMFIT-052 [Windows authority verification / publish]
+### Changed
+- `src/components/BrandWordmark.tsx`: visible lockup changed from `BOHUMFIT.` to `BohumFit.`; green period remains `accent-600`.
+- `index.html`: `<title>` and `og:title` changed to `BohumFit`; `og:image` reference corrected from `/og-image.png` to `/og-image.svg`.
+- `public/og-image.svg`: brand text changed from `BOHUMFIT` to `BohumFit`; existing green color retained.
+- `.agent-harness/tasks/BOHUMFIT-052-camelcase-og.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md`: 052 task and verification records.
+
+### Verified
+- [x] Scope gate: only BrandWordmark, index.html, og-image.svg, task/handoff/locks changed. No domain, code identifier, formula, backend, or color/tint changes.
+- [x] Windows integrity: edited TSX/HTML/SVG/task files UTF-8 decode OK, NUL 0, replacement char 0.
+- [x] `npx tsc -p tsconfig.app.json --noEmit`
+- [x] `npx tsc -p tsconfig.node.json --noEmit`
+- [x] `npm run lint`
+- [x] `npm test` -> 39 passed.
+- [x] `npm run build` -> passed; existing Vite chunk-size warning only.
+- [x] Dev smoke at `127.0.0.1:5184`: Home/Login title is `BohumFit — 보험 고지 리스크 AI 점검`; lockups render `BohumFit.` + `보험핏`; period color is `rgb(21, 102, 61)`; visible Korean replacement char count 0.
+- [x] OG smoke: `/og-image.svg` returns 200 and contains `BohumFit`; `og:image` meta points to `/og-image.svg`.
+
+### Notes
+- Broader body-copy spelling sweep is intentionally deferred to BOHUMFIT-053.
+- Optional `og-image.png` export remains a future choice if a PNG fallback is desired for crawlers that dislike SVG OG images.
+- While finalizing 052, BOHUMFIT-053 body-copy/hero-spacing changes appeared in the working tree; they are explicitly excluded from this commit.
+- Final commit hash is reported in chat after push because a commit cannot reliably contain its own final hash without a separate bookkeeping commit.
+
+### Next
+- BOHUMFIT-053: body copy/display-name sweep for any remaining product-name casing inconsistencies.
+
 ## 2026-06-15 Codex BOHUMFIT-051 [Windows authority verification / publish]
 ### Changed
 - `src/components/BrandWordmark.tsx`: text lockup finalized as `BOHUMFIT.` + `보험핏`; green period uses `accent-600`.

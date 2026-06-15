@@ -9,7 +9,7 @@
   <rect width="1200" height="630" fill="url(#bg)"/>
   <g transform="translate(80,180)">
     <text x="0" y="0" font-family="system-ui, -apple-system, 'Segoe UI', Pretendard, sans-serif"
-          font-size="28" font-weight="700" fill="#15663D">BOHUMFIT</text>
+          font-size="28" font-weight="700" fill="#15663D">BohumFit</text>
     <text x="0" y="100" font-family="system-ui, -apple-system, Pretendard, sans-serif"
           font-size="76" font-weight="800" fill="#0F172A">
       가입 전 고지 리스크를
