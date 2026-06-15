@@ -5,7 +5,7 @@ import { supabase } from "../lib/supabase";
 import Button from "../components/ui/Button";
 import Callout from "../components/ui/Callout";
 import { TextInput } from "../components/ui/Field";
-import logo from "../assets/brand/bohumfit_logo.svg";
+import BrandWordmark from "../components/BrandWordmark";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -46,8 +46,7 @@ export default function Login() {
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <h1>
-            <img src={logo} alt="BOHUMFIT" className="mx-auto h-9 w-auto" />
-            <span className="sr-only">BOHUMFIT</span>
+            <BrandWordmark size="lg" />
           </h1>
           <p className="mt-3 text-body text-ink-soft">보험 고지 리스크 점검을 시작하세요</p>
         </div>

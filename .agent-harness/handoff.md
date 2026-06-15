@@ -16,6 +16,82 @@
 
 # Handoff
 
+## 2026-06-15 Codex BOHUMFIT-051 [Windows authority verification / publish]
+### Changed
+- `src/components/BrandWordmark.tsx`: text lockup finalized as `BOHUMFIT.` + `보험핏`; green period uses `accent-600`.
+- `src/components/Layout.tsx`, `src/components/Footer.tsx`, `src/pages/Login.tsx`, `src/pages/HomeMission.tsx`: image logo imports removed and shared `BrandWordmark` applied.
+- `public/favicon.svg`: favicon recolored to deep forest green (`#15663D`, P3 override included) while existing blue accent remains.
+- `index.html`: `theme-color` changed to `#15663D`.
+- `public/og-image.svg`: legacy indigo point color changed to `#15663D`.
+- `.agent-harness/tasks/BOHUMFIT-051-text-logo-favicon.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md`: 051 task and verification records.
+
+### Verified
+- [x] Scope gate: allowed 051 files only. No `src/index.css`, 050 files, formula libs, analyzer, filters, pipeline logic changes.
+- [x] Logo source assets preserved: `src/assets/brand/bohumfit_logo.svg` and `_white.svg` still exist; no source logo deletion.
+- [x] Windows integrity: edited TSX/SVG/HTML/task files UTF-8 decode OK, NUL 0, replacement char 0.
+- [x] `bohumfit_logo` imports in `src/` are 0.
+- [x] `favicon.svg` contains `#15663D`/`#E3F0E8`, has no violet `#7e14ff`, `#863bff`, `#4F46E5`, `#5955DE`; SVG closes normally.
+- [x] `npx tsc -p tsconfig.app.json --noEmit`
+- [x] `npx tsc -p tsconfig.node.json --noEmit`
+- [x] `npm run lint`
+- [x] `npm test` -> 39 passed.
+- [x] `npm run build` -> passed; existing Vite chunk-size warning only.
+- [x] Browser smoke at `127.0.0.1:5183`: nav/login/footer/mission wordmarks render as `BOHUMFIT.` + `보험핏`; period color `rgb(21, 102, 61)`; nav logo click returns home; visible Korean replacement char count 0.
+- [x] Metadata smoke: `theme-color` is `#15663D`; favicon fetch returns 200 and green SVG.
+
+### Notes
+- `og:image` still points to `/og-image.png` while the repo has `public/og-image.svg`; fix in BOHUMFIT-052.
+- CamelCase lockup change is deferred to BOHUMFIT-052; 051 keeps requested uppercase `BOHUMFIT.`.
+- Favicon blue accent `#47bfff` remains intentionally outside the violet cleanup scope.
+- Final commit hash is reported in chat after push because a commit cannot reliably contain its own final hash without an extra bookkeeping commit.
+
+### Next
+- BOHUMFIT-052: `og:image` path/asset correction and CamelCase lockup decision.
+
+## 2026-06-15 Cowork BOHUMFIT-051 [구현+/tmp 검증 완료 / Codex Windows tsc·build·커밋 → Human 육안(탭 파비콘)]
+### Changed (색·로고 표시 외 변경 0)
+- `src/components/BrandWordmark.tsx`(신규) — 텍스트 로고 락업 "BOHUMFIT 보험핏". 영문 `BOHUMFIT`(extrabold·`text-ink-900` 잉크) + 마침표 `.` 그린(`text-accent-600`=#15663D) + 한글 `보험핏`(`text-ink-soft` muted). size sm/md/lg(Pretendard, 웹폰트 추가 0).
+- `src/components/Layout.tsx` — 네비 BrandLogo: `<img logo>`→`<BrandWordmark size="md">`, Link `aria-label="보험핏 홈"`·홈(/) 유지, logo import 제거.
+- `src/components/Footer.tsx` — `<BrandWordmark size="sm">`, logo import 제거.
+- `src/pages/HomeMission.tsx` — `<BrandWordmark size="sm" className="mb-6">`, logo import 제거.
+- `src/pages/Login.tsx` — `<h1><BrandWordmark size="lg"></h1>`(중앙은 부모 text-center), sr-only 제거(락업 텍스트가 접근명 제공), logo import 제거.
+- `index.html` — `theme-color #4F46E5`(구 인디고)→`#15663D`.
+- `public/favicon.svg`(보라 번개) — 보라 hex+display-p3 override 그린화: `#7e14ff`/`#863bff`→`#15663D`(+p3 `.082 .4 .239`), `#ede6ff`→`#E3F0E8`(+p3 `.89 .94 .91`). 블루 `#47bfff`(보라 아님)는 유지.
+- `public/og-image.svg` — `#4F46E5`→`#15663D`.
+- `.agent-harness/tasks/BOHUMFIT-051-text-logo-favicon.md`(신규), handoff/locks.
+- **무수정**: 산식·라우팅·기능·카피.
+
+### 락업 형식 / 적용 4곳
+| 위치 | size | 비고 |
+|---|---|---|
+| 네비(Layout) | md(text-lg) | Link `aria-label="보험핏 홈"`, 홈 이동 |
+| 로그인(Login) | lg(text-2xl) | `<h1>` 내, 부모 text-center로 중앙, sr-only 제거 |
+| 푸터(Footer) | sm(text-base) | |
+| 미션(HomeMission) | sm | `mb-6` |
+- 색: 영문 잉크(ink-900≈#1A1A1E)·한글 muted(ink-soft #475569)·마침표만 그린(#15663D). "FitHere 핏히어" 결(영문 메인+한글 보조).
+
+### 파비콘·메타 처리
+- 파비콘 = **SVG**(`public/favicon.svg`, `<link rel="icon" type="image/svg+xml">`) → 코드로 그린화 완료. ⚠ `style`에 `color(display-p3 …)` 와이드개멋 override가 같이 있어 **p3 값까지 그린으로** 교체(안 하면 p3 지원 브라우저에서 보라 유지됨).
+- 블루 액센트 `#47bfff`(×2)는 보라가 아니라 유지 — 그린 단색이 더 좋으면 후속 조정 가능(handoff 제안).
+- theme-color(모바일 주소창)·og-image.svg 그린.
+- ⚠ **og:image 불일치(기존 이슈)**: `index.html`은 `content="/og-image.png"` 참조이나 실제 파일은 `public/og-image.svg`(png 부재). 이번 범위 밖 — png 생성 또는 메타 경로 정정 필요(Human/후속).
+
+### 미사용 에셋 보존
+- `src/assets/brand/bohumfit_logo.svg`·`_white.svg` **삭제 안 함**(import 0, 미사용 보존). 워드마크 포인트 `#5955DE`는 이번 미변경 — 정식 로고 재제작 예정(재제작 시 #15663D 정합 제안).
+
+### Verified
+- [x] /tmp strict tsc: `BrandWordmark.tsx` 통과.
+- [x] 마커: 4곳 BrandWordmark 사용, `bohumfit_logo` import **0**, 에셋 파일 존재(보존).
+- [x] favicon Windows 원본(Read 권위) 유효: 락업 main `#15663D`+p3, 하이라이트 `#E3F0E8`, 블루 `#47bfff` 유지, 보라 잔재 0, `</svg>` 정상 종료.
+- [x] 보라 잔재 grep(favicon/og/meta) **0**(블루 제외), src 보라 0(050 유지, 로고 #5955DE만).
+- [x] 그린 대비: 마침표 #15663D/white 7.00, 한글 ink-soft #475569/white 7.58, 영문 ink-900 매우 높음 — ≥4.5. 포레스트.
+- [⚠] **마운트 truncation + 스크린샷/탭 미확인**: 편집 컴포넌트·favicon 마운트 뷰 NUL → 전체 tsc/build·화면/탭 파비콘 육안 미실행(BrandWordmark·favicon은 Windows 원본 권위로 확인).
+- [ ] Windows: `npx tsc`(app/node)·`npm run lint`·`npm run build` + 네비/로그인/푸터/미션 락업·브라우저 탭 파비콘(그린) 육안 — Codex/Human.
+
+### Next
+- Codex(Windows): tsc/lint/build → 051 범위 파일 한국어 커밋(`BOHUMFIT-051: 텍스트 로고 락업(BOHUMFIT 보험핏)+파비콘/메타 그린`) → push. (마운트 git 미실행.)
+- Human: 화면 4곳 락업·브라우저 탭 파비콘 그린 육안. og:image png/svg 불일치·로고 재제작·favicon 블루 액센트 처리 결정.
+
 ## 2026-06-14 Codex BOHUMFIT-050 [Windows authority verification / publish]
 ### Changed
 - `src/pages/Disclosure.tsx`, `src/pages/InsuranceCalculator.tsx`, `src/pages/Signup.tsx`, `src/pages/BeforeAfter.tsx`, `src/components/ConsentGate.tsx`: 하드코딩 보라 hex/rgba 잔재를 딥 포레스트 그린 토큰 또는 직접 그린 값으로 치환.
@@ -3885,12 +3961,12 @@ Remaining:
 
 Changed:
 
-- 
+-
 
 Verified:
 
-- 
+-
 
 Remaining:
 
-- 
+-

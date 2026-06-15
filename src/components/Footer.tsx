@@ -1,7 +1,7 @@
 // BOHUMFIT-045: Mercury 라이트 푸터 — 문구·링크 불변(시각 계층만).
 // BOHUMFIT-050: 텍스트 워드마크 → 브랜드 로고(라이트 배경이라 컬러 버전).
 import { Link } from "react-router-dom";
-import logo from "../assets/brand/bohumfit_logo.svg";
+import BrandWordmark from "./BrandWordmark";
 
 const BIZ = {
   serviceName: "BOHUMFIT",
@@ -14,7 +14,7 @@ export default function Footer() {
       <div className="mx-auto max-w-5xl px-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-1">
-            <img src={logo} alt="BOHUMFIT" className="h-6 w-auto" />
+            <BrandWordmark size="sm" />
             <p>
               서비스명: {BIZ.serviceName} · 문의: {BIZ.contact}
             </p>
