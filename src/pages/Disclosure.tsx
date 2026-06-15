@@ -48,6 +48,7 @@ type SummaryItem = {
   surgeries: string[];
   procedures?: string[];
   surgery_suspected?: string[];
+  surgery_suspected_grade?: string;  // BOHUMFIT-033: 공단 수술의심 등급(강/약/"")
   additional_test_hit?: boolean;
   additional_test_reason?: string;
   q2_suspicion?: string;
@@ -405,6 +406,20 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
               tone={(item.med_days ?? 0) >= 30 ? "amber" : (item.med_days ?? 0) > 0 ? "emerald" : "gray"}
             />
           )}
+        </div>
+      )}
+
+      {item.surgery_suspected_grade && (
+        <div className="mb-2 rounded-[8px] bg-amber-50 px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Chip
+              label={`수술 의심—확인 필요 (${item.surgery_suspected_grade})`}
+              tone={item.surgery_suspected_grade === "강" ? "red-light" : "amber"}
+            />
+          </div>
+          <p className="mt-1 text-[11px] leading-relaxed text-amber-700">
+            건보(공단) 자료엔 수술이 명시되지 않아, 진료비 기준으로 추정한 의심 항목입니다. 실제 수술 여부는 원자료로 확인이 필요합니다.
+          </p>
         </div>
       )}
 

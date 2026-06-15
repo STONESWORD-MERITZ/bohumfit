@@ -34,6 +34,7 @@ from .helpers import (
     test_keywords,
 )
 from .surgery_exclusions import is_non_surgery_excluded  # BOHUMFIT-062
+from .nhis_history_constants import grade_surgery_suspicion, stronger_grade  # BOHUMFIT-033
 
 
 def new_disease():
@@ -48,6 +49,7 @@ def new_disease():
         "procedure_dates": set(),
         "surgery_suspected_names": set(),
         "surgery_suspected_dates": set(),
+        "surgery_suspected_grade": "",  # BOHUMFIT-033: 공단 수술의심 최강 등급(강/약/"")
         "_daily_facts": {},
         "_inpatient_days_map": {},
         "chojin_count": 0,
@@ -204,6 +206,8 @@ def build_disease_stats(
     date_parse_fail_samples: list[str] = []
     future_date_count = 0
     empty_date_count = 0
+    # BOHUMFIT-033: 공단(nhis)은 5~10년 전용 — 5년 이내(심평원 담당)는 반영하지 않는 경계.
+    _nhis_floor_str = _subtract_years(today, 5).strftime("%Y-%m-%d")
 
     for _, row in df.iterrows():
         ftype = str(row.get("_ftype", "unknown"))
@@ -442,29 +446,44 @@ def build_disease_stats(
                     if days_ago <= 90: s["drug_names_in_90"].add(drug)
                     else: s["drug_names_before_90"].add(drug)
             elif ftype == "nhis":
-                if in_out == "입원":
-                    if m_days > 0:  # BOHUMFIT-061: 0일 입원 무시
-                        s["inpatient_dates"].add(clean_date)
-                        s["inpatient_admissions"].add((clean_date, _norm_provider_name(hospital)))
-                        prev_inp = s["_inpatient_days_map"].get(clean_date, 0)
-                        s["_inpatient_days_map"][clean_date] = max(prev_inp, m_days)
-                        s.setdefault("inpatient_periods", []).append({
-                            "start": clean_date,
-                            "end": _add_days(clean_date, m_days),
-                            "days": m_days,
-                        })
-                        if _add_days(clean_date, m_days) > s["latest_date"]:
-                            s["latest_date"] = _add_days(clean_date, m_days)
-                elif in_out == "약국":
-                    s["has_pharma"] = True
+                # BOHUMFIT-033: 공단 요양급여내역 = 5~10년 입원·수술'의심' 전용.
+                #  - 5년 이내(심평원 담당)는 반영하지 않는다(경계: clean_date >= 5년 → 스킵).
+                #  - 수술은 자동 확정 금지: 진료비·입내원구분·키워드로 '의심(강/약)' 등급만 부여.
+                #  - 심평원(basic/detail) 확정 수술 경로는 건드리지 않는다.
+                if not clean_date or clean_date >= _nhis_floor_str:
+                    pass  # 5년 이내 공단 레코드 무시(역할 한정)
                 else:
-                    s["visit_dates"].add(clean_date)
-                    s.setdefault("visit_events", []).append(clean_date)
-                if (_is_surgery_match(name_str) or any(kw in name_str for kw in nhis_surg_keywords)) and not is_non_surgery_excluded(name_str):
-                    s["surgeries"].add(name_str)
-                    if clean_date: s["surgery_dates"].add(clean_date)
-                for kw in test_keywords:
-                    if kw in name_str: s["tests_found"].add(name_str); break
+                    if in_out == "입원":
+                        if m_days > 0:  # BOHUMFIT-061: 0일 입원 무시
+                            s["inpatient_dates"].add(clean_date)
+                            s["inpatient_admissions"].add((clean_date, _norm_provider_name(hospital)))
+                            prev_inp = s["_inpatient_days_map"].get(clean_date, 0)
+                            s["_inpatient_days_map"][clean_date] = max(prev_inp, m_days)
+                            s.setdefault("inpatient_periods", []).append({
+                                "start": clean_date,
+                                "end": _add_days(clean_date, m_days),
+                                "days": m_days,
+                            })
+                            if _add_days(clean_date, m_days) > s["latest_date"]:
+                                s["latest_date"] = _add_days(clean_date, m_days)
+                    elif in_out == "약국":
+                        s["has_pharma"] = True
+                    # 외래는 통원으로 세지 않는다(공단=입원·수술의심 전용).
+
+                    # 수술 '의심' 등급(자동 확정 금지) — nhis 분기 한정.
+                    _has_surg_kw = _is_surgery_match(name_str) or any(kw in name_str for kw in nhis_surg_keywords)
+                    _grade = grade_surgery_suspicion(
+                        in_out, cost_val, _has_surg_kw, is_non_surgery_excluded(name_str),
+                    )
+                    if _grade:
+                        s["surgery_suspected_names"].add(name_str)
+                        if clean_date:
+                            s["surgery_suspected_dates"].add(clean_date)
+                        s["surgery_suspected_grade"] = stronger_grade(
+                            s.get("surgery_suspected_grade", ""), _grade,
+                        )
+                    for kw in test_keywords:
+                        if kw in name_str: s["tests_found"].add(name_str); break
 
             if ftype in ("basic", "unknown"):
                 if _is_surgery_match(name_str):

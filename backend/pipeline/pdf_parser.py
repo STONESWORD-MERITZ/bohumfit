@@ -130,8 +130,46 @@ def _open_pdf(data, bdate_str):
     raise ValueError("PDF 비밀번호 해제 실패 — 생년월일을 확인해 주세요.")
 
 
+# BOHUMFIT-033: 공단 요양급여내역 발급기간(조회기간) 추출용.
+_NHIS_PERIOD_RE = re.compile(
+    r'(?:발급|조회|진료|작성)\s*기간[^\d]{0,6}'
+    r'(\d{4}[.\-]\d{2}[.\-]\d{2})\s*[~\-]\s*(\d{4}[.\-]\d{2}[.\-]\d{2})'
+)
+_NHIS_PERIOD_FALLBACK_RE = re.compile(
+    r'(\d{4}\.\d{2}\.\d{2})\s*~\s*(\d{4}\.\d{2}\.\d{2})'
+)
+# 금액 토큰: 4자리 이상(콤마 허용). 일수·순번 같은 소수 자릿수는 제외.
+_NHIS_AMOUNT_RE = re.compile(r'\d[\d,]{3,}')
+
+
+def _extract_nhis_issue_period(text: str) -> str:
+    """발급/조회기간 'YYYY.MM.DD ~ YYYY.MM.DD' 를 추출(없으면 '')."""
+    m = _NHIS_PERIOD_RE.search(text)
+    if not m:
+        m = _NHIS_PERIOD_FALLBACK_RE.search(text)
+    if not m:
+        return ""
+    norm = lambda d: d.replace("-", ".")
+    return f"{norm(m.group(1))} ~ {norm(m.group(2))}"
+
+
+def _extract_nhis_total_cost(line: str) -> int:
+    """공단 행에서 총진료비(=진료비총액, 공단부담+본인부담의 합)를 추정.
+
+    같은 줄의 금액 토큰(4자리+) 중 최댓값을 진료비총액으로 본다(공단+본인 = 총액).
+    """
+    vals = []
+    for tok in _NHIS_AMOUNT_RE.findall(line):
+        try:
+            vals.append(int(tok.replace(",", "")))
+        except ValueError:
+            continue
+    return max(vals) if vals else 0
+
+
 def parse_nhis_text(text, fname):
     records = []
+    issue_period = _extract_nhis_issue_period(text)
     lines = [l.strip() for l in text.split('\n') if l.strip()]
     date_re  = re.compile(r'^(\d{4}\.\d{2}\.\d{2})\s+\d+\s+(.+?)\s+\d{2,4}-\d{3,4}-\d{4}')
     visit_re = re.compile(r'^(외래|입원|약국)\s+(\d+)\s*(.*)')
@@ -149,7 +187,8 @@ def parse_nhis_text(text, fname):
         if seq_re.match(line) and cur_date:
             i += 1
             if i < len(lines):
-                m_v = visit_re.match(lines[i])
+                visit_line = lines[i]
+                m_v = visit_re.match(visit_line)
                 if m_v:
                     in_out_v = m_v.group(1)
                     if in_out_v == "약국":
@@ -167,6 +206,7 @@ def parse_nhis_text(text, fname):
                             break
                     if not name_v and not code_v:
                         name_v = rest
+                    total_cost = _extract_nhis_total_cost(visit_line)  # BOHUMFIT-033
                     if name_v or code_v:
                         records.append({
                             "진료개시일": cur_date,
@@ -175,6 +215,8 @@ def parse_nhis_text(text, fname):
                             "요양일수":   days_v,
                             "상병명":     name_v,
                             "상병코드":   code_v,
+                            "총진료비":   str(total_cost),  # BOHUMFIT-033: 공단+본인 합(=총액)
+                            "_issue_period": issue_period,  # BOHUMFIT-033: 파일별 발급기간
                             "_ftype":     "nhis",
                             "_fname":     fname,
                         })

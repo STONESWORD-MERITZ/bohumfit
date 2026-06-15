@@ -226,6 +226,7 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
             "procedure_dates":         _proc_dates,
             "surgery_suspected":       _surg_susp,
             "surgery_suspected_dates": _surg_susp_dates,
+            "surgery_suspected_grade": _ds.get("surgery_suspected_grade", "") if _ds else "",  # BOHUMFIT-033
             "additional_tests":        _additional_tests,
             "additional_test_hit":     _add_test_hit,
             "additional_test_reason":  _add_test_reason,
