@@ -12,7 +12,7 @@ type AudienceMode = "customer" | "agent";
 
 function connectionErrorMessage(apiBase: string): string {
   if (typeof console !== "undefined") {
-    console.error("[BOHUMFIT] API 연결 실패:", apiBase);
+    console.error("[보험핏] API 연결 실패:", apiBase);
   }
   return "서버에 연결하지 못했어요. 인터넷 연결을 확인하시고 잠시 후 다시 시도해 주세요. 문제가 계속되면 관리자에게 문의해 주세요.";
 }
@@ -538,7 +538,7 @@ function DisclaimerBox() {
     <div className="mt-5 rounded-[8px] border border-gray-200 bg-gray-50 p-4 text-[11px] leading-5 text-gray-500">
       <p className="font-bold text-gray-600">분석 결과 이용 시 유의사항</p>
       <p className="mt-1.5 break-keep">
-        BohumFit 결과는 업로드한 진료자료를 바탕으로 AI가 산출한 <b className="font-bold">참고용 보조자료</b>이며,
+        보험핏 결과는 업로드한 진료자료를 바탕으로 AI가 산출한 <b className="font-bold">참고용 보조자료</b>이며,
         의학적 진단이나 보험 가입·인수·보험금 지급 여부를 확정하지 않습니다. 실제 알릴의무(고지) 대상과 범위는
         보험사별 청약서 문항·약관·인수지침에 따라 달라질 수 있으므로, 청약 전 반드시 해당 청약서
         문항과 대조해 주세요. 고지 누락에 대한 최종 책임은 청약자 본인에게 있으며, 본 서비스는
@@ -1440,7 +1440,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
           />
           <span className="break-keep">
             업로드하는 진료자료에는 <b className="font-bold text-gray-700">민감정보(건강에 관한 정보)</b>가 포함됩니다.
-            고지 리스크 점검 목적의 처리에 동의하며, 자료는 분석 직후 BohumFit 서버에서 폐기되고 서비스 데이터베이스에 저장되지 않습니다.
+            고지 리스크 점검 목적의 처리에 동의하며, 자료는 분석 직후 보험핏 서버에서 폐기되고 서비스 데이터베이스에 저장되지 않습니다.
             <Link to="/privacy" className="ml-1 underline hover:text-gray-800">개인정보처리방침</Link>
           </span>
         </label>
@@ -1454,7 +1454,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
               className="mt-0.5 h-4 w-4 shrink-0 accent-[#15663D]"
             />
             <span className="break-keep">
-              고객 등 제3자의 진료자료를 업로드하는 경우, 정보주체에게 BohumFit 분석 목적·민감정보 처리·AI 위탁 처리 내용을 안내했고
+              고객 등 제3자의 진료자료를 업로드하는 경우, 정보주체에게 보험핏 분석 목적·민감정보 처리·AI 위탁 처리 내용을 안내했고
               업로드 및 분석에 필요한 동의를 확보했습니다.
             </span>
           </label>

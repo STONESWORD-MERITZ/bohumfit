@@ -3,7 +3,7 @@
 import { Link } from "react-router-dom";
 import Badge from "../components/ui/Badge";
 import Card from "../components/ui/Card";
-import BrandWordmark from "../components/BrandWordmark";
+import Logo from "../components/Logo";
 
 const VALUES = [
   {
@@ -24,7 +24,7 @@ export default function HomeMission() {
   return (
     <section id="mission" className="scroll-mt-20 py-24">
       <div className="mx-auto max-w-4xl px-6">
-        <BrandWordmark size="sm" className="mb-6" />
+        <Logo size={28} className="mb-6" />
         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent-600">Our Mission</p>
         <h2 className="mt-4 text-3xl font-extrabold leading-snug tracking-tight text-ink-900 md:text-4xl break-keep">
           보험은 가입보다 점검이 먼저입니다
@@ -42,7 +42,7 @@ export default function HomeMission() {
           </p>
           <p>
             그래서 회사를 나왔습니다. 고지사항을 비롯한 고객의 권리를 지키는 시스템과 조직을 만들기
-            위해서입니다. BohumFit은 건강보험심사평가원 원자료를 분석해, 고객과 설계사가 함께 확인해야 할
+            위해서입니다. 보험핏은 건강보험심사평가원 원자료를 분석해, 고객과 설계사가 함께 확인해야 할
             고지 리스크를 한 화면에 정리합니다.
           </p>
           <p className="font-semibold text-ink-900">

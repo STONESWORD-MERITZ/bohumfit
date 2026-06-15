@@ -5,7 +5,7 @@ import { supabase } from "../lib/supabase";
 import Button from "../components/ui/Button";
 import Callout from "../components/ui/Callout";
 import { TextInput } from "../components/ui/Field";
-import BrandWordmark from "../components/BrandWordmark";
+import Logo from "../components/Logo";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -46,7 +46,7 @@ export default function Login() {
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <h1>
-            <BrandWordmark size="lg" />
+            <Logo size={44} />
           </h1>
           <p className="mt-3 text-body text-ink-soft">보험 고지 리스크 점검을 시작하세요</p>
         </div>

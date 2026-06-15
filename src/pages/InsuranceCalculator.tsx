@@ -173,14 +173,14 @@ export default function InsuranceCalculator() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `BOHUMFIT-insurance-${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.download = `보험핏-insurance-${new Date().toISOString().slice(0, 10)}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "리포트 생성 중 오류가 발생했습니다.";
-      setReportError(`${msg} BohumFit 리포트 PDF 생성 환경을 확인해 주세요.`);
+      setReportError(`${msg} 보험핏 리포트 PDF 생성 환경을 확인해 주세요.`);
     } finally {
       setReportLoading(false);
     }

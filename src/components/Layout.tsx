@@ -7,7 +7,7 @@ import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { ChevronDown, Menu, X } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
 import Footer from "./Footer";
-import BrandWordmark from "./BrandWordmark";
+import Logo from "./Logo";
 
 type SimpleItem = { kind: "link"; to: string; label: string };
 type MenuItem =
@@ -43,7 +43,7 @@ const LINK_IDLE = "font-medium text-ink-soft hover:text-ink-900 after:bg-transpa
 function BrandLogo({ onClick }: { onClick?: () => void }) {
   return (
     <Link to="/" onClick={onClick} className="shrink-0" aria-label="보험핏 홈">
-      <BrandWordmark size="md" />
+      <Logo size={30} />
     </Link>
   );
 }

@@ -16,6 +16,36 @@
 
 # Handoff
 
+## 2026-06-15 11:38 Codex BOHUMFIT-054 [Windows authority verification / publish]
+### Changed
+- `src/components/Logo.tsx`: official green emblem + Korean wordmark `보험핏` component added (`variant`, `size`, `inverted` supported).
+- `src/components/Layout.tsx`, `src/components/Footer.tsx`, `src/pages/Login.tsx`, `src/pages/HomeMission.tsx`: temporary `BrandWordmark` usage replaced with `Logo`.
+- `src/components/BrandWordmark.tsx`, `src/assets/brand/bohumfit_logo.svg`, `src/assets/brand/bohumfit_logo_white.svg`, `src/assets/brand/bohumfit_logo.png`: unused temporary/purple brand assets removed.
+- `index.html`, `public/favicon.svg`, `public/og-image.svg`: title/OG text switched to `보험핏`; favicon replaced with official green emblem (`#15663D`).
+- `src/pages/Home.tsx`, `src/pages/HomeMission.tsx`, `src/pages/Disclosure.tsx`, `src/pages/InsuranceCalculator.tsx`, `src/pages/PrivacyPolicy.tsx`, `src/pages/Terms.tsx`, `src/components/Footer.tsx`: user-facing `BohumFit`/`BOHUMFIT` display strings switched to `보험핏`.
+- `.agent-harness/tasks/BOHUMFIT-054-official-korean-brand-logo.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md`: task record and lock lifecycle.
+
+### Verified
+- [x] Scope gate: `.env*`, config files, migrations/prisma/db/seed, backend/PDF report templates, formula libs unchanged.
+- [x] Residue grep: visible `BohumFit`, `BOHUMFIT-insurance`, temp logo colors `#5955DE/#7C3AED/#6D28D9/#47bfff/#7e14ff`, and `BrandWordmark` references are 0 in `src public index.html`.
+- [x] Remaining `BOHUMFIT` in `src/` is task-ID/comment history only; domain `bohumfit.ai` is preserved.
+- [x] `npx tsc -p tsconfig.app.json --noEmit`
+- [x] `npx tsc -p tsconfig.node.json --noEmit`
+- [x] `npm run lint`
+- [x] `npm test` -> 39 passed.
+- [x] `npm run build` -> passed; existing Vite chunk-size warning only.
+- [x] Dev HTTP smoke at `127.0.0.1:5180`: title/OG use `보험핏`, favicon contains `#15663D`, favicon has no temp blue/violet/purple colors, OG SVG contains `보험핏`.
+- [x] `git diff --check` -> passed (CRLF warnings only).
+
+### Notes
+- The pasted instruction referenced Next.js `app/icon.svg`; this Vite app uses `public/favicon.svg` and `index.html`, so the equivalent files were updated.
+- Root scratch logo source files `로고.png`/`로고.svg` were untracked and removed after the official SVG path was embedded in `Logo.tsx` and `public/favicon.svg`.
+- Backend/PDF report branding remains out of this task because those strings are covered by backend report tests and should be updated with pytest adjustments if needed.
+
+### Next
+- Human: production visual check for header/login/footer/mission logo and browser tab favicon.
+- Optional follow-up: backend/PDF report display text sweep to `보험핏` with report test updates.
+
 ## 2026-06-15 Codex BOHUMFIT-053 [Windows authority verification / publish]
 ### Changed
 - `src/components/Footer.tsx`, `src/pages/Disclosure.tsx`, `src/pages/Home.tsx`, `src/pages/HomeMission.tsx`, `src/pages/InsuranceCalculator.tsx`, `src/pages/PrivacyPolicy.tsx`, `src/pages/Terms.tsx`: visible product-name body copy changed from `BOHUMFIT` to `BohumFit`.
