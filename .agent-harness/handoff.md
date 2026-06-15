@@ -16,6 +16,30 @@
 
 # Handoff
 
+## 2026-06-15 12:42 Codex BOHUMFIT-055 [Windows authority verification / publish]
+### Changed
+- `src/components/Logo.tsx`: header/site logo changed from emblem + `보험핏` to text-only FitHere-style wordmark `BohumFit 보험핏`; emblem/SVG/`variant` support removed from the header logo component.
+- `.agent-harness/tasks/BOHUMFIT-055-header-text-wordmark.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md`: task record and lock lifecycle.
+
+### Verified
+- [x] Scope gate: only `Logo.tsx` plus harness files changed. `.env*`, config, migrations/prisma/db/seed, backend, favicon, page logic unchanged.
+- [x] Static logo check: `Logo.tsx` contains `BohumFit` + `보험핏` and has no `svg`, `viewBox`, `Emblem`, or `variant` references.
+- [x] Favicon check: `public/favicon.svg` still keeps official green emblem viewBox `0 0 1254 1254`, `#15663D`, and `aria-label="보험핏"`.
+- [x] Font loading check: current app loads Pretendard only; `Cormorant Garamond`/`IBM Plex Sans KR` are present in the component font stack but not newly loaded, to avoid CSP/config expansion.
+- [x] `npx tsc -p tsconfig.app.json --noEmit`
+- [x] `npx tsc -p tsconfig.node.json --noEmit`
+- [x] `npm run lint`
+- [x] `npm test` -> 39 passed.
+- [x] `npm run build` -> passed; existing Vite chunk-size warning only.
+- [x] Dev HTTP smoke at `127.0.0.1:5186`: transformed `Logo.tsx` includes `BohumFit` + `보험핏`, has no SVG/emblem markup, and `/favicon.svg` still serves the official green emblem.
+
+### Notes
+- `brand/` is an existing untracked local asset folder and was intentionally left untouched/uncommitted.
+- Visual screenshot automation was not available in this tool session; verification used Windows source inspection, build gates, and Vite HTTP smoke.
+
+### Next
+- Human: production visual check that header/nav shows text-only `BohumFit 보험핏` and browser tab still shows the green emblem.
+
 ## 2026-06-15 11:38 Codex BOHUMFIT-054 [Windows authority verification / publish]
 ### Changed
 - `src/components/Logo.tsx`: official green emblem + Korean wordmark `보험핏` component added (`variant`, `size`, `inverted` supported).

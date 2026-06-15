@@ -1,6 +1,7 @@
 type LogoProps = {
-  variant?: "full" | "mark";
+  /** Wordmark base size in px. */
   size?: number;
+  /** Use white text on dark backgrounds. */
   inverted?: boolean;
   className?: string;
 };
@@ -8,51 +9,39 @@ type LogoProps = {
 const GREEN = "#15663D";
 const INK = "#16213b";
 
-function Emblem({ size, color }: { size: number; color: string }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 1254 1254"
-      fill={color}
-      aria-hidden="true"
-      focusable="false"
-    >
-      <g transform="translate(0,1254) scale(0.1,-0.1)" stroke="none">
-        <path d="M5955 10189 c-727 -75 -1383 -328 -1940 -748 -342 -257 -645 -589 -875 -956 -104 -165 -254 -471 -318 -645 -139 -377 -188 -716 -198 -1360 -8 -492 16 -972 66 -1334 83 -593 272 -1070 598 -1506 115 -154 390 -428 547 -546 338 -253 694 -420 1089 -513 273 -65 441 -80 816 -77 274 2 298 4 342 23 35 16 52 31 68 63 21 42 21 46 17 579 -4 581 -6 601 -68 789 -108 330 -360 570 -834 797 -142 68 -227 106 -630 275 -253 106 -481 221 -617 312 -199 133 -375 317 -467 488 -129 240 -180 505 -168 865 18 497 150 943 401 1350 340 550 911 1009 1523 1225 599 212 1260 210 1898 -5 431 -144 767 -351 1099 -674 552 -539 866 -1305 843 -2061 -6 -191 -7 -200 -34 -335 -31 -161 -107 -340 -205 -483 -73 -106 -243 -274 -363 -359 -198 -140 -385 -232 -878 -432 -368 -149 -509 -213 -629 -284 -364 -215 -550 -444 -630 -776 -40 -165 -46 -266 -47 -739 -1 -475 2 -516 42 -561 43 -46 75 -52 326 -58 440 -11 774 32 1116 143 232 76 472 192 685 332 169 111 265 187 409 327 537 519 830 1156 926 2010 37 331 40 423 39 1035 -1 555 -8 653 -70 959 -103 507 -258 893 -506 1266 -149 225 -256 354 -452 551 -247 246 -451 402 -755 579 -433 251 -884 401 -1416 471 -143 18 -617 27 -750 13z m-2484 -5135 c252 -258 487 -392 1214 -691 138 -57 412 -196 504 -256 255 -168 393 -375 395 -597 1 -113 -22 -179 -81 -237 -102 -99 -271 -96 -593 10 -305 101 -596 271 -832 488 -313 286 -570 753 -662 1199 -14 69 -28 135 -31 148 -3 12 -4 22 -1 22 2 0 41 -39 87 -86z m5673 44 c-4 -18 -21 -94 -40 -168 -208 -842 -758 -1446 -1516 -1665 -418 -121 -590 -75 -638 171 -28 142 51 358 180 497 137 147 311 248 710 412 129 53 285 117 345 142 362 149 660 342 875 564 41 43 78 78 82 78 4 1 5 -14 2 -31z" />
-        <path d="M7890 7972 c-121 -41 -27 46 -1134 -1042 -417 -410 -762 -747 -768 -749 -5 -1 -188 176 -408 394 -219 219 -418 410 -442 426 -62 42 -157 69 -242 69 -166 -1 -306 -98 -362 -250 -37 -100 -17 -246 47 -350 24 -39 267 -282 976 -973 144 -141 182 -172 237 -197 143 -65 297 -55 429 26 25 16 146 128 269 249 123 121 584 573 1026 1005 714 698 806 791 833 845 41 86 54 160 41 240 -23 138 -91 232 -210 288 -85 40 -206 48 -292 19z" />
-      </g>
-    </svg>
-  );
-}
-
-export default function Logo({ variant = "full", size = 32, inverted = false, className }: LogoProps) {
-  const markColor = inverted ? "#FFFFFF" : GREEN;
-  const textColor = inverted ? "#FFFFFF" : INK;
-
-  if (variant === "mark") {
-    return (
-      <span className={className} aria-label="보험핏" role="img">
-        <Emblem size={size} color={markColor} />
-      </span>
-    );
-  }
+export default function Logo({ size = 28, inverted = false, className }: LogoProps) {
+  const en = inverted ? "#FFFFFF" : GREEN;
+  const ko = inverted ? "#FFFFFF" : INK;
 
   return (
     <span
       className={className}
-      style={{ display: "inline-flex", alignItems: "center", gap: size * 0.28 }}
       aria-label="보험핏"
+      style={{
+        display: "inline-flex",
+        alignItems: "baseline",
+        gap: size * 0.34,
+        lineHeight: 1,
+      }}
     >
-      <Emblem size={size} color={markColor} />
+      <span
+        style={{
+          fontFamily: "'Cormorant Garamond','Noto Serif KR',serif",
+          fontWeight: 700,
+          fontSize: size * 1.18,
+          letterSpacing: 0,
+          color: en,
+        }}
+      >
+        BohumFit
+      </span>
       <span
         style={{
           fontFamily: "'IBM Plex Sans KR','Apple SD Gothic Neo','Noto Sans KR',sans-serif",
-          fontWeight: 800,
-          fontSize: size * 0.74,
+          fontWeight: 700,
+          fontSize: size,
           letterSpacing: 0,
-          lineHeight: 1,
-          color: textColor,
+          color: ko,
         }}
       >
         보험핏

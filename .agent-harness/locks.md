@@ -13,6 +13,8 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-15 BOHUMFIT-055 - Codex - 헤더/사이트 로고를 엠블럼 없는 텍스트 워드마크 `BohumFit 보험핏`으로 전환 완료. 범위: `Logo.tsx` + task/handoff/locks. favicon 엠블럼 유지. 검증: tsc app/node, lint, test 39 passed, build, dev HTTP smoke. Next: Human 생산 화면/탭 파비콘 육안.
+
 - 2026-06-15 BOHUMFIT-054 - Codex - 보험핏 정식 한국어 로고/파비콘/메타 적용 완료. 범위: `Logo.tsx` 신규, `Layout/Footer/Login/HomeMission` 로고 교체, `BrandWordmark` 및 구 보라 로고 에셋 삭제, `index.html`/`favicon.svg`/`og-image.svg`/표시 문구 `보험핏` 전환. 검증: tsc app/node, lint, test 39 passed, build, dev HTTP smoke, residue grep. Next: Human 생산 화면/탭 파비콘 육안.
 
 - 2026-06-15 `BOHUMFIT-053` - Cowork - 본문 표기 BohumFit 통일(13곳) + 홈 히어로 상단 간격 축소 완료. 범위: `Footer.tsx`·`Disclosure.tsx`·`Home.tsx`·`HomeMission.tsx`·`PrivacyPolicy.tsx`·`Terms.tsx`·`InsuranceCalculator.tsx`(표시 텍스트 BOHUMFIT→BohumFit), `Home.tsx`(히어로 items-center→items-start·py-20→pt-16 pb-20), 053 task/handoff/locks. 보존: 콘솔태그·다운로드 파일명·도메인·task-ID·backend(pytest "BOHUMFIT" 검사)·색·산식. /tmp: 잔존 대문자 BOHUMFIT=2(보존 대상만)·표시 13 BohumFit·히어로 클래스 확인·테스트 의존 문자열 미변경. ⚠ 마운트 truncation·스크린샷 부재로 전체 tsc/test/build·히어로 육안 미실행(텍스트/여백 클래스만, 타입 무영향) → Windows 권위. → Codex tsc/test/build·커밋·푸시 → Human 육안(히어로 여백·표기). 후속: backend 표기 통일(pytest 동시 갱신).
