@@ -4,6 +4,7 @@ Use this file to record active Codex file ownership during a task.
 
 ## Active
 
+
 ## Rules
 
 - New work follows the Cowork→Codex two-track unless the user explicitly assigns another owner or owner sequence.
@@ -12,6 +13,8 @@ Use this file to record active Codex file ownership during a task.
 - Keep this file operational and short. Historical lock detail lives in git history and `handoff.md`.
 
 ## Released
+
+- 2026-06-15 BOHUMFIT-057 - Codex - `brand/` 정본 파비콘 세트를 `public/` 배포본으로 복사하고 `index.html` head 링크 및 `site.webmanifest` 추가 완료. 검증: `git diff --check`, manifest JSON parse, fixed green SVG, `npm run build`, preview asset 200, icon visual check. Next: Human 배포본 탭/홈아이콘 육안 확인.
 
 - 2026-06-15 BOHUMFIT-056 - Codex - 헤더 `BohumFit 보험핏` 워드마크를 nav 텍스트 높이에 맞춰 축소하고 데스크톱 우측 네비 gap 정돈 완료. 범위: `Layout.tsx` + task/handoff/locks. `Logo.tsx` 내부 비율·색·폰트·파비콘 무변경. 검증: tsc app/node, lint, test 39 passed, build, dev screenshot smoke. Next: Human production visual check.
 

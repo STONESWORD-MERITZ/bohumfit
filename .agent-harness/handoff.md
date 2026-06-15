@@ -16,6 +16,30 @@
 
 # Handoff
 
+## 2026-06-15 14:47 Codex BOHUMFIT-057 [favicon deploy / Windows authority verification]
+### Changed
+- `brand/` 정본 파비콘 세트를 `public/` 배포본으로 복사: `favicon.ico`, `favicon-16.png`, `favicon-32.png`, `apple-touch-icon-180.png`, `icon-192.png`, `icon-512.png`.
+- `public/favicon.svg`: `brand/fithere-logo.svg` 고정 그린 엠블럼으로 덮어쓰기. `currentColor` 미사용, `#15663D` 포함.
+- `index.html`: `favicon.ico`/SVG/16/32 PNG/apple-touch/manifest/theme-color head 링크 정리.
+- `public/site.webmanifest`: `name`/`short_name` = `보험핏`, `theme_color` = `#15663D`, 192/512 아이콘 참조 추가.
+- `.agent-harness/tasks/BOHUMFIT-057-favicon-deploy.md`: 태스크 파일 생성.
+
+### Verified
+- [x] `git diff --check` on Windows -> passed (CRLF warnings only).
+- [x] `public/site.webmanifest` JSON parse OK: `보험핏`, theme `#15663D`, icons 2개.
+- [x] `public/favicon.svg` fixed green check: `#15663D` 있음, `currentColor` 없음.
+- [x] `npm run build` -> passed.
+- [x] `dist/` includes favicon/manifest set: `favicon.ico`, `favicon-16.png`, `favicon-32.png`, `apple-touch-icon-180.png`, `icon-192.png`, `icon-512.png`, `favicon.svg`, `site.webmanifest`.
+- [x] `npm run preview -- --host 127.0.0.1 --port 5188` smoke: `/`, favicon assets, icons, manifest all HTTP 200.
+- [x] Visual check: `public/icon-192.png` renders the green emblem favicon/home-icon mark.
+
+### Notes
+- `brand/` binary/icon files remain source-master assets and are intentionally not staged for this deploy commit.
+- Browser chrome tab favicon itself still needs production visual confirmation after deploy; local preview served the expected assets and direct icon visual passed.
+
+### Next
+- Human: 배포본 탭 파비콘 및 홈아이콘 육안 확인.
+
 ## 2026-06-15 14:05 Codex BOHUMFIT-HARNESS-brand-assets [Windows authority verification / publish]
 ### Changed
 - `.agent-harness/decisions.md`: `brand/` 정본(소스 마스터) / `public/` 배포본 규칙 결정 추가 확인.
