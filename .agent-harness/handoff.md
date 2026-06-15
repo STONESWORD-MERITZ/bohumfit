@@ -16,6 +16,50 @@
 
 # Handoff
 
+## 2026-06-15 14:05 Codex BOHUMFIT-HARNESS-brand-assets [Windows authority verification / publish]
+### Changed
+- `.agent-harness/decisions.md`: `brand/` 정본(소스 마스터) / `public/` 배포본 규칙 결정 추가 확인.
+- `brand/README.md`: 브랜드 에셋 정본/배포본 안내 신규 문서 확인.
+- `.agent-harness/tasks/BOHUMFIT-HARNESS-brand-assets.md`: 태스크 기록 확인.
+- `.agent-harness/handoff.md`: Codex 검증·발행 결과 추가.
+
+### Verified
+- [x] `git diff --check` on Windows -> passed (CRLF warnings only).
+- [x] Scope gate: staged/publish 대상은 `decisions.md`, `brand/README.md`, task, handoff/locks only. `brand/` binary/icon assets are intentionally excluded.
+- [x] Reference check: app favicon/OG references point to `public/` root paths (`/favicon.svg`, `/og-image.svg`); no runtime direct reference to `brand/` found in the documented scope.
+- [x] Code verification not run: documentation-only governance change, no TS/backend/runtime files changed.
+
+### Notes
+- 투트랙 전환은 Human 승인 완료로 간주하고, 이후 작업은 Cowork 구현 → Codex Windows 검증·git 기준으로 진행.
+- `brand/` favicon/icon binaries remain untracked source-master assets and are not deployed by this commit.
+
+### Next
+- Human/Codex: 파비콘 배포 후속 — `brand/` favicon/icon set을 `public/`로 내보내고 `index.html` 링크(`favicon.ico`, png sizes, `apple-touch-icon`) 추가 여부 결정·작업.
+
+## 2026-06-15 Cowork BOHUMFIT-HARNESS-brand-assets [문서 완료 / Codex git·커밋·푸시]
+### Changed (문서만 — 코드 0)
+- `.agent-harness/decisions.md` — 결정 추가 "Brand Assets: Source Master vs Deployed"(brand/=정본 소스마스터, 배포본은 public/, 앱 참조는 public/만).
+- `brand/README.md`(신규) — 정본/배포본 안내 1문단.
+- `.agent-harness/tasks/BOHUMFIT-HARNESS-brand-assets.md`(신규), handoff/locks.
+
+### favicon/아이콘/og 참조 확인
+- `index.html`: `<link rel="icon" … href="/favicon.svg">`(→ `public/favicon.svg`), `og:image content="/og-image.svg"`(→ `public/og-image.svg`). **참조는 모두 public/(루트 `/…`) — `brand/` 직접 참조 없음(정상).**
+- `public/`: favicon.svg·icons.svg·og-image.svg. `icons.svg`는 코드에서 참조 0(미사용 sprite로 추정).
+
+### ⚠ 미배포/미연결 경고 (Codex/Human 별도 작업 필요 — 이번 범위 밖)
+- `brand/`에 리브랜딩 favicon 세트(`favicon.ico`·`favicon-16.png`·`favicon-32.png`·`apple-touch-icon-180.png`·`fithere-logo-192/512.png`·`fithere-logo*.svg`)가 있으나 **`public/`에 없고 `index.html`에 링크도 없음.** 현재 배포 파비콘은 `public/favicon.svg`(051 그린 라이트닝)뿐이고, `apple-touch-icon`·`manifest` 링크 부재.
+- 즉 정본(brand/, 핏히어 패밀리)과 배포본(public/, 라이트닝)이 아직 불일치 → 리브랜딩 완성하려면 brand→public 복사 + `index.html`에 `favicon.ico`/png 사이즈/`apple-touch-icon` 링크 추가 필요(바이너리 복사·HTML 편집 = 별도 태스크).
+- 참고: `src/assets/brand/`는 현재 없음(051 텍스트 락업 전환 후 로고 svg 미사용 → 제거됨).
+
+### Verified
+- [x] 참조 grep: 앱 favicon/og 참조가 public/만 가리킴(brand/ 직접 참조 0).
+- [코드 무변경] tsc/test 불필요(문서만). `public/`는 정적 복사라 `npm run build`가 favicon을 변환하지 않음 → build 생략(사유 기록).
+- [⚠] `git diff --check`·stage/commit/push는 **마운트 git 금지**로 Cowork 미실행 → Codex(Windows).
+
+### Next
+- Codex(Windows): `git diff --check` → `decisions.md`·`brand/README.md`·task + handoff/locks 한국어 커밋(`BOHUMFIT-HARNESS-brand-assets: 정본 brand/·배포본 public/ 규칙 + README`) → push.
+- 후속(별도): brand/ favicon 세트를 public/로 배포 + index.html 링크(favicon.ico·png·apple-touch-icon) 추가해 리브랜딩 파비콘 완성.
+
 ## 2026-06-15 13:42 Codex BOHUMFIT-HARNESS-twotrack [Windows authority verification / publish]
 ### Changed
 - `.agent-harness/locks.md`: active-rule wording aligned to the Cowork→Codex two-track flow.
