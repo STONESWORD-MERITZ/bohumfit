@@ -7,13 +7,14 @@ import Callout from "../components/ui/Callout";
 import {
   CONFLICT_SCENES,
   DISCLOSURE_CRITERIA,
+  MECHANISM_STEPS,
   QUAL_CARDS,
   STAT_CARDS,
 } from "./why/whyContent";
 
 export default function WhyDisclosure() {
   return (
-    <div className="-mx-5 -mt-8">
+    <div className="-mt-8 overflow-x-hidden md:-mx-5">
 
       {/* ── 1. HERO (다크 — 이 페이지 유일한 강조 포인트) ──────────── */}
       <section className="bg-ink-900 px-6 py-20 md:py-24">
@@ -25,10 +26,10 @@ export default function WhyDisclosure() {
             ← 홈으로
           </Link>
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accent-300">Why It Matters</p>
-          <h1 className="mt-5 text-4xl font-extrabold leading-tight tracking-tight text-white md:text-5xl break-keep">
+          <h1 className="mt-5 text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-4xl md:text-5xl break-words md:break-keep">
             고지 누락은<br className="hidden md:inline" /> 작은 실수가 아닙니다
           </h1>
-          <p className="mx-auto mt-6 max-w-xl text-[15px] leading-8 text-ink-200 break-keep">
+          <p className="mx-auto mt-6 max-w-xl text-[15px] leading-8 text-ink-200 break-words md:break-keep">
             수십 년 납입한 보험이 보험금을 청구하는 순간 무너질 수 있습니다.
             왜 그런 일이 반복되는지, 구조부터 짚어 봅니다.
           </p>
@@ -49,26 +50,50 @@ export default function WhyDisclosure() {
                   {s.figure}
                   {s.unit && <span className="ml-1 text-xl font-bold text-ink-soft md:text-2xl">{s.unit}</span>}
                 </p>
-                <p className="mt-4 text-body leading-7 text-ink break-keep">{s.label}</p>
+                <p className="mt-4 text-body leading-7 text-ink break-words md:break-keep">{s.label}</p>
                 <p className="mt-3 text-caption text-ink-400">출처 · {s.source}</p>
               </div>
             ))}
             {QUAL_CARDS.map((q) => (
               <div key={q.title} className="rounded-card border border-line bg-white p-7">
                 <h3 className="text-title text-ink-900">{q.title}</h3>
-                <p className="mt-3 text-body leading-7 text-ink-soft break-keep">{q.body}</p>
+                <p className="mt-3 text-body leading-7 text-ink-soft break-words md:break-keep">{q.body}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── 3. 알릴의무란 — 메커니즘 (라이트) ────────────────────── */}
+      {/* ── 3. 핵심 메커니즘 — 왜 가입 후(청구 시점)가 중요한가 (라이트) ── */}
+      <section className="px-6 pb-4 pt-8">
+        <div className="mx-auto max-w-5xl">
+          <div className="mb-10 text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent-600">The mechanism</p>
+            <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-ink-900 md:text-3xl break-words md:break-keep">
+              왜 ‘가입한 뒤’가 더 중요할까요
+            </h2>
+            <p className="mx-auto mt-4 max-w-2xl text-body leading-7 text-ink-soft break-words md:break-keep">
+              병력을 알리는 것에서 끝나지 않습니다. 보험금은 ‘청구하는 순간’ 서면 기록으로 확인되기 때문입니다.
+            </p>
+          </div>
+          <ol className="grid list-none gap-5 md:grid-cols-3">
+            {MECHANISM_STEPS.map((m) => (
+              <li key={m.step} className="flex flex-col rounded-card border border-line bg-white p-7">
+                <span className="text-caption font-bold tabular-nums tracking-[0.25em] text-accent-600">{m.step}</span>
+                <h3 className="mt-3 text-title text-ink-900 break-words md:break-keep">{m.title}</h3>
+                <p className="mt-3 text-body leading-7 text-ink-soft break-words md:break-keep">{m.body}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      {/* ── 4. 알릴의무란 — 청약서 기준 (라이트) ────────────────────── */}
       <section className="px-6 py-20">
         <div className="mx-auto max-w-5xl">
           <div className="mb-10 text-center">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent-600">How it works</p>
-            <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-ink-900 md:text-3xl break-keep">
+            <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-ink-900 md:text-3xl break-words md:break-keep">
               청약서는 이런 것들을 묻습니다
             </h2>
           </div>
@@ -78,22 +103,22 @@ export default function WhyDisclosure() {
                 <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-50 text-caption font-bold tabular-nums text-accent-700">
                   {i + 1}
                 </span>
-                <span className="text-body leading-6 text-ink break-keep">{c}</span>
+                <span className="text-body leading-6 text-ink break-words md:break-keep">{c}</span>
               </div>
             ))}
           </div>
-          <p className="mt-8 text-center text-lg font-bold tracking-tight text-ink-900 md:text-xl break-keep">
+          <p className="mt-8 text-center text-lg font-bold tracking-tight text-ink-900 md:text-xl break-words md:break-keep">
             이걸 우리 기억력으로 다 체크할 수 있을까요?
           </p>
         </div>
       </section>
 
-      {/* ── 4. 이렇게 어긋납니다 — 분쟁 3장면 (라이트) ───────────── */}
+      {/* ── 5. 이렇게 어긋납니다 — 분쟁 3장면 (라이트) ───────────── */}
       <section className="px-6 py-20">
         <div className="mx-auto max-w-5xl">
           <div className="mb-10 text-center">
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent-600">Where it breaks</p>
-            <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-ink-900 md:text-3xl break-keep">
+            <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-ink-900 md:text-3xl break-words md:break-keep">
               이렇게 어긋납니다
             </h2>
           </div>
@@ -101,25 +126,25 @@ export default function WhyDisclosure() {
             {CONFLICT_SCENES.map((c) => (
               <div key={c.title} className="flex flex-col rounded-card border border-line bg-white p-6">
                 <Badge tone={c.resultTone}>{c.result}</Badge>
-                <h3 className="mt-4 text-title text-ink-900 break-keep">{c.title}</h3>
-                <p className="mt-3 text-body leading-7 text-ink-soft break-keep">{c.body}</p>
+                <h3 className="mt-4 text-title text-ink-900 break-words md:break-keep">{c.title}</h3>
+                <p className="mt-3 text-body leading-7 text-ink-soft break-words md:break-keep">{c.body}</p>
               </div>
             ))}
           </div>
-          <p className="mt-6 text-center text-caption text-ink-400 break-keep">
+          <p className="mt-6 text-center text-caption text-ink-400 break-words md:break-keep">
             ※ 위 3가지는 실제 개별 사건이 아니라 일반적으로 반복되는 분쟁 유형을 재구성한 예시입니다.
           </p>
         </div>
       </section>
 
-      {/* ── 5. 그래서, 점검 — 해결 + CTA (라이트) ────────────────── */}
+      {/* ── 6. 그래서, 점검 — 해결 + CTA (라이트) ────────────────── */}
       <section className="px-6 pb-24 pt-4">
         <div className="mx-auto max-w-3xl text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent-600">So, check it</p>
-          <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-ink-900 md:text-3xl break-keep">
+          <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-ink-900 md:text-3xl break-words md:break-keep">
             그래서, 점검합니다
           </h2>
-          <p className="mx-auto mt-5 text-[15px] leading-8 text-ink-soft break-keep">
+          <p className="mx-auto mt-5 text-[15px] leading-8 text-ink-soft break-words md:break-keep">
             보험핏은 심평원 진료기록을 청약서 기준에 대조해 항목마다
             <strong className="text-ink-900"> 고지 필요 · 확인 필요 · 해당 없음</strong>을 정리해 보여 줍니다.
             기억이 아니라 기록으로 확인하는 것이 시작입니다.

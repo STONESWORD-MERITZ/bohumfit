@@ -16,6 +16,60 @@
 
 # Handoff
 
+## 2026-06-15 17:22 Codex BOHUMFIT-058 [Windows authority verification / publish]
+### Changed
+- `src/pages/why/whyContent.ts`: `MECHANISM_STEPS` 3단 서사 데이터 추가 확인.
+- `src/pages/WhyDisclosure.tsx`: `/why`에 `The mechanism` 섹션 추가, 데스크톱 `md:grid-cols-3`/모바일 단일열 확인. 모바일에서 기존 `-mx-5`가 viewport를 밀지 않도록 `md:-mx-5`로 제한하고 긴 한글 문장은 모바일 `break-words`, 데스크톱 `md:break-keep`로 보강.
+- `.agent-harness/tasks/BOHUMFIT-058-why-it-matters.md`: 태스크 파일 확인.
+- `.agent-harness/handoff.md`, `.agent-harness/locks.md`: Codex 검증 결과 및 lock release 상태 반영.
+
+### Verified
+- [x] Windows 원본 NUL check: `WhyDisclosure.tsx`, `whyContent.ts` 모두 NUL 0, replacement char 0.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> passed. Cowork의 `1784 TS1127`은 Windows에서 재현되지 않아 mount NUL artifact로 확정.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> passed.
+- [x] `npm run lint` -> passed.
+- [x] `npm test` -> 39 passed.
+- [x] `npm run build` -> passed.
+- [x] `/why` dev smoke: HTTP 200, desktop 3-card mechanism grid, mobile single-column mechanism cards, existing statistic cards/CTA/legal Callout visible.
+- [x] Chrome DevTools mobile 390px layout metric: `docScroll == docClient == 390`, horizontal overflow offenders 0.
+- [x] 신규 통계 수치 0건(추가 숫자는 step 01/02/03 및 주석뿐), 보험사 실명 0건, 보증성 표현 0건 확인.
+
+### Notes
+- `brand/` favicon source-master files remain untracked and intentionally excluded from this commit.
+- Browser plugin Node REPL was not available in this session, so `/why` visual verification used local Chrome headless screenshots plus CDP layout metrics.
+
+### Next
+- Human: `/why` 배포본 육안 확인 + 048 통계 출처 재확인.
+
+## 2026-06-15 Cowork BOHUMFIT-058 [구현+/tmp 검증 완료 / Codex Windows tsc·lint·build·dev 육안 → 커밋]
+### Changed (콘텐츠/표시만 — 기능·라우팅·산식 0)
+- `src/pages/why/whyContent.ts` — `MECHANISM_STEPS`(3축, 수치 없음) 추가: ① 병력→청약서 서면 성실고지 ② 청구 시 보험사 서면 기록 확인·구두 안내는 기록 없으면 인정 어려움 ③ 가입하는 순간보다 가입 후(청구 시점)가 중요.
+- `src/pages/WhyDisclosure.tsx` — "The mechanism — 왜 ‘가입한 뒤’가 더 중요할까요" 섹션 추가(`<ol>/<li>` 3카드, `md:grid-cols-3`, ink/accent/line 토큰, `break-keep`). 기존 통계 카드·분쟁 장면·CTA·legal Callout 유지.
+- `.agent-harness/tasks/BOHUMFIT-058-why-it-matters.md`(신규), handoff/locks.
+- **무수정**: /why 라우팅·기능, 기존 검증 통계 수치, 면책 Callout.
+
+### 자료조사 결과 (WebSearch 2026-06)
+- 고지의무 분쟁의 **구체 비율 통계**(예: 부지급 중 고지위반 X%)는 1차 출처(금융감독원/한국소비자원)의 명시 수치로 **교차검증 불가**(검색 결과는 블로그·해설 위주, 원자료 수치 확인 안 됨). → **왜곡 방지 위해 새 통계 수치 미채택**(역수·비율 단정 금지, 미수령≠거절 왜곡 금지 준수).
+- 분쟁 빈발은 **정성 서술**로만 유지(금감원이 고지의무 소비자 유의사항을 반복 안내하는 영역 — 기존 QUAL_CARD). 보험사 실명·보증성 표현·특정 조문번호 표기 없음.
+- 메커니즘 3축은 통계가 아니라 **고지의무 법·실무 구조**(청약서 서면 질문 대상 / 청구 시 서면 확인) 사실 서술 → 수치 불필요.
+
+### 사용 수치 출처 목록 (기존 검증 통계 유지, 신규 0)
+| 수치 | 값 | 출처·연도 | 비고 |
+|---|---|---|---|
+| 국내 보험설계사 수 | 71.2만 명 | 금융감독원 · 2025년 말 기준 | 048 조사분 유지(카테고리 통계) |
+| 대면 채널 판매 비중(생/손보) | 99.3 / 71.4 % | 보험연구원 · 2024 | 048 조사분 유지 |
+- 신규로 추가한 통계 수치: **없음**(검증 불가로 미채택). 위 2건은 Codex/Human이 1차 출처와 정밀 수치 재확인 권장.
+
+### Verified
+- [x] /tmp strict tsc: `whyContent.ts`(MECHANISM_STEPS 포함) + Badge 통과.
+- [x] WhyDisclosure 메커니즘 섹션 Windows 원본(Read) 확인: `<ol>/<li>`·토큰·`break-keep`·`md:grid-cols-3`(반응형)·접근성 정상, import 반영.
+- [⚠] **마운트 truncation**: `WhyDisclosure.tsx` 마운트 뷰 NUL → /tmp 전체 tsc 불가(1784 TS1127 = NUL 아티팩트, 실오류 아님). whyContent는 온전. Windows 원본 권위.
+- [ ] Windows: `npx tsc -p tsconfig.app.json`/`tsconfig.node.json`·`npm run lint`·`npm run build` + `/why` dev 육안(메커니즘 섹션·반응형·통계 출처·CTA) — Codex.
+
+### Next
+- Codex(Windows): tsc/lint/build·dev 육안 → 058 범위 커밋(`BOHUMFIT-058: '왜 중요한가' 메커니즘 섹션 재구성(검증 통계 유지, 신규 수치 미채택)`) → push.
+- 후속: 고지의무 분쟁 1차 통계가 확보되면 출처 명시 후 통계 카드 보강(현재는 왜곡 방지로 미수록).
+
 ## 2026-06-15 14:47 Codex BOHUMFIT-057 [favicon deploy / Windows authority verification]
 ### Changed
 - `brand/` 정본 파비콘 세트를 `public/` 배포본으로 복사: `favicon.ico`, `favicon-16.png`, `favicon-32.png`, `apple-touch-icon-180.png`, `icon-192.png`, `icon-512.png`.

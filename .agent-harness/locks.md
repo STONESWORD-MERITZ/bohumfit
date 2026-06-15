@@ -4,7 +4,6 @@ Use this file to record active Codex file ownership during a task.
 
 ## Active
 
-
 ## Rules
 
 - New work follows the Cowork→Codex two-track unless the user explicitly assigns another owner or owner sequence.
@@ -14,6 +13,7 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-15 `BOHUMFIT-058` - Cowork - '왜 중요한가'(/why) 메커니즘 섹션 재구성 완료. 범위: `src/pages/why/whyContent.ts`(MECHANISM_STEPS 3축·수치 없음), `src/pages/WhyDisclosure.tsx`(메커니즘 섹션 추가·`<ol>/<li>`·md:grid-cols-3·토큰·break-keep), 058 task/handoff/locks. 기능·라우팅·기존 검증 통계·면책 무수정. 자료조사(WebSearch 2026-06): 고지의무 분쟁 구체 비율 통계 1차 출처 교차검증 불가 → 왜곡 방지로 **신규 수치 미채택**, 메커니즘은 법·실무 구조 사실 서술. 보험사 실명·보증·조문번호 없음. /tmp: whyContent strict tsc OK + WhyDisclosure Windows 원본 구조 확인. ⚠ 마운트 NUL로 전체 tsc는 Codex(Windows). 사용 통계 출처(설계사 71.2만 금감원2025·대면 99.3/71.4% 보험연구원2024)는 048 유지, 1차 재확인 권장. → Codex tsc/lint/build·/why 육안·커밋·푸시.
 - 2026-06-15 BOHUMFIT-057 - Codex - `brand/` 정본 파비콘 세트를 `public/` 배포본으로 복사하고 `index.html` head 링크 및 `site.webmanifest` 추가 완료. 검증: `git diff --check`, manifest JSON parse, fixed green SVG, `npm run build`, preview asset 200, icon visual check. Next: Human 배포본 탭/홈아이콘 육안 확인.
 
 - 2026-06-15 BOHUMFIT-056 - Codex - 헤더 `BohumFit 보험핏` 워드마크를 nav 텍스트 높이에 맞춰 축소하고 데스크톱 우측 네비 gap 정돈 완료. 범위: `Layout.tsx` + task/handoff/locks. `Logo.tsx` 내부 비율·색·폰트·파비콘 무변경. 검증: tsc app/node, lint, test 39 passed, build, dev screenshot smoke. Next: Human production visual check.
