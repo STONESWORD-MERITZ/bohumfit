@@ -37,6 +37,17 @@ Impact:
 - 새 아이콘/파비콘은 `brand/`에서 마스터를 갱신 후 `public/`로 내보내 참조한다.
 - `brand/`의 미배포 자산(favicon.ico, favicon-16/32.png, apple-touch-icon-180.png 등)을 쓰려면 `public/`로 복사하고 `index.html`에 링크를 추가하는 별도 작업이 필요하다.
 
+### 2026-06-15 Non-Surgery Exclusion Source
+
+Decision:
+비수술 오분류 제외 코드명은 `backend/pipeline/surgery_exclusions.py`의 `NON_SURGERY_NAMES` 한 곳에서만 추가·관리한다. 신규 제외 추가 시 회귀 테스트를 동반한다.
+
+Reason:
+수술 감지 알고리즘과 예외 코드명을 분리해 오분류 보정을 안전하게 확장하기 위함.
+
+Impact:
+새 비수술 제외명은 helpers나 aggregator에 흩어 넣지 않고 중앙 목록과 `test_surgery_exclusions.py`에 함께 추가한다.
+
 ## Template
 
 ### YYYY-MM-DD Decision Title

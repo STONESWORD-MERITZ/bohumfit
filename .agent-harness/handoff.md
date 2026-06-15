@@ -23,6 +23,7 @@
 - `backend/pipeline/helpers.py`: `_is_surgery_match(...)` now exits false for excluded non-surgery names.
 - `backend/pipeline/disease_aggregator.py`: `_is_detail_surgery_match(...)` and NHIS surgery OR-branch now apply the same exclusion guard.
 - `backend/tests/test_surgery_exclusions.py`: 4 anonymous synthetic regressions covering the four excluded names, spacing variants, real surgery preservation, and detail aggregation.
+- Post-publish docs: `PROGRESS.md` completed-work entry added; `.agent-harness/decisions.md` central non-surgery exclusion management principle added.
 
 ### Verified
 - [x] Windows original integrity: target files exist, have no NUL/replacement chars, and tails are intact; `helpers.py` is **499 lines**.
@@ -34,10 +35,12 @@
 - [x] `npm test` -> **39 passed**.
 - [x] `npm run build` -> passed (existing Vite chunk-size warning only).
 - [x] No original/canonical PDF or unrelated untracked brand/pamphlet assets staged.
+- [x] Code commit pushed: `790b582`.
 
 ### Notes
 - Surgery detection patterns/algorithm were not changed; only the central non-surgery exclusion list and guards were added.
 - Canonical PDF visual verification remains a Human task because the source PDF contains real medical information and was not staged or committed.
+- Docs update is a follow-up after successful code push; no extra code verification required.
 
 ### Next
 - Human: 캐노니컬 PDF(최유미 세부진료)로 1·2·3 화면 전부에서 아래 4건이 수술로 미집계되는지 육안 확인: 후두내주입(순번 1071, 2021-04-15 미래이비인후과의원), 수액제주입로를통한주사(순번 1108, 2020-12-19 엠허브의원), 치관수복물또는보철물의 제거[1치당]-간단한것, 치관수복물또는보철물의 제거[1치당]-복잡한것. 실제 수술(충수절제술 등)은 정상 집계되는지도 회귀 확인.
