@@ -5,8 +5,9 @@ BOHUMFIT 알릴의무 필터링 룰 엔진 (건강체 전용 — BOHUMFIT-BUG-00
 
 룰은 룰 ID로 추적 가능 (_rule_id):
   R-H-Q1-* : 건강체 Q1 (3개월 진단/입원/수술/투약/상시복용약)
-  R-H-Q3-* : 건강체 Q3 (10년 입원/수술/통원7/투약30)
-  R-H-Q4-* : 건강체 Q4 (5년 중대질병)
+  R-H-Q3-* : 건강체 Q3 (5년 입원/수술/통원7/투약30)
+  R-H-Q4-* : 건강체 Q4 (5년 초과 10년 입원·수술; 공단 의심 포함)
+  R-H-Q5-* : 건강체 Q5 (5년 중대질병 — 기존 Q4)
 
   Q2(건강체 — 1년 추가검사)는 AI 의학 판단(Gemini)에서 결정 → 본 모듈에서는 미생성
 """
@@ -19,7 +20,7 @@ from datetime import datetime, timedelta
 from typing import Any, Iterable
 
 # BOHUMFIT-005: 날짜 창 로직 중앙화 — _dts_in_range 는 helpers.py 정본을 import
-from pipeline.helpers import _dts_in_range
+from pipeline.helpers import _dts_in_range, _dts_in_window  # BOHUMFIT-034: 범위창
 
 # ── keywords.json 로딩 ────────────────────────────────
 _KW_PATH = os.path.join(os.path.dirname(__file__), "keywords.json")
@@ -76,6 +77,16 @@ def _adm_in_range(admissions, since_dt) -> int:
     for d, _h in admissions:
         dt = _parse_ymd(d)
         if dt and dt >= since_dt:
+            n += 1
+    return n
+
+
+def _adm_in_window(admissions, lo_dt, hi_dt) -> int:
+    """BOHUMFIT-034: 입원 admission 중 [lo_dt, hi_dt) 범위 건수(5년 초과~10년 등)."""
+    n = 0
+    for d, _h in admissions:
+        dt = _parse_ymd(d)
+        if dt and lo_dt <= dt < hi_dt:
             n += 1
     return n
 
@@ -299,7 +310,8 @@ def build_code_based_items(
     else:
         items.extend(_build_q2_health_items(disease_stats, reference_date))
         items.extend(_build_q3_health_items(disease_stats, reference_date))
-        items.extend(_build_q4_health_items(disease_stats, reference_date))
+        items.extend(_build_q4_health_items(disease_stats, reference_date))  # BOHUMFIT-034 신설 5~10년 입원·수술
+        items.extend(_build_q5_health_items(disease_stats, reference_date))  # 기존 Q4 중대질환
     return items
 
 
@@ -535,15 +547,14 @@ def _build_q3_health_items(
     disease_stats: dict[str, dict[str, Any]],
     reference_date: datetime,
 ) -> list[dict]:
-    """Q3 건강체 — 10년이내 (입원 OR 수술 OR 통원 7회 이상 OR 투약 30일 이상).
+    """Q3 건강체 — 5년이내 (입원 OR 수술 OR 통원 7회 이상 OR 투약 30일 이상).
 
-    BOHUMFIT-BUG-012: 4개 OR 트리거를 각각 독립 생성한다. 통원·투약은 입원/수술 유무와
-    무관하게 단독으로도 항목이 뜬다. 입원=기본진료(inpatient_dates), 수술=세부진료
-    (surgery_dates). 동일질병 판정은 KCD 코드 정규화 기준(_is_valid_disease).
-    창 경계는 달력 10년(_subtract_years) 포함(>=).
+    BOHUMFIT-034: 입원·수술·통원 판정창을 10년→5년으로 교정(투약은 032에서 이미 1825일).
+    5년 초과~10년 입원·수술은 신설 Q4(_build_q4_health_items)에서 비중첩으로 다룬다.
+    입원=기본진료, 수술=세부진료. 동일질병=KCD 정규화. 창 경계 달력 5년 포함(>=).
     """
     items: list[dict] = []
-    _d3m, _d1y, _d5y, d10y = _cutoffs(reference_date)
+    _d3m, _d1y, d5y, _d10y = _cutoffs(reference_date)
 
     for gk, s in disease_stats.items():
         dc = (s.get("diag_code") or "").strip().upper()
@@ -558,51 +569,52 @@ def _build_q3_health_items(
         wt = _weight_for(dc)
         sn = next(iter(_sorted_strings(s.get("surgeries", set()))), None)
 
-        inp_10y  = _dts_in_range(s.get("inpatient_dates", set()), d10y)
-        surg_10y = _dts_in_range(s.get("surgery_dates", set()), d10y)
-        visit_10y = _dts_in_range(s.get("visit_dates", set()), d10y)
-        visit_10y_count = _visit_count_in_range(s, d10y)
+        # BOHUMFIT-034: 입원·수술·통원 판정창 10년→5년(투약은 032에서 이미 1825일).
+        inp_5y  = _dts_in_range(s.get("inpatient_dates", set()), d5y)
+        surg_5y = _dts_in_range(s.get("surgery_dates", set()), d5y)
+        visit_5y = _dts_in_range(s.get("visit_dates", set()), d5y)
+        visit_5y_count = _visit_count_in_range(s, d5y)
         inp_map  = s.get("_inpatient_days_map", {})
-        inp10y_days = sum(inp_map.get(d, 1) for d in inp_10y) if inp_10y else 0
+        inp5y_days = sum(inp_map.get(d, 1) for d in inp_5y) if inp_5y else 0
         med_pharma = s.get("med_dates_pharma_episode") or s.get("med_dates_pharma", {})
-        presc_5y = _sum_daily_max_presc(med_pharma, _q3_med_since(reference_date))  # BOHUMFIT-032: 투약창=1825일(입원·수술·통원은 d10y 유지)
+        presc_5y = _sum_daily_max_presc(med_pharma, _q3_med_since(reference_date))  # BOHUMFIT-032: 투약창=1825일
 
         ci = lambda **kw: _make_item(code=dc, disease=nm, hospital=hp,
                                      first_diagnosis_date=fd, **kw)
 
-        # R-H-Q3-INP-10Y: 10년이내 입원 (기본진료)
-        if inp_10y:
+        # R-H-Q3-INP-5Y: 5년이내 입원 (기본진료)
+        if inp_5y:
             items.append(ci(
-                q="Q3", rule_id="R-H-Q3-INP-10Y",
-                reason=f"10년이내 입원 ({inp10y_days}일) — 기본진료 확인",
-                date=max(inp_10y), weight=wt,
-                is_inpatient=True, inpatient_days=inp10y_days,
-                inpatient_count=_adm_in_range(s.get("inpatient_admissions", set()), d10y),
-                visit_count=visit_10y_count, med_days=presc_5y,
-                evidence={"dates": inp_10y, "actual_days": inp10y_days},
+                q="Q3", rule_id="R-H-Q3-INP-5Y",
+                reason=f"5년이내 입원 ({inp5y_days}일) — 기본진료 확인",
+                date=max(inp_5y), weight=wt,
+                is_inpatient=True, inpatient_days=inp5y_days,
+                inpatient_count=_adm_in_range(s.get("inpatient_admissions", set()), d5y),
+                visit_count=visit_5y_count, med_days=presc_5y,
+                evidence={"dates": inp_5y, "actual_days": inp5y_days},
             ))
 
-        # R-H-Q3-SURG-10Y: 10년이내 수술 (세부진료)
-        if surg_10y:
+        # R-H-Q3-SURG-5Y: 5년이내 수술 (세부진료)
+        if surg_5y:
             items.append(ci(
-                q="Q3", rule_id="R-H-Q3-SURG-10Y",
-                reason=f"10년이내 수술: {sn or '수술'} — 세부진료 확인",
-                date=max(surg_10y), weight=wt,
+                q="Q3", rule_id="R-H-Q3-SURG-5Y",
+                reason=f"5년이내 수술: {sn or '수술'} — 세부진료 확인",
+                date=max(surg_5y), weight=wt,
                 is_surgery=True, surgery_name=sn,
-                is_inpatient=bool(inp_10y), inpatient_days=inp10y_days,
-                inpatient_count=_adm_in_range(s.get("inpatient_admissions", set()), d10y),
-                visit_count=visit_10y_count, med_days=presc_5y,
-                evidence={"dates": surg_10y, "surgery": sn},
+                is_inpatient=bool(inp_5y), inpatient_days=inp5y_days,
+                inpatient_count=_adm_in_range(s.get("inpatient_admissions", set()), d5y),
+                visit_count=visit_5y_count, med_days=presc_5y,
+                evidence={"dates": surg_5y, "surgery": sn},
             ))
 
-        # R-H-Q3-VISIT-7: 10년이내 통원 7회 이상 (입원/수술 유무 무관 — 단독 트리거)
-        if visit_10y_count >= Q3_VISIT_COUNT_THRESHOLD:
+        # R-H-Q3-VISIT-7: 5년이내 통원 7회 이상 (입원/수술 유무 무관 — 단독 트리거)
+        if visit_5y_count >= Q3_VISIT_COUNT_THRESHOLD:
             items.append(ci(
                 q="Q3", rule_id="R-H-Q3-VISIT-7",
-                reason=f"10년이내 통원 {Q3_VISIT_COUNT_THRESHOLD}회 이상 ({visit_10y_count}회) — 기본진료 확인",
+                reason=f"5년이내 통원 {Q3_VISIT_COUNT_THRESHOLD}회 이상 ({visit_5y_count}회) — 기본진료 확인",
                 date=ld, weight=wt,
-                visit_count=visit_10y_count, med_days=presc_5y,
-                evidence={"visit_count": visit_10y_count, "dates": visit_10y},
+                visit_count=visit_5y_count, med_days=presc_5y,
+                evidence={"visit_count": visit_5y_count, "dates": visit_5y},
             ))
 
         # R-H-Q3-MED-30D: BOHUMFIT-032 — 5년이내 투약 30일 이상 (입원/수술 유무 무관 — 단독 트리거)
@@ -611,7 +623,7 @@ def _build_q3_health_items(
                 q="Q3", rule_id="R-H-Q3-MED-30D",
                 reason=f"5년이내 투약 {Q3_MED_DAYS_THRESHOLD}일 이상 ({presc_5y}일) — 처방조제 확인",
                 date=ld, weight=wt,
-                visit_count=visit_10y_count, med_days=presc_5y,
+                visit_count=visit_5y_count, med_days=presc_5y,
                 evidence={"presc_days": presc_5y, "source": "처방조제"},
             ))
 
@@ -668,7 +680,78 @@ def _build_q4_health_items(
     disease_stats: dict[str, dict[str, Any]],
     reference_date: datetime,
 ) -> list[dict]:
-    """Q4 건강체 — 5년이내 10대질환 (health_q4_10codes)."""
+    """Q4 건강체 (BOHUMFIT-034 신설) — 5년 초과 10년 이내 입원·수술만.
+
+    공단 033의 5~10년 입원(확정)·수술(공단 미명시→진료비 기준 의심 강/약) + 심평원 확정
+    입원·수술 중 5~10년 건(소실 방지)을 담는다. Q3(0~5년)과 기간 비중첩.
+    범위창 [d10y, d5y) = 5년 초과 10년 이내(_dts_in_window).
+    """
+    items: list[dict] = []
+    _d3m, _d1y, d5y, d10y = _cutoffs(reference_date)
+
+    for gk, s in disease_stats.items():
+        dc = (s.get("diag_code") or "").strip().upper()
+        nm = (s.get("name") or "").strip()
+        if not _is_valid_disease(dc, nm):
+            continue
+        if not nm:
+            nm = dc
+        hp = " / ".join(_sorted_strings(s.get("hospitals", set()))[:2]) or "정보 없음"
+        fd = s.get("first_date", "2099-12-31")
+        wt = _weight_for(dc)
+        sn = next(iter(_sorted_strings(s.get("surgeries", set()))), None)
+
+        inp_510  = _dts_in_window(s.get("inpatient_dates", set()), d10y, d5y)
+        surg_510 = _dts_in_window(s.get("surgery_dates", set()), d10y, d5y)
+        susp_510 = _dts_in_window(s.get("surgery_suspected_dates", set()), d10y, d5y)
+        inp_map  = s.get("_inpatient_days_map", {})
+        inp510_days = sum(inp_map.get(d, 1) for d in inp_510) if inp_510 else 0
+
+        ci = lambda **kw: _make_item(code=dc, disease=nm, hospital=hp,
+                                     first_diagnosis_date=fd, **kw)
+
+        # R-H-Q4-INP-510Y: 5년 초과 10년 이내 입원 (확정)
+        if inp_510:
+            items.append(ci(
+                q="Q4", rule_id="R-H-Q4-INP-510Y",
+                reason=f"5년 초과 10년 이내 입원 ({inp510_days}일) — 확인",
+                date=max(inp_510), weight=wt,
+                is_inpatient=True, inpatient_days=inp510_days,
+                inpatient_count=_adm_in_window(s.get("inpatient_admissions", set()), d10y, d5y),
+                evidence={"dates": inp_510, "actual_days": inp510_days},
+            ))
+
+        # R-H-Q4-SURG-510Y: 5년 초과 10년 이내 수술 (확정 — 세부진료)
+        if surg_510:
+            items.append(ci(
+                q="Q4", rule_id="R-H-Q4-SURG-510Y",
+                reason=f"5년 초과 10년 이내 수술: {sn or '수술'} — 세부진료 확인",
+                date=max(surg_510), weight=wt,
+                is_surgery=True, surgery_name=sn,
+                evidence={"dates": surg_510, "surgery": sn},
+            ))
+
+        # R-H-Q4-SURG-SUSP-510Y: 5년 초과 10년 이내 수술 '의심' (공단 진료비 기준·강/약)
+        _grade = s.get("surgery_suspected_grade", "")
+        if susp_510 and _grade:
+            items.append(ci(
+                q="Q4", rule_id="R-H-Q4-SURG-SUSP-510Y",
+                reason=f"5년 초과 10년 이내 수술 의심({_grade}) — 공단 진료비 기준",
+                date=max(susp_510), weight=wt,
+                evidence={"dates": susp_510, "grade": _grade, "source": "공단"},
+            ))
+
+    return items
+
+
+def _build_q5_health_items(
+    disease_stats: dict[str, dict[str, Any]],
+    reference_date: datetime,
+) -> list[dict]:
+    """Q5 건강체 (BOHUMFIT-034: 기존 Q4 번호 이동) — 5년이내 10대질환 (health_q4_10codes).
+
+    내용·판정창(5년)·매칭 코드 불변. q/rule_id/라벨만 Q4→Q5.
+    """
     items: list[dict] = []
     buckets = _split_buckets(disease_stats, reference_date)
     _d3m, _d1y, d5y, _d10y = _cutoffs(reference_date)
@@ -697,7 +780,7 @@ def _build_q4_health_items(
         sn = next(iter(_sorted_strings(s.get("surgeries", set()))), None)
         wt = _weight_for(dc)
         items.append(_make_item(
-            q="Q4", code=dc, disease=nm, hospital=hp,
+            q="Q5", code=dc, disease=nm, hospital=hp,
             first_diagnosis_date=fd,
             reason=f"5년이내 10대질환: {nm} ({dc})",
             date=max(all_5y), weight="critical" if wt == "critical" else "high",
@@ -705,7 +788,7 @@ def _build_q4_health_items(
             inpatient_count=_adm_in_range(s.get("inpatient_admissions", set()), d5y),
             visit_count=_visit_count_in_range(s, d5y),
             is_surgery=bool(surg_5y), surgery_name=sn if surg_5y else None,
-            rule_id="R-H-Q4-MAJOR-5Y",
+            rule_id="R-H-Q5-MAJOR-5Y",
             evidence={"code": dc, "matched_prefix": "HEALTH_Q4_10CODES"},
         ))
     return items

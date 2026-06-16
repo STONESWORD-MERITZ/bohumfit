@@ -91,7 +91,7 @@ DISCLOSURE_PAYLOAD = {
     "standard_reports": {
         "[1번질문] 3개월 이내 진단·입원·수술·투약": [ITEM_UNCONFIRMED, ITEM_CLEARED],
         "[2번질문] 1년 이내 진단 (추가검사·재검사 의심 소견)": [ITEM_SUSPECTED],
-        "[3번질문] 10년 이내 입원·수술·통원·투약": [ITEM_Q3_INPATIENT],
+        "[3번질문] 5년 이내 입원·수술·통원·투약": [ITEM_Q3_INPATIENT],
     },
     "easy_reports": {
         "[2번질문] 10년 이내 입원·수술": [ITEM_Q3_INPATIENT],
@@ -201,7 +201,7 @@ def test_disclosure_q3_item_has_no_clinical_review_line():
     payload = {
         "report_type": "disclosure",
         "reference_date": "2026-06-11",
-        "standard_reports": {"[3번질문] 10년 이내 입원·수술·통원·투약": [ITEM_Q3_INPATIENT]},
+        "standard_reports": {"[3번질문] 5년 이내 입원·수술·통원·투약": [ITEM_Q3_INPATIENT]},
         "easy_reports": {},
     }
     html = rp.render_report_html("disclosure", payload, GEN_AT)

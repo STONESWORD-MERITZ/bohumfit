@@ -52,19 +52,19 @@ def _rule_ids(items):
 
 def test_q3_health_visit_7_flags():
     """통원 7회 → R-H-Q3-VISIT-7 발동 (입원/수술 없이 단독)."""
-    visits = [f"2020-01-{d:02d}" for d in range(1, 8)]  # 7개 distinct
-    ds = {"K21": _disease(visits=visits, first="2020-01-01", latest="2020-01-07")}
+    visits = [f"2024-01-{d:02d}" for d in range(1, 8)]  # 7개 distinct
+    ds = {"K21": _disease(visits=visits, first="2024-01-01", latest="2024-01-07")}
     items = _build_q3_health_items(ds, REF)
     assert "R-H-Q3-VISIT-7" in _rule_ids(items)
     # 입원·수술 트리거는 없어야 함
-    assert "R-H-Q3-INP-10Y" not in _rule_ids(items)
-    assert "R-H-Q3-SURG-10Y" not in _rule_ids(items)
+    assert "R-H-Q3-INP-5Y" not in _rule_ids(items)
+    assert "R-H-Q3-SURG-5Y" not in _rule_ids(items)
 
 
 def test_q3_health_visit_6_not_flagged():
     """통원 6회 → 미발동 (임계 미만)."""
-    visits = [f"2020-01-{d:02d}" for d in range(1, 7)]  # 6개
-    ds = {"K21": _disease(visits=visits, first="2020-01-01", latest="2020-01-06")}
+    visits = [f"2024-01-{d:02d}" for d in range(1, 7)]  # 6개
+    ds = {"K21": _disease(visits=visits, first="2024-01-01", latest="2024-01-06")}
     items = _build_q3_health_items(ds, REF)
     assert "R-H-Q3-VISIT-7" not in _rule_ids(items)
 
@@ -181,21 +181,21 @@ def test_q3_med_threshold_is_30():
 
 def test_q3_health_inpatient_and_surgery_still_work():
     ds = {
-        "K21": _disease(inpatients=["2020-03-10"], first="2020-03-10"),
-        "M17": _disease(code="M17", name="무릎관절증", surgeries=["2020-07-15"], first="2020-07-15"),
+        "K21": _disease(inpatients=["2024-03-10"], first="2024-03-10"),
+        "M17": _disease(code="M17", name="무릎관절증", surgeries=["2024-07-15"], first="2024-07-15"),
     }
     items = _build_q3_health_items(ds, REF)
     ids = _rule_ids(items)
-    assert "R-H-Q3-INP-10Y" in ids
-    assert "R-H-Q3-SURG-10Y" in ids
+    assert "R-H-Q3-INP-5Y" in ids
+    assert "R-H-Q3-SURG-5Y" in ids
 
 
 # ── 간편 Q2: 입원·수술만 (통원·투약 미혼입) ───────────────
 
 def test_easy_q2_pure_inpatient_surgery_only():
     ds = {
-        "K21": _disease(inpatients=["2020-03-10"], first="2020-03-10"),
-        "M17": _disease(code="M17", name="무릎관절증", surgeries=["2020-07-15"], first="2020-07-15"),
+        "K21": _disease(inpatients=["2024-03-10"], first="2024-03-10"),
+        "M17": _disease(code="M17", name="무릎관절증", surgeries=["2024-07-15"], first="2024-07-15"),
     }
     items = _build_q2_easy_items(ds, REF)
     ids = _rule_ids(items)
@@ -207,8 +207,8 @@ def test_easy_q2_pure_inpatient_surgery_only():
 
 def test_easy_q2_visit_and_med_do_not_trigger():
     """통원 7회 + 투약 30일만 있고 입원·수술 없으면 간편 Q2 항목 0건."""
-    visits = [f"2020-01-{d:02d}" for d in range(1, 8)]
-    ds = {"K21": _disease(visits=visits, pharma_dates={"2024-06-15": 30}, first="2020-01-01")}
+    visits = [f"2024-01-{d:02d}" for d in range(1, 8)]
+    ds = {"K21": _disease(visits=visits, pharma_dates={"2024-06-15": 30}, first="2024-01-01")}
     items = _build_q2_easy_items(ds, REF)
     assert items == [], f"간편 Q2 는 입원·수술만이어야 하나 발동됨: {_rule_ids(items)}"
     # 같은 데이터로 건강체 Q3 는 통원·투약 단독 발동

@@ -240,6 +240,19 @@ function getMetricVisibility(item: SummaryItem, qNum: string, isEasy: boolean) {
     };
   }
 
+  // BOHUMFIT-034: Q4(5년 초과 10년 이내) = 입원·수술만(통원·투약 없음). 공단 수술의심은
+  // surgery_suspected_grade 배지로 별도 노출(result_builder가 Q4에서만 채움).
+  if (qNum === "Q4") {
+    return {
+      visit: false,
+      inpatient: hasInpatient,
+      inpatientCount: (item.inpatient_count ?? 0) > 0,
+      surgery: hasSurgery,
+      med: false,
+    };
+  }
+
+  // Q5(중대질환) 및 기타 = 메트릭 칩 없음(기존 Q4 중대질환과 동일).
   return {
     visit: false,
     inpatient: false,

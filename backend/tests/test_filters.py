@@ -106,7 +106,7 @@ def test_health_q3_visit_and_surgery_coexist():
     items = build_code_based_items(ds, REF, PRODUCT_HEALTH)
     rule_ids = {it["_rule_id"] for it in items}
     assert "R-H-Q3-VISIT-7" in rule_ids
-    assert "R-H-Q3-SURG-10Y" in rule_ids
+    assert "R-H-Q3-SURG-5Y" in rule_ids
 
 
 @pytest.mark.skip(reason="BOHUMFIT-009: MED-30D 룰이 신 Q3 정의에서 제외됨")
@@ -124,7 +124,7 @@ def test_health_q3_med_30d_with_inpatient():
     items = build_code_based_items(ds, REF, PRODUCT_HEALTH)
     rule_ids = {it["_rule_id"] for it in items}
     assert "R-H-Q3-MED-30D" in rule_ids
-    assert "R-H-Q3-INP-10Y" in rule_ids
+    assert "R-H-Q3-INP-5Y" in rule_ids
 
 
 @pytest.mark.skip(reason="BOHUMFIT-009: MED-30D 룰이 신 Q3 정의에서 제외됨")
@@ -172,7 +172,7 @@ def test_health_q3_med_30d_uses_max_episode_not_sum():
 
 
 def test_health_q4_critical_codes():
-    """C/D0/I10~I15/I20~I22/I60~I64/K74/E10~E14/B20~B24 모두 Q4 매칭"""
+    """C/D0/I10~I15/I20~I22/I60~I64/K74/E10~E14/B20~B24 모두 Q5(중대질환) 매칭 (BOHUMFIT-034)"""
     for code in ["C50", "D00", "I10", "I20", "I21", "I60", "I63", "K74", "E11", "B20"]:
         ds = {
             code: _disease(
@@ -184,8 +184,8 @@ def test_health_q4_critical_codes():
         }
         items = build_code_based_items(ds, REF, PRODUCT_HEALTH)
         assert any(
-            it["_rule_id"] == "R-H-Q4-MAJOR-5Y" for it in items
-        ), f"Q4 미매칭: {code}"
+            it["_rule_id"] == "R-H-Q5-MAJOR-5Y" for it in items
+        ), f"Q5 미매칭: {code}"
 
 
 @pytest.mark.skip(reason="BOHUMFIT-009: CHRONIC-DRUG 룰이 신 Q1 정의에서 제외됨")
@@ -280,7 +280,7 @@ def test_health_q3_visit7_with_inpatient():
     items = build_code_based_items(ds, REF, PRODUCT_HEALTH)
     rule_ids = {it["_rule_id"] for it in items}
     assert "R-H-Q3-VISIT-7" in rule_ids
-    assert "R-H-Q3-INP-10Y" in rule_ids
+    assert "R-H-Q3-INP-5Y" in rule_ids
 
 
 # BOHUMFIT-BUG-008: 간편 룰 테스트 4건 제거 (test_easy_q2_inpatient_only_no_visit_rule,

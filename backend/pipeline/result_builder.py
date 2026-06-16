@@ -8,6 +8,7 @@ from datetime import datetime
 from filters import _q3_med_since, _sum_daily_max_presc  # BOHUMFIT-031/032: 헤더와 동일 투약 집계·창 재사용
 from .helpers import (
     _dts_in_range,
+    _dts_in_window,
     _inpatient_end_dates_in_range,
     _inpatient_periods_in_range,
     _max_presc,
@@ -101,18 +102,22 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
 
     if is_easy:
         _q_since = {"Q1": d3m, "Q2": d10y, "Q3": d5y}
+        _q_until = {}
         q_labels = {
             "Q1": "[1번질문] 3개월 이내 진단·입원·수술·투약",
             "Q2": "[2번질문] 10년 이내 입원·수술",
             "Q3": "[3번질문] 5년 이내 6대질환",
         }
     else:
-        _q_since = {"Q1": d3m, "Q2": d1y, "Q3": d10y, "Q4": d5y}
+        # BOHUMFIT-034: Q3=5년, Q4 신설=5년 초과~10년 입원·수술(범위창), 기존 Q4 중대질환→Q5.
+        _q_since = {"Q1": d3m, "Q2": d1y, "Q3": d5y, "Q4": d10y, "Q5": d5y}
+        _q_until = {"Q4": d5y}   # Q4 상한: 5년 미만 제외 → [d10y, d5y)
         q_labels = {
             "Q1": "[1번질문] 3개월 이내 진단·입원·수술·투약",
             "Q2": "[2번질문] 1년 이내 진단 (추가검사·재검사 의심 소견)",
-            "Q3": "[3번질문] 10년 이내 입원·수술·통원·투약",
-            "Q4": "[4번질문] 5년 이내 10대질환",
+            "Q3": "[3번질문] 5년 이내 입원·수술·통원·투약",
+            "Q4": "[4번질문] 5년 초과 10년 이내 입원·수술",
+            "Q5": "[5번질문] 5년 이내 10대질환",
         }
 
     summary_reports = defaultdict(list)
@@ -134,6 +139,9 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
 
         q_title  = q_labels[q]
         since_dt = _q_since.get(q, d10y)
+        until_dt = _q_until.get(q)   # BOHUMFIT-034: Q4 범위창 상한(없으면 >=since)
+        def _win(dates, _since=since_dt, _until=until_dt):
+            return _dts_in_window(dates, _since, _until) if _until else _dts_in_range(dates, _since)
         _ds      = disease_stats.get(code_key)
 
         if _ds:
@@ -144,18 +152,21 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
                 | _inpatient_end_dates
                 | _ds.get("surgery_dates", set())
             )
-            _in_range    = _dts_in_range(_all_dates, since_dt)
+            _in_range    = _win(_all_dates)
             first_date   = _in_range[0]  if _in_range else ""
             latest_date  = _in_range[-1] if _in_range else ""
             _fd = _ds.get("first_date", "2099-12-31")
             first_diagnosis_date = _fd if _fd and _fd != "2099-12-31" else first_date
 
-            _ds_inp_dates      = _dts_in_range(_ds.get("inpatient_dates", set()), since_dt)
+            _ds_inp_dates      = _win(_ds.get("inpatient_dates", set()))
             _ds_inp_periods    = _inpatient_periods_in_range(_ds, since_dt)
+            if until_dt:  # BOHUMFIT-034: Q4 상한 적용(5년 초과~10년 입원만)
+                _ds_inp_periods = [pp for pp in _ds_inp_periods
+                                   if (_pp := _parse_ymd(pp.get("start", ""))) and _pp < until_dt]
             _ds_inp_map        = _ds.get("_inpatient_days_map", {})
             ds_inpatient_days  = sum(_ds_inp_map.get(d, 1) for d in _ds_inp_dates) if _ds_inp_dates else 0
             ds_inpatient_count = len(_ds_inp_dates)
-            ds_visit_count     = _visit_count_in_range(_ds, since_dt)
+            ds_visit_count     = len(_win(_ds.get("visit_events") or _ds.get("visit_dates", set())))
             # BOHUMFIT-031: 배지 투약일수를 헤더 판정과 동일 집계·동일 원천·동일 창으로 정합.
             # 헤더(filters Q3)는 med_dates_pharma_episode 를 _sum_daily_max_presc(날짜별
             # 최대의 누적 합계)로, since_dt(질문 창)에 맞춰 산출한다(Q3 건강체=10년).
@@ -229,7 +240,7 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
             "procedure_dates":         _proc_dates,
             "surgery_suspected":       _surg_susp,
             "surgery_suspected_dates": _surg_susp_dates,
-            "surgery_suspected_grade": _ds.get("surgery_suspected_grade", "") if _ds else "",  # BOHUMFIT-033
+            "surgery_suspected_grade": _ds.get("surgery_suspected_grade", "") if (_ds and q == "Q4") else "",  # BOHUMFIT-033/034: 의심등급은 Q4(5~10년)에서만
             "additional_tests":        _additional_tests,
             "additional_test_hit":     _add_test_hit,
             "additional_test_reason":  _add_test_reason,
@@ -336,7 +347,7 @@ def build_summary_reports(
                 q_list_ = [q_raw.strip()]
             source = item.get("_source", "ai")
             for q in q_list_:
-                if q not in ("Q1", "Q2", "Q3", "Q4"):
+                if q not in ("Q1", "Q2", "Q3", "Q4", "Q5"):  # BOHUMFIT-034: Q5 추가
                     continue
                 item_dt = _parse_ymd(item.get("date", ""))
                 since_dt = q_since_map.get(q)
@@ -359,7 +370,8 @@ def build_summary_reports(
         return pool_merged
 
     # BOHUMFIT-BUG-012: 탭별 질문 창 분리 — 간편 Q2=10년, 건강체 Q2=1년.
-    _health_since = {"Q1": _d3m_dt, "Q2": _d1y_dt, "Q3": _d10y_dt, "Q4": _d5y_dt}
+    # BOHUMFIT-034: Q3=5년, Q4 신설=5년 초과~10년(하한 d10y), Q5=기존 중대질환 5년.
+    _health_since = {"Q1": _d3m_dt, "Q2": _d1y_dt, "Q3": _d5y_dt, "Q4": _d10y_dt, "Q5": _d5y_dt}
     _easy_since   = {"Q1": _d3m_dt, "Q2": _d10y_dt, "Q3": _d5y_dt}
 
     merged_health = _build_pool(code_based_items_health, True,  _health_since)

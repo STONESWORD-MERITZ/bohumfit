@@ -23,7 +23,7 @@ REF = datetime(2026, 6, 15)
 _D3M, _D1Y, _D5Y, _D10Y = _cutoffs(REF)  # 달력 5년 경계
 MED5Y = _q3_med_since(REF)              # BOHUMFIT-032: 투약 판정창 1825일
 
-Q3_TITLE = "[3번질문] 10년 이내 입원·수술·통원·투약"
+Q3_TITLE = "[3번질문] 5년 이내 입원·수술·통원·투약"  # BOHUMFIT-034
 
 
 def _ymd(days_ago: int) -> str:

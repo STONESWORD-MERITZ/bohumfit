@@ -382,6 +382,24 @@ def _dts_in_range(date_set, since_dt):
     return sorted(result)
 
 
+def _dts_in_window(date_set, lo_dt, hi_dt):
+    """BOHUMFIT-034: lo_dt 이상(>=)·hi_dt 미만(<) 날짜만 정렬 반환 — 범위창(예: 5년 초과~10년).
+
+    Q4(5년 초과 10년 이내) 처럼 상·하한이 모두 있는 창의 단일 진입점.
+    """
+    result = []
+    for d in date_set:
+        try:
+            if not d:
+                continue
+            dt = datetime.strptime(d, "%Y-%m-%d")
+            if lo_dt <= dt < hi_dt:
+                result.append(d)
+        except ValueError:
+            pass
+    return sorted(result)
+
+
 def _add_days(date_str: str, days: int) -> str:
     dt = _parse_ymd(date_str)
     if not dt or days <= 1:

@@ -19,6 +19,7 @@ from filters import (
     _build_q3_health_items,
     _build_q3_easy_items,
     _build_q4_health_items,
+    _build_q5_health_items,
     build_code_based_items,
     EASY_Q3_6CODES,
     HEALTH_Q4_10CODES,
@@ -192,19 +193,19 @@ def test_q3_easy_excludes_hypertension_and_diabetes():
 # ── _build_q4_health_items (10대질환) ─────────────────────────────
 
 
-def test_q4_health_matches_10codes():
-    """Q4 건강체 — 10대질환 KCD 매칭 (6대 + 백혈병/고혈압/당뇨/에이즈)."""
+def test_q5_health_matches_10codes():
+    """Q5 건강체(BOHUMFIT-034: 기존 Q4) — 10대질환 KCD 매칭."""
     for code in ["C50", "I60", "I20", "I21", "I34", "K74", "C91", "I10", "E11", "B20"]:
         ds = {code: _disease(code=code, visits=["2024-01-01"], first="2024-01-01")}
-        items = _build_q4_health_items(ds, REF)
-        assert any(it["_rule_id"] == "R-H-Q4-MAJOR-5Y" for it in items), f"10대 미매칭: {code}"
+        items = _build_q5_health_items(ds, REF)
+        assert any(it["_rule_id"] == "R-H-Q5-MAJOR-5Y" for it in items), f"10대 미매칭: {code}"
 
 
-def test_q4_health_excludes_i67_and_non_listed():
-    """Q4 건강체 — I67 / K21 같은 일반 코드는 10대질환 아님."""
+def test_q5_health_excludes_i67_and_non_listed():
+    """Q5 건강체 — I67 / K21 같은 일반 코드는 10대질환 아님."""
     for code in ["I67", "K21", "M54"]:
         ds = {code: _disease(code=code, visits=["2024-01-01"], first="2024-01-01")}
-        items = _build_q4_health_items(ds, REF)
+        items = _build_q5_health_items(ds, REF)
         assert not items, f"{code} 는 10대질환에서 제외돼야 함"
 
 
@@ -230,8 +231,8 @@ def test_health_q4_10codes_extends_6codes():
 # ── build_code_based_items 통합 ──────────────────────────────────
 
 
-def test_build_code_based_items_health_includes_q1_q2_q3_q4():
-    """PRODUCT_HEALTH → Q1+Q2_health+Q3_health+Q4_health 항목 모두 포함."""
+def test_build_code_based_items_health_includes_q1_q2_q3_q5():
+    """PRODUCT_HEALTH → Q1+Q2+Q3+Q5(중대질환) 항목 포함 (BOHUMFIT-034 재편)."""
     ds = {
         "K21": _disease(code="K21", visits=["2026-04-15"], first="2026-04-15"),       # Q1
         "K22": _disease(code="K22", visits=["2025-08-15"], first="2025-08-15"),       # Q2_health
@@ -243,7 +244,7 @@ def test_build_code_based_items_health_includes_q1_q2_q3_q4():
     assert "Q1" in qs
     assert "Q2" in qs
     assert "Q3" in qs
-    assert "Q4" in qs
+    assert "Q5" in qs  # 중대질환(I63) → Q5
 
 
 def test_build_code_based_items_easy_includes_q1_q2_q3():
