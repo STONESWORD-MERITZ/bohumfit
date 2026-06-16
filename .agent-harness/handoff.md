@@ -16,6 +16,808 @@
 
 # Handoff
 
+## 2026-06-16 Codex BOHUMFIT-041 [Windows 검증·커밋·푸시 완료 / Next: Human 실 Gemini E2E]
+### Changed
+- 커밋/푸시: `13ff62c` `BOHUMFIT-041: Q2 추가검사·재검사 AI 개선(게이팅 완화, 의사역할 프롬프트, 가능성 높음·낮음 안내)`
+- 범위 파일만 반영: `backend/analyzer.py`, `backend/pipeline/ai_judgment.py`, `src/pages/Disclosure.tsx`, `backend/tests/test_q2_ai_gate.py`, `PROGRESS.md`, `.agent-harness/decisions.md`
+- Cowork 신규 테스트 파일은 사용자 지시와 Windows 실행 명령에 맞춰 `test_q2_ai_gate.py`로 커밋.
+- `PROGRESS.md` ① 완료된 작업에 031~041 항목 추가, `decisions.md`에 040/038/039 관련 결정 4건 추가.
+### Verified
+- truncation 선제 점검: ai_judgment/analyzer/Disclosure/test_q2_ai_gate tail/UTF-8-sig decode/NUL 없음 확인, py_compile OK.
+- BOHUMFIT-038 가드 `if source != "code" and q != "Q2": continue` -> 1건 유지.
+- `cd backend && python -m pytest -q tests/test_q2_ai_gate.py -vv` -> 8 passed.
+- `cd backend && python -m pytest -q tests/test_filters.py tests/test_report_pdf_q1q5.py tests/test_history_filter_fix.py` -> 22 passed, 6 skipped.
+- `cd backend && python -m pytest -q` -> 279 passed, 7 skipped.
+- `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- `npm run lint` -> pass.
+- `npm test` -> 4 files / 45 tests passed.
+- `npm run build` -> pass. 기존성 Vite chunk-size warning만 출력.
+### Expectations Rechecked
+- 검사근거 필터 없이 1년 내 Q1/Q2 진단코드가 있으면 Q2 Gemini 호출 후보에 들어감.
+- mock 가능성 높음/낮음 -> q2_suspicion 부착, 해당없음/예외 -> 빈 dict 폴백.
+- Disclosure는 q2_suspicion이 있을 때 AI 임상 참고 판단 문구 표시.
+- 038 가드 무회귀: AI Q2 외 누수 차단 유지, 결정성 테스트 통과.
+### Notes
+- PII 원본/비익명 fixture/PDF/brand/task 문서는 stage하지 않음.
+- `.agent-harness/handoff.md`, `.agent-harness/locks.md`, `.agent-harness/tasks/BOHUMFIT-041.md`는 후속 하네스 커밋 대상으로 정리. brand/pamphlet 산출물과 무관 task 문서는 커밋 제외 상태로 남음.
+### Next
+- Human: 실 Gemini E2E. 검사근거 없는 1년 내 진단에서 가능성 높음/낮음 표시와 해당없음/오류 폴백 확인.
+
+## 2026-06-16 Cowork BOHUMFIT-041 [Q2 Gemini 게이팅 완화·임상의사 프롬프트·가능성 출력 구현+회귀(mock) / Next: Codex]
+### Changed
+- `backend/analyzer.py`: `_suspicion_prompt_items = list(_q1_items + _q2_health_items)` — **검사근거(`_test_evidence_codes`) 필터 제거**(037 B 완화). 1년 내 진단코드 있으면 Gemini 호출, 0건이면 미호출. `if _suspicion_prompt_items:` 게이트·폴백·retry_warning 경로 불변.
+- `backend/pipeline/ai_judgment.py` `_call_q2_health_findings`: system_instruction "한국 보험 심사 경험 풍부한 **임상의사**·보수적", contents에 **판단기준**(추가검사=A후 다른종류B / 재검사=같은종류 재시행 / 제외=단순처방·추적관찰·일련진단·일반인 인식기대 없음 / 불확실시 낮음·해당없음) + 출력 스키마 `possibility(높음/낮음/해당없음)`. 파싱: **높음/낮음만** `[추가검사·재검사 가능성 N] {suspicion}`로 부착, **해당없음·불명→미부착(폴백)**. temp0/seed42/top_k1·JSON 스키마·genai 실패→{} 폴백 보존.
+- `src/pages/Disclosure.tsx`: q2_suspicion 있을 때 "AI 임상 참고 판단(가능성 추정)·확정 아님" 참고 문구(가능성 텍스트는 q2_suspicion에 인코딩→기존 clinicalReviewText로 화면 표시).
+- `backend/tests/test_q2_gemini_mock.py`(신규 8).
+### ★ 038 가드 불변
+- result_builder `_build_pool`의 `if source != "code" and q != "Q2": continue` **미수정**(Windows grep=1 확인). q2_suspicion은 **결정론 Q1/Q2 항목(_source="code")에 부착**되는 것이라 AI flagged_items 경로(038 차단 대상)와 무관 → 누수 0.
+### Verified (Cowork /tmp + 실마운트)
+- /tmp `pytest` **203 passed**(신규 8 포함, 회귀 0). 실마운트 신규 **8/8**.
+- mock 회귀: ★가능성 높음/낮음→부착(화면 표시)·★해당없음→폴백·★Gemini 예외→폴백(서비스 정상)·프롬프트 임상의사/판단기준/possibility 포함·결정성·★게이트 완화(검사근거 필터 부재 소스 확인)·★038 가드 보존(소스 확인).
+- ⚠ 실제 Gemini 호출은 샌드박스 불가 → mock으로 게이팅·프롬프트·파싱·폴백만 검증. 실 임상 판단은 Human E2E. 마운트 손상(test_filters·test_report_pdf_q1q5·test_history_filter_fix view truncation/NUL)은 /tmp 제외 → Windows 정상(이번 변경 무관) → Codex.
+### Notes
+- `_codes_with_recent_test_evidence`(analyzer)는 게이트에서 미사용이 됐으나 정의 유지(다른 경로 `_recent_detail_test_events`는 사용). 033~040·034 Q구조·간편·결정론 불변. 실 PDF/PII 미사용·마운트 git 미실행.
+### Next
+- **Codex(Windows)**: 전체 `pytest`(손상 파일 포함)·`tsc`(app/node)·`lint`·`test`·`build` → 범위 파일 stage→commit→push. 커밋: `BOHUMFIT-041: Q2 추가검사 Gemini 게이팅 완화(1년 진단코드면 호출)·임상의사 프롬프트·가능성(높음/낮음/해당없음) 출력`.
+- **Human**: 실 Gemini E2E — 검사근거 없는 1년 진단에 가능성 높음/낮음 표시, 해당없음·키부재 시 폴백.
+
+## 2026-06-16 Codex BOHUMFIT-040 [Windows 검증·커밋·푸시 완료 / Next: Cowork BOHUMFIT-041]
+### Changed
+- 커밋/푸시: `4e06d81` `BOHUMFIT-040: 진단과=일반의 행 통원 제외(약국 확인, 061 게이트 단순 교정)`
+- 범위 파일만 반영: `backend/pipeline/helpers.py`, `backend/tests/test_history_filter_fix.py`, `backend/tests/test_general_dept_exclude.py`
+- `_keep_basic_general_row`는 항상 `False`를 반환해 진단과=`일반의` basic/unknown 행을 예외 없이 통원 미집계 처리.
+- 061 기존 일반의 보존 단언은 제거되고, 일반의 제외 단언으로 갱신됨.
+### Verified
+- truncation 선제 점검: 대상 3파일 tail/UTF-8-sig decode/NUL 없음 확인, py_compile OK.
+- `test_history_filter_fix.py` 일반의 보존 단언 잔존 검색 -> 0 matches.
+- `cd backend && python -m pytest -q tests/test_general_dept_exclude.py -vv` -> 6 passed.
+- `cd backend && python -m pytest -q tests/test_history_filter_fix.py` -> 6 passed.
+- `cd backend && python -m pytest -q tests/test_filters.py tests/test_report_pdf_q1q5.py` -> 16 passed, 6 skipped.
+- `cd backend && python -m pytest -q` -> 271 passed, 7 skipped.
+- `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- `npm run lint` -> pass.
+- `npm test` -> 4 files / 45 tests passed.
+- `npm run build` -> pass. 기존성 Vite chunk/plugin timing warning만 출력.
+### Expectations Rechecked
+- 일반의+유효코드(AL0201/K297) -> 통원 미집계.
+- 일반의+$ -> 통원 미집계.
+- 내과 등 비일반의 유효코드 -> 통원 정상 집계.
+- 내과+일반의 혼합 -> 내과 행만 집계.
+- pharma 처방조제 투약 경로 무영향, 결정성 2회 동일.
+### Notes
+- PII 원본/비익명 fixture/PDF/brand/.agent-harness/task 문서는 stage하지 않음.
+- `.agent-harness/handoff.md`, `.agent-harness/locks.md`, 기존 task 문서/brand/pamphlet 산출물은 커밋 제외 상태로 남음.
+### Next
+- Cowork BOHUMFIT-041.
+
+## 2026-06-16 Cowork BOHUMFIT-040 [일반의 기본진료 통원 미집계(예외 없이 제외) 구현+회귀 / Next: Codex]
+### Changed
+- `backend/pipeline/helpers.py`: `_keep_basic_general_row(code)` → **`return False`**(061의 유효코드 보존 `bool(normalize_code(code))` 폐지, 구 M54 예외도 없음). `disease_aggregator`의 두 게이트(L228 detail-link 인덱스·L276 메인 행처리: `if ... dept=="일반의" and not _keep_basic_general_row(code): continue`)가 일반의 basic/unknown 행을 **전부 skip**. 세 번째 게이트(L625 2차 패스)는 이미 무조건 제외 → 3경로 정합.
+- 투약: 처방조제는 `ftype=="pharma"`라 게이트(basic/unknown)에 안 걸림 → 보존. 입원: nhis/병원 입원은 별도 경로 → 불변.
+- tests: `test_history_filter_fix.py`의 061 `test_general_dept_kept`(보존 단언) → `test_general_dept_excluded`(제외 단언) 갱신. 신규 `test_general_dept_exclude.py`(6).
+### Verified
+- /tmp `pytest` **201 passed**(신규 6 포함, 회귀 0). 실마운트 신규+test_history **12 passed**. `_keep_basic_general_row('K297')`→False 확인.
+- 회귀: ★일반의+유효코드(AL0201)→통원 미집계(질병군 미생성)·★일반의+$→미집계·★비일반의(내과) 유효코드→통원 정상·내과+일반의 혼재→내과만 집계(일반의 행 제외)·pharma 투약 보존·결정성.
+- 테스트 전수 grep: `일반의`/`_keep_basic_general_row` 단언은 `test_history_filter_fix`만(갱신 완료) — test_filters·test_bug012 등 다른 테스트는 일반의-보존 단언 없음(영향 0).
+- ⚠ 마운트 손상(test_filters·test_report_pdf_q1q5 view truncation/NUL)은 /tmp 수집 불가로 제외 → Windows 원본 정상(이번 변경은 helpers 헬퍼 1개·집계 경로, 필터룰/HTML 무관) → Codex 권위.
+### Notes
+- 단일 변경점=helpers `_keep_basic_general_row` 반환값(게이트 로직·시그니처 불변). 033~039·034 Q구조·간편·투약·입원 불변·결정론. 실 PDF/PII 미사용·마운트 git 미실행. 실파일 /tmp→cp, Windows Grep로 반영 확인.
+### Next
+- **Codex(Windows)**: 전체 `pytest`(test_filters·test_report_pdf_q1q5 포함 — Windows 정상)·`tsc`(app/node)·`lint`·`test`·`build` → 범위 파일 stage→commit→push. 커밋: `BOHUMFIT-040: 진단과 일반의 기본진료 통원 미집계(예외 없이 전부 제외, 061 보존 게이트 단순 복원)`.
+- **Human**: E2E — 일반의 진료가 통원에 안 잡히는지, 투약·입원 불변 확인.
+
+## 2026-06-16 Codex BOHUMFIT-039 [Windows 검증·커밋·푸시 완료 / Next: Human E2E]
+### Changed
+- 커밋/푸시: `7439b16` `BOHUMFIT-039: Q5 11대질병 코드 정비(I05~I09·K60~K64 추가), health_q5_codes 리네임, 직장항문 실손 전용 고지 안내`
+- 범위 파일만 반영: `backend/keywords.json`, `backend/filters.py`, `backend/pipeline/result_builder.py`, `backend/tests/test_q_restructure.py`, `backend/tests/test_q5_codelist_insurance.py`, `src/pages/Disclosure.tsx`
+- Q5 코드풀은 140개로 로드됨. I05~I09 및 K60/K61/K62/K64 포함, K63 및 E78 제외 확인.
+- 직장·항문 코드가 Q5에만 있을 때 `insurance_only=True`로 표시되고, Q3 통원 7회 등 일반 고지 항목 동반 시 실손전용 안내가 붙지 않음.
+### Verified
+- truncation 선제 점검: 대상 6파일 strict UTF-8 decode, NUL 없음, JSON parse, py_compile OK.
+- 구 Q4 코드명 잔존 grep: 실코드/주석 violations 0. 유일 매치는 신규 회귀 테스트의 assert 문자열 1줄.
+- `cd backend && python -m pytest -q tests/test_q5_codelist_insurance.py -vv` -> 9 passed.
+- `cd backend && python -m pytest -q tests/test_filters.py tests/test_report_pdf_q1q5.py` -> 16 passed, 6 skipped.
+- `cd backend && python -m pytest -q` -> 265 passed, 7 skipped.
+- `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- `npm run lint` -> pass.
+- `npm test` -> 4 files / 45 tests passed.
+- `npm run build` -> pass. 기존성 Vite chunk-size warning만 출력.
+### Notes
+- PII 원본/비익명 fixture/PDF/brand/.agent-harness/task 문서는 stage하지 않음.
+- `.agent-harness/handoff.md`, `.agent-harness/locks.md`, 기존 task 문서/brand/pamphlet 산출물은 커밋 제외 상태로 남음.
+### Next
+- Human: BOHUMFIT-039 E2E. 실제 업로드 결과에서 I05/K64 Q5 표시, K63/E78 미표시, K64 단독 Q5 실손전용 안내 및 Q3 동반 시 일반고지 전환 확인.
+
+## 2026-06-16 Cowork BOHUMFIT-039 [Q5 코드목록 확장·리네임 + 직장항문 실손전용 구현+회귀 / Next: Codex]
+### Changed
+- `backend/keywords.json`: 키 **`health_q4_10codes`→`health_q5_codes`** 리네임, +I05~I09(류마티스판막)·K60·K61·K62·K64(직장항문) = **140개**(K63 제외). 미사용 구 `health_q5_codes`(37) 삭제.
+- `backend/filters.py`: `HEALTH_Q5_CODES = tuple(_KW["health_q5_codes"])`(140), **미사용 `HEALTH_Q4_10CODES` def 제거**, `_build_q5_health_items` 매칭·evidence·docstring 리네임. 신규 `INSURANCE_ONLY_Q5_CODES=("K60","K61","K62","K64")`.
+- `backend/pipeline/result_builder.py`: `_build_reports_for_product` 끝에 **직장항문 실손전용 플래그** — Q5 행 코드가 K60·K61·K62·K64 접두이고 Q1~Q4 어디에도 없으면 `insurance_only=True`. `INSURANCE_ONLY_Q5_CODES` import. (간편엔 Q5 없어 미적용.)
+- `src/pages/Disclosure.tsx`: `SummaryItem.insurance_only?` 타입 + DiseaseCard 상단에 "실손의료비보험 가입 시에만 고지가 필요한 항목입니다(직장·항문)" 안내(sky-50).
+- tests: `test_q_restructure.py` 토큰 리네임, 신규 `test_q5_codelist_insurance.py`(9).
+### ★ 리네임 전수 확인
+- grep `HEALTH_Q4_10CODES`·`health_q4_10codes` (backend+src, __pycache__ 제외) = **실코드 잔존 0**. 유일 매치는 무결성 테스트 `test_rename_no_residual_and_loaded`의 `assert "..." not in src`(부재를 검증하는 문자열). 코멘트도 토큰 비포함(리워딩).
+- `analyzer.py`(import만·미사용)·`helpers.py`(def) `HEALTH_Q5_CODES`는 리네임된 키를 읽어 자동 정합 — 동작 변화 없음.
+### Verified
+- /tmp `pytest` **195 passed**(신규 9 포함, 회귀 0). 실마운트 신규+q_restructure **27 passed**. import OK(Q5=140, I05∈·K64∈·K63∉).
+- 회귀: 리네임 무결성(HEALTH_Q5_CODES 140·토큰 잔존0)·기존 중대질병(암/뇌졸중/고혈압/당뇨/판막/간경화/협심증) Q5 유지·I05→Q5·K64→Q5·**K63→Q5 미표시**·**E78→Q5 미표시**·직장항문 Q5단독→insurance_only·Q3통원동반→실손전용 아님·암 등 실손전용 아님·결정성.
+- ⚠ 마운트 손상(test_filters·test_report_pdf_q1q5는 view truncation/NUL)은 /tmp 수집 불가로 제외 → Windows 원본 정상(test_filters는 리네임 토큰 미참조·Q5 critical codes는 기존 코드 유지로 무영향) → Codex. 프런트 tsc/lint/build·전체 pytest는 Codex.
+### Notes
+- K63 제외(필수)·Q3/Q4/033/034/간편 불변·결정론. 실 PDF/PII 미사용·마운트 git 미실행. 실파일 /tmp→cp+코멘트 정정, Windows Read로 def 블록 확인.
+### Next
+- **Codex(Windows)**: 전체 `pytest`(손상 파일 포함)·`tsc`(app/node)·`lint`·`test`·`build`. 추가 grep `HEALTH_Q4_10CODES`/`health_q4_10codes` 잔존 0 재확인 → 범위 파일 stage→commit→push. 커밋: `BOHUMFIT-039: Q5 중대질병 코드목록 확장(I05~I09·K60~K64, K63제외)·health_q5_codes 리네임 + 직장항문 실손전용 안내`.
+- **Human**: E2E — I05/K64 Q5 표시, K63·E78 미표시, 직장항문 단독 시 실손 전용 안내.
+
+## 2026-06-16 Cowork BOHUMFIT-039 [진단 전용·읽기: Q5 중대질병 코드목록 vs 11대 질병 갭 / 코드변경 없음 / Next: Human]
+### (a) Q5 판정에 쓰는 코드목록 — 코드 라인 근거
+- ★ **활성 목록 = `HEALTH_Q4_10CODES`**(filters.py L36 `= keywords.json health_q4_10codes`), `_build_q5_health_items`(filters.py L764 `if not _code_in(dc, HEALTH_Q4_10CODES): continue`)에서 사용. **131개**(3자리 KCD):
+  - 암 `C00~C97`(부위별 악성신생물) + `D00~D09`(제자리암종 in-situ)
+  - 뇌졸중 `I60·I61·I62`(뇌출혈)·`I63`(뇌경색)·`I64`(상세불명 뇌졸중)
+  - 협심증 `I20` / 심근경색 `I21·I22`
+  - 판막 `I34`(승모판)·`I35`(대동맥판)·`I36`(삼첨판)·`I37`(폐동맥판)·`I38`(상세불명) — **비류마티스성만**
+  - 간경화 `K74`
+  - 고혈압 `I10`(본태성)·`I11`(고혈압심장병)·`I12`(고혈압신장병)·`I13`(심신장)·`I14*`·`I15`(이차성)
+  - 당뇨 `E10`(1형)·`E11`(2형)·`E12`(영양실조성)·`E13`(기타)·`E14`(상세불명)
+  - HIV/AIDS `B20·B21·B22·B23·B24`
+- `HEALTH_Q5_CODES`(filters.py L33 `= keywords.json health_q5_codes`, 37개: C·D0·I10~I15·I20~I22·**I05~I09**·I34~I38·I60~I64·K74·E10~E14·B20~B24)는 **정의돼 있으나 `_build_q5`에서 미사용(스캐폴딩)** — 혼동 주의. 실제 판정은 `health_q4_10codes`.
+### (b) 11대 질병 갭표 (활성=health_q4_10codes 기준)
+| # | 11대 질병 | 현재 커버 코드 | 상태 |
+|---|---|---|---|
+| ① | 암 | C00~C97, D00~D09 | ✅ 커버 |
+| ② | 백혈병 | C91~C95(C 접두 포함) | ✅ 커버 |
+| ③ | 고혈압 | I10~I15 | ✅ 커버 |
+| ④ | 협심증 | I20 | ✅ 커버 |
+| ⑤ | 심근경색 | I21~I22 | ✅ 커버 |
+| ⑥ | 심장판막증 | I34~I38(비류마티스) | ⚠ 부분 — **I05~I09(만성 류마티스성 판막) 누락** (스캐폴딩 q5엔 있음) |
+| ⑦ | 간경화증 | K74 | ✅ 커버 |
+| ⑧ | 뇌졸중 | I60~I64 | ✅ 커버 |
+| ⑨ | 당뇨병 | E10~E14 | ✅ 커버 |
+| ⑩ | 에이즈/HIV | B20~B24 | ✅ 커버 |
+| ⑪ | **직장/항문질환**(치질 K64·치열 K60·치루/항문농양 K61·기타항문직장 K62·항문출혈 등) | **(없음)** | ❌ **전부 누락** — K60·K61·K62·K64 미포함 |
+- 검증: `K60·K61·K62·K64·I05~I09` 모두 `health_q4_10codes`에 `False`(코드로 확인).
+### (c) 매칭 방식
+- `_code_in(dc, prefixes)` = `c.upper().startswith(p)` (filters.py L45~53) — **접두(prefix) 매칭**. `dc`는 `disease_stats`의 `diag_code`(061 `disclosure_group_code`로 양방/한방 접두 제거된 **순수 KCD 3자리**). 목록도 3자리라 사실상 3자리 정확매칭. 직장/항문 추가 시 `K60·K61·K62·K64`(또는 더 넓게 `K6`) 형태로 넣어야 함. (주의: `K6` 같은 2자리 접두는 K65 복막염 등 비대상까지 포함하니 3자리 권장.)
+### (d) 단일 관리 지점
+- **`backend/keywords.json` → `health_q4_10codes` 키 한 곳**(filters.py L36 → `_build_q5_health_items` L764 소비). 11대 질병 코드 추가/정비는 여기만 수정. ⚠ 동명 혼동 정리 권장: 미사용 `health_q5_codes`/`HEALTH_Q5_CODES`를 실사용 목록으로 통합하거나 제거(별도 소작업).
+### (e) E78 재확인
+- `E78`(고지혈증)은 `health_q4_10codes`·`health_q5_codes` **둘 다 미포함**(코드로 확인) → Q5 미표시 = **정상**. 고지혈증은 11대 질병 아님(약관상 별도). Q3 투약 30일/통원 7회로 잡히는 게 맞음.
+### 수정 범위·리스크(참고, 미구현)
+- 갭 보완 시: `keywords.json health_q4_10codes`에 ⑪직장/항문(K60·K61·K62·K64)·⑥류마티스판막(I05~I09) 추가 → `_build_q5`가 자동 반영. 결정론이라 안전하나 **각 질병의 정확한 KCD 코드 범위는 약관 기준 Human 확정 필요**(특히 ⑪직장/항문은 치핵 K64·치열 K60·치루 K61·항문농양 K61·직장탈출 K62 등 범위 합의 필요).
+### Next
+- **Human**: 11대 질병 각각의 KCD-9 코드 확정(특히 ⑥ I05~I09 포함 여부, ⑪ 직장/항문 K60~K64 범위). 확정 후 Cowork가 `health_q4_10codes` 갱신 + 회귀(목록코드→Q5, 비목록→미표시) → Codex.
+- 코드 변경 없음(진단 전용)·마운트 git 미실행·PII 미사용.
+
+## 2026-06-16 Codex BOHUMFIT-038 [Windows 검증·커밋·푸시 완료 / Next: Human E2E]
+### Changed
+- 커밋/푸시: `d88b5ae` `BOHUMFIT-038: AI 역할 Q2 한정(추가검사·재검사) + Q5 중대질병 결정론 코드매칭(AI Q4/Q5 누수 차단, E78 과분류 차단)`
+- 범위 파일만 반영: `backend/pipeline/result_builder.py`, `backend/analyzer.py`, `backend/tests/test_ai_q2_only.py`
+- `result_builder._build_pool`: `_source != "code"`인 AI/비결정론 항목은 Q2만 통과, 결정론 `_source="code"` 항목(Q1/Q3/Q4/Q5 포함)은 기존대로 통과.
+- `analyzer.py`: Gemini 프롬프트/JSON duty_question 안내를 AI Q2 전용으로 제한. JSON 스키마 필드는 보존.
+- `test_ai_q2_only.py`: AI Q4/Q5 누수 차단, AI Q2 유지, Q5 결정론 코드매칭(I10 포함/E78 제외), 결정성 회귀 추가.
+### Verified
+- 마운트 truncation 선제 점검: 3파일 bytes/tail/NUL 확인 OK, import/py_compile OK, `git diff --check` OK.
+- `cd backend && python -m pytest -q tests/test_ai_q2_only.py -vv` -> 5 passed.
+- `cd backend && python -m pytest -q` -> 256 passed, 7 skipped. Cowork 제외 파일 `test_filters.py`, `test_report_pdf_q1q5.py` 포함 전체 수집/통과.
+- `cd backend && python -m pytest -q tests/test_filters.py tests/test_report_pdf_q1q5.py` -> 16 passed, 6 skipped.
+- `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- `npm run lint` -> pass.
+- `npm test` -> 4 files / 45 tests passed.
+- `npm run build` -> pass. 기존성 chunk/plugin timing warning만 출력.
+### Expectations Rechecked
+- AI 비결정론 항목은 Q2 추가검사/재검사 의심만 표시. AI가 Q4/Q5/중대질병 후보를 내도 미표시.
+- Q5 중대질병은 결정론 코드매칭만 사용: I10은 Q5, E78은 Q5 제외.
+- Q4는 5~10년 입원·수술 결정론 경로만 유지, AI 누수 0.
+- `_build_pool` guard는 `source="code"` 결정론 항목을 막지 않음.
+- Q2 AI 항목은 정상 표시 유지, 동일 입력 2회 결정성 확인.
+### Notes
+- PII 원본/비익명 fixture/PDF/brand/.agent-harness/task 문서는 stage하지 않음.
+- `.agent-harness/handoff.md`, `.agent-harness/locks.md`, task 문서/brand/pamphlet 산출물은 작업 전부터 남아 있던 별도 변경/미추적 상태로 커밋 제외.
+### Next
+- Human: BOHUMFIT-038 E2E. 실제 업로드 결과에서 Q2 AI 표시 유지, Q4/Q5 AI 누수 없음, Q5 결정론 코드매칭 확인.
+
+## 2026-06-16 Cowork BOHUMFIT-038 [AI 역할 Q2 한정 + Q5 결정론 코드매칭 구현+회귀 / Next: Codex]
+### 1단계 확인 결론
+- (a) AI flagged_items `duty_question`은 프롬프트 허용집합이 Q1~Q4라 AI가 Q4(중대질병)까지 부여 → 037 누수.
+- (b) Q5는 이미 `filters._build_q5_health_items`(HEALTH_Q4_10CODES 결정론 코드매칭) 전용 — **AI 의존 0**. 결정론만으로 충분(E78 목록 밖→자연 차단).
+- (c) `result_builder._build_pool`의 `source=_source`(결정론="code" vs AI="ai"/"medical_judgment")로 AI를 Q2에만 제한 가능 = 안전한 단일 enforcement 지점.
+### Changed
+- `backend/pipeline/result_builder.py` `_build_pool`: q 루프에 **`if source != "code" and q != "Q2": continue`** 가드. AI(비결정론) 항목은 Q2(추가검사·재검사)에만 머지 — 중대질병·입원·수술 등 비-Q2 AI 누수 하드 차단. 결정론("code") 항목 Q1/Q3/Q4/Q5는 불변.
+- `backend/analyzer.py`: Gemini 프롬프트 `json_duty_q_values`(L399)·질문번호 안내(L294)를 "AI(flagged_items)는 Q2만, 나머지는 결정론/공단 처리"로 정리(한국어). **JSON 스키마 구조 보존**(파서 무영향). 가드가 하드 enforcement이므로 프롬프트는 정합용.
+- `backend/tests/test_ai_q2_only.py`(신규 5): ★AI Q4 중대질병(E78)→전 질문 미표시·AI 비-Q2(Q5/Q3) 누수 0·AI Q2 정상 유지·★Q5 결정론(I10→Q5, E78→Q5 미표시 과분류 차단)·결정성.
+### Verified
+- /tmp `pytest` **186 passed**(신규 5 포함, 회귀 0). 실마운트 `test_ai_q2_only` 5/5·import OK.
+- ⚠ 마운트 손상 파일(test_filters·test_report_pdf_q1q5는 마운트 view truncation/NUL, analyzer_integration·snapshot·main_launch·report_pdf는 Chromium/genai)은 /tmp 수집 불가로 제외 → **Windows 원본 정상**(이번 변경은 _build_pool 머지·프롬프트만, 필터 룰·HTML 렌더 미접촉이라 두 파일에 영향 없음) → Codex 권위.
+- Windows 원본 Read로 가드(result_builder L352~354)·프롬프트(analyzer L294/L399) 반영 확인.
+### Notes
+- Q5/filters/033/034/간편 불변·결정론·결정성. medical_judgment(이미 Q2)·q2_suspicion 부착(037 B 게이팅) 무회귀. 실 PDF/PII 미사용·마운트 git 미실행.
+### Next
+- **Codex(Windows)**: 전체 `pytest`(손상 파일 포함)·`tsc`(app/node)·`lint`·`test`·`build` → 범위 파일 stage→commit→push. 커밋: `BOHUMFIT-038: AI 역할 Q2 한정(추가검사·재검사) + Q5 중대질병 결정론 코드매칭(AI Q4/Q5 누수 차단, E78 과분류 차단)`.
+- **Human**: E2E — 중대질병 Q5(코드매칭) 표시, Q4엔 5~10년 입원·수술만, AI는 Q2에만, E78 미표시.
+
+## 2026-06-16 Cowork BOHUMFIT-037 [진단 전용·읽기: A) 중대질병 Q4 누수 B) Q2 Gemini 게이팅 / 코드변경 없음 / Next: Human]
+### A. 중대질병(E78)이 Q4로 새는 원인 — 확정
+- ★ **근본 원인: `analyzer.py`의 Gemini 프롬프트가 034 이전 4문항 스킴 그대로**(034 미반영). L294 "★ 사용 가능한 질문번호: Q1~Q4 뿐. **Q5는 절대 사용 금지**", L295/L320 "**Q4=5년(중대질병)**"(암·고혈압·당뇨 등 10대). L402-404 `q4_hit`/`q4_reason`="중대질병명…".
+- (a)(b) AI 판단 결과 `flagged_items`는 `duty_question`에 AI가 준 값(Q1~Q4)을 그대로 담고, `result_builder._build_pool(code_based_items_health, include_ai=True)`가 이를 필터 항목과 **합쳐** 머지함 → AI의 `duty_question="Q4"`(중대질병) 항목이 **034 신설 Q4(5~10년 입원·수술) 섹션**으로 들어감. 프런트 `extractQNumber`/q_labels는 정상(라벨대로 렌더)이라 표시는 맞고, **잘못된 건 백엔드 AI가 부여한 q값**. → E78이 Q4 배지로 뜨는 직접 위치 = `analyzer.py` 프롬프트의 Q4=중대질병 + AI flagged_items q="Q4".
+- (c) **E78(고지혈증)은 `health_q4_10codes`·`health_q5_codes` 어디에도 없음**(목록엔 고혈압 I10~I15·당뇨 E10~E14는 있으나 고지혈증 E78 없음). 즉 결정론 필터(Q5)는 E78을 중대질병으로 만들지 않음. **E78=중대질병 분류는 코드 기준상 부당** — Gemini(LLM)가 과분류해 q4_hit한 것(추론: 고혈압/당뇨 인접 코드로 LLM이 확대 적용).
+- (d) **이중분류 위험 존재**: 실제 목록 코드(예 I10 고혈압)는 필터가 Q5 항목(R-H-Q5-MAJOR-5Y) 생성 + AI가 Q4 항목 생성 → 머지키 (code,Q5)·(code,Q4) 둘 다 → **Q4·Q5 동시 표시**. E78은 목록 밖이라 Q4(AI)만.
+- **Q5 전용화 수정 방향(미적용·제안)**: `analyzer.py` 프롬프트를 034 5문항으로 갱신 — 중대질병 → **Q5**(Q4=5~10년 입원·수술은 공단/심평원 데이터 기반 필터 전용이라 AI는 Q4 미부여), "Q5 금지" 문구 제거, `q4_hit/q4_reason`→`q5_hit/q5_reason`, AI duty_question 허용집합에서 Q4 제외(또는 중대질병은 Q5로). 선택: AI 중대질병을 `HEALTH_Q4_10CODES` 코드목록으로 게이팅해 E78 같은 과분류 차단.
+- **리스크**: 프롬프트/JSON 키 변경은 AI 출력·결정성에 직접 영향 → 회귀(중대질병→Q5, Q4=입원수술만, 이중분류 0, 결정성) 필수. analyzer.py는 034 작업범위에서 제외됐던 파일(이번에 누락 확인).
+
+### B. Q2 추가검사 Gemini 적용 여부 — 확정
+- (e) 경로: `analyzer.py`가 `_codes_with_recent_test_evidence(disease_stats, d1y)`로 **1년 내 세부진료 검사근거(detail_test_events) 보유 코드**를 구하고, 그 코드의 Q1/Q2 항목(`_suspicion_prompt_items`)이 **있을 때만** `ai_judgment._call_q2_health_findings(items, today, api_key)` 호출(Gemini gemini-2.5-flash, temp0/seed42). 결과 `q2_suspicion`을 항목에 부착.
+- (f) ★ "자동 의심 소견 없음 — 원자료 기준 확인" = 프런트 폴백(`q2_suspicion`·`additional_test_reason` 공란 시). **전부 '없음'의 1순위 원인 = (ii) Gemini 미적용 — BOHUMFIT-027(B) 게이팅**: 1년 내 세부진료 검사근거가 있는 코드가 없으면 `_suspicion_prompt_items` 빈 리스트 → **Gemini Q2 아예 미호출**(경고도 없음). 즉 'Gemini 돌고 의심없음'이 아니라 '검사근거 없어 호출 안 함'.
+- (g) 적용(의심 부착) 조건: ① 동일코드에 1년 내 `detail_test_events`(세부진료정보 PDF의 검사 키워드) 존재 + ② `GOOGLE_API_KEY` 환경변수 설정(main.py L399; /api/health의 `google_api_key`로 확인 가능) + ③ Gemini가 비공란 의심문 반환. 하나라도 빠지면 '없음'. api_key 부재/예외 시엔 `retry_warnings`에 "⚠️ Q1/Q2 의심 소견 생성 실패" 경고가 뜸 → **경고 유무로 (i)미적용 vs (ii)실패 구분 가능**.
+- 판별 가이드(Human): 결과에 위 경고 없음 + 전부 '없음' → 세부진료 검사근거 부재(설계대로). 경고 있음 → api_key/예외(설정·키 확인). /api/health `google_api_key=false`면 키 미설정.
+
+### 수정 범위·리스크 요약
+- A 수정: `backend/analyzer.py`(Gemini 프롬프트 5문항화·q5 키), 선택 `result_builder` AI 머지 q 가드, 회귀(test). 리스크=AI 출력 변동·결정성. **★analyzer.py는 034에서 미수정(이번 누수의 근원)**.
+- B는 버그 아닐 가능성 높음(설계 게이팅). 만약 "검사근거 없어도 Gemini 의심 표시" 원하면 027(B) 게이팅 완화가 별도 사양 결정 필요(과분류 위험).
+- 코드 변경 없음(진단 전용)·실 PDF/PII 미사용·마운트 git 미실행.
+
+### Next
+- **Human 결정**: A) analyzer.py 프롬프트 5문항 교정(+E78 등 과분류를 코드목록 게이팅할지) 진행 승인? B) Q2 '없음'이 설계대로(검사근거 부재)인지 vs api_key 미설정인지 확인(/api/health). 승인 시 Cowork 구현→Codex.
+
+## 2026-06-16 Codex BOHUMFIT-036 [Windows authority verification / publish / Next: Human]
+### Changed
+- Verified and published BOHUMFIT-036 disclosure PDF implementation:
+  - `backend/pipeline/report_pdf.py`: disclosure PDF criteria updated to Q1~Q5, Q4 metric visibility added for 5~10y inpatient/surgery only, Q5 chips suppressed, `surgery_suspected_grade` surfaced for Q4 suspected surgery.
+  - `backend/templates/report_disclosure.html`: Q4 suspected surgery chip renders as amber `수술 의심—확인 필요 (강/약)`, distinct from red confirmed inpatient/surgery chips; criteria comment updated to 1~5.
+  - `src/pages/Disclosure.tsx`: result screen adds `고지내역 PDF 저장` button; sends `report_type: "disclosure"` with `result.standard_reports`, `result.easy_reports`, `result.all_disease_summary`, and `result.total_med_sum` as-is (no frontend recomputation).
+  - `backend/tests/test_report_pdf_q1q5.py`: new 6-case anonymous synthetic regression for Q4/Q5 metric visibility, suspected grade, Q1~Q5 HTML, empty section, and determinism.
+  - `backend/tests/test_report_pdf.py`: existing criteria regression updated from 4 to 5 lines because Q1~Q5 criteria text is now part of the PDF surface.
+- Commit pushed to `origin/main`: `f8de040` (`BOHUMFIT-036: 알릴의무 고지내역 고객용 PDF 저장(Q1~Q5 섹션, Q4 5~10년 입원·수술의심 강약 구분, 결과화면 저장 버튼)`).
+
+### Verified
+- Read latest `AGENTS.md`, Cowork BOHUMFIT-036 handoff, locks, and `.agent-harness/tasks/BOHUMFIT-036-disclosure-pdf-q1q5.md`.
+- Mount truncation preflight on Windows originals via `git diff` + byte/integrity checks:
+  - `backend/pipeline/report_pdf.py`: 26,017 bytes / 540 lines / NUL 0 / replacement 0 / prefix `23 20 2D 2A`.
+  - `backend/templates/report_disclosure.html`: 13,498 bytes / 290 lines / NUL 0 / replacement 0 / tail `</html>`.
+  - `src/pages/Disclosure.tsx`: 76,466 bytes / 1,618 lines / NUL 0 / replacement 0 / existing UTF-8 BOM preserved.
+  - `backend/tests/test_report_pdf_q1q5.py`: 3,562 bytes / 61 lines / NUL 0 / replacement 0.
+  - `backend/tests/test_report_pdf.py`: 17,134 bytes / 391 lines / NUL 0 / replacement 0.
+- `python -m py_compile pipeline/report_pdf.py tests/test_report_pdf_q1q5.py` -> passed.
+- `cd backend && python -m pytest -q tests/test_report_pdf_q1q5.py -vv` -> **6 passed**.
+- `cd backend && python -m pytest -q tests/test_report_pdf.py::test_disclosure_criteria_numbered_lines -vv` -> passed.
+- `cd backend && python -m pytest -q` -> **251 passed, 7 skipped**.
+- PDF real conversion (Playwright Chromium) with synthetic non-PII payload:
+  - Generated disclosure PDF successfully: 2 pages / 743,716 bytes.
+  - Rendered PDF pages to PNG with `pypdfium2`; visual check passed for Korean text, page layout, Q1~Q5 sections, Q3 visit/med/inpatient/surgery chips, Q4 strong/weak suspected surgery amber chips, confirmed surgery red chip, Q5 major disease, and empty easy section.
+  - Pixel color check detected both amber and red chip colors (`amber_bg` 13,478; `red_bg` 757,957). Poppler was unavailable on PATH/bundled bin, so `pypdfium2` was used for rendering.
+  - PDF core determinism: same input + same generated_at produced equal extracted core text; PDF byte sizes also matched in the deterministic sample.
+- `npx tsc -p tsconfig.app.json --noEmit` -> passed.
+- `npx tsc -p tsconfig.node.json --noEmit` -> passed.
+- `npm run lint` -> passed.
+- `npm test` -> **4 files passed / 45 tests passed**.
+- `npm run build` -> passed; only existing Vite chunk-size warning.
+- Scoped staging check: committed only report PDF/template/frontend/test files; no PII/original PDF/non-anonymous fixtures staged. Temporary PDF/PNG outputs were removed before commit.
+
+### Notes
+- Codex fixed two Windows-authority findings before publish: removed an accidental BOM introduced at the start of `report_pdf.py`, and changed PDF `.chip.amber` from gray to actual amber so Q4 suspected surgery is visually distinct from confirmed red surgery.
+- The staged scope includes `backend/tests/test_report_pdf.py` in addition to the originally listed 4 files because the Q1~Q5 criteria update would otherwise leave the existing PDF regression asserting the old 4-line criteria.
+
+### Next
+- **Human**: 통합 E2E (실제 업로드 결과 화면에서 `고지내역 PDF 저장` 클릭, Q1~Q5 PDF, Q4 확정/의심 강약, 빈섹션 해당없음, 다운로드 파일명 확인).
+
+## 2026-06-16 Cowork BOHUMFIT-036 [고지내역 Q1~Q5 고객 PDF 구현+회귀 / Next: Codex]
+### 1단계 진단 결론 (a~d)
+- (a) report_pdf **기존 존재**: `/api/report/pdf`(disclosure/insurance)·`render_disclosure_html`+`report_disclosure.html`·Playwright Chromium·Noto CJK. `_metric_visibility`(프런트 미러)·`_prepare_section`.
+- (b) result_builder 출력에 Q1~Q5 데이터 **전부 존재**(034 후). 부족분: `_metric_visibility` Q4 케이스 부재·`_prepare_section` grade 미노출·템플릿 강/약 미표시.
+- (c) disclosure용 **프런트 버튼 없음**(InsuranceCalculator만 사용) → 결과화면 버튼 신설.
+- (d) PII PDF 포함 OK·미커밋·익명 픽스처.
+### Changed
+- `backend/pipeline/report_pdf.py`: `_metric_visibility` **Q4 케이스**(입원·수술; 통원·투약 없음)·Q5=default. `_prepare_section`에 `suspected_grade`(surgery_suspected_grade) 노출.
+- `backend/templates/report_disclosure.html`: 수술 의심 칩 → "수술 의심—확인 필요 (강/약)"(amber)로 등급 표시, 확정 수술(red)과 **시각 구분**. 5년/5~10년 구분은 q_title 라벨(034)로 자동 반영.
+- `src/pages/Disclosure.tsx`: ResultView에 **"고지내역 PDF 저장" 버튼**+핸들러(`/api/report/pdf` type=disclosure, result_builder 결과값 그대로 전달 — 재계산 0). useAuth 토큰·blob 다운로드.
+- `backend/tests/test_report_pdf_q1q5.py`(신규 6): Q4 metric·등급 노출·Q1~Q5 HTML 렌더·빈섹션 "고지 검토 항목이 없습니다"·결정성(Chromium 불요 HTML 단계).
+### Verified
+- /tmp·실마운트 `pytest` **197 passed / 6 skipped**(신규 6 포함, 회귀 0). Jinja 렌더로 Q1~Q5 섹션·Q3 통원14/투약31·Q4 입원·**Q4 "수술 의심—확인 필요 (강)"**·Q5 중대질환 라벨 표시 확인.
+- ⚠ PDF 변환(Playwright Chromium)·프런트 tsc/lint/build는 샌드박스 불가(네이티브 바인딩/Chromium) → Codex Windows 권위. test_report_pdf.py(Chromium)는 제외 실행.
+### Notes
+- 엑셀 복제 아님(구조 참고)·보험핏화. result_builder 재사용(재계산 금지)·결정론·간편 불변·030~035·061·062 불변.
+- 실파일은 /tmp→cp 미러링 후 Windows Read로 Q4 metric 반영 확인. 마운트 git 미실행·실 PDF/PII 미사용·미커밋.
+### Next
+- **Codex(Windows)**: `cd backend && pytest -q`(test_report_pdf.py Chromium 포함)·`tsc`(app/node)·`lint`·`test`·`build` → 범위 파일 stage→commit→push. 커밋: `BOHUMFIT-036: 고지내역 Q1~Q5 고객용 PDF(Q4 확정/의심 강약 구분·5년/5~10년) + 결과화면 저장 버튼`.
+- **Human**: E2E — 결과화면 "고지내역 PDF 저장" → Q1~Q5 한글 PDF·Q4 확정 vs 의심(강약)·빈섹션 해당없음.
+
+## 2026-06-16 Codex BOHUMFIT-035 [Windows authority verification / publish / Next: Human]
+### Changed
+- Verified and published scoped BOHUMFIT-035 implementation only:
+  - `src/lib/insuranceCalc.ts`: `insConservativeEstimate(coveredSelfPay, nonCovered)` added; uses existing `INS_GEN_RATES` + `insEstimateClaim`, chooses the generation with minimum `low` refund (maximum deductible / conservative estimate). 504 `insClaimPerRow` remains `Math.max(fixed, pct)`.
+  - `src/pages/Disclosure.tsx`: inline mirror added and rendered only when generation is unknown and covered/non-covered input exists; selected generation path remains `genNum ? insEstimateClaim(...) : null`.
+  - `src/lib/insuranceCalc.test.ts`: anonymous synthetic regressions for conservative low/min-generation, deterministic 2x, zero input, and 504 fixed-vs-rate max formula.
+- Commit pushed to `origin/main`: `5b16791` (`BOHUMFIT-035: 실손 세대별 최대 공제 자동 적용(세대 모름시 보수적 추정, 미러 동기화, 504 산식 보존)`).
+
+### Verified
+- Read latest `AGENTS.md`, Cowork BOHUMFIT-035 handoff, and `.agent-harness/tasks/BOHUMFIT-035-insurance-conservative-deductible.md`.
+- Mount truncation preflight on Windows originals via `git diff` + integrity checks:
+  - `src/lib/insuranceCalc.ts`: 6,560 bytes / 124 lines / NUL 0 / replacement 0 / tail intact.
+  - `src/pages/Disclosure.tsx`: 74,192 bytes / 1,568 lines / NUL 0 / replacement 0 / tail intact.
+  - `src/lib/insuranceCalc.test.ts`: 2,908 bytes / 76 lines / NUL 0 / replacement 0 / tail intact.
+- Mirror check: `insConservativeEstimate`, `insEstimateClaim`, and `INS_GEN_RATES` normalized identical between `insuranceCalc.ts` and `Disclosure.tsx` inline mirror.
+- `npx tsc -p tsconfig.app.json --noEmit` -> passed.
+- `npx tsc -p tsconfig.node.json --noEmit` -> passed.
+- `npm run lint` -> passed.
+- `npm test` -> **4 files passed / 45 tests passed**.
+- `npx vitest run src/lib/insuranceCalc.test.ts --reporter verbose` -> **1 file passed / 6 tests passed**.
+- `npm run build` -> passed; only existing Vite chunk-size warning.
+- `cd backend && python -m pytest -q` -> **245 passed, 7 skipped**.
+- Expected-value recheck by executing transpiled `insuranceCalc.ts` in-memory:
+  - Conservative estimate equals minimum `low` refund across generations for covered/non-covered synthetic cases.
+  - Current constants choose 5th generation as the most conservative generation for positive sample inputs.
+  - `(0,0)` returns `has=false`; UI does not render conservative card because `coveredSelfPay + ncAmount > 0` is required.
+  - 504 formula preserved: fixed deductible wins when fixed > rate, rate wins when rate > fixed.
+  - Deterministic: same input 2x produced identical outputs.
+- Scoped staging check: committed only `src/lib/insuranceCalc.ts`, `src/pages/Disclosure.tsx`, and `src/lib/insuranceCalc.test.ts`; no PII/original PDF/non-anonymous fixtures staged.
+
+### Notes
+- No new regulatory deductible values were introduced; 035 uses existing `INS_GEN_RATES`, `INS_MIN_DEDUCTIBLE_BY_GEN`, and existing claim estimation helpers only.
+- Frontend tsc/lint/vitest/build were first verified on Windows here because Cowork could not run rolldown-backed tooling in Linux sandbox.
+
+### Next
+- **Human**: 실손 화면 E2E (세대 모름 + 금액 입력 보수적 추정 카드, 1~5세대 선택 경로 기존 동작, 안내 문구 노출).
+
+## 2026-06-16 Cowork BOHUMFIT-035 [세대 모름→보수적(최대공제 세대) 추정 구현+회귀 / Next: Codex]
+### Changed
+- `src/lib/insuranceCalc.ts`: `insConservativeEstimate(coveredSelfPay, nonCovered)` 신설 — 세대 1~5 산출 후 low(환급) 최소(=공제 최대=가장 보수적) 세대 반환. 비급여 옵션은 최대율. insEstimateClaim 재사용·새 규제값 추정 없음.
+- `src/pages/Disclosure.tsx`: 인라인에 `insConservativeEstimate` verbatim 미러. InsuranceSection: `genNum===0 && coveredSelfPay+ncAmount>0` → consEst 산출, ① 카드에 "청구 추정 약 N 이하 / 세대 모름 — 세대별 최대 공제 기준(가장 보수적, K세대)" 안내 표시(세대 선택 시 기존 동작 불변).
+- `src/lib/insuranceCalc.test.ts`(신규): 보수적 low=전 세대 최소·선택세대=최소세대·보수적≤단일세대 high·결정성·(0,0)→has false·504 `insClaimPerRow`=max(정액,정률) 보존.
+### Verified
+- 알고리즘 JS 재현 검증(샌드박스): 캐노니컬 입력 4종에서 보수적=gen5(min low), 전 세대 최소와 일치. (0,0)→has=false.
+- ⚠ vitest/tsc는 샌드박스에서 네이티브 바인딩(rolldown) 불가로 미실행 → Codex Windows 권위. 인라인 INS_GEN_RATES `nonCoveredOptions`·`wonToMan` 인라인 정의 확인(타입 안전).
+### Notes
+- ★규제값: INS_GEN_RATES 등 코드값만 사용·신규 추정 0. 504 산식(insClaimPerRow) 미수정. backend/insurance 미러 무관(이번 변경은 '모름 표시'만, 산식 불변).
+- 미러: lib↔Disclosure inline verbatim. 인라인은 비export라 테스트는 lib만 — Codex tsc/build가 인라인 동기 검증. backend는 무관(표시 로직).
+- 마운트 git 미실행·실 PDF/PII 미사용.
+### Next
+- **Codex(Windows)**: `npx tsc`(app/node)·`npm run lint`·`npm test`(insuranceCalc.test 포함)·`npm run build` → 범위 파일 stage→commit→push. 커밋: `BOHUMFIT-035: 실손 세대 모름 시 보수적(최대 공제 세대) 청구 추정 표시`.
+- **Human**: 화면 E2E — 세대 모름 + 급여/비급여 입력 시 보수적 추정·안내 노출, 세대 선택 시 기존 동작.
+
+## 2026-06-16 Cowork BOHUMFIT-035 [1단계 진단 완료·(B) 매핑 확인 대기 / Next: Human 확인]
+### 코드 변경 없음(진단 전용·읽기). 마운트 git 미실행.
+### 1단계 진단 (a~d, 코드 근거)
+- (a) 공제 산정: `insuranceCalc.ts:insClaimPerRow`(504 검증 산식 `finalDeductible=Math.max(fixed,pct)`)·`insProviderDeductible(gen,grade)`(정액공제)·`insEstimateClaim(coveredSelfPay,gen,...)`(세대 자기부담률). **명시적 `Math.min` 없음**(실손 영역). 세대는 사용자 `gen` 선택값(Disclosure L709). 모름(`gen=""`)→ `claim=null` → 추정 미표시("실손 세대를 선택하면…"). 즉 "공제 선택 min"은 모름(미선택) 경로로 해석됨.
+- (b) ★세대별 공제값 **코드에 존재(규제값, 추정 불요)**: `INS_GEN_RATES`(§4-1 자기부담률 1~5세대)·`INS_MIN_DEDUCTIBLE_BY_GEN`(§4-4 정액공제: 2/3/4세대 {의원1만·종합1.5만·상급2만}, 1·5세대=null)·`INS_SELF_PAY_CAP`(200만). 정액공제 default grade=tertiary(2만=최대/보수). 2/3/4세대 정액값 동일 → 세대 차이는 자기부담률(covered/nonCovered)에 있음. 가장 보수적(공제 큰/환급 작은) 세대=5세대(cov 0.6·nc 0.5).
+- (c) 미러: `insuranceCalc.ts` ↔ `Disclosure.tsx` 인라인(L585~700: INS_GEN_RATES·INS_MIN_DEDUCTIBLE_BY_GEN·insProviderDeductible·insClaimPerRow·insEstimateClaim·insCheckSelfPayCap·insCheckNhisCap 전부 동본) ↔ backend/insurance(3중). 변경 시 양쪽 verbatim 동기화 필요.
+- (d) 504 검증 산식 = `insClaimPerRow`(max(fixed,pct)). **재구현 금지·재사용** — 변경은 '세대/공제 선택' 표시 로직만, 계산식 보존.
+### 판정
+- 규제값 코드 확보 ✓ → Human 공제표 요청 불요.
+- ★ 다만 사양의 "공제 선택 min → 세대별 최대 공제 세대"가 코드의 어느 지점을 바꾸는지가 비명시(명시 Math.min 부재). 가장 합리적 해석: **세대 '모름' 시 추정 미표시 대신, 공제 가장 큰(환급 작은) 세대 기준으로 보수적 추정 표시**. 규제 환급 계산이라 구현 전 이 매핑만 확인 요청.
+### Next
+- **Human 확인**: (B) 대상 = "세대 모름일 때 가장 보수적 세대(최대 공제)로 추정 표시" 맞는지? (맞으면 Cowork 즉시 2단계: 미러 양쪽에 보수적-세대 선택 헬퍼 추가·UI 안내문구·회귀, 504 산식 보존)
+
+## 2026-06-16 09:55 Codex BOHUMFIT-034 [Windows authority verification / publish / Next: Human]
+### Changed
+- Verified and published scoped BOHUMFIT-034 implementation only:
+  - `backend/pipeline/helpers.py`: `_dts_in_window(date_set, lo, hi)` 범위창 helper.
+  - `backend/filters.py`: Q3=5년 입원·수술·통원·투약, Q4=5~10년 입원·수술/공단 의심, 기존 Q4 중대질환=Q5.
+  - `backend/pipeline/result_builder.py`: Q1~Q5 labels/window routing, Q4 upper bound, Q4-only surgery suspected grade.
+  - `src/pages/Disclosure.tsx`: Q4 metric visibility for inpatient/surgery.
+  - `backend/tests/test_q4_q5_restructure.py`: 신규 9-case regression.
+  - Updated existing tests: `test_bug012_q2_q3.py`, `test_filters.py`, `test_med_badge_header_align.py`, `test_med_window_5y.py`, `test_q_restructure.py`, `test_report_pdf.py`.
+- Codex additionally cleaned stale skipped-test/report fixtures that still referenced old Q3 rule IDs/title, so old product Q3 label/rule residues are gone except the explicit negative assertion proving disappearance.
+- Commit pushed to `origin/main`: `15a3ab9` (`BOHUMFIT-034: 고지 질문 재편(...)`).
+
+### Verified
+- Read latest `AGENTS.md`, Cowork BOHUMFIT-034 handoff, `locks.md`, and `.agent-harness/tasks/BOHUMFIT-034-question-restructure.md`.
+- Mount truncation preflight on Windows originals via `git diff` + integrity checks:
+  - `helpers.py`: 18,180 bytes / 518 lines / NUL 0 / replacement 0 / tail intact.
+  - `filters.py`: 35,220 bytes / 795 lines / NUL 0 / replacement 0 / tail intact.
+  - `result_builder.py`: 19,911 bytes / 399 lines / NUL 0 / replacement 0 / tail intact.
+  - `Disclosure.tsx`: 72,130 bytes / 1,542 lines / NUL 0 / replacement 0 / tail intact.
+  - `test_q4_q5_restructure.py`: 6,059 bytes / 127 lines / NUL 0 / replacement 0 / tail intact.
+  - Existing updated tests checked tail/NUL/import: `test_bug012_q2_q3.py`, `test_filters.py`, `test_med_badge_header_align.py`, `test_med_window_5y.py`, `test_q_restructure.py`, `test_report_pdf.py`.
+- Import/syntax guard: `python -m py_compile` on all changed backend Python files/tests -> passed.
+- `cd backend && python -m pytest -q` -> **245 passed, 7 skipped** on Windows.
+- `cd backend && python -m pytest -q tests/test_q4_q5_restructure.py -vv` -> **9 passed**.
+- `npx tsc -p tsconfig.app.json --noEmit` -> passed.
+- `npx tsc -p tsconfig.node.json --noEmit` -> passed.
+- `npm run lint` -> passed.
+- `npm test` -> **3 files passed / 39 tests passed**.
+- `npm run build` -> passed; only existing Vite chunk-size warning.
+- Expected-value recheck:
+  - Q3 INP-5Y/SURG-5Y/VISIT-7 trigger within 5 years; 5~10년 통원 7회 does not trigger.
+  - Q4 INP-510Y, SURG-510Y, SURG-SUSP-510Y trigger for 5~10 years.
+  - Q3/Q4 inpatient dates are disjoint: 2023-09-19 vs 2019-06-17 in synthetic split case.
+  - Surgery suspected grade appears only on Q4: Q3 empty, Q4 `강`/`약`.
+  - Major disease moved to Q5: `R-H-Q5-MAJOR-5Y` exists, `R-H-Q4-MAJOR-5Y` absent.
+  - Old Q3 title `10년 이내 입원·수술·통원·투약` absent; titles are Q3 5년, Q4 5년 초과 10년, Q5 5년 10대질환.
+  - Badge/header preserved: 20@3y + 20@7y -> header 20, badge 20.
+  - Determinism: two identical runs matched.
+- HEALTH_Q5_CODES check:
+  - `HEALTH_Q5_CODES` remains defined from existing keywords scaffolding.
+  - Actual `_build_q5_health_items()` uses `HEALTH_Q4_10CODES`; source inspection confirmed no `HEALTH_Q5_CODES` usage inside Q5 function.
+- Staged scope before commit was exactly 11 files above. No original PDF, non-anonymized fixture, brand asset, pamphlet output, harness task doc, or lock file was staged.
+
+### Notes
+- `backend/__pycache__/main.cpython-312.pyc` was touched by pytest and restored before staging.
+- Existing unrelated uncommitted/untracked harness docs, task files, brand assets, and pamphlet outputs remain outside the commit.
+
+### Next
+- **Human**: E2E for Q3 5년, Q4 5~10년 입원·수술/의심, Q5 중대질환, Q3/Q4 비중복, 배지=헤더.
+
+## 2026-06-16 Cowork BOHUMFIT-034 [질문 재편 2단계 구현+회귀 완료 / Next: Codex]
+> Human 설계 결정 승인(Q4=출처무관 소실방지 + 체계적 rule_id 재명명) 후 구현. 1단계 진단은 아래 항목 참조.
+### Changed
+- `backend/pipeline/helpers.py`: `_dts_in_window(set, lo, hi)`(범위창 [lo,hi)) 신설 — filters·result_builder 공용.
+- `backend/filters.py`: (1) Q3 입원·수술·통원 판정창 d10y→d5y, rule_id `R-H-Q3-INP-10Y→INP-5Y`·`SURG-10Y→SURG-5Y`·`VISIT-7` 유지, reason "10년→5년". (2) 신규 `_build_q4_health_items`(5~10년 입원 `R-H-Q4-INP-510Y`·확정수술 `R-H-Q4-SURG-510Y`·공단 의심 `R-H-Q4-SURG-SUSP-510Y`) + `_adm_in_window`. (3) 기존 Q4→`_build_q5_health_items`(`R-H-Q5-MAJOR-5Y`, 내용·5년창 불변). (4) 디스패치 q4+q5, docstring, import.
+- `backend/pipeline/result_builder.py`: `_q_since`/신규 `_q_until`(Q4 상한)/`q_labels` 5질문(Q3 "5년", Q4 "5년 초과 10년 이내 입원·수술", Q5 "5년 이내 10대질환"). Q4 범위창 `_win`(입원·visit·first/latest·periods 윈도잉). `_health_since` 5질문. `_build_pool` Q5 허용. 수술의심 `surgery_suspected_grade`는 **Q4 행에서만** 노출(Q3/Q5 빈값).
+- `src/pages/Disclosure.tsx`: getMetricVisibility에 Q4(입원·수술) 케이스 추가. Q5·기타=기존 Q4(중대질환)와 동일 default. 의심 배지는 result_builder가 Q4에서만 채워 자동 Q4 한정.
+- `backend/tests/`: 신규 `test_q4_q5_restructure.py`(9). 갱신 `test_filters`(Q4→Q5 rule), `test_q_restructure`(중대질환 Q5 함수·rule·assert), `test_bug012_q2_q3`(Q3 날짜 2020/2016→2024/2021·rule_id -5Y·MED 경계 1825일), `test_med_badge_header_align`·`test_med_window_5y`(Q3_TITLE "5년"·5~10년 입원수술 Q4 이동).
+- analyzer.py **미수정**: 보조키 q*_health는 렌더 미사용(프런트는 standard_reports). standard_reports는 build_summary_reports가 Q1~Q5 q_labels로 자동 생성.
+
+### Verified (Cowork /tmp 권위 + 실 마운트)
+- /tmp/bk034 `pytest` **191 passed / 6 skipped**(baseline 182 + 신규 9, 회귀 0). 실 마운트 backend pytest도 **191 passed/6 skipped**(cp 미러링 후 동일). 마운트 손상 4파일(analyzer_integration·snapshot·main_launch·report_pdf)만 제외 → Codex Windows 권위.
+- ★ Q4 신설: 5~10년 입원(확정)→`R-H-Q4-INP-510Y`·확정수술→`SURG-510Y`·공단 의심(강/약)→`SURG-SUSP-510Y`, 등급 Q4 행 노출. 0~5년 입원·수술은 Q3만(비중복: Q3/Q4 입원일 disjoint 확인).
+- ★ 기존 Q4 중대질환→Q5(`R-H-Q5-MAJOR-5Y`), `R-H-Q4-MAJOR-5Y` 소멸. 판정 불변.
+- ★ 라벨 "10년 이내 입원·수술·통원·투약" 잔존 0(Q3=5년), Q4="5년 초과 10년 이내 입원·수술". 통원 5년내 7회 발동·5~10년 미발동. 투약 1825일 무회귀. 배지==헤더. 결정성.
+
+### Notes
+- ★ **범위 확장**: 사용자 명시 scope(filters·result_builder·Disclosure·tests)에 더해 `helpers.py`(`_dts_in_window` 범위창 헬퍼) 추가 — filters·result_builder 공용 범위 로직 단일화 위함(CLAUDE.md 범위확장 기록 준수).
+- `HEALTH_Q5_CODES`/keywords `health_q5_codes`는 **베이스에 이미 존재(미사용 스캐폴딩)**. Q5 함수는 테스트가 검증하는 `HEALTH_Q4_10CODES` 사용(두 리스트 동일 중대질환). 정리는 후속 선택.
+- 마운트 truncation: 이번엔 베이스 무절단. 실파일은 /tmp→마운트 cp 후 Windows Read로 반영 확인(result_builder _q_since 5질문 확인). 프런트 tsc/lint/build 샌드박스 미실행 → Codex. 실 PDF·PII 미사용·마운트 git 미실행.
+
+### Next
+- **Codex(Windows)**: 전체 `pytest`(236 기준선 + 신규 증가 확인)·`tsc`(app/node)·`lint`·`test`·`build` → 범위 파일만 stage→commit→push. 커밋: `BOHUMFIT-034: 고지 질문 재편(Q3 5년 입원·수술·통원·투약, Q4 신설 5~10년 입원·수술, 기존 Q4 중대질환→Q5)`.
+- **Human**: E2E — Q3 5년 표시·통원 5년, Q4에 5~10년 입원·수술(의심 강/약), Q5에 중대질환, 입원수술 Q3/Q4 비중복, 배지=헤더.
+
+## 2026-06-16 Cowork BOHUMFIT-034 [1단계 구조 진단 완료·고위험 → 구현 정지 / Next: Human 설계 결정]
+### 코드 변경 없음(진단 전용·읽기). 마운트 git 미실행. 신규 task 파일 없음(업로드 사양 사용).
+
+### 1단계 구조 진단 (a~e, 코드 근거)
+- (a) 질문 구조: Q1 `R-Q1-*`(3개월) / Q2 건강체 `R-H-Q2-DIAG-1Y`(1년)·간편 `R-E-Q2-*-10Y` / Q3 건강체 `R-H-Q3-INP-10Y·SURG-10Y·VISIT-7·MED-30D` / Q3 간편 `R-E-Q3-MAJOR-5Y`(5년 6대) / Q4 건강체 `R-H-Q4-MAJOR-5Y`(5년 10대 중대질환). "10년" 하드코딩: filters Q3 INP/SURG/VISIT reason("10년이내…"), Q2-easy reason, 모듈 docstring L8, result_builder q_labels Q3("[3번질문] 10년 이내 입원·수술·통원·투약").
+- (b) Q3 창: 입원 `inp_10y=_dts_in_range(inpatient_dates, d10y)`·수술 `surg_10y(d10y)`·통원 `visit_10y_count(d10y)`·투약 `presc_5y=_q3_med_since`(1825일). → **입원·수술·통원이 d10y(10년)**, 투약만 5년.
+- (c) ★ 033 5~10년 출력: 공단 입원→`inpatient_dates`→**현재 Q3 INP-10Y(d10y)에 섞여 출력**. 수술의심(`surgery_suspected_grade`)은 disease-level 필드라 result_builder가 모든 Q행 summary item에 실어 보냄→그 질병이 뜨는 Q행(주로 Q3)에 배지 표시. **즉 5~10년 입원·수술이 Q3에 혼입, 별도 질문 분리 안 됨.**
+- (d) 기존 Q4: `_build_q4_health_items`→`R-H-Q4-MAJOR-5Y`, bucket_5y_major + HEALTH_Q4_10CODES, 5년. result_builder q_labels Q4="[4번질문] 5년 이내 10대질환", _q_since["Q4"]=d5y.
+- (e) 파급: filters(Q3 reason/창, 신규 Q4 룰, Q4→Q5 rename), result_builder(_q_since·q_labels 5질문, **신규 Q4=[d10y,d5y) 범위창** — 현 단일컷오프 `_dts_in_range(>=since)` 구조로 표현 불가→범위 헬퍼/분기 신설 필요), `Disclosure.tsx`(getMetricVisibility Q1/Q2/Q3 분기·shouldShowClinicalReview·qNum·라벨·의심배지 위치→5질문화), 테스트 5파일(test_filters `R-H-Q4-MAJOR-5Y`, test_q_restructure Q4·HEALTH_Q4, test_bug012 duty_question Q4, test_med_* Q3_TITLE "10년 이내" 상수), PDF(036).
+
+### 판정: 기술적으로 가능하나 **고위험·대형** + 설계 결정 필요 → 구현 정지·보고
+- 가능: 창 분리·범위 헬퍼·rule_id 재배치·렌더 갱신 모두 구현 가능.
+- ★ **데이터 소실 리스크(핵심 결정 필요)**: Q3 입원·수술를 5년으로 축소하면, **심평원 확정 입원·수술 중 5~10년 건이 Q3에서 빠짐**. 신설 Q4를 "공단 자료만"으로 한정하면 그 심평원 5~10년 확정 건이 **어느 질문에도 안 잡혀 소실**. 소실 방지하려면 Q4(5~10년)는 **출처 무관 모든 입원·수술**(심평원 확정 + 공단 의심)을 담아야 함.
+- 기타 결정: rule_id 명명(R-H-Q3-INP-10Y→-5Y 등), 의심등급 배지를 Q4 한정 노출할지, Q3 라벨/Q3_TITLE 변경에 따른 test 상수 동시 갱신.
+- 범위 확장 불가피: 사용자 명시 scope(filters·result_builder·Disclosure·tests)에 더해 **범위창 헬퍼**·프런트 5질문 렌더가 큰 변경. 회귀 표면 넓음(030~033·061·062 + 신규).
+
+### Next
+- **Human 설계 결정 (구현 착수 전)**:
+  1) ★ Q4(5~10년)에 **심평원 확정 입원·수술(5~10년)도 포함**해 소실 방지? (권장) 아니면 공단 자료만(→심평원 5~10년 확정 건 소실 감수)?
+  2) Q4 수술: 공단=의심(강/약), 심평원 5~10년=확정 — **한 질문에 확정+의심 혼재 표시 허용**?
+  3) rule_id 재명명 규칙 승인(R-H-Q3-*-5Y, 신규 R-H-Q4-INP/SURG-510Y, R-H-Q5-MAJOR-5Y)?
+- 결정 후 Cowork 2단계 구현(범위창 헬퍼·신규 Q4·Q5 이동·프런트 5질문·회귀) → Codex 검증·커밋.
+
+## 2026-06-16 08:15 Codex BOHUMFIT-032 [Windows authority verification / publish / Next: Human]
+### Changed
+- Verified and published scoped BOHUMFIT-032 implementation only:
+  - `backend/filters.py`: 건강체 Q3 투약 30일 판정창을 10년에서 투약 전용 1825일 창으로 분리. 입원·수술·통원7회 10년창은 유지.
+  - `backend/pipeline/result_builder.py`: 건강체 Q3 투약 배지도 헤더와 같은 투약 전용 1825일 창·동일 집계 함수를 사용.
+  - `backend/tests/test_med_window_5y.py`: 신규 8-case 회귀.
+  - `backend/tests/test_bug012_q2_q3.py`: 투약 날짜·경계 기대값 갱신.
+  - `backend/tests/test_med_badge_header_align.py`: 031 배지=헤더 테스트를 1825일 창 기준으로 갱신.
+- Codex expectation recheck에서 Cowork mirror가 달력 5년(`2021-06-15`, 1826일 전 포함)을 쓰는 것을 발견. 사용자 지시의 "1825일 포함·1826일 제외"와 맞추기 위해 같은 5개 범위 파일 안에서 투약 전용 helper `_q3_med_since()`를 추가해 보정 후 검증·커밋.
+- Commit pushed to `origin/main`: `a9bb6bc` (`BOHUMFIT-032: Q3 투약 판정창 10년→5년 교정(...)`).
+
+### Verified
+- Read latest `AGENTS.md`, Cowork BOHUMFIT-032 handoff, `locks.md`, and `.agent-harness/tasks/BOHUMFIT-032-med-window-5y.md`.
+- Mount truncation preflight on Windows originals via `git diff` + integrity checks:
+  - `filters.py`: 31,385 bytes / 712 lines / NUL 0 / replacement 0 / tail intact.
+  - `result_builder.py`: 18,885 bytes / 387 lines / NUL 0 / replacement 0 / tail intact.
+  - `test_med_window_5y.py`: 5,969 bytes / 125 lines / NUL 0 / replacement 0 / tail intact.
+  - `test_bug012_q2_q3.py`: 11,604 bytes / 284 lines / NUL 0 / replacement 0 / tail intact.
+  - `test_med_badge_header_align.py`: 7,811 bytes / 150 lines / NUL 0 / replacement 0 / tail intact.
+- Import/syntax guard: `python -m py_compile backend/filters.py backend/pipeline/result_builder.py backend/tests/test_med_window_5y.py backend/tests/test_bug012_q2_q3.py backend/tests/test_med_badge_header_align.py` -> passed.
+- `cd backend && python -m pytest -q` -> **236 passed, 7 skipped** on Windows.
+- `cd backend && python -m pytest -q tests/test_med_window_5y.py -vv` -> **8 passed**.
+- `cd backend && python -m pytest -q tests/test_med_badge_header_align.py tests/test_bug012_q2_q3.py -q` -> **23 passed**.
+- `npx tsc -p tsconfig.app.json --noEmit` -> passed.
+- `npx tsc -p tsconfig.node.json --noEmit` -> passed.
+- `npm run lint` -> passed.
+- `npm test` -> **3 files passed / 39 tests passed**.
+- `npm run build` -> passed; only existing Vite chunk-size warning.
+- Expected-value recheck:
+  - 14+14+3 -> 31, MED-30D triggered.
+  - 14+14 -> 28, MED-30D not triggered.
+  - single 30 -> triggered.
+  - 1825일 전(`2021-06-16`) included, 1826일 전(`2021-06-15`) excluded.
+  - 투약 20@3년 + 20@7년 -> 5년 SUM 20 / 10년 SUM 40 / badge row `med_days` 20.
+  - 5~10년 전 입원(INP-10Y), 수술(SURG-10Y), 통원7회(VISIT-7) all still triggered.
+  - Determinism: two identical runs matched.
+- Staged scope before commit was exactly 5 files above. No original PDF, non-anonymized fixture, brand asset, pamphlet output, harness task doc, or lock file was staged.
+
+### Notes
+- `backend/__pycache__/main.cpython-312.pyc` was touched by pytest and restored before staging.
+- Existing unrelated uncommitted/untracked harness docs, task files, brand assets, and pamphlet outputs remain outside the commit.
+
+### Next
+- **Human**: 투약 5년·30일경계·배지=헤더·다른 Q3 무영향 E2E.
+
+## 2026-06-16 Cowork BOHUMFIT-032 [Q3 투약 판정창 10년→5년 교정 구현+회귀 / Next: Codex]
+### 1단계 구조 진단 결론
+- (a) 투약 판정 since=`d10y`; `presc_10y=_sum_daily_max_presc(med_pharma, d10y)`(filters L562), reason "10년이내 투약…"(L606), 룰 R-H-Q3-MED-30D.
+- (b) d10y는 inp_10y/surg_10y/visit_10y와 공유 컷오프지만 각 지표가 독립 `_dts_in_range(...,d10y)` 호출 → **투약만 `presc_5y`(_d5y)로 안전 분리 가능**, 입원·수술·통원 불변.
+- (c) "7일 계속치료"=R-H-Q3-VISIT-7(통원 7회), d10y. 변경 대상 아님(불변).
+- (d) ★ **배지는 자동 5년화 안 됨**: result_builder L165가 `_q_since["Q3"]=d10y`(since_dt)로 med_days 재계산 — 필터 med창 미참조. 배지==헤더(5년) 달성에 result_builder 소수정 필요.
+- 판정: 투약창 5년 분리 **안전**(입원·수술 위험 없음·전체창 미변경). 사용자 전제("배지 자동 5년")는 코드상 불성립 → result_builder 1줄 분기 추가로 정합(범위 확장, 아래 사유 기록).
+
+### Changed
+- `backend/filters.py`: `presc_10y`(d10y) → `presc_5y=_sum_daily_max_presc(med_pharma, _d5y)`(BOHUMFIT-032). R-H-Q3-MED-30D 트리거·reason("5년이내 투약 30일 이상")·evidence·Q3 4개 항목 med_days 모두 presc_5y. **입원·수술·통원 reason/창(d10y) 불변.**
+- `backend/pipeline/result_builder.py`(★범위 확장): 건강체 Q3 배지 `_med_since = d5y if (not is_easy and q=="Q3") else since_dt` → `ds_med_days=_sum_daily_max_presc(_med_src, _med_since)`. 입원·통원 표시창(since_dt=10년) 불변. **사유: 1단계(d) — 배지가 필터 med창을 안 따라가므로 배지==헤더(확정 사양) 달성에 필수. filters 단독으로는 5-10년 투약 구간서 배지≠헤더.**
+- `backend/tests/test_med_window_5y.py`: 신규 8(5년내 31발동/28미발동/단일30/경계 1825포함·1826제외/★5-10년 투약 미발동/★5-10년 입원·수술·통원 정상발동/배지==헤더 5년SUM/결정성).
+- `backend/tests/test_med_badge_header_align.py`(031): 경계·헤더 참조 10년→5년(D10Y→D5Y) 갱신.
+- `backend/tests/test_bug012_q2_q3.py`: 투약 테스트 날짜 2020/2016→2024/2021(5년 내), MED 경계 테스트 10년→5년(2016-05-12→2021-05-12).
+
+### Verified (Cowork /tmp 권위, /tmp/bk033 동일 패치)
+- `pytest` **182 passed / 6 skipped**(bug012 16 포함; 마운트 손상 4파일 analyzer_integration·snapshot·main_launch·report_pdf만 제외) → Codex Windows 권위.
+- 032 신규 8 + 031 갱신 7 = 15 pass. bug012 16 pass(투약 5년 갱신).
+- ★ 다른 Q3 무영향 근거: `test_5to10y_inpatient_surgery_visit_unaffected` — 7년 전 입원/수술, 6~9년 전 통원7회가 INP-10Y/SURG-10Y/VISIT-7로 **정상 발동**(10년 창 유지). 투약만 `test_5to10y_medication_no_longer_triggers`로 5-10년 미발동.
+- 배지==헤더(5년): `test_badge_equals_header_5y_sum` — 투약 20@3년+20@7년, 입원 7년전으로 Q3행 → 배지 med_days=20(5년 SUM), 10년 SUM 40 아님.
+- 결정성 2회 동일.
+
+### Notes
+- ★ **범위 확장**: 사용자 명시 scope는 filters+tests였으나, 1단계 진단상 배지가 필터 med창을 재사용하지 않아(자동 5년화 안 됨) 확정 사양 "배지==헤더"를 위해 `result_builder.py` 1줄 분기 추가 불가피 → CLAUDE.md(범위 확장 시 handoff 기록) 준수해 사유 명시. 입원·수술·통원 표시창은 불변.
+- Q3 라벨("10년 이내 입원·수술·통원·투약")은 질문 레벨 헤더라 유지(투약만 5년인 점은 룰 reason "5년이내 투약…"이 정확히 전달). 라벨 변경 시 다른 테스트 영향 — 미변경.
+- 마운트 truncation: 실파일 Edit/Write로 Windows 원본 미러링. /tmp 검증 권위. bug012 line283 NameError는 /tmp 복사본의 마운트 손상(Windows 원본 정상 — Read 확인) → 복구 후 16 pass.
+- 프런트 무변경(tsc/lint/build 영향 없음). 실 PDF·PII 미사용·미커밋·마운트 git 미실행. 간편/061/062/033 불변.
+
+### Next
+- **Codex(Windows)**: truncation 선제 점검(filters·result_builder·3 test파일 꼬리/NUL) → 전체 `pytest`(투약 5년 회귀 포함 증가 확인) → `tsc`(app/node)·`lint`·`test`·`build` → 범위 파일만 stage→commit→push. 커밋: `BOHUMFIT-032: 건강체 Q3 투약 30일 판정창 10년→5년 교정(입원·수술·통원 10년 불변, 배지=헤더 5년 정합)`.
+- **Human**: 배포 후 실 PDF로 5-10년 투약만 있던 케이스가 더 이상 Q3 투약 고지되지 않는지 확인.
+
+## 2026-06-16 00:07 Codex BOHUMFIT-033 [Windows authority verification / publish / Next: Human]
+### Changed
+- Verified and published scoped BOHUMFIT-033 implementation only:
+  - `backend/pipeline/pdf_parser.py`: `parse_nhis_text` captures NHIS total cost and issue period.
+  - `backend/pipeline/disease_aggregator.py`: NHIS branch remains 5-year-boundary-limited and converts NHIS surgery evidence to `surgery_suspected` grade instead of confirmed `surgeries`.
+  - `backend/pipeline/result_builder.py`: surfaces `surgery_suspected_grade`.
+  - `src/pages/Disclosure.tsx`: renders strong/weak suspected-surgery badge and explanatory guide.
+  - `backend/pipeline/nhis_history_constants.py`: NHIS suspicion grade constants/helpers.
+  - `backend/tests/test_nhis_history.py`: anonymous synthetic 9-case regression suite.
+- Commit pushed to `origin/main`: `07400d7` (`BOHUMFIT-033: 공단 nhis 5~10년 입원·수술의심 확장(...)`).
+
+### Verified
+- Read latest `AGENTS.md`, Cowork BOHUMFIT-033 handoff, `locks.md`, and `.agent-harness/tasks/BOHUMFIT-033-nhis-history-parser.md`.
+- Mount truncation preflight on Windows originals via `git diff` + integrity checks:
+  - `pdf_parser.py`: 12,872 bytes / 312 lines / NUL 0 / replacement 0 / tail intact.
+  - `disease_aggregator.py`: 35,877 bytes / 786 lines / NUL 0 / replacement 0 / tail intact.
+  - `result_builder.py`: 18,406 bytes / 382 lines / NUL 0 / replacement 0 / tail intact.
+  - `Disclosure.tsx`: 71,620 bytes / 1,529 lines / NUL 0 / replacement 0 / tail intact.
+  - `nhis_history_constants.py`: 2,201 bytes / 58 lines / NUL 0 / replacement 0 / tail intact.
+  - `test_nhis_history.py`: 7,128 bytes / 131 lines / NUL 0 / replacement 0 / tail intact.
+- Import/syntax guard: `python -m py_compile backend/pipeline/pdf_parser.py backend/pipeline/disease_aggregator.py backend/pipeline/result_builder.py backend/pipeline/nhis_history_constants.py backend/tests/test_nhis_history.py` -> passed.
+- `cd backend && python -m pytest -q` -> **228 passed, 7 skipped** on Windows (219 baseline + new 9).
+- `cd backend && python -m pytest -q tests/test_nhis_history.py -vv` -> **9 passed**.
+- `npx tsc -p tsconfig.app.json --noEmit` -> passed.
+- `npx tsc -p tsconfig.node.json --noEmit` -> passed.
+- `npm run lint` -> passed.
+- `npm test` -> **3 files passed / 39 tests passed**.
+- `npm run build` -> passed; only existing Vite chunk-size warning.
+- Expected-value recheck from synthetic rows:
+  - Inpatient admissions: M51 1 + K60 1 = total 2.
+  - NHIS suspected surgery: M51/K60/K63 all grade `강`; confirmed `surgeries` for those NHIS-only rows stayed empty.
+  - H10 outpatient 90k: grade empty, suspected count 0.
+  - L40 within 5 years: inpatient count 0, grade empty.
+  - Determinism: two identical runs matched.
+- Regression focus:
+  - NHIS surgery evidence goes only to `surgery_suspected`, not confirmed `surgeries`.
+  - HIRA detail/basic confirmed surgery remains confirmed: S72 retained `surgeries` count 1 and no suspected grade.
+  - BOHUMFIT-062 non-surgery exclusion remains effective: excluded inpatient 600,000 downgrades to `약`.
+- Staged scope before commit was exactly 6 files above. No original PDF, non-anonymized fixture, brand asset, pamphlet output, harness task doc, or lock file was staged.
+
+### Notes
+- `backend/__pycache__/main.cpython-312.pyc` was touched by pytest and restored before staging.
+- Existing unrelated uncommitted/untracked harness docs, task files, brand assets, and pamphlet outputs remain outside the commit.
+- Issue-period parsing is present, but per-file issue-period UI plumbing remains a follow-up.
+
+### Next
+- **Human**: 공단 5파일 + 심평원 동시 업로드 E2E.
+- **Human / follow-up small task**: 발급기간 per-file UI 표면화.
+
+## 2026-06-15 Cowork BOHUMFIT-033 [공단 nhis 5~10년 입원·수술의심 확장 구현+회귀 / Next: Codex]
+> 직전 Codex preflight(아래)가 "구현 부재 → Cowork가 구현 제공 후 재인계" 요청 → 본 항목이 그 구현이다.
+### Changed
+- 신규 `backend/pipeline/nhis_history_constants.py`: 입원50만/외래10만 임계 상수 + `grade_surgery_suspicion()`(점수식: 입원고액+2·외래10만+1·수술키워드+1·062충돌-1 → ≥2 강 / ==1 약 / ≤0 없음) + `stronger_grade()`.
+- 신규 `backend/tests/test_nhis_history.py`: 익명 합성 회귀 9건(이민규 픽스처 포함).
+- `backend/pipeline/pdf_parser.py`: `parse_nhis_text` 확장 — 총진료비(=같은 줄 금액 최댓값=진료비총액=공단+본인) 캡처 + 발급기간(`_issue_period`) 추출. 헬퍼 `_extract_nhis_issue_period`·`_extract_nhis_total_cost` 신규.
+- `backend/pipeline/disease_aggregator.py`: (1) `new_disease`에 `surgery_suspected_grade`. (2) `_nhis_floor_str`(5년 경계). (3) **nhis 분기만** 재작성 — 5년 이내 무시, 입원 유지(금액무관), 외래 통원 미집계, **수술 확정→의심(등급)** 전환. `grade_surgery_suspicion` import.
+- `backend/pipeline/result_builder.py`: 요약 항목에 `surgery_suspected_grade` 표면화.
+- `src/pages/Disclosure.tsx`: `SummaryItem.surgery_suspected_grade` 타입 + "수술 의심—확인 필요 (강/약)" 배지(강=red-light·약=amber) + "건보 자료엔 수술 미명시, 진료비 기준 의심" 안내. 클리니컬리뷰 게이팅과 무관하게 등급 있으면 항상 노출(공단=Q3).
+
+### ★ 심평원 경로 불변
+- 확정→의심 전환은 **`elif ftype == "nhis":` 블록 안에서만**. 심평원 `basic`/`detail` 확정 수술(`s["surgeries"].add`) 미수정·062 제외 유지. 회귀 `test_hira_detail_surgery_still_confirmed`로 고정.
+
+### Verified (Cowork /tmp 권위, 동일 패치 /tmp/bk033)
+- `pytest` **158 passed / 6 skipped**(baseline 149 + 신규 9, 회귀 0). 마운트 손상 5파일(analyzer_integration·snapshot·main_launch·report_pdf·bug012)은 in-sandbox 수집 불가로 제외 → Codex Windows 권위.
+- 이민규 익명 픽스처 일치: **입원 2건(M51·K60), 수술의심 강 3건(M51·K60·K63), 외래 9만(H10) 제외**, 5년 이내(L40) 미반영, 심평원 세부(S72) 확정 유지.
+- 등급 경계: 입원 50만=강/49.9만=없음, 외래 10만=약/9.9만=없음, 외래10만+키워드=강(가중), 입원고액+062=약(강등). 파서: 총진료비(120만/9만)·발급기간 추출. 결정성 2회 동일.
+
+### Notes / 미완·주의
+- ⚠ **금액 파싱 신뢰도**: 실 공단 PDF 부재 → '같은 줄 금액 최댓값=총액' 휴리스틱은 익명 픽스처로만 검증. 실 PDF 레이아웃 차이 가능 → 배포 후 E2E 필요.
+- ⚠ **발급기간 표시**: 파서 캡처(+테스트) 완료, 그러나 응답/프런트 per-file 표시 plumbing은 **미구현**(후속 소작업 권장).
+- nhis 외래는 더 이상 통원으로 세지 않음(공단=입원·수술의심 전용) — 신규 동작(기존 nhis 통원 단언 없어 회귀 0).
+- 마운트 truncation: 실파일은 Edit/Write로 Windows 원본 미러링(mount view 절단되나 Windows 원본 완결 — aggregator nhis 분기 Read 확인, 신규 2파일 mount 무결 57/130줄). 프런트 tsc/lint/build는 샌드박스 미실행 → Codex. Chip tone(red-light/amber)·Tailwind core만 사용. 마운트 git 미실행. 실 PDF·비익명 데이터 미사용·미커밋.
+
+### Next
+- **Codex(Windows)**: truncation 선제 점검(`git diff`로 pdf_parser·disease_aggregator·result_builder·Disclosure·신규 2파일 꼬리/NUL 무결) → 전체 `pytest`(기준선 219 + nhis 9 증가 확인) → `npx tsc`(app/node)·`lint`·`test`·`build` → 범위 파일만 stage→commit→push. 커밋: `BOHUMFIT-033: 공단 nhis 5~10년 입원·수술의심 확장(총진료비·발급기간 파싱, nhis 수술 확정→의심 전환, 5~10년 역할한정, 프런트 의심 배지)`.
+- **Human**: 공단 5파일+심평원 동시 업로드 E2E + (선택) 발급기간 UI 표시 후속.
+
+## 2026-06-15 Codex BOHUMFIT-033 [Windows preflight blocked: implementation artifacts missing]
+### Changed
+- Code changes: none. No commit/push performed.
+- Handoff only: recorded that 033 verification/publish could not proceed because the expected implementation diff is absent from the Windows working tree.
+
+### Verified
+- Read `AGENTS.md`, latest `handoff.md`, `locks.md`, and `.agent-harness/tasks/BOHUMFIT-033-nhis-history-parser.md`.
+- Latest 033 handoff currently present in this checkout is still Cowork **1-step design diagnosis / implementation stopped**, not a 2-step implementation handoff.
+- `git status --short -uall` shows no modified implementation files for 033. Only existing harness docs/task files, locks, brand assets, and pamphlet outputs are uncommitted/untracked.
+- Scope diff check returned empty for:
+  - `backend/pipeline/pdf_parser.py`
+  - `backend/pipeline/disease_aggregator.py`
+  - `backend/pipeline/result_builder.py`
+  - `src/pages/Disclosure.tsx`
+  - `backend/pipeline/nhis_history_constants.py`
+  - `backend/tests/`
+- `backend/pipeline/nhis_history_constants.py` and expected NHIS-specific tests are not present in this checkout.
+- `git log -1` remains `653a155` (`BOHUMFIT-031...`); no BOHUMFIT-033 implementation commit exists locally.
+
+### Notes
+- Because there is no 033 implementation diff, mount-truncation validation, expectation rechecks, full verification, staging, commit, and push for BOHUMFIT-033 were not run. Running the full suite now would only verify the current 031/062 baseline and would not validate the requested NHIS behavior.
+- PII/original PDF files were not staged.
+
+### Next
+- Cowork or Human: provide/apply the BOHUMFIT-033 implementation artifacts first (nhis parser extension, aggregation changes, frontend suspected badge, constants, anonymous tests), then hand back to Codex for Windows verification and scoped publish.
+
+## 2026-06-15 Codex BOHUMFIT-031 [Windows authority verification / publish]
+### Changed
+- Verified and published scoped code changes only:
+  - `backend/pipeline/result_builder.py`: medication badge now reuses `_sum_daily_max_presc(...)` with the same source/window as the header path.
+  - `backend/tests/test_med_badge_header_align.py`: new 7-case synthetic regression suite.
+- Staged/committed/pushed only the two scoped files above.
+
+### Verified
+- Read `AGENTS.md`, latest `handoff.md` entries including Cowork BOHUMFIT-031, `locks.md`, and `.agent-harness/tasks/BOHUMFIT-031-med-badge-header-align.md`.
+- Mount-truncation preflight via `git diff` + Windows file integrity:
+  - `result_builder.py`: diff limited to `_sum_daily_max_presc` import and badge aggregation block; 381 lines, NUL 0, replacement 0, tail intact.
+  - `test_med_badge_header_align.py`: new-file diff present; 151 lines, NUL 0, replacement 0, tail intact.
+  - `git diff --check` / `git diff --cached --check` clean (CRLF warning only before staging).
+- `cd backend && python -m pytest -q` -> **219 passed, 7 skipped** on Windows current tree. Cowork /tmp reference was 149 passed/6 skipped; Windows has a larger current suite, all green.
+- `npx tsc -p tsconfig.app.json --noEmit` -> passed.
+- `npx tsc -p tsconfig.node.json --noEmit` -> passed.
+- `npm run lint` -> passed.
+- `npm run build` -> passed (existing Vite chunk-size warning and plugin timing warning only).
+- `cd backend && python -m pytest -q tests/test_med_badge_header_align.py -vv` -> **7 passed**.
+- Badge/header value recheck:
+  - 20+12 -> header 32, badge 32, MED-30 triggered.
+  - 14+14 + visit row -> header 28, badge 28, MED-30 not triggered.
+  - 14+14+3 -> header 31, badge 31, MED-30 triggered.
+  - single 30 -> header 30, badge 30, MED-30 triggered.
+- Staged scope confirmed: `M backend/pipeline/result_builder.py`, `A backend/tests/test_med_badge_header_align.py` only.
+- Commit pushed: `653a155` (`BOHUMFIT-031: 투약 배지·헤더 집계 일치(_sum_daily_max_presc 재사용, 헤더와 동일 함수·원천·창)`) to `origin/main`.
+
+### Notes
+- `backend/__pycache__/main.cpython-312.pyc` was touched by pytest during verification; restored to HEAD before staging because it is a tracked verification artifact and out of 031 scope.
+- Existing unrelated uncommitted/untracked harness docs, task files, brand assets, and pamphlet outputs were not staged.
+- Q3 medication decision window remains current-code 10 years. 5-year correction is not included here and should be handled as separate BOHUMFIT-032 because it changes the header decision window/business outcome.
+
+### Next
+- Human: (1) 배지=헤더 일치 E2E 확인. (2) 투약 판정창 5년 교정은 BOHUMFIT-032에서 별도 승인·구현.
+
+## 2026-06-15 Cowork BOHUMFIT-033 [1단계 설계 진단 완료·대형/위험 → 구현 정지 / Next: Human go-no-go]
+### Changed
+- 코드 변경 없음(설계 진단 전용·읽기). 마운트 git 미실행.
+- 신규 `.agent-harness/tasks/BOHUMFIT-033-nhis-history-parser.md`(확정 사양·설계).
+
+### ★ 핵심 발견: "신규 파서"가 아니라 "기존 nhis 경로 확장 + 동작 변경"
+- 공단 '건강보험 요양급여내역' 파싱은 **이미 구현돼 있음**: `pdf_parser.parse_single_pdf`가 first_text에 "건강보험 요양급여내역"이면 `parse_nhis_text()`로 분기(2줄 페어링: 날짜줄→순번줄→`외래|입원|약국 일수 …상병명 코드`줄). 레코드 `_ftype="nhis"`로 개시일·기관·입내원구분·요양일수·상병명·상병코드 추출(L133~184).
+- 집계도 이미 존재: `disease_aggregator` `elif ftype=="nhis"`(L444~467) — 입원(금액무관·0일무시)→inpatient_admissions, 약국→has_pharma, 그 외→visit. 그리고 **수술 키워드/`_is_surgery_match` 매칭 시 확정 `surgeries`에 추가**(L463, 062 `is_non_surgery_excluded` 가드 포함).
+- 따라서 공단 파일은 **현재도 부분 동작**하며, 본 태스크는 그 동작을 사양에 맞게 **바꾸는** 일 → 결정론 핵심 + 기존 동작 변경 = 대형·위험.
+
+### 1단계 설계 진단 (a~d)
+- (a) 업로드/멀티파일 진입점: `main.py /api/analyze`가 `files: list[UploadFile]`(MAX_FILE_COUNT=6, 파일당 15MB·총 40MB, `%PDF-` 매직검증)로 **이미 멀티파일 지원**. 공단 5개 + 심평원은 추가 업로드만으로 수용(상수 여유 확인). → 진입점 신규 작업 불필요, 검증 메시지 문구만 '요양급여내역' 포함 보강 검토.
+- (b) 2줄 1행 파싱: `parse_nhis_text` 재사용·확장. **부족분 2가지**: ① 총진료비(공단부담+본인부담) 미캡처 — 수술 등급 임계(입원50만/외래10만)에 필요 → 줄 파싱에 금액 컬럼 추가. ② 발급기간(조회기간) 헤더 미추출 → 페이지 텍스트 상단에서 기간 정규식 추출해 파일별 메타로 부착. 금액 합산=공단+본인.
+- (c) 5~10년 병합·dedup: 모든 ftype 레코드는 `build_disease_stats`에서 KCD3 그룹으로 합쳐짐(이미 단일 disease_stats). 역할 한정(공단=5~10년만)·dedup((KCD3,개시일,기관))은 **신규 정책** 필요. 권장: 집계 시 nhis 입원/수술의심을 추가하되, 동일 (KCD3,개시일,정규화기관)이 심평원(basic/detail)에서 이미 입원/수술로 잡혔으면 공단분 스킵(중복 1건). 0~5년 구간은 심평원 우선. 정렬·순서 고정으로 결정성 보장.
+- (d) 062 정합: nhis 수술 키워드는 `keywords.json:nhis_surg_keywords`(L67~) + `helpers._is_surgery_match`, 제외는 `surgery_exclusions.is_non_surgery_excluded`(NON_SURGERY_NAMES 6건). **현행은 확정 surgeries에 넣음** → 사양은 "수술 의심·확인요청·자동확정 금지". 이미 존재하는 **`surgery_suspected_names/dates` 채널**(new_disease L49~50 → result_builder L182·227 "surgery_suspected" → report_pdf L316)로 **라우팅 전환** + 강/약 등급 부착이 핵심 설계. 062 제외 충돌 시 등급 강등.
+
+### 신규/수정 파일 목록 (2단계 예정)
+- 신규: `backend/pipeline/nhis_history_constants.py`(입원50만/외래10만 임계·수술키워드 가중·등급 enum), `backend/tests/test_nhis_history.py`(익명 픽스처).
+- 수정: `backend/pipeline/pdf_parser.py`(금액·발급기간 캡처), `backend/pipeline/disease_aggregator.py`(nhis 수술→suspected 등급·역할한정·dedup), 필요시 `result_builder.py`/`filters.py`(수술의심 강/약 표면화), `keywords.json`(수술키워드 보강 시).
+
+### 리스크
+1. **기존 동작 변경**: 공단 파일은 지금도 입원·확정수술을 만든다. suspected 전환 시 기존 결과가 바뀜 → 결정론·회귀 영향 큼(기존 nhis 테스트·스냅샷 확인 필요).
+2. **결정론**: 두 소스 병합·dedup·정렬 순서 고정 안 하면 동일자료 결과가 흔들릴 수 있음(decisions.md 결정성 약속과 직결).
+3. **금액 파싱 신뢰도**: 공단 PDF 2줄 레이아웃에서 금액 컬럼 위치·합산 정확도(샘플 부재 — 익명 픽스처로만 검증, 실 PDF는 Human/배포 후 확인 필요).
+4. **5~10년 역할 한정 vs 현행**: 현재 nhis는 창 제한 없이 전 구간 기여 → 0~5년 중복·이중카운트 위험. dedup 정책 정확성이 관건.
+5. 수술 등급(강/약)을 프런트/PDF에 어떻게 노출할지(UI 사양) 미정 — 백엔드 표면화까지만 할지 결정 필요.
+
+### Verified
+- AGENTS.md·CLAUDE.md·locks(Active 없음)·handoff(031·030)·decisions(결정성) 정독.
+- 코드 추적: main.py 업로드, pdf_parser(detect/parse_nhis_text), disease_aggregator(nhis 분기·surgery_suspected), helpers(nhis_surg_keywords·_FTYPE_KW), surgery_exclusions, result_builder(surgery_suspected 표면화).
+- 코드 변경 없음 → pytest 미실행(설계 단계).
+
+### Notes
+- 실 공단/심평원 PDF(PII) 미사용·미커밋. 2단계는 익명 합성 픽스처만.
+- 마운트 truncation 환경: 2단계 구현 시 /tmp 온전본 패치→pytest→실파일 미러링(031과 동일 절차).
+
+### Next
+- **Human(또는 다음 세션 승인): go/no-go**. 특히 결정 필요:
+  (1) 공단 nhis 수술을 확정→**suspected 전환**(기존 동작 변경) 승인?  (2) 5~10년 역할 한정 + dedup 정책((KCD3,개시일,기관)) 승인?  (3) 수술 등급(강/약) **백엔드 표면화까지만**(프런트 UI는 별도)?
+- 승인 시 **Cowork 2단계 구현**(위 신규/수정 파일 + 회귀) → Codex 검증·커밋.
+
+## 2026-06-15 Cowork BOHUMFIT-031 [투약 배지=헤더 정합(A) 구현+회귀 / Next: Codex]
+### Changed
+- `backend/pipeline/result_builder.py`: (1) `from filters import _sum_daily_max_presc` 추가. (2) IF 분기(`_ds` 존재)의 배지 산출을 `ds_med_days = _max_presc(med_dates_pharma, since_dt)` → `_sum_daily_max_presc(med_dates_pharma_episode or med_dates_pharma, since_dt)` 로 변경. 헤더(filters Q3)와 동일 함수·원천·창 → 배지=헤더 보장. else 분기는 이미 `m["med_days"]`(SUM) 사용 → 정합.
+- `backend/tests/test_med_badge_header_align.py`: 신규 회귀 7건(익명·합성).
+- `backend/filters.py`: **무변경**(헤더 로직 보존). 잠금만 점유 후 해제.
+- 신규 `.agent-harness/tasks/BOHUMFIT-031-med-badge-header-align.md`.
+- helpers/disease_aggregator(061·062 영역)·날짜창 경계·간편 판정·프런트: **미접촉**.
+
+### Verified (전/후 수치)
+- 배지=헤더 정합 증거(신규 테스트): 20+12 입력 → 구버전 배지 20(MAX) → **신버전 32(SUM)=헤더**. 14+14→28(미발동), 14+14+3→31(발동), 단일30→발동, 임의(7+28+5)→40 배지=헤더 항등. 10년 달력 경계 포함(>=)/하루 전 제외.
+- Cowork /tmp 권위 검증(`/tmp/bk031`, 동일 패치 적용): `pytest` **149 passed / 6 skipped**(신규 7/7 포함). baseline(변경 전)도 동일 set 142 passed → 회귀 0.
+- 영향 범위 점검: 배지 med_days 단언은 `test_q_restructure`(med_days:0→0, pass)와 신규 테스트뿐. 그 외 med_days 단언은 모두 **필터(헤더) 항목**(test_filters·test_bug012) 또는 PDF 입력 dict(test_report_pdf)·`_max_presc` 계약(test_pharma_dedup `test_med_days_takes_max_not_sum`) → 내 변경 무관, 통과 확인. snapshot/integration 테스트는 배지 med_days 골든 단언 없음.
+- 간편 무영향: easy 판정(flagged/항목)은 필터 산출이라 불변. 신규 test 7로 easy 빈 dict 확인.
+
+### Notes / 가정
+- ★ **지시서 "5년(1825일)" vs 코드 "10년"**: 코드상 건강체 Q3 투약 판정창은 10년(d10y)이다(`filters` R-H-Q3-MED-30D reason="10년이내…", `_q_since["Q3"]=d10y`, 라벨 "[3번질문] 10년…투약"). "배지==헤더"+"헤더 로직 변경 최소화" 우선 원칙에 따라 **배지를 헤더 실제 창(10년)에 정합**(배지만 5년으로 좁히면 헤더와 재불일치). 사람 부재(1시간)로 (A) 가정 진행: 배지=헤더. **사업 규칙이 실제 5년이면 이는 헤더 판정창 자체 변경(고지 대상 변동) → Human 승인 필요**, 본 태스크 범위 밖.
+- ⚠ 마운트 truncation: 샌드박스 마운트의 `filters.py`(693행)·`helpers.py`(480행)·`report_pdf.py`(470행)·`test_bug012`·`test_analyzer_*`(NUL) 가 절단/손상되어 in-sandbox 전체 수집 불가. /tmp 온전 사본(Windows 원본 기준 복구: filters 706·helpers 499)에서 검증 권위 확보. Windows 원본은 Read 도구로 완결 확인(result_builder 끝 L381 정상). 마운트 git 미실행.
+- 변경은 백엔드 한정 → 프런트 tsc/lint/build 무영향(Disclosure.tsx 미수정).
+
+### Next
+- **Codex**: Windows 전체 `pytest`(스킵 기존 동일 확인) + `tsc`(app/node)·`lint`·`build`(프런트 무변경이라 green 예상), 태스크 범위 파일만 stage → 한국어 커밋(`BOHUMFIT-031: 투약 배지를 헤더 누적 집계와 정합`) → push.
+- **Human(선택)**: Q3 투약 판정창이 5년이어야 하는지(현재 10년) 사업 규칙 확정. 5년이 맞으면 별도 태스크로 헤더 창 변경(고지 대상 영향 — 회귀 필요).
+
+## 2026-06-15 Cowork BOHUMFIT-030 [진단 우선: 투약 배지 vs 헤더 집계 불일치 / 구현 보류 / Next: Human]
+### Changed
+- 코드 변경 없음(진단 전용). 마운트 git 미실행.
+- 신규: `.agent-harness/tasks/BOHUMFIT-030-medication-days-badge-mismatch.md`(태스크 정의), `.agent-harness/locks.md`(Cowork 잠금 추가→본 항목에서 해제).
+
+### 진단 결론 (코드 근거)
+- **배지(초록 "투약 N일")** = `result_builder.py:158` `ds_med_days = _max_presc(_ds["med_dates_pharma"], since)` → 프런트 `Disclosure.tsx` `d.med_days`(L319-321)·`item.med_days`(L404). 즉 **10년 창 내 단일 일자 최대 처방일수(MAX)**.
+- **헤더 판정값** = `filters.py:562` `presc_10y = _sum_daily_max_presc(med_pharma_episode, d10y)` → Q3 항목 `med_days=presc_10y`. 즉 **창 내 날짜별 최대치의 합계(SUM)**.
+- 두 값은 **같은 원천**(`med_dates_pharma`, 날짜별 최대; aggregator L418-420/434-436)을 **다른 집계(MAX vs SUM)** 로 가공 → 처방일이 2일 이상이면 항상 헤더(SUM) ≥ 배지(MAX). N95(32/20)·B35(203/28)·J32(47/12) 모두 이 구조로 설명됨.
+- **현재 실제 동작 = (B) 단일 처방(일자) 최대값**(배지) vs 누적 합계(헤더). 단순 표시 버그가 아니라 **집계식 불일치**.
+- **J32 통원 12회와의 교차 참조 = 코드상 반증(추론 아님)**. `med_days`는 오직 `med_dates_pharma`에서, `visit_count`는 `_visit_count_in_range`에서 산출되며 merge(L69-72)도 두 필드를 분리 유지 → 교차 참조 경로 없음. J32 배지 12는 단일 일자 최대 처방일수일 뿐이고 통원 12회와는 우연의 일치. (실측 PDF는 처방조제만 단독 제공되어 N95/B35/J32 상병코드 귀속을 단독 재현 불가 → "12"의 정확한 값 자체는 (추론), 다만 산출 **메커니즘=`_max_presc`** 은 확정.)
+
+### Verified
+- AGENTS.md·CLAUDE.md·최신 handoff·locks·task 파일 정독.
+- 코드 추적: `filters.py`(_max_presc/_sum_daily_max_presc/Q1·Q3 med_days), `result_builder.py`(L120-210 분기), `disease_aggregator.py`(med_dates_pharma/_episode 적재), `Disclosure.tsx`(배지 렌더 필드) 확인.
+- /tmp 실측: 업로드 `최유미_처방조제정보` 파싱(빈 PW, records 다수)→ `_max_presc` vs `_sum_daily_max_presc` 분기 실증(예: 프로세질정 2025-03 MAX=14/SUM=28, 펠루비 2025-02 MAX=7/SUM=12). 처방조제 단독은 상병코드 미동반 → `PHARMA|약품|월` 그룹으로 묶여 N95/B35/J32 단독 귀속은 재현 불가(basic/detail 동반 필요).
+- 코드 변경 없음 → pytest/tsc/build 미실행(진단 전용).
+
+### Notes
+- 실측 PDF(실명·의료정보) **저장소 미커밋**. 샌드박스에서 진단 목적 읽기만 수행.
+- 사양 미확정: (A) 헤더와 동일한 누적 합계(표시 버그로 보고 배지를 SUM으로) vs (B) 단일 처방 최대값 의도(헤더와 다른 게 정상). git 이력상 `a6b1c85`에서 `_max_presc`를 SUM→MAX로 일관화했고, 이후 Q3 헤더만 `_sum_daily_max_presc`(SUM)로 전환됨 → 배지가 옛 MAX식에 머문 **정합성 누락** 정황(추론). 다만 약관상 "30일" 기준 정의(누적 vs 단일 계속)에 따라 정답이 갈리므로 Human 결정 필요(PROGRESS.md 백로그 "투약 30일 기준 결정"과 동일 쟁점).
+- 사양 확정 시 수정 지점: (A)면 `result_builder.py:158`을 `_sum_daily_max_presc`로, (B)면 헤더 문구를 단일 최대 기준으로. 어느 쪽이든 N95/B35/J32 고정 입력 회귀 테스트 동반.
+
+### Next
+- **Human: 배지 표기 사양 결정** ((A) 누적 합계 = 헤더 일치 / (B) 단일 처방 최대값 유지). 결정 후 Cowork 구현 → Codex 검증·커밋.
+
+## 2026-06-15 Cowork BOHUMFIT-061 [read-only audit: prescription medication path impact / Next: Human]
+### Changed
+- Code changes: none. Read-only inspection only; no git command executed.
+- Handoff only: recorded conclusion for BOHUMFIT-061 prescription-medication impact check.
+
+### Verified
+- Read `AGENTS.md`, `CLAUDE.md`, latest handoff/locks, and `BOHUMFIT-061-history-filter-fix.md`.
+- Commit range confirmed from `.git` logs/objects without running git: parent `7608a2ec93ea507fac4aa45494c897eaba59f5c7` (`BOHUMFIT-060`) -> commit `4190475739257e8073d8f3b13a3b57cd8192ead7` (`BOHUMFIT-061`).
+- 061 diff scope: `backend/pipeline/helpers.py`, `backend/pipeline/disease_aggregator.py`, `backend/filters.py`, `backend/tests/test_analyzer_integration.py`, `backend/tests/test_analyzer_snapshot.py`, `backend/tests/test_bug012_q2_q3.py`, new `backend/tests/test_history_filter_fix.py`, and harness docs.
+- Diff findings:
+  - `helpers.py`: `disclosure_group_code` changed to KCD 3-character grouping; `_keep_basic_general_row` changed from M54-only preserve to any valid normalized code.
+  - `disease_aggregator.py`: added `inpatient_admissions`; basic/nhis inpatient rows now require `m_days > 0`; same-day different-provider admissions are retained; cross-day surgery index uses grouped KCD3 key.
+  - `filters.py`: added `_adm_in_range`; six inpatient_count outputs changed from `len(inpatient_dates)` to admission count.
+  - No 061 diff hunk changed the `pharma` branch, `med_dates_pharma`/`med_dates_pharma_episode` write logic, `_sum_daily_max_presc`, or `R-H-Q3-MED-30D` threshold logic.
+- Read-only synthetic before/after reproduction:
+  - Pharma outpatient prescription rows attached to same-day disease group identically by medication days: 29d -> no `R-H-Q3-MED-30D`; 30d/31d -> one `R-H-Q3-MED-30D` with same `med_days` before and after.
+  - Only group key changed by 061 KCD3 grouping (`K296` before -> `K29` after); prescription days and threshold decision were unchanged.
+  - Basic pharmacy `$ 해당없음` row alone produced no disease group before/after. When paired with a valid hospital basic row, only the hospital row was used (`visit_dates` + `med_dates_basic`); the pharmacy `$` row remained unused. Group key changed only from `L020` before to `L02` after.
+
+### Notes
+- Conclusion: 처방조제 기반 투약 30일 룰 영향 **없음** for the tested medication-day aggregation/threshold path. 061 can indirectly change disease grouping labels/merge scope via KCD3, but it did not change prescription-row medication-day collection or the 30-day decision formula.
+- Basic general-row change affects valid non-M54 general-department disease rows; `$`/`해당없음` pharmacy placeholder rows remain unused both before and after.
+
+### Next
+- Human: review the read-only conclusion and decide whether any broader KCD3 grouping risk audit is needed.
+
 ## 2026-06-15 19:31 Codex BOHUMFIT-062 [Windows authority verification / publish]
 ### Changed
 - Confirmed actual task file: `.agent-harness/tasks/BOHUMFIT-062-nonsurgery-exclusion.md` (requested Korean slug is not present in the repo).
