@@ -16,6 +16,29 @@
 
 # Handoff
 
+## 2026-06-16 Codex BOHUMFIT-043 [Windows 검증·커밋·푸시 완료 / Next: Human E2E]
+### Changed
+- 커밋/푸시: `c68543c` `BOHUMFIT-043: BOHUMFIT-040 롤백·요양기관명 약국 기반 통원 제외(일반의 입원·수술·투약 집계 복원)`
+- 범위 파일만 반영: `backend/pipeline/helpers.py`, `backend/pipeline/disease_aggregator.py`, `backend/tests/test_history_filter_fix.py`, `backend/tests/test_general_dept_exclude.py`, `.agent-harness/tasks/BOHUMFIT-043.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md`.
+- `_keep_basic_general_row` 제거, 040 일반의 행 전체 skip 롤백, 통원 집계만 요양기관명 `약국` 기준 제외로 전환.
+### Verified
+- truncation 선제 점검: helpers/disease_aggregator/history_filter/general_dept 파일 tail 확인, NUL 0, strict UTF-8 decode OK.
+- `_keep_basic_general_row` 검색: `helpers.py` 0건, `disease_aggregator.py` 0건.
+- 약국 가드 위치 확인: 신규 요양기관명 약국 통원 제외는 `visit_dates` 추가 직전 `if "약국" not in _norm_provider_name(hospital)`로 존재. 기존 in_out/pharma/cross-ref 약국 처리와 병존.
+- `cd backend && python -m pytest -q tests/test_general_dept_exclude.py -vv` -> 8 passed.
+- `cd backend && python -m pytest -q tests/test_history_filter_fix.py -vv` -> 6 passed.
+- `cd backend && python -m pytest -q` -> 281 passed, 7 skipped.
+- `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- `npm run lint` -> pass.
+- `npm test` -> 4 files / 45 tests passed.
+- `npm run build` -> pass. 기존 Vite chunk-size warning만 출력.
+### Notes
+- PII 원본/비익명 fixture/PDF/brand/unrelated task 파일은 stage하지 않음.
+- `locks.md` Active는 `(없음)`.
+### Next
+- Human: 실제 PDF/간편 플로우 E2E에서 일반의 입원·수술·투약 복원과 약국 통원 제외 확인.
+
 ## 2026-06-16 Cowork BOHUMFIT-043 [040 롤백 + 약국 기관명 통원 제외 구현+회귀 / Next: Codex]
 ### Changed
 - `backend/pipeline/helpers.py` — `_keep_basic_general_row` 함수 전체 제거(040 `return False` 폐지).
