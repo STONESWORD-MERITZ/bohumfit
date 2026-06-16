@@ -177,8 +177,10 @@ def disclosure_group_name(code: str, fallback: str = "") -> str:
 
 
 def _keep_basic_general_row(code: str) -> bool:
-    # BOHUMFIT-061: 일반의 진료라도 유효 상병코드면 보존(공란/$ 만 제외). 과거 M54 한정 보존 폐지.
-    return bool(normalize_code(code))
+    # BOHUMFIT-040: 진단과='일반의' 기본진료 행은 예외 없이 전부 제외(통원 미집계).
+    #   상병코드 유효성·$ 여부 무관. (061의 유효코드 보존·구 M54 예외 모두 폐지.)
+    #   투약(처방조제 ftype=pharma)·입원 판정(nhis/병원)은 별도 경로라 불변.
+    return False
 
 
 def parse_date(date_str: str) -> str:
