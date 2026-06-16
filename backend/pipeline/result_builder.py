@@ -349,6 +349,10 @@ def build_summary_reports(
             for q in q_list_:
                 if q not in ("Q1", "Q2", "Q3", "Q4", "Q5"):  # BOHUMFIT-034: Q5 추가
                     continue
+                # BOHUMFIT-038: AI(비결정론) 항목은 Q2(추가검사·재검사 의심)에만 부여 허용.
+                # 중대질병·입원·수술 등 Q1/Q3/Q4/Q5는 결정론(filters/033) 전용 — AI 누수 차단.
+                if source != "code" and q != "Q2":
+                    continue
                 item_dt = _parse_ymd(item.get("date", ""))
                 since_dt = q_since_map.get(q)
                 if since_dt and (not item_dt or item_dt < since_dt):
