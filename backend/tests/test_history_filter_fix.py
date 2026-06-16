@@ -52,10 +52,10 @@ def test_l02_visit_excludes_pharmacy():
     assert len(st["L02"]["visit_dates"]) == 9        # 약국 제외
 
 
-# 5) 진단과='일반의' 기본진료 → BOHUMFIT-040: 유효코드라도 통원 미집계(예외 없이 제외)
-def test_general_dept_excluded():
+# 5) 진단과='일반의' 기본진료 → BOHUMFIT-043: 040 롤백, 유효코드 통원 정상 집계(행 보존)
+def test_general_dept_kept():
     st = stats([mk("2024-03-10", "OO의원", 1, "K297", name="위염", io="외래", dept="일반의")])
-    assert "K29" not in st
+    assert "K29" in st and "2024-03-10" in st["K29"]["visit_dates"]
 
 
 # 6) 정규화·KCD3 그룹핑 단위

@@ -16,6 +16,26 @@
 
 # Handoff
 
+## 2026-06-16 Cowork BOHUMFIT-043 [040 롤백 + 약국 기관명 통원 제외 구현+회귀 / Next: Codex]
+### Changed
+- `backend/pipeline/helpers.py` — `_keep_basic_general_row` 함수 전체 제거(040 `return False` 폐지).
+- `backend/pipeline/disease_aggregator.py` — import 제거 + Loop1(L226)·Loop2(L272) 일반의 게이트 제거(행 보존) + 통원 분기(L338) `if "약국" not in _norm_provider_name(hospital)` 가드 신설. Loop3(L622, pre-040) 유지.
+- `backend/tests/test_history_filter_fix.py` — `test_general_dept_excluded`→`test_general_dept_kept`(통원 집계 롤백).
+- `backend/tests/test_general_dept_exclude.py` — 043 동작으로 전면 재작성(8건).
+- `.agent-harness/tasks/BOHUMFIT-043.md` 신규.
+### Verified
+- [x] cd backend && python -m pytest -q → /tmp **244 passed**(신규 8 포함, 회귀 0). 신규 8 + history 6 단독 14 passed.
+- [x] Windows 원본 Grep: `_keep_basic_general_row` 잔존 0(helpers·aggregator), 일반의 게이트 L622(Loop3 pre-040) 1개만, 약국 가드 L338 존재.
+- [ ] (Codex) 전체 pytest(손상 파일 포함, 기준선 279)·tsc(app/node)·lint·test·build
+### Notes
+- **자체 점검 체크리스트 전항 통과**: Loop1·Loop2 일반의 게이트 완전 제거 / visit_dates.add 직전 약국 조건만 / 입원·수술·투약 경로는 약국 가드 밖(불변) / `_keep_basic_general_row` 잔존 0 / 신규 회귀 8 pass / 기준선 회귀 0.
+- 042 진단의 cascade(세부수술 링크·입원·pharma 앵커 소실) 모두 복구 — 신규 회귀 ②③④로 고정.
+- 약국 제외는 **요양기관명 기반**(`_norm_provider_name`에 '약국' 포함). 기존 in_out='약국' 제외(L325)와 병존. med_dates_basic·hospital_dates·detail-link·pharma cross-ref는 가드 밖이라 약국 행도 보존.
+- ⚠ **마운트 view 손상 → /tmp 제외(Windows 정상→Codex 권위)**: `test_filters.py`(NUL), `test_report_pdf.py`·`test_report_pdf_q1q5.py`(파싱 손상·Chromium), `test_main_launch_guardrails.py`(sentry env), `test_analyzer_integration.py`(analyzer.py 마운트 스크램블 — `compute_prescription_end_dates` None 언팩, 본 변경과 무관·소스 미접촉). helpers.py·disease_aggregator.py는 Edit 쓰기백 갱신 + /tmp 재구성으로 복구 검증.
+- 마운트 git 미실행·PII 미사용. 030~042/간편/결정론/투약·입원 판정 불변.
+### Next
+- **Codex(Windows)**: 전체 pytest(손상 파일 포함, 기준선 279 회귀 0 확인)·tsc(app/node)·lint·test·build → 범위 파일 stage→commit→push. 커밋: `BOHUMFIT-043: 040 롤백(_keep_basic_general_row 제거)·요양기관명 약국 기반 통원 제외(행 보존)`.
+
 ## 2026-06-16 Codex BOHUMFIT-041 [Windows 검증·커밋·푸시 완료 / Next: Human 실 Gemini E2E]
 ### Changed
 - 커밋/푸시: `13ff62c` `BOHUMFIT-041: Q2 추가검사·재검사 AI 개선(게이팅 완화, 의사역할 프롬프트, 가능성 높음·낮음 안내)`

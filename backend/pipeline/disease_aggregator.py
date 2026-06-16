@@ -17,7 +17,6 @@ from .helpers import (
     _is_confirmed_surgery_cost_kw,
     _is_procedure_kw,
     _is_surgery_match,
-    _keep_basic_general_row,
     _sorted_strings,
     _subtract_years,
     _to_int_cost,
@@ -224,9 +223,7 @@ def build_disease_stats(
         hospital = get_val(row, ["병·의원", "기관명", "요양기관명", "병·의원&약국"])
         if "약국" in hospital:
             continue
-        dept = get_val(row, ["진단과"])
-        if dept.replace(" ", "") == "일반의" and not _keep_basic_general_row(code_str):
-            continue
+        # BOHUMFIT-043: 040의 진단과='일반의' 제외 게이트 제거(detail-link 인덱스 보존).
         basic_by_day_provider[(clean_date, _norm_provider_name(hospital))].append({
             "code": code_str,
             "grouped_code": disclosure_group_code(code_str),
@@ -238,7 +235,6 @@ def build_disease_stats(
         if row_is_junk(row):
             continue
         ftype    = str(row.get("_ftype", "unknown"))
-        dept     = get_val(row, ["진단과"])
 
         linked_basic = None
         if ftype == "detail":
@@ -273,9 +269,7 @@ def build_disease_stats(
         cost_raw = get_val(row, ["총진료비", "진료비", "총 진료비", "본인부담총액", "급여비용총액"])
         cost_val = _to_int_cost(cost_raw)
 
-        if ftype in ("basic", "unknown") and dept.replace(" ", "") == "일반의" and not _keep_basic_general_row(code_str):
-            continue
-
+        # BOHUMFIT-043: 040의 진단과='일반의' 메인 집계 제외 게이트 제거(행 보존 — 입원·수술·투약·detail 정상).
         if grouped_code_str:
             group_key = grouped_code_str
         elif ftype == "pharma":
@@ -339,8 +333,11 @@ def build_disease_stats(
                         if _add_days(clean_date, m_days) > s["latest_date"]:
                             s["latest_date"] = _add_days(clean_date, m_days)
                 else:
-                    s["visit_dates"].add(clean_date)
-                    s.setdefault("visit_events", []).append(clean_date)
+                    # BOHUMFIT-043: 요양기관명에 '약국' 포함 시 통원(visit) 집계에서만 제외.
+                    #   행 자체는 보존 — 입원·세부수술 링크·투약(med_dates_basic/pharma) 경로 불변.
+                    if "약국" not in _norm_provider_name(hospital):
+                        s["visit_dates"].add(clean_date)
+                        s.setdefault("visit_events", []).append(clean_date)
                 if m_days > 0:
                     prev = s["med_dates_basic"].get(clean_date, 0)
                     if m_days > prev:
@@ -682,7 +679,7 @@ def build_disease_stats(
         if fname_row:
             lines_by_file[fname_row].append(tl)
 
-    return disease_stats, cross_surgery_hints, date_warnings, raw_entries, dict(lines_by_file)
+    return disease_stats, cross_surgery_hints, date_warnings, raw_entries, dict(lines_by_file)  # BOHUMFIT-043
 
 
 def detect_drug_changes(disease_stats: dict, today: datetime) -> list[dict]:

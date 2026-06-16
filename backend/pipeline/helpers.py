@@ -176,13 +176,6 @@ def disclosure_group_name(code: str, fallback: str = "") -> str:
     return fallback
 
 
-def _keep_basic_general_row(code: str) -> bool:
-    # BOHUMFIT-040: 진단과='일반의' 기본진료 행은 예외 없이 전부 제외(통원 미집계).
-    #   상병코드 유효성·$ 여부 무관. (061의 유효코드 보존·구 M54 예외 모두 폐지.)
-    #   투약(처방조제 ftype=pharma)·입원 판정(nhis/병원)은 별도 경로라 불변.
-    return False
-
-
 def parse_date(date_str: str) -> str:
     m = re.search(r"(\d{4})-(\d{2})-(\d{2})", date_str)
     if m:
