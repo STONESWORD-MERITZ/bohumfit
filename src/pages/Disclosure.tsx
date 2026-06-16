@@ -467,6 +467,9 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
             </span>
             {clinicalReviewText || "자동 의심 소견 없음 - 원자료 기준 추가검사·재검사 여부 확인"}
           </p>
+          {item.q2_suspicion && (
+            <p className="text-[11px] text-gray-400">※ AI 임상 참고 판단(가능성 추정)이며 확정이 아닙니다. 실제 추가검사·재검사 여부는 원자료로 확인하세요.</p>
+          )}
           {item.treatment_ongoing === true && item.treatment_ongoing_reason && (
             <p className="text-rose-600">
               <span className="mr-1.5 text-rose-300">치료 중</span>

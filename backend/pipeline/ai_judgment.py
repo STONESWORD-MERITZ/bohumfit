@@ -343,12 +343,16 @@ async def _call_q2_health_findings(q2_items: list[dict], reference_date, api_key
         f"[Q2 건강체 1년이내 확정진단 목록 — 추가검사·재검사 의심 소견 부착]\n"
         + json.dumps(payload, ensure_ascii=False, indent=2)
         + (
-            "\n\n각 항목에 대해 의심 가능한 추가검사·재검사를 한 줄로 간결하게 표현하세요.\n"
-            "예: 위염 → '위내시경 재검 가능성', 갑상선결절 → '갑상선초음파/세침흡인 추가 가능성'.\n"
-            "반드시 JSON 형식으로만 응답:\n"
+            "\n\n[판단 기준]\n"
+            "- 추가검사: A검사 시행 후 다른 종류의 B검사로 보완(예: X-ray 후 MRI·CT·혈액검사).\n"
+            "- 재검사: 같은 종류의 검사를 다시 시행.\n"
+            "- 제외(해당없음): 단순 처방만, 추적관찰, 일련의 진단 과정 일부, 일반인이 인식·기대하기 어려운 경우.\n"
+            "- 불확실하면 '낮음' 또는 '해당없음'을 우선(보수적 판단).\n"
+            "각 진단코드/병명별로 추가검사·재검사 가능성을 '높음'/'낮음'/'해당없음' 중 하나로 판정하고,\n"
+            "의심되는 검사를 한 줄로 적으세요. 반드시 JSON 형식으로만 응답:\n"
             "{\n"
             "  \"findings\": [\n"
-            "    {\"disease_code\": \"<코드>\", \"suspicion\": \"<의심 소견 한 줄>\"}\n"
+            "    {\"disease_code\": \"<코드>\", \"possibility\": \"높음|낮음|해당없음\", \"suspicion\": \"<의심 검사 한 줄>\"}\n"
             "  ]\n"
             "}\n"
         )
@@ -366,9 +370,9 @@ async def _call_q2_health_findings(q2_items: list[dict], reference_date, api_key
     try:
         config = types.GenerateContentConfig(
             system_instruction=(
-                "당신은 한국 보험 언더라이팅 전문 의사입니다. "
-                "1년이내 확정진단 항목에 대해 일반적으로 의심되는 추가검사·재검사를 한 줄로 표현하세요. "
-                "추측·확률 표현 금지. 동일 입력 → 동일 출력."
+                "당신은 한국 보험 심사(언더라이팅) 경험이 풍부한 임상의사입니다. "
+                "1년이내 확정진단 항목에 대해 추가검사·재검사 가능성을 보수적으로 판단합니다. "
+                "불확실하면 낮음/해당없음을 우선합니다. 동일 입력 → 동일 출력."
             ),
             temperature=0,
             top_p=1.0,
@@ -379,8 +383,8 @@ async def _call_q2_health_findings(q2_items: list[dict], reference_date, api_key
     except TypeError:
         config = types.GenerateContentConfig(
             system_instruction=(
-                "당신은 한국 보험 언더라이팅 전문 의사입니다. "
-                "1년이내 확정진단 항목에 대해 일반적으로 의심되는 추가검사·재검사를 한 줄로 표현하세요."
+                "당신은 한국 보험 심사(언더라이팅) 경험이 풍부한 임상의사입니다. "
+                "1년이내 확정진단의 추가검사·재검사 가능성을 보수적으로(높음/낮음/해당없음) 판단합니다."
             ),
             temperature=0,
         )
@@ -411,8 +415,10 @@ async def _call_q2_health_findings(q2_items: list[dict], reference_date, api_key
                 continue
             code = (item.get("disease_code") or "").upper().strip()
             susp = (item.get("suspicion") or "").strip()
-            if code and susp:
-                out[code] = susp
+            poss = (item.get("possibility") or "").strip()
+            # BOHUMFIT-041: '해당없음'·불명은 부착 안 함(폴백). '높음/낮음'만 가능성 표기와 함께 부착.
+            if code and susp and poss in ("높음", "낮음"):
+                out[code] = f"[추가검사·재검사 가능성 {poss}] {susp}"
         return out
     except Exception:
         return {}

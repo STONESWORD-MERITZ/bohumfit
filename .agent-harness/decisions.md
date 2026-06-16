@@ -48,6 +48,50 @@ Reason:
 Impact:
 새 비수술 제외명은 helpers나 aggregator에 흩어 넣지 않고 중앙 목록과 `test_surgery_exclusions.py`에 함께 추가한다.
 
+### 2026-06-16 General Department Rows Are Pharmacy-Like
+
+Decision:
+진단과=`일반의` basic/unknown 행은 모두 약국성 기본진료로 보아 통원 집계에서 제외한다. 상병코드 유효성이나 `$` 여부로 예외를 두지 않는다. (BOHUMFIT-040)
+
+Reason:
+일반의 기본진료 행은 실제 통원 병력으로 해석하면 과집계 위험이 크고, 처방조제·입원 경로와 분리해 다루는 편이 안전하다.
+
+Impact:
+`_keep_basic_general_row`는 항상 `False`이며, 비일반의 유효코드·처방조제 투약·NHIS/병원 입원 경로는 이 결정의 영향을 받지 않는다.
+
+### 2026-06-16 AI Is Q2-Only
+
+Decision:
+AI(Gemini)는 Q2 추가검사·재검사 보조 판단에만 관여한다. Q1, Q3, Q4, Q5는 결정론 룰 전용이다. (BOHUMFIT-038)
+
+Reason:
+AI가 진단·입원·수술·통원·투약·중대질병 질문을 직접 분류하면 고지 결과가 비결정적으로 흔들릴 수 있다.
+
+Impact:
+`result_builder._build_pool`의 AI Q2 한정 가드는 유지해야 하며, AI 출력은 결정론 고지 건수·코드·질문 분류를 변경하지 못한다.
+
+### 2026-06-16 Q5 Major Disease Is Code-Only
+
+Decision:
+Q5 중대질병은 결정론 `health_q5_codes` 코드매칭만으로 판정한다. AI는 Q5 중대질병 판정에 관여하지 않는다. (BOHUMFIT-038, BOHUMFIT-039)
+
+Reason:
+중대질병은 코드 목록과 약관성 분류가 핵심이므로 AI 추정으로 과분류하면 위험하다.
+
+Impact:
+Q5 코드풀 변경은 `backend/keywords.json`의 `health_q5_codes`와 회귀 테스트로 관리한다. E78처럼 목록 밖 코드는 AI가 언급해도 Q5로 올리지 않는다.
+
+### 2026-06-16 Anorectal Codes Are Q5 Insurance-Only
+
+Decision:
+K60, K61, K62, K64 직장·항문 질환은 Q5에만 단독 표시될 때 실손의료비보험 가입 시에만 고지 안내를 붙인다. (BOHUMFIT-039)
+
+Reason:
+직장·항문 질환은 Q5 코드목록에는 포함하되, 일반 사망·질병 고지와 실손 고지의 문맥을 구분해야 한다.
+
+Impact:
+해당 코드가 Q3 통원 등 일반 고지 항목에도 동시에 잡히면 실손 전용 안내를 붙이지 않는다. K63은 Q5 코드풀에서 제외한다.
+
 ## Template
 
 ### YYYY-MM-DD Decision Title

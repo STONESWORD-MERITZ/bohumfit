@@ -885,15 +885,10 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
     # BOHUMFIT-027 (B): 실제 검사 근거(1년 내 detail_test_events)가 있는 코드에만 의심 소견 부착.
     # 근거 없는 단순 1년 진단은 의심 소견·"추가검사 의심" 꼬리표 없이 '1년 내 진단'으로만 표시
     # (항목 자체는 Q2 에 유지 — 고지 누락 아님).
-    _test_evidence_codes = _codes_with_recent_test_evidence(disease_stats, _d1y_dt)
-    _suspicion_prompt_items = [
-        it for it in (_q1_items + _q2_health_items)
-        if (it.get("code") or "").upper() in _test_evidence_codes
-    ]
-    _suspicion_apply_items = _suspicion_prompt_items + [
-        it for it in _q1_easy_items
-        if (it.get("code") or "").upper() in _test_evidence_codes
-    ]
+    # BOHUMFIT-041: 세부진료 검사근거가 없어도 1년 내 확정진단(Q1/Q2 진단코드)이 있으면 Gemini 호출.
+    #   0건이면 미호출. (037 B의 검사근거 필수 게이팅 완화 — 임상의사 보수적 판단으로 가능성 산출.)
+    _suspicion_prompt_items = list(_q1_items + _q2_health_items)
+    _suspicion_apply_items = _suspicion_prompt_items + list(_q1_easy_items)
     if _suspicion_prompt_items:
         try:
             _q2_findings = await _call_q2_health_findings(_suspicion_prompt_items, today_str, api_key)
