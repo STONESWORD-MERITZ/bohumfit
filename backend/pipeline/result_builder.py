@@ -5,7 +5,7 @@ import re
 from collections import defaultdict
 from datetime import datetime
 
-from filters import _q3_med_since, _sum_daily_max_presc  # BOHUMFIT-031/032: 헤더와 동일 투약 집계·창 재사용
+from filters import _q3_med_since, _sum_daily_max_presc, INSURANCE_ONLY_Q5_CODES  # BOHUMFIT-031/032/039
 from .helpers import (
     _dts_in_range,
     _dts_in_window,
@@ -254,6 +254,17 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
             "last_hospital":           _ds.get("hospital_dates", {}).get(latest_date, "") if _ds else "",
             "detail":                  m["reason"],
         })
+
+    # BOHUMFIT-039: 직장·항문(K60·K61·K62·K64)이 Q5에만 잡히고 Q1~Q4에 항목이 없으면
+    #  '실손의료비 가입 시에만 고지 필요' 안내 플래그(일반 고지 대상 아님). 간편엔 Q5 없음 → 미적용.
+    _q5_title = q_labels.get("Q5")
+    if _q5_title and summary_reports.get(_q5_title):
+        _non_q5_codes = {r["code"] for qt, rows in summary_reports.items()
+                         if qt != _q5_title for r in rows}
+        for _r in summary_reports[_q5_title]:
+            if any(str(_r.get("code", "")).startswith(_p) for _p in INSURANCE_ONLY_Q5_CODES) \
+                    and _r["code"] not in _non_q5_codes:
+                _r["insurance_only"] = True
 
     return summary_reports, flagged_codes
 

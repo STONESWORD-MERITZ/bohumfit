@@ -30,10 +30,12 @@ def _load_kw():
         return json.load(f)
 
 _KW = _load_kw()
+# BOHUMFIT-039: Q5 중대질병 코드목록(구 10대질환 코드풀을 health_q5_codes 로 리네임·통합,
+#  +류마티스 판막 I05~I09 +직장·항문 K60·K61·K62·K64. K63 결장폴립 등 제외).
 HEALTH_Q5_CODES            = tuple(_KW["health_q5_codes"])
-# BOHUMFIT-009: 새 코드 풀 — Q3_easy(6대) / Q4_health(10대)
 EASY_Q3_6CODES             = tuple(_KW.get("easy_q3_6codes", []))
-HEALTH_Q4_10CODES          = tuple(_KW.get("health_q4_10codes", []))
+# BOHUMFIT-039: 직장·항문 — Q5에만 잡히고 Q1~Q4에 없으면 '실손의료비 가입 시에만 고지' 안내.
+INSURANCE_ONLY_Q5_CODES    = ("K60", "K61", "K62", "K64")
 # 건강검진·선별검사·예방접종 등 비질병 KCD 코드 (질병으로 집계하지 않음)
 NON_DISEASE_CODE_PREFIXES  = tuple(_KW.get("non_disease_code_prefixes", []))
 
@@ -748,7 +750,7 @@ def _build_q5_health_items(
     disease_stats: dict[str, dict[str, Any]],
     reference_date: datetime,
 ) -> list[dict]:
-    """Q5 건강체 (BOHUMFIT-034: 기존 Q4 번호 이동) — 5년이내 10대질환 (health_q4_10codes).
+    """Q5 건강체 (BOHUMFIT-034: 기존 Q4 번호 이동) — 5년이내 10대질환 (health_q5_codes).
 
     내용·판정창(5년)·매칭 코드 불변. q/rule_id/라벨만 Q4→Q5.
     """
@@ -761,7 +763,7 @@ def _build_q5_health_items(
         nm = (s.get("name") or "").strip()
         if not _is_valid_disease(dc, nm):
             continue
-        if not _code_in(dc, HEALTH_Q4_10CODES):
+        if not _code_in(dc, HEALTH_Q5_CODES):
             continue
         if not nm:
             nm = dc
@@ -789,6 +791,6 @@ def _build_q5_health_items(
             visit_count=_visit_count_in_range(s, d5y),
             is_surgery=bool(surg_5y), surgery_name=sn if surg_5y else None,
             rule_id="R-H-Q5-MAJOR-5Y",
-            evidence={"code": dc, "matched_prefix": "HEALTH_Q4_10CODES"},
+            evidence={"code": dc, "matched_prefix": "HEALTH_Q5_CODES"},
         ))
     return items

@@ -22,7 +22,7 @@ from filters import (
     _build_q5_health_items,
     build_code_based_items,
     EASY_Q3_6CODES,
-    HEALTH_Q4_10CODES,
+    HEALTH_Q5_CODES,
 )
 from pipeline.result_builder import build_summary_reports
 
@@ -220,12 +220,12 @@ def test_easy_q3_6codes_contains_only_specified_strokes():
         assert c not in EASY_Q3_6CODES, f"6대에 잘못 포함: {c}"
 
 
-def test_health_q4_10codes_extends_6codes():
-    """HEALTH_Q4_10CODES 는 6대 + 백혈병·고혈압·당뇨·에이즈를 모두 포함."""
+def test_health_q5_codes_extends_6codes():
+    """HEALTH_Q5_CODES 는 6대 + 백혈병·고혈압·당뇨·에이즈를 모두 포함."""
     for c in EASY_Q3_6CODES:
-        assert c in HEALTH_Q4_10CODES
+        assert c in HEALTH_Q5_CODES
     for c in ["C91", "I10", "E11", "B20", "B24"]:
-        assert c in HEALTH_Q4_10CODES, f"10대 누락: {c}"
+        assert c in HEALTH_Q5_CODES, f"10대 누락: {c}"
 
 
 # ── build_code_based_items 통합 ──────────────────────────────────

@@ -49,6 +49,7 @@ type SummaryItem = {
   procedures?: string[];
   surgery_suspected?: string[];
   surgery_suspected_grade?: string;  // BOHUMFIT-033: 공단 수술의심 등급(강/약/"")
+  insurance_only?: boolean;          // BOHUMFIT-039: 직장·항문(Q5만)→실손 가입 시에만 고지
   additional_test_hit?: boolean;
   additional_test_reason?: string;
   q2_suspicion?: string;
@@ -383,6 +384,12 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
           {qNum}
         </span>
       </div>
+
+      {item.insurance_only && (
+        <div className="mb-2 rounded-[8px] bg-sky-50 px-3 py-1.5 text-[11px] leading-relaxed text-sky-700">
+          실손의료비보험 가입 시에만 고지가 필요한 항목입니다(직장·항문 질환). 일반 사망·질병 보험 고지 대상은 아닙니다.
+        </div>
+      )}
 
       <div className="mb-2.5 space-y-0.5 text-xs text-gray-500">
         {period && (
