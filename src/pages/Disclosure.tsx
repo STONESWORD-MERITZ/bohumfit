@@ -677,6 +677,23 @@ function insEstimateClaim(coveredSelfPay: number, gen: number, nonCovered: numbe
   return { low, high, has, possibility: has ? "청구 대상일 수 있음" : "청구 대상 아닐 수 있음" };
 }
 
+// BOHUMFIT-035: 세대 '모름' 시 보수적 추정 — insuranceCalc.ts insConservativeEstimate 와 verbatim 미러.
+//   세대별 산출 후 '공제 가장 큰(환급 가장 작은) 세대' 기준. 규제 자기부담률만 사용, 새 값 추정 없음.
+function insConservativeEstimate(coveredSelfPay: number, nonCovered: number) {
+  let best: { gen: number; low: number; high: number; has: boolean; possibility: string } | null = null;
+  for (const gen of [1, 2, 3, 4, 5]) {
+    const r = INS_GEN_RATES[gen];
+    const ncOpt = r.nonCoveredOptions
+      ? Math.max(...Object.keys(r.nonCoveredOptions).map(Number))
+      : null;
+    const est = insEstimateClaim(coveredSelfPay, gen, nonCovered, ncOpt);
+    if (best === null || est.low < best.low) {
+      best = { gen, low: est.low, high: est.high, has: est.has, possibility: est.possibility };
+    }
+  }
+  return best!; // gen=공제 최대(보수적), low=최소 환급
+}
+
 function insCheckSelfPayCap(coveredShare: number, gen: number, nonCoveredShare: number) {
   const scope = INS_CAP_SCOPE[gen];
   const eligible = scope === "covered" ? coveredShare : coveredShare + nonCoveredShare;
@@ -727,6 +744,8 @@ function InsuranceSection({ coveredByYear, captured }: { coveredByYear: Record<s
   const genNum = typeof gen === "number" ? gen : 0;
 
   const claim = genNum ? insEstimateClaim(coveredSelfPay, genNum, ncAmount, ncOption) : null;
+  // BOHUMFIT-035: 세대 '모름' + 입력값 있으면 공제 가장 큰(환급 가장 작은) 세대 기준 보수적 추정.
+  const consEst = (!genNum && coveredSelfPay + ncAmount > 0) ? insConservativeEstimate(coveredSelfPay, ncAmount) : null;
 
   let coveredShare = 0;
   let ncShare = 0;
@@ -868,7 +887,14 @@ function InsuranceSection({ coveredByYear, captured }: { coveredByYear: Record<s
             )}
             <p className="text-[11px] text-gray-400">급여 본인부담 {wonToMan(coveredSelfPay)}{ncAmount > 0 ? ` · 비급여 ${wonToMan(ncAmount)}` : ""} 기준 추정. 세대별 자기부담률은 2026-06 약관 확인 기준입니다.</p>
           </>
-        ) : <p className="text-gray-500">실손 세대를 선택하면 청구 추정 범위를 안내합니다.</p>}
+        ) : consEst ? (
+          <>
+            <p className="font-semibold text-gray-800">{consEst.possibility}</p>
+            <p className="text-gray-600">청구 추정 약 {wonToMan(consEst.low)} 이하 수준일 수 있습니다.</p>
+            <p className="text-[11px] text-amber-700">세대 모름 — 세대별 최대 공제 기준(가장 보수적, {consEst.gen}세대)으로 환급을 가장 작게 추정한 값입니다. 실제 세대를 선택하면 더 정확해집니다.</p>
+            <p className="text-[11px] text-gray-400">급여 본인부담 {wonToMan(coveredSelfPay)}{ncAmount > 0 ? ` · 비급여 ${wonToMan(ncAmount)}` : ""} 기준. 세대별 자기부담률은 2026-06 약관 확인 기준입니다.</p>
+          </>
+        ) : <p className="text-gray-500">실손 세대를 선택하면 청구 추정 범위를 안내합니다. (세대를 모르면 급여/비급여 금액 입력 시 가장 보수적인 추정을 보여드립니다.)</p>}
       </InsResultCard>
 
       {/* BOHUMFIT-028: ①-b 실손 최소공제 적용 추정 (additive 옵션, 기존 ①②③ 불변) */}

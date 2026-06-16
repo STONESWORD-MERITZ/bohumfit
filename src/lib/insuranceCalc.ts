@@ -85,6 +85,25 @@ export function insEstimateClaim(coveredSelfPay: number, gen: number, nonCovered
   return { low, high, has, possibility: has ? "청구 대상일 수 있음" : "청구 대상 아닐 수 있음" };
 }
 
+// BOHUMFIT-035: 세대 '모름' 시 보수적 추정 — 세대별로 산출한 뒤 '공제 가장 큰(환급 가장 작은)
+//   세대' 기준으로 표시한다. 규제 자기부담률(INS_GEN_RATES)만 사용하며 새 값 추정은 없다.
+//   비급여 옵션이 있는 세대(3세대)는 가장 보수적(최대 자기부담률) 옵션을 적용한다.
+//   ⚠️ Disclosure.tsx 인라인 미러와 verbatim 동기화. 504 산식(insClaimPerRow) 불변.
+export function insConservativeEstimate(coveredSelfPay: number, nonCovered: number) {
+  let best: { gen: number; low: number; high: number; has: boolean; possibility: string } | null = null;
+  for (const gen of [1, 2, 3, 4, 5]) {
+    const r = INS_GEN_RATES[gen];
+    const ncOpt = r.nonCoveredOptions
+      ? Math.max(...Object.keys(r.nonCoveredOptions).map(Number))
+      : null;
+    const est = insEstimateClaim(coveredSelfPay, gen, nonCovered, ncOpt);
+    if (best === null || est.low < best.low) {
+      best = { gen, low: est.low, high: est.high, has: est.has, possibility: est.possibility };
+    }
+  }
+  return best!; // gen=공제 최대(보수적), low=최소 환급
+}
+
 export function insCheckSelfPayCap(coveredShare: number, gen: number, nonCoveredShare: number) {
   const scope = INS_CAP_SCOPE[gen];
   const eligible = scope === "covered" ? coveredShare : coveredShare + nonCoveredShare;
