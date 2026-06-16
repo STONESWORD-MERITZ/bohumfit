@@ -51,7 +51,7 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
 .summary .cell .v { font-size: 13pt; font-weight: 800; color: var(--navy); }
 .summary .cell .v.warn { color: var(--accent); }
 
-/* ── 고지 불요 판단 기준 (콘텐츠 수정 1: 1~4 각 항목 한 줄) ── */
+/* ── 고지 불요 판단 기준 (콘텐츠 수정 1: 1~5 각 항목 한 줄) ── */
 .criteria {
   background: var(--gold-bg); border: 1px solid #E5E7EB; border-left: 5px solid var(--gold);
   border-radius: 6px; padding: 11px 14px; margin-bottom: 16px;
@@ -115,7 +115,7 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
   background: var(--bg-soft); color: var(--muted); border: 1px solid var(--line);
 }
 .chip.red { background: #FBEDEC; color: #9F2D24; border-color: #E5B5B0; }
-.chip.amber { background: #F3F4F6; color: #374151; border-color: #D1D5DB; }
+.chip.amber { background: #FEF3C7; color: #92400E; border-color: #FCD34D; }
 .chip.green { background: #ECF5EE; color: #2E6B3E; border-color: #BFDCC6; }
 /* 추가검사·재검사 표시 (콘텐츠 수정 2 — unconfirmed 라벨은 미확정 항목 전용) */
 .review { margin-top: 6px; border-top: 1px dashed var(--line); padding-top: 5px; font-size: 8.8pt; }
@@ -210,7 +210,7 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
     {% if p.metric.surgery %}<span class="chip red">수술 {{ p.surgery_n }}건</span>{% endif %}
     {% if p.metric.med %}<span class="chip {{ 'amber' if (p.item.med_days or 0) >= 30 else 'green' }}">투약 {{ p.item.med_days or 0 }}일</span>{% endif %}
     {% if p.procedures_n %}<span class="chip amber">시술 {{ p.procedures_n }}건</span>{% endif %}
-    {% if p.suspected_n %}<span class="chip">수술 의심 {{ p.suspected_n }}건</span>{% endif %}
+    {% if p.suspected_grade %}<span class="chip amber">수술 의심—확인 필요 ({{ p.suspected_grade }})</span>{% elif p.suspected_n %}<span class="chip">수술 의심 {{ p.suspected_n }}건</span>{% endif %}
     {% if p.item.treatment_ongoing is true %}<span class="chip red">치료 중</span>{% endif %}
     {% if p.item.treatment_ongoing is false %}<span class="chip green">종결</span>{% endif %}
   </div>

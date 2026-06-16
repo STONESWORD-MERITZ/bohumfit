@@ -75,13 +75,14 @@ BUSINESS_FOOTER = {
 }
 
 # ── 고지 리포트 고정 문구 ────────────────────────────────────────────────────
-# 콘텐츠 수정 1: '고지 불요 판단 기준' 1~4 번호 줄바꿈(각 항목 한 줄) 표시.
+# 콘텐츠 수정 1: '고지 불요 판단 기준' 1~5 번호 줄바꿈(각 항목 한 줄) 표시.
 # 기준은 결정론 룰 엔진(filters.py R-H-Q1/Q3/Q4 + AI Q2)의 질문 창과 동일 — 표현만 정리.
 NO_DISCLOSURE_CRITERIA = [
     "기준일로부터 3개월 이내 진단·의심소견·입원·수술·투약(상시복용 포함) 이력이 확인되지 않은 경우 (1번질문)",
     "기준일로부터 1년 이내 추가검사·재검사 필요 소견이 확인되지 않은 경우 (2번질문)",
-    "기준일로부터 10년 이내 입원·수술, 7회 이상 통원 또는 30일 이상 투약 이력이 확인되지 않은 경우 (3번질문)",
-    "기준일로부터 5년 이내 중대질환 진료 이력이 확인되지 않은 경우 (4번질문)",
+    "기준일로부터 5년 이내 입원·수술, 7회 이상 통원 또는 30일 이상 투약 이력이 확인되지 않은 경우 (3번질문)",
+    "기준일로부터 5년 초과 10년 이내 입원 또는 수술 이력이 확인되지 않은 경우 (4번질문)",
+    "기준일로부터 5년 이내 중대질환 진료 이력이 확인되지 않은 경우 (5번질문)",
 ]
 NO_DISCLOSURE_CRITERIA_NOTE = (
     "간편심사는 1번질문(3개월), 2번질문(10년 입원·수술), 3번질문(5년 6대질환) 기준으로 동일하게 판단합니다."
@@ -234,6 +235,15 @@ def _metric_visibility(item: dict, q_num: str, is_easy: bool) -> dict:
             "surgery": has_surgery,
             "med": has_med_trigger,
         }
+    if q_num == "Q4":  # BOHUMFIT-034/036: 5년 초과 10년 이내 입원·수술(통원·투약 없음)
+        return {
+            "visit": False,
+            "inpatient": has_inpatient,
+            "inpatient_count": (item.get("inpatient_count") or 0) > 0,
+            "surgery": has_surgery,
+            "med": False,
+        }
+    # Q5(중대질환) 및 기타 = 메트릭 칩 없음(기존 Q4 중대질환과 동일)
     return {"visit": False, "inpatient": False, "inpatient_count": False, "surgery": False, "med": False}
 
 
@@ -314,6 +324,7 @@ def _prepare_section(reports: dict, is_easy: bool) -> list[dict]:
                 "surgery_n": surg_n,
                 "procedures_n": len(item.get("procedures") or []),
                 "suspected_n": len(item.get("surgery_suspected") or []),
+                "suspected_grade": item.get("surgery_suspected_grade") or "",  # BOHUMFIT-036: 공단 수술의심 강/약(Q4)
                 "review": _clinical_review(item) if show_review else None,
             })
         sections.append({

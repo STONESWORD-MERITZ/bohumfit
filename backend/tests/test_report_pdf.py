@@ -162,13 +162,15 @@ def test_disclosure_html_basics_and_footer():
 
 
 def test_disclosure_criteria_numbered_lines():
-    """콘텐츠 수정 1: 고지 불요 판단 기준 1~4 각 항목 한 줄(개별 <li>)."""
+    """콘텐츠 수정 1: 고지 불요 판단 기준 1~5 각 항목 한 줄(개별 <li>)."""
     html = rp.render_report_html("disclosure", DISCLOSURE_PAYLOAD, GEN_AT)
     for c in rp.NO_DISCLOSURE_CRITERIA:
         assert f"<li>{c}</li>" in html
-    assert len(rp.NO_DISCLOSURE_CRITERIA) == 4
+    assert len(rp.NO_DISCLOSURE_CRITERIA) == 5
     criteria_block = html.split('class="criteria"')[1].split("</ol>")[0]
-    assert criteria_block.count("<li>") == 4
+    assert criteria_block.count("<li>") == 5
+    assert "5년 초과 10년 이내 입원 또는 수술" in html
+    assert "중대질환 진료 이력이 확인되지 않은 경우 (5번질문)" in html
 
 
 def test_disclosure_confirm_needed_only_when_indeterminate():

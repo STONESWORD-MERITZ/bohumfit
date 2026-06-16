@@ -1020,6 +1020,44 @@ function ResultView({ result, mode }: { result: AnalyzeResult; mode: AudienceMod
   const activeLabel = productTab === "standard" ? "건강체/표준체" : "간편심사";
   const copy = modeCopy[mode];
 
+  // BOHUMFIT-036: 고지내역(Q1~Q5) 고객용 PDF 저장 — result_builder 결과값 그대로 전달(재계산 없음).
+  const { session } = useAuth();
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState("");
+  async function saveDisclosurePdf() {
+    const token = session?.access_token;
+    setPdfLoading(true);
+    setPdfError("");
+    try {
+      const res = await fetch(`${API_BASE}/api/report/pdf`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          report_type: "disclosure",
+          standard_reports: result.standard_reports,
+          easy_reports: result.easy_reports || {},
+          all_disease_summary: result.all_disease_summary || [],
+          total_med_sum: result.total_med_sum,
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.detail || `리포트 생성 실패 (${res.status})`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `보험핏-고지내역-${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: unknown) {
+      setPdfError(e instanceof Error ? e.message : "PDF 생성에 실패했어요. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setPdfLoading(false);
+    }
+  }
+
   return (
     <div>
       {(result.parse_errors || []).map((e, i) => (
@@ -1041,6 +1079,18 @@ function ResultView({ result, mode }: { result: AnalyzeResult; mode: AudienceMod
           <Metric label="간편 고지" value={`${easyCount}건`} tone={easyCount ? "text-amber-600" : "text-emerald-600"} />
           <Metric label="전체 병력" value={`${result.all_disease_summary.length}개`} />
           <Metric label="총 투약일" value={`${result.total_med_sum}일`} />
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
+          <button
+            type="button"
+            onClick={saveDisclosurePdf}
+            disabled={pdfLoading}
+            className="rounded-[8px] bg-accent-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+          >
+            {pdfLoading ? "PDF 생성 중…" : "고지내역 PDF 저장"}
+          </button>
+          <span className="text-[11px] text-gray-400">Q1~Q5 고지 검토 내역을 PDF로 저장합니다(개인정보 포함 — 보관에 유의).</span>
+          {pdfError && <span className="text-[11px] text-red-500">{pdfError}</span>}
         </div>
       </div>
 
