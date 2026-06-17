@@ -7,7 +7,13 @@
 <style>
 {{ font_face_css | safe }}
 :root {
-  /* BOHUMFIT-050: 3색 체계 유지. brand-bar 포인트는 딥 포레스트 그린으로 통일. */
+  /* BOHUMFIT-051: 브랜드 팔레트 토큰 — 주 그린 / 강조 잉크 / 보조 그레이. */
+  --brand-green: #15663D;        /* 주 브랜드: 헤더 워드마크·질문 배지·고지권고 */
+  --brand-green-soft: #ECF5EE;   /* 그린 연한 배경 */
+  --brand-green-line: #BFD8C7;   /* 그린 보더 */
+  --brand-ink: #1F2937;          /* 헤더·강조 텍스트 */
+  --brand-gray: #6D747D;         /* 보조 텍스트 */
+  /* 하위 호환 별칭(기존 규칙이 참조) */
   --navy: #1F2937;
   --navy-deep: #111827;
   --gold: #6B7280;
@@ -17,6 +23,7 @@
   --muted: #475569;
   --line: #D9DEE6;
   --bg-soft: #F4F6F9;
+  --accent: #B45309;             /* BOHUMFIT-051: 주의 강조(고지 검토 건수) — 종전 미정의 var 보정 */
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body {
@@ -29,8 +36,10 @@ html, body {
 /* ── 헤더 ── */
 .brand-bar { height: 6px; background: linear-gradient(90deg, var(--navy) 70%, #15663D 70%); border-radius: 2px; }
 .head { display: flex; justify-content: space-between; align-items: flex-end; padding: 14px 2px 12px; }
-.wordmark { font-size: 19pt; font-weight: 800; color: var(--navy-deep); letter-spacing: 0.5px; }
-.wordmark .dot { color: var(--gold); }
+/* BOHUMFIT-051 A-1: 깔끔한 텍스트 워드마크(브랜드 그린) + 보조 라인. */
+.wordmark { font-size: 19pt; font-weight: 800; color: var(--brand-green); letter-spacing: 0.3px; line-height: 1.05; }
+.wordmark .dot { color: var(--brand-green); }
+.wordmark-sub { font-size: 8pt; font-weight: 700; color: var(--brand-gray); letter-spacing: 1.5px; margin-top: 2px; }
 /* BOHUMFIT-051: 헤더 워드마크 로고(컬러 SVG data-URI). viewBox 4.18:1 → width:auto 로 비율 유지. */
 .brand-logo { height: 26px; width: auto; display: block; }
 .head-meta { text-align: right; font-size: 8.5pt; color: var(--muted); line-height: 1.6; }
@@ -70,17 +79,23 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
 
 /* ── 섹션 ── */
 .product-sec { margin-bottom: 18px; }
+/* BOHUMFIT-051 A-3: 간편심사 섹션은 새 페이지에서 시작(헤더 고아 방지). */
+.product-sec.page-break { page-break-before: always; break-before: page; }
 .product-head {
   background: var(--navy); color: #fff; border-radius: 6px 6px 0 0;
   padding: 8px 14px; font-size: 11.5pt; font-weight: 800;
   display: flex; justify-content: space-between; align-items: center;
+  /* 헤더가 페이지 끝에 홀로 남지 않도록 다음 내용과 함께 유지 */
+  break-after: avoid; page-break-after: avoid;
 }
 .product-head .cnt { font-size: 9pt; font-weight: 700; color: #E5E7EB; }
 .product-body { border: 1px solid var(--line); border-top: 0; border-radius: 0 0 6px 6px; padding: 10px 12px; }
-.q-block { margin-bottom: 10px; page-break-inside: avoid; }
-.q-head { display: flex; align-items: center; gap: 8px; margin: 8px 0 6px; }
+.q-block { margin-bottom: 10px; }
+/* 질문 헤더는 첫 항목과 분리되지 않게(고아 방지) */
+.q-head { display: flex; align-items: center; gap: 8px; margin: 8px 0 6px; break-after: avoid; page-break-after: avoid; }
+/* BOHUMFIT-051 C-2: 질문 배지는 브랜드 그린 — 남색 섹션 헤더와 위계 구분. */
 .q-badge {
-  background: var(--navy); color: #fff; font-weight: 800; font-size: 9pt;
+  background: var(--brand-green); color: #fff; font-weight: 800; font-size: 9pt;
   border-radius: 4px; padding: 1px 8px;
 }
 .q-title { font-size: 10.5pt; font-weight: 800; color: var(--navy-deep); }
@@ -101,9 +116,10 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
   font-family: Consolas, monospace; font-size: 8.5pt; color: var(--muted);
   background: var(--bg-soft); border-radius: 3px; padding: 0 5px; margin-left: 6px;
 }
+/* BOHUMFIT-051 C-2: 고지 권고 뱃지 — 브랜드 그린(시인성·신뢰감, 흑백 출력 시도 텍스트로 식별). */
 .badge-reco {
-  background: var(--gold-bg); color: var(--gold-deep); border: 1px solid var(--gold);
-  font-size: 8.5pt; font-weight: 800; border-radius: 10px; padding: 1px 9px; white-space: nowrap;
+  background: var(--brand-green); color: #fff; border: 1px solid var(--brand-green);
+  font-size: 8.5pt; font-weight: 800; border-radius: 10px; padding: 1px 10px; white-space: nowrap;
 }
 .item .dates { font-size: 8.8pt; color: var(--muted); margin-top: 3px; }
 .item .dates b { color: var(--ink); font-weight: 700; }
@@ -155,13 +171,17 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
 }
 .biz-foot .brand { font-weight: 800; color: var(--navy); font-size: 9.5pt; }
 .biz-foot .gold { color: var(--gold-deep); font-weight: 700; }
+/* BOHUMFIT-051 A-4: 긴 소재지 자연 줄바꿈 — 좌측 블록 폭 제한 + 도로명/상세 2줄. */
+.biz-foot > div:first-child { max-width: 74%; }
+.biz-foot .addr { margin-top: 1px; line-height: 1.45; }
+.biz-foot .addr-detail { padding-left: 2.4em; }
 </style>
 </head>
 <body>
 
 <div class="brand-bar"></div>
 <div class="head">
-  {% if logo_data_uri %}<img class="brand-logo" src="{{ logo_data_uri }}" alt="BOHUMFIT">{% else %}<div class="wordmark">BOHUMFIT<span class="dot">.</span></div>{% endif %}
+  {% if logo_data_uri %}<img class="brand-logo" src="{{ logo_data_uri }}" alt="BOHUMFIT">{% else %}<div class="brandblock"><div class="wordmark">BOHUMFIT<span class="dot">.</span></div><div class="wordmark-sub">보험핏 · 알릴의무 분석</div></div>{% endif %}
   <div class="head-meta">
     문서번호 <b>{{ doc_no }}</b><br>
     생성일시 {{ generated_at }} · 점검 기준일 <b>{{ reference_date }}</b>
@@ -222,8 +242,8 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
 </div>
 {% endmacro %}
 
-{% macro product_section(title, sections, count, empty_label) %}
-<div class="product-sec">
+{% macro product_section(title, sections, count, empty_label, break_before=false) %}
+<div class="product-sec{% if break_before %} page-break{% endif %}">
   <div class="product-head"><span>{{ title }}</span><span class="cnt">고지 검토 {{ count }}건</span></div>
   <div class="product-body">
     {% if count == 0 %}
@@ -243,7 +263,7 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
 {% endmacro %}
 
 {{ product_section("건강체/표준체 (일반심사)", std_sections, std_count, "현재 기준으로 건강체/표준체 고지 검토 항목이 없습니다.") }}
-{{ product_section("간편심사 (유병자 3-5-5 기준)", easy_sections, easy_count, "현재 기준으로 간편심사 고지 검토 항목이 없습니다.") }}
+{{ product_section("간편심사 (유병자 3-10-5 기준)", easy_sections, easy_count, "현재 기준으로 간편심사 고지 검토 항목이 없습니다.", true) }}
 
 {% if all_diseases %}
 <div class="q-block">
@@ -279,7 +299,8 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
 <div class="biz-foot">
   <div>
     <div class="brand">BOHUMFIT<span style="color:var(--gold);">.</span></div>
-    <div>상호 {{ biz.name }} · 대표 {{ biz.ceo }} · 사업자등록번호 {{ biz.biz_no }} · 소재지 {{ biz.address }}</div>
+    <div>상호 {{ biz.name }} · 대표 {{ biz.ceo }} · 사업자등록번호 {{ biz.biz_no }}</div>
+    <div class="addr">소재지 {{ biz_address_lines[0] }}{% if biz_address_lines|length > 1 %}<br><span class="addr-detail">{{ biz_address_lines[1] }}</span>{% endif %}</div>
     <div>문의 {{ biz.contact }} · {{ biz.domain }} · 분석도구 <span class="gold">{{ biz.tool }}</span></div>
   </div>
   <div style="text-align:right;">문서번호 {{ doc_no }}<br>생성일시 {{ generated_at }}</div>

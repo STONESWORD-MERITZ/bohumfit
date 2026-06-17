@@ -189,7 +189,7 @@ def _is_valid_disease(diag_code: str, name: str) -> bool:
 # ── 상수 ───────────────────────────────────────────────
 PRODUCT_HEALTH = "건강체/표준체 (일반심사)"
 # BOHUMFIT-009: 간편심사 product_type 복구 (BUG-008 에서 제거됐던 것을 재도입).
-PRODUCT_EASY = "간편심사 (유병자 3-5-5 기준)"
+PRODUCT_EASY = "간편심사 (유병자 3-10-5 기준)"
 
 # 건강체 Q1 ⑤ — 상시복용 약물 카테고리 (성분명 일부 매칭, 대소문자 무시)
 CHRONIC_DRUG_CATEGORIES: dict[str, list[str]] = {

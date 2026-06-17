@@ -417,7 +417,7 @@ def build_summary_reports(
     )
     easy_reports, easy_flagged = _build_reports_for_product(
         merged_easy, disease_stats,
-        "간편심사 (유병자 3-5-5 기준)",
+        "간편심사 (유병자 3-10-5 기준)",
         _d3m_dt, _d1y_dt, _d10y_dt, _d5y_dt,
         is_easy=True,
     )

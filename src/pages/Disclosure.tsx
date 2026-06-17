@@ -1019,7 +1019,7 @@ function InsuranceSection({ coveredByYear, captured }: { coveredByYear: Record<s
   );
 }
 
-function ResultView({ result, mode }: { result: AnalyzeResult; mode: AudienceMode }) {
+function ResultView({ result, mode, referenceDate }: { result: AnalyzeResult; mode: AudienceMode; referenceDate: string }) {
   // BOHUMFIT-009: 건강체/간편 탭 + Q1~Q4 신구조 섹션 복구.
   const [productTab, setProductTab] = useState<"standard" | "easy" | "insurance">("standard");
   const easyReports = result.easy_reports || {};
@@ -1044,6 +1044,7 @@ function ResultView({ result, mode }: { result: AnalyzeResult; mode: AudienceMod
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           report_type: "disclosure",
+          reference_date: referenceDate,
           standard_reports: result.standard_reports,
           easy_reports: result.easy_reports || {},
           all_disease_summary: result.all_disease_summary || [],
@@ -1603,7 +1604,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
         </div>
       )}
 
-      {result && <ResultView result={result} mode={mode} />}
+      {result && <ResultView result={result} mode={mode} referenceDate={refDate} />}
 
       {!result && !loading && !error && (
         <section className="rounded-[8px] bg-white p-8 text-center shadow-[0_2px_12px_rgba(0,0,0,0.06)]">

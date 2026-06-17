@@ -52,6 +52,14 @@ import os
 import re
 from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
+
+# BOHUMFIT-051: 생성일시·문서번호를 서버 TZ(UTC)에 의존하지 않고 한국시간(KST)으로 명시 변환.
+_KST = ZoneInfo("Asia/Seoul")
+
+
+def _now_kst() -> datetime:
+    return datetime.now(_KST)
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
@@ -388,11 +396,23 @@ def _common_context(generated_at: datetime) -> dict:
     }
 
 
+def _split_address(addr: str) -> list[str]:
+    """BOHUMFIT-051 A-4: 긴 소재지를 도로명/상세로 자연 분리(첫 쉼표 기준). 값 없으면 단일."""
+    if not addr or addr.strip() in ("", "-"):
+        return [addr or "-"]
+    head, sep, tail = addr.partition(",")
+    return [head.strip(), tail.strip()] if sep and tail.strip() else [addr.strip()]
+
+
 def render_disclosure_html(payload: dict, generated_at: datetime) -> str:
     std_reports = payload.get("standard_reports") or {}
     easy_reports = payload.get("easy_reports") or {}
     ctx = {
         **_common_context(generated_at),
+        # BOHUMFIT-051 A-1: 깨진 SVG 보조 텍스트 대신 깔끔한 CSS 텍스트 워드마크(브랜드 그린) 사용.
+        "logo_data_uri": "",
+        # BOHUMFIT-051 A-4: 소재지 도로명/상세 2줄 분리.
+        "biz_address_lines": _split_address(BUSINESS_FOOTER.get("address", "-")),
         "reference_date": payload.get("reference_date") or "-",
         "std_sections": _prepare_section(std_reports, is_easy=False),
         "easy_sections": _prepare_section(easy_reports, is_easy=True),
@@ -452,7 +472,7 @@ def render_report_html(report_type: str, payload: dict, generated_at: datetime |
         raise ReportError(f"report_type 은 {REPORT_TYPES} 중 하나여야 합니다.")
     if not isinstance(payload, dict):
         raise ReportError("payload 는 JSON 객체여야 합니다.")
-    generated_at = generated_at or datetime.now()
+    generated_at = generated_at or _now_kst()   # BOHUMFIT-051: KST 기준
     if report_type == "disclosure":
         html = render_disclosure_html(payload, generated_at)
     else:
@@ -532,7 +552,7 @@ async def html_to_pdf_bytes(html: str, doc_no: str) -> bytes:
 
 async def generate_report_pdf(report_type: str, payload: dict, generated_at: datetime | None = None) -> bytes:
     """리포트 종류별 PDF 생성 오케스트레이터 (휘발 처리 — 저장 없음)."""
-    generated_at = generated_at or datetime.now()
+    generated_at = generated_at or _now_kst()   # BOHUMFIT-051: KST 기준
     html = render_report_html(report_type, payload, generated_at)
     pdf = await html_to_pdf_bytes(html, build_doc_no(generated_at))
     logger.info("report pdf generated: type=%s bytes=%d", report_type, len(pdf))

@@ -184,7 +184,7 @@ logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 # ── 상수 ─────────────────────────────────────────────────────────────────────
 PRODUCT_TYPE_MAP = {
     "standard": "건강체/표준체 (일반심사)",
-    "easy":     "간편심사 (유병자 3-5-5 기준)",
+    "easy":     "간편심사 (유병자 3-10-5 기준)",
 }
 
 KAKAO_DISCLAIMER = (

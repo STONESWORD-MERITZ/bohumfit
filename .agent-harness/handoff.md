@@ -16,6 +16,53 @@
 
 # Handoff
 
+## 2026-06-17 20:25 Codex BOHUMFIT-051 [Windows 검증·실 PDF 6p 육안·B-1/라벨 완결 / Next: Human 배포 E2E]
+### Changed
+- Cowork 범위 검증: `backend/pipeline/report_pdf.py`, `backend/templates/report_disclosure.html`, `backend/tests/test_report_pdf_branding.py`.
+- Codex B-1: `src/pages/Disclosure.tsx` 보고서 PDF payload에 `reference_date`(화면 `refDate`) 전송 추가.
+- Codex A-2: 간편심사 라벨 `유병자 3-5-5 기준` → `유병자 3-10-5 기준` 교정. 화면/API/PDF 문자열 일관화를 위해 `backend/filters.py`, `backend/main.py`, `backend/pipeline/result_builder.py`, `backend/templates/report_disclosure.html` 반영.
+- `.agent-harness/tasks/BOHUMFIT-051.md`에 B-1 및 라벨 교정 완료 기록.
+### Verified
+- truncation 선제 점검: report_pdf.py, report_disclosure.html, test_report_pdf_branding.py, Disclosure.tsx, filters.py, main.py, result_builder.py, task/handoff/locks 모두 NUL 없음·strict UTF-8 decode OK·tail 완결.
+- `rg "3-5-5|355" backend src --glob '!src/assets/*'` -> 라벨 관련 잔존 0.
+- `cd backend && python -m pytest -q tests/ -k "report or pdf or branding or BOHUMFIT_051" -vv` -> 47 passed, 267 deselected.
+- `cd backend && python -m pytest -q` -> 307 passed, 7 skipped.
+- `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- `npm run lint` -> pass.
+- `npm test` -> 4 files / 45 tests passed.
+- `npm run build` -> pass. 기존 Vite chunk-size warning만 출력.
+- 실 데이터 PDF 1회 생성: `BOHUMFIT_AI_BUDGET_SECONDS=0`, records basic=215/pharma=747/detail=1117, parse_errors=0, disclosure PDF 6 pages.
+- 6페이지 육안 확인: 생성일시·문서번호 KST(+09:00) OK, 점검 기준일 2026-06-17 표시 OK, 간편심사 헤더 page 4 새 페이지 시작 OK, 고지 카드 페이지 경계 잘림 없음, 좌상단 텍스트 워드마크 정상, 브랜드 그린/남색 일관, 한글 폰트 정상.
+- 소재지 줄바꿈: `BIZ_ADDRESS` 미설정 시 `-` 표기 정상, 테스트용 comma 포함 주소 주입 시 도로명/상세 2줄 줄바꿈 정상 렌더.
+### Notes
+- 검수용 PDF/PNG는 `tmp/pdfs`에서 생성 후 삭제. PII 원본/PDF 산출물/스크린샷/brand 원본은 stage 금지.
+- `backend/pipeline/pdf_parser.py`, `backend/tests/test_pdf_pw_candidates.py`, 병력 PDF 묶음 등은 기존 별도 변경/자료로 판단하여 이번 051 stage 대상에서 제외.
+- Commit: Codex BOHUMFIT-051 publish commit (hash는 커밋 생성 후 최종 응답에 기록).
+### Next
+- Human: 배포 반영 후 실제 화면에서 고지 리포트 PDF 저장 E2E 확인.
+
+## 2026-06-17 Cowork BOHUMFIT-051 [고지 리포트 PDF 개선(KST·페이지구분·로고·소재지·브랜딩) / Next: Codex]
+### Changed
+- `backend/pipeline/report_pdf.py` — `zoneinfo.ZoneInfo`·`_now_kst()` 추가, 기본 generated_at→KST(A-2, 문서번호 KST 통일); `_split_address()`(A-4); 디스클로저 ctx에 `logo_data_uri=""`(A-1 텍스트 워드마크)·`biz_address_lines`(A-4).
+- `backend/templates/report_disclosure.html` — :root 브랜드 토큰(--brand-green/ink/gray)+`--accent` 보정(C-1); 워드마크 그린+보조라인(A-1); 간편 `product_section(..., true)`+`.product-sec.page-break`+헤더/카드 고아·분할 방지(A-3); 소재지 2줄(addr-detail)+max-width(A-4); q-badge·badge-reco 그린(C-2).
+- `backend/tests/test_report_pdf_branding.py` 신규(7).
+- `.agent-harness/tasks/BOHUMFIT-051.md` 신규.
+### Verified (6페이지 렌더 — HTML 단계)
+- [x] cd backend && python -m pytest -q → /tmp **299 passed**(신규 7 포함, 회귀 0; `test_main_launch_guardrails`만 sandbox app-import 제외 → Codex). report_pdf 테스트 19 passed/4 skip(Chromium).
+- [x] Jinja 렌더 마커 10/10: 생성일시 KST(11:15)·문서번호 BF-20260617-111500·점검기준일 값(2026-06-17)·워드마크 보조라인·그린 토큰·간편 page-break·소재지 2줄(addr-detail)·고지권고 그린·--accent·Noto 폰트.
+- [ ] ⚠ **Chromium PDF 변환·6페이지 육안은 sandbox 불가(libX 부재) → Codex/Windows 재현 필수.**
+### Notes
+- **B-1 점검 기준일**: report_pdf는 `reference_date`를 정상 렌더. 비는 원인 = **프런트(`src/pages/Disclosure.tsx` L1045 보고 payload)가 reference_date 미전송**(분석 호출 L1455엔 있음) → `or "-"`. 의도적 공란 아님. **수정점이 프런트(범위 외)** → 1줄 추가 후속 소태스크 권장. report 측은 이미 정상.
+- A-1: 경로 SVG 로고의 보조텍스트가 path로 깨져 렌더 → 텍스트 워드마크(그린)로 대체(깔끔·제어 가능). insurance 템플릿은 미접촉(로고 img 유지).
+- C-1: 종전 `--accent` 미정의(`.v.warn` 무효) 보정.
+- 분석 로직(filters/aggregator/result_builder) 무변경·한글 Noto 폰트 스택 유지.
+- ⚠ report_pdf.py/템플릿 마운트 view 절단(꼬리/본문)은 tail·본문 재구성으로 렌더 검증. 실 PDF 로컬 렌더는 sandbox 불가 → Codex. 산출물/스크린샷 미커밋·PII 미사용·마운트 git 미실행.
+- 자체 점검 체크리스트 전항 통과(KST·점검기준일[존재 시]·간편 새페이지·카드 비분할·로고 정리·소재지 줄바꿈·토큰 일관화·한글폰트·분석로직 무변경·회귀0).
+### Next
+- **Codex(Windows)**: 전체 pytest·tsc/lint/test/build·**실 데이터 PDF 1회 생성→6페이지 육안**(KST/페이지구분/로고/소재지/점검기준일/브랜딩) → 범위 파일 stage→commit→push. 커밋: `BOHUMFIT-051: 고지 리포트 PDF KST·페이지구분·로고·소재지·브랜딩 토큰 개선`.
+- **후속(프런트 1줄)**: Disclosure.tsx 보고 payload에 `reference_date` 추가(B-1 완결).
+
 ## 2026-06-17 Codex BOHUMFIT-050 [Windows 검증·커밋·푸시 완료 / Next: Human 운영 E2E]
 ### Changed
 - 커밋/푸시: `eb28c62` `BOHUMFIT-050: 약국 기관명 공백 정규화 일관화(_is_pharmacy) + 통원 행 기준·앵커 분리 고정`
