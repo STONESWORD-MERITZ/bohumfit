@@ -16,6 +16,52 @@
 
 # Handoff
 
+## 2026-06-18 Codex BOHUMFIT-055 [Windows 권위 검증·실부하 통과 / Next: Human Railway 워커 설정·대용량 smoke]
+### Changed
+- `backend/analyzer.py` — Cowork의 파일 단위 ProcessPool 병렬 파싱 구현을 Windows 원본에서 검증. AST 검증을 막던 UTF-8 BOM을 제거해 Python 파서 기준을 정상화(로직 변경 없음).
+- `backend/tests/test_parse_workers.py` — 실제 수집 기준 7개 회귀 테스트 확인. Cowork handoff/task의 "8개" 표기는 문서 카운트 오차로 기록.
+- `.agent-harness/tasks/BOHUMFIT-055.md`, `.agent-harness/locks.md`, `.agent-harness/handoff.md` — 055 태스크/잠금/검증 기록 반영. 056 Cowork active lock은 보존.
+### Verified
+- [x] `Select-String backend/analyzer.py "_ParseInput","_parse_workers","_total_bytes","ProcessPool","BOHUMFIT_PARSE_WORKERS"` — 병렬 헬퍼/게이트/환경변수 참조 확인.
+- [x] `python -c "import ast; ast.parse(open('backend/analyzer.py',encoding='utf-8').read()); print('analyzer.py OK')"` — BOM 제거 후 pass.
+- [x] 무결성 점검: `backend/analyzer.py` 1076 lines, NUL 0, replacement char 0, tail intact. `backend/tests/test_parse_workers.py` 73 lines, NUL 0.
+- [x] `cd backend && python -m pytest -q tests/ -k "parse_workers or parallel or BOHUMFIT_055" -vv` — 7 passed, 325 deselected.
+- [x] `cd backend && python -m pytest -q tests/test_parse_workers.py -vv` — 7 passed.
+- [x] `cd backend && python -m pytest -q` — 325 passed, 7 skipped.
+- [x] `npx tsc -p tsconfig.app.json --noEmit`, `npx tsc -p tsconfig.node.json --noEmit`, `npm run lint`, `npm test`(45 passed), `npm run build` — all passed. 기존 Vite chunk-size warning만 출력.
+- [x] 실부하 측정(최유미 세부진료정보 104p, 0.85MB, in-memory 복제): 병렬 결과 == 순차 결과(records/순서 동일), errors 0.
+  - 3 copies: 순차 124.63s / 병렬(2) 91.94s / speedup 1.36x / peak 265.5MB → 720.4MB.
+  - 5 copies: 순차 152.27s / 병렬(2) 91.21s / speedup 1.67x / peak 269.5MB → 735.7MB.
+  - 10 copies: 순차 260.25s / 병렬(2) 156.72s / speedup 1.66x / peak 276.6MB → 745.9MB. 10파일 병렬 300초 타임아웃 내.
+### Notes
+- 병렬은 104p급 실 PDF 10개에서 156.72초로 300초 내 통과했으며, 순차 대비 1.66x 개선. 피크 메모리는 Windows 관찰 기준 약 746MB로 상승하므로 Railway 메모리 플랜 확인 후 `BOHUMFIT_PARSE_WORKERS=2` 적용 권장.
+- 실 PDF/복제 파일/PII는 커밋하지 않음. 측정은 `_ParseInput` in-memory 복제로 수행했고 임시 스크립트는 `%TEMP%`에만 사용.
+- unrelated 변경(`backend/templates/report_disclosure.html`, `backend/tests/test_report_pdf.py`, brand/PDF/task 잔여 파일)은 이번 055 커밋에서 제외.
+- Main commit: pending.
+### Next
+- Human: Railway 메모리 플랜 확인 후 `BOHUMFIT_PARSE_WORKERS=2` 여부 결정, 배포 후 실제 대용량 PDF 3/5/10개 smoke. 056 Cowork active lock은 유지.
+
+## 2026-06-18 Cowork BOHUMFIT-055 [대용량 파싱 병목 진단 + 파일단위 프로세스 병렬(게이트) / Next: Codex + Human]
+### Changed
+- `backend/analyzer.py` — `_parse_all_pdfs` 에 파일 단위 ProcessPool 병렬 경로 추가(순차 기본 유지). 신규 `_ParseInput`·`_parse_one_worker`·`_container_mem_bytes`·`_parse_workers(n_files,total_bytes)`·`_log_parsed`·`_MIN_PARALLEL_BYTES`. 자동 병렬 = cpu≥2 ∧ cgroup mem≥1.4GB ∧ 총업로드≥3MB(spawn 오버헤드 amortize). `BOHUMFIT_PARSE_WORKERS` override. 순서 보존·fail-loud.
+- `backend/tests/test_parse_workers.py` 신규(8).
+- `.agent-harness/tasks/BOHUMFIT-055.md` 신규.
+- (PHASE1/4 진단은 읽기 — 코드 변경 없음. 분석 카운트·판정·AI 5초 예산 불변.)
+### Verified
+- [x] **PHASE1 구간 계측(실 PDF)**: extract_text = **95%**(기본 4.5/4.8s·처방 16.7/17.5s), extract_tables 4~5% → 병목=text(CPU 바운드, 페이지별 ftype 판정용). 2 vCPU.
+- [x] **PHASE2 동등성(실측)**: 동일 20p×2 순차 recs=[215,215] == 병렬(2) recs=[215,215](순서 보존). **speedup 0.53×(소형은 spawn 오버헤드로 느림)** → 워크로드 게이트로 소형 순차 유지(무회귀), 대용량만 병렬.
+- [x] 로직 standalone 검증(동일 코드): _parse_workers(env/메모리/워크로드 게이트/캡)·_ParseInput picklable.
+- [ ] (Codex) 전체 pytest(317+8)·tsc/build·**실 10대용량 PDF 순차 vs 병렬 타이밍**.
+### Notes
+- **PHASE1 결론**: 병목은 `page.extract_text()`(~95%, 순수 파이썬 CPU 바운드, 파일 독립). tables는 5%.
+- **접근 근거**: CPU 바운드+파일 독립 → 파일 단위 프로세스 병렬(a). 단 ProcessPool spawn+재import 고정 오버헤드(~수 초)로 **소형 작업은 병렬이 오히려 느림(0.53×)** → **워크로드 게이트**(총≥3MB) + 메모리 게이트(≥1.4GB)로 **대용량에서만 자동 병렬**, 소형/저메모리는 순차(무회귀·메모리 안전 047/054 유지). 대용량 10×104p(≈270s 순차) → 2코어 병렬 ~145s 추정(300s 타임아웃 내).
+- 메모리: 병렬 피크 = 워커수×1파일분(~250MB×2=500MB) → cgroup≥1.4GB일 때만 자동(OOM 회피). env로 플랜별 강제 가능.
+- extract_text 직접 단축(layout=False)은 ftype→분석 변경 위험으로 미채택(분석 무변경 원칙). 페이지 가드(2-C)는 병렬이 해소하므로 보류(저메모리 대용량 보완책으로 Human 검토 가능).
+- ⚠ **이번 세션 마운트 view 심각 손상**: analyzer.py bash-view가 파일도구와 불일치(stale)·report_pdf 절단 → /tmp 전체 pytest 불가. analyzer.py 편집은 **Grep 도구로 실파일 확인(12참조)**. 비-analyzer 248 passed(stale/stub 아티팩트 4 제외). 전체 pytest·실 부하는 Codex/Windows 권위. 실 PDF 로컬만·PII/복제 미커밋·작업파일 삭제·마운트 git 미실행.
+### Next
+- **Codex(Windows)**: 전체 pytest(317+8 test_parse_workers)·tsc/lint/build → 범위 파일 커밋·푸시. 실 10대용량 PDF 순차 vs 병렬 처리시간 측정.
+- **Human**: Railway 플랜 메모리 확인 → `BOHUMFIT_PARSE_WORKERS`(≥1GB·다코어=2) 설정. 배포 후 큰 파일 10개 실측.
+
 ## 2026-06-17 Codex BOHUMFIT-054 [Windows 검증·publish / Next: Human STEP1·4 판단]
 ### Changed
 - Cowork 구현 범위 검증: `backend/analyzer.py`의 `_parse_quality_warning()` 및 결과 dict `parse_quality_warning`, `src/pages/Disclosure.tsx`의 칩 툴팁, `backend/tests/test_parse_quality_warning.py`, 054 task.

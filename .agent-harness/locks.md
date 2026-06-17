@@ -4,7 +4,7 @@ Use this file to record active Codex file ownership during a task.
 
 ## Active
 
-(없음)
+- 2026-06-18 `BOHUMFIT-056` - Cowork - 공단 입원일수 파싱 수정(STEP1) + 수술의심 합산 기준(STEP2) + 문구(STEP3) + 진료기간 내림차순(STEP4). 범위: `pipeline/pdf_parser.py`·`filters.py`·`pipeline/result_builder.py`·`pipeline/report_pdf.py`+템플릿·`src/pages/Disclosure.tsx`·`tests/`. STEP0 진단 선행. 실 PDF 로컬만·PII 미커밋. 취득 2026-06-18.
 
 ## Rules
 
@@ -14,6 +14,8 @@ Use this file to record active Codex file ownership during a task.
 - Keep this file operational and short. Historical lock detail lives in git history and `handoff.md`.
 
 ## Released
+
+- 2026-06-18 `BOHUMFIT-055` - Cowork - 대용량 파싱 병목 진단 + 파일단위 프로세스 병렬(게이트) 완료. PHASE1: 병목=page.extract_text() ~95%(CPU 바운드·파일 독립, tables 5%), 2 vCPU. PHASE2: `_parse_all_pdfs` ProcessPool 병렬 경로(순차 기본)·`_parse_workers(n_files,total_bytes)` 워크로드(≥3MB)+메모리(cgroup≥1.4GB)+cpu 게이트·`BOHUMFIT_PARSE_WORKERS` override·순서보존·fail-loud·신규 test_parse_workers(8). 실측: 병렬==순차 동등(recs 215==215 순서보존), 단 소형 0.53×(spawn 오버헤드)→게이트로 소형 순차(무회귀)·대용량만 병렬(10×104p 270s→~145s 추정). extract_text 직접단축은 분석변경 위험으로 미채택. ⚠세션 마운트 심각 손상(analyzer.py bash-view stale·report 절단)→/tmp 전체 pytest 불가; analyzer.py 편집 Grep으로 실파일 확인(12참조)·비analyzer 248 passed(stub아티팩트 제외)·로직 standalone+동등성 실측. 전체 pytest·실 부하는 Codex/Windows. 분석 카운트·판정·AI 5초 불변·실 PDF 로컬만·PII 미커밋·작업파일 삭제·마운트 git 미실행. → Codex 전체검증·실 10대용량 타이밍·커밋 / Human Railway 플랜·워커수 승인.
 
 - 2026-06-17 `BOHUMFIT-054` - Codex - Windows 전체 검증 완료 후 범위 파일 커밋/푸시 진행. `Disclosure.tsx` TS7053 타입 오류는 집계창 라벨 맵에 `Record<string, string>` 타입 부여로 해소(표현/동작 동일). 검증: STEP2 회귀 11 passed, 전체 backend 317 passed/7 skipped, tsc app/node, lint, npm test 45 passed, build pass(기존 chunk warning만). PII/PDF/brand/unrelated stage 금지 준수.
 

@@ -1,4 +1,4 @@
-﻿"""BOHUMFIT 분석 엔진 — 오케스트레이터.
+"""BOHUMFIT 분석 엔진 — 오케스트레이터.
 실제 로직은 backend/pipeline/* 에 분산되어 있다.
 
 이 파일은 run_analysis() 오케스트레이션 + 하위 호환 re-export 를 담당한다.
@@ -139,37 +139,141 @@ def _build_truncation_warning(truncated_files: list) -> str | None:
     )
 
 
-async def _parse_all_pdfs(active_files: list, birthdate_pw: str) -> tuple[list, list]:
-    """PDF들을 순차 파싱해 (레코드, 파싱오류) 반환. 레코드 0건이면 AnalysisError.
+# ── BOHUMFIT-055: 파싱 병렬화 인프라 ────────────────────────────────────────
+# PHASE1 진단: parse_single_pdf 시간의 ~95% 가 page.extract_text()(페이지별 ftype
+#   판정용, 순수 파이썬 CPU 바운드)이고 파일 간 독립적이다. 파일 단위 프로세스 병렬화로
+#   대용량 다파일의 총 파싱시간을 코어 수만큼 단축한다(타임아웃 회피). 분석 카운트·판정
+#   로직은 불변(동일 parse_single_pdf, 결과 병합은 파일 순서 보존 → 결정성 유지).
+class _ParseInput:
+    """ProcessPool 워커로 넘길 picklable 입력 — PDF bytes + 파일명(.read() 동기)."""
+    __slots__ = ("_data", "name")
 
-    OOM 핫픽스: 여러 PDF를 동시 파싱하면 pdfplumber 페이지 캐시가 파일 수만큼
-    메모리에 동시에 쌓여 Railway 컨테이너 메모리 한도를 초과, 프로세스가 강제
-    종료됐다 (files=2 에서 재현). 파일을 한 개씩 순차 처리해 메모리 피크를
-    PDF 1개분으로 제한한다. parse_single_pdf 는 finally 에서 자체 gc 하므로
-    다음 파일 파싱 전에 직전 파일의 메모리가 해제된다.
-    """
-    all_records = []
-    parse_errors = []
-    # ── PDF 파싱 (순차 처리 — 메모리 피크 억제) ──
-    for i, uf in enumerate(active_files):
-        fn = getattr(uf, "name", None) or getattr(uf, "filename", None) or f"file_{i}"
+    def __init__(self, data: bytes, name: str):
+        self._data = data
+        self.name = name
+
+    def read(self) -> bytes:
+        return self._data
+
+
+def _parse_one_worker(item: "_ParseInput", birthdate_pw: str) -> dict:
+    """워커 프로세스 진입점 — parse_single_pdf 재import 후 호출(순차와 동일 함수)."""
+    from pipeline.pdf_parser import parse_single_pdf as _psp
+    return _psp(item, birthdate_pw)
+
+
+def _container_mem_bytes() -> int:
+    """컨테이너 메모리 한도(cgroup v2/v1) 또는 시스템 총량. 병렬 워커 수 보수 결정용."""
+    for p in ("/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/memory/memory.limit_in_bytes"):
         try:
-            pr = await asyncio.to_thread(parse_single_pdf, uf, birthdate_pw)
-        except Exception as e:
-            # BOHUMFIT-047: 조용한 continue → 파일명+예외를 ERROR 로 명시 로깅(가시성).
-            #   해당 파일 레코드가 전량 소실되므로 운영 진단에서 가장 중요한 신호다.
-            logger.error("BOHUMFIT-047 parse failed: file=%s error=%s", fn, str(e)[:200])
-            parse_errors.append(f"⚠️ {fn}: PDF 파싱 중 예외 — {str(e)[:120]}")
-            continue
-        recs = pr["records"]
-        all_records.extend(recs)
-        parse_errors.extend(pr["parse_errors"])
-        # BOHUMFIT-047: 파일별·ftype별 파싱 레코드 수 INFO 로깅(부분 파싱·소실 진단).
-        _ft = Counter(str(r.get("_ftype", "unknown")) for r in recs)
-        logger.info(
-            "BOHUMFIT-047 parsed: file=%s records=%d ftype=%s errors=%d",
-            fn, len(recs), dict(_ft), len(pr["parse_errors"]),
-        )
+            v = open(p).read().strip()
+            if v.isdigit():
+                n = int(v)
+                if 0 < n < (1 << 62):   # "max"(무제한)·비정상값 제외
+                    return n
+        except OSError:
+            pass
+    try:
+        return os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
+    except (ValueError, OSError, AttributeError):
+        return 0
+
+
+# BOHUMFIT-055: ProcessPool 은 요청마다 프로세스 spawn + 모듈 재import(pdfplumber 등)
+#   고정 오버헤드(~수 초)가 있어, 파싱 시간이 그보다 작은 소규모 업로드에선 병렬이 오히려
+#   느리다(실측: 소형 2파일 0.53×). 따라서 총 업로드가 충분히 커서(파싱 시간 ≫ spawn 오버헤드)
+#   순차로는 타임아웃이 우려되는 경우에만 자동 병렬한다. 임계 미만은 순차(소규모 무회귀).
+_MIN_PARALLEL_BYTES = 3 * 1024 * 1024   # 약 ≥3MB(대용량 다파일) — 이하면 순차
+
+
+def _parse_workers(n_files: int, total_bytes: int = 0) -> int:
+    """파싱 병렬 워커 수.
+
+    안전 기본: 순차(1) — 메모리 피크 1파일분 유지(BOHUMFIT-047 OOM 핫픽스 불변).
+    자동 병렬(2) 조건(모두 충족): 멀티코어 + cgroup 메모리 ≥ ~1.4GB + 총 업로드 ≥ _MIN_PARALLEL_BYTES
+      (= spawn 오버헤드 amortize 가능한 대용량). `BOHUMFIT_PARSE_WORKERS` 명시 override 시
+      워크로드 게이트 무시(0/1=순차, 2~=병렬) — 운영 Railway 플랜·실측에 맞춰 강제 가능.
+    """
+    cpu = os.cpu_count() or 1
+    env = os.environ.get("BOHUMFIT_PARSE_WORKERS")
+    if env is not None:
+        try:
+            w = int(env)
+        except (TypeError, ValueError):
+            w = 1
+    else:
+        ample_mem = _container_mem_bytes() >= 1_400_000_000
+        big_job = total_bytes >= _MIN_PARALLEL_BYTES
+        w = 2 if (cpu >= 2 and ample_mem and big_job) else 1
+    return max(1, min(w, cpu, max(1, n_files)))
+
+
+def _log_parsed(fn: str, pr: dict) -> None:
+    _ft = Counter(str(r.get("_ftype", "unknown")) for r in pr["records"])
+    logger.info(
+        "BOHUMFIT-047 parsed: file=%s records=%d ftype=%s errors=%d",
+        fn, len(pr["records"]), dict(_ft), len(pr["parse_errors"]),
+    )
+
+
+async def _parse_all_pdfs(active_files: list, birthdate_pw: str) -> tuple[list, list]:
+    """PDF들을 파싱해 (레코드, 파싱오류) 반환. 레코드 0건이면 AnalysisError.
+
+    기본 순차(메모리 피크 1파일분 — BOHUMFIT-047 OOM 핫픽스). 메모리 헤드룸이 있으면
+    BOHUMFIT-055 파일 단위 프로세스 병렬로 총 파싱시간 단축(파일 순서 보존 → 결정성).
+    파일별 예외는 어느 경로든 fail-loud(parse_errors 적재 + ERROR 로깅) 유지한다.
+    """
+    all_records: list = []
+    parse_errors: list = []
+    names = [getattr(uf, "name", None) or getattr(uf, "filename", None) or f"file_{i}"
+             for i, uf in enumerate(active_files)]
+    _total_bytes = 0
+    for uf in active_files:
+        try:
+            _total_bytes += len(uf.read())
+        except Exception:
+            pass
+    workers = _parse_workers(len(active_files), _total_bytes)
+
+    if workers <= 1 or len(active_files) <= 1:
+        # ── 순차 처리(메모리 피크 억제) — 기존 경로 ──
+        for uf, fn in zip(active_files, names):
+            try:
+                pr = await asyncio.to_thread(parse_single_pdf, uf, birthdate_pw)
+            except Exception as e:
+                logger.error("BOHUMFIT-047 parse failed: file=%s error=%s", fn, str(e)[:200])
+                parse_errors.append(f"⚠️ {fn}: PDF 파싱 중 예외 — {str(e)[:120]}")
+                continue
+            all_records.extend(pr["records"])
+            parse_errors.extend(pr["parse_errors"])
+            _log_parsed(fn, pr)
+    else:
+        # ── BOHUMFIT-055: 파일 단위 프로세스 병렬(순서 보존·fail-loud) ──
+        logger.info("BOHUMFIT-055 parallel parse: files=%d workers=%d", len(active_files), workers)
+        inputs = [_ParseInput(uf.read(), fn) for uf, fn in zip(active_files, names)]
+
+        def _run_pool() -> list:
+            from concurrent.futures import ProcessPoolExecutor, as_completed
+            out: list = [None] * len(inputs)
+            with ProcessPoolExecutor(max_workers=workers) as ex:
+                fut_idx = {ex.submit(_parse_one_worker, inp, birthdate_pw): i
+                           for i, inp in enumerate(inputs)}
+                for fut in as_completed(fut_idx):
+                    i = fut_idx[fut]
+                    try:
+                        out[i] = fut.result()
+                    except Exception as e:   # 워커 예외 → fail-loud(해당 파일만 빈 결과)
+                        logger.error("BOHUMFIT-055 parse failed(parallel): file=%s error=%s",
+                                     names[i], str(e)[:200])
+                        out[i] = {"filename": names[i], "records": [],
+                                  "parse_errors": [f"⚠️ {names[i]}: PDF 파싱 중 예외 — {str(e)[:120]}"]}
+            return out
+
+        results = await asyncio.to_thread(_run_pool)
+        for fn, pr in zip(names, results):   # 파일 순서대로 병합 → 결정성 유지
+            all_records.extend(pr["records"])
+            parse_errors.extend(pr["parse_errors"])
+            _log_parsed(fn, pr)
 
     if not all_records:
         if parse_errors:
