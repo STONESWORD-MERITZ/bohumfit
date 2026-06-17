@@ -16,6 +16,65 @@
 
 # Handoff
 
+## 2026-06-17 Cowork BOHUMFIT-050 [통원 행 기준 확정 + 약국 공백 정규화 일원화 / Next: Codex]
+### Changed
+- `backend/pipeline/disease_aggregator.py` — 신규 `_is_pharmacy(name)`(공백 제거 후 '약국' 매칭). 약국 검사 4곳(detail-link 인덱스·통원 visit 분기·hospital_dates·표시 hospitals) `_is_pharmacy`로 일원화(공백 변형 "약 국" 일관 제외). 통원 분기 주석에 단위=행(visit_events)·앵커=visit_dates 분리 명시.
+- `backend/filters.py` — `_visit_count_in_range` 행 기준(visit_events) 확정 주석. 로직 무변경(이미 행 기준).
+- `backend/tests/test_visit_count_row_pharmacy.py` 신규(7).
+- `.agent-harness/tasks/BOHUMFIT-050.md` 신규.
+### Verified (J32·K29 수치 포함)
+- [x] 실 PDF(ref=2026-06-17): **J32 5년 행 카운트=10**(정답표 10 일치), **K29 5년 행=5**(2건 2020-12 5년초과, 사양대로 <7 미발동). 앵커 K29 visit_dates=7 분리 유지. 약국 검출 1→3(공백 변형 포함, K29 카운트 5는 같은날 의원행으로 불변).
+- [x] cd backend && python -m pytest -q → /tmp **292 passed**(신규 7 포함, 회귀 0; `test_main_launch_guardrails`만 sandbox app-import 제외→Codex). 기준선 291(047 후)+7.
+- [ ] (Codex) 전체 pytest(291+7=298)·tsc/lint/test/build.
+### Notes
+- **1단계 진단으로 드러난 사실**: 통원 카운트는 **이미 행 기준**(`_visit_count_in_range`→`visit_events`, `_dts_in_range` 중복 보존 — 같은날 2행=2). 앵커 분리(visit_dates 집합)도 이미 존재. 통원 약국 가드도 043이 `_norm_provider_name`으로 공백 처리 중. → 049의 "약국 공백 버그"는 진단 시 raw 매칭을 본 부정확이었고, 실제 통원 경로는 정상이었음.
+- **050의 실질 변경**: ① 약국 검사를 통원 외 경로(detail-link L224·hospital_dates L348·표시 hospitals L518)까지 `_is_pharmacy`로 **일관화**(이전 raw `"약국" in hospital`은 공백 변형 누수) ② 행 기준·앵커 분리를 주석·회귀로 **고정**. 카운트 로직 자체는 무변경이라 J32=10·K29=5 전후 불변.
+- `_is_pharmacy`는 공백만 제거(`\s+`)해 정밀(점·하이픈 strip하는 `_norm_provider_name` 대비 과대검출 회피).
+- 자체 점검 체크리스트 전항 통과(약국 공백 정규화·행 기준·5년 창 불변·앵커 유지·VISIT-7 임계 동일·J32/K29 기록·회귀0).
+- ⚠ disease_aggregator/filters 마운트 view 절단(꼬리)은 tail 재구성으로 보정 검증. 실 PDF 로컬 파싱만·PII 미커밋·작업파일 삭제·마운트 git 미실행.
+### Next
+- **Codex(Windows)**: 전체 pytest(291+7=298)·tsc/lint/test/build → 범위 파일 stage→commit→push. 커밋: `BOHUMFIT-050: 약국 기관명 공백 정규화 일원화(_is_pharmacy) + 통원 행 기준·앵커 분리 고정`.
+
+## 2026-06-17 Cowork BOHUMFIT-049 [K29 통원 9회 vs 코드 5회 — 기준 차이(코드 버그 아님) / Next: Human 사양]
+### Changed
+- (없음 — 읽기 전용 진단. 실 PDF 로컬 파싱만·PII 미커밋·작업파일 삭제.)
+### Verified
+- [x] 기본진료 PDF 파싱 후 K29* 행 전수 덤프 + 카운트 기준별 표 + 코드 실측 교차검증.
+- [x] cd backend && python -m pytest -q → /tmp **285 passed**(회귀 0; 코드 변경 없음).
+### Notes
+**■ 결론: 정답 "9회"와 코드 "5회"는 카운트 기준 차이 — 코드 버그 아님. BOHUMFIT-034가 의도적으로 채택한 5년·일자 기준대로 동작 중. 정답표는 행·전기간 기준.**
+
+**[1단계] K29* 원천 행(ref=2026-06-17):** 총 **10행 / 진료일자(중복제거) 7개**. 실 PDF 원천 기관명·개별 일자는 커밋 기록에서 익명화.
+
+**[2단계] 5년 경계:** 5년내 일자 5개, 5년 밖 제외 2개.
+
+**[3단계] 약국 영향:** 코드 검출 약국행 **1개**. ⚠ 공백 변형 `"약 국"` 기관명은 raw 매칭에서 약국 미검출(실제 약국 3 중 2 누락). 단, 해당 날짜에는 같은날 비약국 의원행이 있어 일자 손실 0.
+
+**[4단계] K29 카운트 기준별 표:**
+
+| 기준 | 수치 |
+|---|---|
+| 전체 행 수 | 10 |
+| **비-약국 행 수(전기간)** | **9 ← 정답 9회와 일치** |
+| 전체 진료일자(중복제거) | 7 |
+| 5년 내 진료일자 | 5 |
+| **5년 내 + 약국제외 일자(현재 코드)** | **5** |
+| 10년 내 진료일자 | 7 |
+
+코드 실측 교차검증: `K29 visit_dates=7, visit_events=7, 5년내 카운트=5` → VISIT-7(≥7) 미발동(정상 동작).
+
+**[5단계] 판정:**
+- **정답 "9회" = 약국제외 행(row) 수, 전기간**(10행 − 코드검출 약국1 = 9).
+- **현재 코드 "5회" = 약국제외 distinct 일자, 5년 창.**
+- 차이 3요인: ① **5년 경계**로 2020-12 2일자 제외(7→5) ② **일자 vs 행**(같은날 다과 방문 합산 안 함 — 7일자 vs 9행) ③ 약국 공백깨짐(부수, K29 일자엔 영향 0).
+- VISIT-7(≥7) 발동 조건: 행+전기간(9)·일자+10년(7)·행+10년 → 발동 / **일자+5년(5) → 미발동(현행)**.
+- **코드 버그 아님 — 기준(사양) 차이.** 034 결정(Q3 통원=5년·일자)이 정답표(행·전기간)와 불일치.
+
+**수정 방향 = Human 사양 확정:** 통원 횟수 정의를 ① 단위(일자 vs 행/내원건) ② 창(5년 vs 10년) ③ 약국 처리로 확정. 5년·일자 유지 시 K29=5 미발동이 정상. 행 기준 또는 10년 창이면 K29 발동(≥7).
+- (부수 발견·별도 소태스크) 약국 기관명 공백 깨짐("약 국")으로 043 약국 가드 일부 미검출 → 통원 과대 위험(반대 방향). 기관명 정규화(공백 제거 후 "약국" 매칭) 보강 권장.
+### Next
+- **Human**: K29류 통원 카운트 사양 확정(일자 vs 행 · 5년 vs 10년 · 약국 처리). 확정 후 필요 시 Cowork 구현(BOHUMFIT-050). 부수: 약국 기관명 공백 정규화 소태스크 발주 여부.
+
 ## 2026-06-17 Codex BOHUMFIT-047 [Windows 검증·커밋·푸시 완료 / Next: Human 메모리 근본대응 판단]
 ### Changed
 - 커밋/푸시: `e27e1d2` `BOHUMFIT-047: q_raw None 크래시 수정(_build_pool 방어) + 파싱 레코드 수·parse_errors 가시화`

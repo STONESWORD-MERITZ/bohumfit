@@ -67,6 +67,10 @@ def _subtract_years(d, years: int):
 
 
 def _visit_count_in_range(stat: dict[str, Any], since_dt) -> int:
+    # BOHUMFIT-050 확정 사양: 통원 카운트 단위 = 내원 '행'(visit_events 리스트, 같은날 중복 허용).
+    #   _dts_in_range 가 중복을 보존하므로 events 길이 = 창 내 내원 행 수. visit_dates(집합) 폴백은
+    #   events 가 빈 경우(통원 0)뿐이라 실질 영향 없음. 약국 행은 disease_aggregator 집계 단계에서
+    #   이미 제외되어 events 에 미포함(공백 변형 약국 포함 — _is_pharmacy).
     events = stat.get("visit_events") or []
     if events:
         return len(_dts_in_range(events, since_dt))

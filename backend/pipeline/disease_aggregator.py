@@ -65,6 +65,12 @@ def _norm_provider_name(value: str | None) -> str:
     return re.sub(r"[\s·ㆍ\.\-_/]", "", value or "")
 
 
+def _is_pharmacy(name: str | None) -> bool:
+    # BOHUMFIT-050: 요양기관명 공백 변형("약 국", "약  국")으로 약국 가드가 새던 문제 대응 —
+    #   공백 제거 후 '약국' 매칭으로 일원화(통원·detail-link·표시 hospitals 전반 일관 적용).
+    return "약국" in re.sub(r"\s+", "", name or "")
+
+
 def _detail_action_name(row) -> str:
     code_name = get_val(row, ["코드명", "수가명", "행위명칭", "행위명"])
     if code_name:
@@ -221,7 +227,7 @@ def build_disease_stats(
         if not clean_date or not code_str:
             continue
         hospital = get_val(row, ["병·의원", "기관명", "요양기관명", "병·의원&약국"])
-        if "약국" in hospital:
+        if _is_pharmacy(hospital):   # BOHUMFIT-050: 공백 변형 약국까지 일관 제외
             continue
         # BOHUMFIT-043: 040의 진단과='일반의' 제외 게이트 제거(detail-link 인덱스 보존).
         basic_by_day_provider[(clean_date, _norm_provider_name(hospital))].append({
@@ -333,16 +339,18 @@ def build_disease_stats(
                         if _add_days(clean_date, m_days) > s["latest_date"]:
                             s["latest_date"] = _add_days(clean_date, m_days)
                 else:
-                    # BOHUMFIT-043: 요양기관명에 '약국' 포함 시 통원(visit) 집계에서만 제외.
+                    # BOHUMFIT-043/050: 요양기관명이 약국(공백 변형 포함)이면 통원에서만 제외.
                     #   행 자체는 보존 — 입원·세부수술 링크·투약(med_dates_basic/pharma) 경로 불변.
-                    if "약국" not in _norm_provider_name(hospital):
-                        s["visit_dates"].add(clean_date)
-                        s.setdefault("visit_events", []).append(clean_date)
+                    # BOHUMFIT-050: 통원 카운트 단위 = 내원 '행'(visit_events 리스트, 같은날 중복 허용).
+                    #   visit_dates(집합)는 pharma cross-ref 앵커 전용으로 분리 유지(카운트에 미사용).
+                    if not _is_pharmacy(hospital):
+                        s["visit_dates"].add(clean_date)                 # pharma 앵커용(집합)
+                        s.setdefault("visit_events", []).append(clean_date)  # 통원 카운트용(행)
                 if m_days > 0:
                     prev = s["med_dates_basic"].get(clean_date, 0)
                     if m_days > prev:
                         s["med_dates_basic"][clean_date] = m_days
-                if hospital and "약국" not in hospital:
+                if hospital and not _is_pharmacy(hospital):
                     s["hospital_dates"].setdefault(clean_date, hospital)
                 day_fact = s["_daily_facts"].setdefault(clean_date, {"max_basic_cost": 0, "detail_proc_names": set()})
                 day_fact["max_basic_cost"] = max(day_fact["max_basic_cost"], cost_val)
@@ -512,7 +520,7 @@ def build_disease_stats(
                     if _is_procedure_kw(target_idx):
                         idx["has_detail_proc_kw"] = True
 
-        if hospital and "약국" not in hospital and ftype != "pharma":
+        if hospital and not _is_pharmacy(hospital) and ftype != "pharma":   # BOHUMFIT-050
             s["hospitals"].add(hospital)
         if name_str and ftype not in ("detail", "pharma"):
             canonical_name = basic_diagnosis_names.get(grouped_code_str) or disclosure_group_name(code_str, _clean_disease_name(name_str))
