@@ -172,7 +172,7 @@ const RISK: Record<Risk, { border: string }> = {
   green: { border: "border-emerald-400" },
 };
 
-function Chip({ label, tone = "gray" }: { label: string; tone?: string }) {
+function Chip({ label, tone = "gray", title }: { label: string; tone?: string; title?: string }) {
   const tones: Record<string, string> = {
     gray: "bg-gray-100 text-gray-600",
     "gray-light": "border border-gray-200 bg-gray-50 text-gray-500",
@@ -185,7 +185,7 @@ function Chip({ label, tone = "gray" }: { label: string; tone?: string }) {
     rose: "bg-rose-100 text-rose-600",
   };
   return (
-    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${tones[tone] ?? tones.gray}`}>
+    <span title={title} className={`rounded-full px-3 py-1 text-xs font-semibold ${tones[tone] ?? tones.gray}`}>
       {label}
     </span>
   );
@@ -362,6 +362,12 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
     ? `${item.first_date} ~ ${item.latest_date}`
     : (item.first_date || "");
   const hasMetricChips = metric.visit || metric.inpatient || metric.inpatientCount || metric.surgery || metric.med;
+  // BOHUMFIT-054 STEP3: 질문별 집계 창 라벨 — 칩(통원·투약 등)이 어느 기간 기준 횟수인지 명시(정답표 전기간/10년 혼동 방지).
+  const windowLabels: Record<string, string> = isEasy
+    ? { Q1: "3개월 이내", Q2: "10년 이내", Q3: "5년 이내" }
+    : { Q1: "3개월 이내", Q2: "1년 이내", Q3: "5년 이내", Q4: "5년 초과 10년 이내", Q5: "5년 이내" };
+  const windowLabel = windowLabels[qNum] || "";
+  const windowTip = windowLabel ? `가입예정일 기준 ${windowLabel} 집계입니다.` : undefined;
   const clinicalReviewText = item.q2_suspicion || item.additional_test_reason || "";
   const clinicalReviewLabel = item.additional_test_hit || item.q2_suspicion
     ? "추가검사·재검사 의심"
@@ -416,13 +422,14 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
 
       {hasMetricChips && (
         <div className="mb-2 flex flex-wrap gap-2">
-          {metric.visit && <Chip label={`통원 ${item.visit ?? 0}회`} tone={(item.visit ?? 0) >= 7 ? "amber" : "gray"} />}
-          {metric.inpatient && <Chip label={`입원 ${item.inpatient ?? 0}일`} tone="red" />}
-          {metric.inpatientCount && <Chip label={`입원 ${item.inpatient_count ?? 0}회`} tone="red-light" />}
-          {metric.surgery && <Chip label={`수술 ${surgN}건`} tone="red" />}
+          {metric.visit && <Chip label={`통원 ${item.visit ?? 0}회`} title={windowTip} tone={(item.visit ?? 0) >= 7 ? "amber" : "gray"} />}
+          {metric.inpatient && <Chip label={`입원 ${item.inpatient ?? 0}일`} title={windowTip} tone="red" />}
+          {metric.inpatientCount && <Chip label={`입원 ${item.inpatient_count ?? 0}회`} title={windowTip} tone="red-light" />}
+          {metric.surgery && <Chip label={`수술 ${surgN}건`} title={windowTip} tone="red" />}
           {metric.med && (
             <Chip
               label={`투약 ${item.med_days ?? 0}일`}
+              title={windowTip}
               tone={(item.med_days ?? 0) >= 30 ? "amber" : (item.med_days ?? 0) > 0 ? "emerald" : "gray"}
             />
           )}

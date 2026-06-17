@@ -22,6 +22,23 @@ def _ai_budget_seconds() -> int:
         return 5
 
 
+def _parse_quality_warning(record_counts: dict) -> str | None:
+    """BOHUMFIT-054 STEP2: 파싱 불완전(ftype 미인식) 보수적 경고 메시지(없으면 None).
+
+    심평원/공단 PDF는 행이 basic/detail/pharma/nhis 중 하나로 분류돼야 한다. 표의 행은
+    잡혔으나 어느 유형으로도 분류되지 않은 `unknown` 비율이 높으면 파일 형식이 비정상일
+    가능성이 크다(예: 양식이 다른 PDF, 표 구조 깨짐). 오탐을 줄이기 위해 **명백히 깨진**
+    경우만 경고한다: unknown 행이 5건 이상이고 전체의 30% 이상.
+    분석은 막지 않으며(경고만), 카운트·판정 로직은 변경하지 않는다.
+    """
+    total = sum(int(v) for v in (record_counts or {}).values())
+    unknown = int((record_counts or {}).get("unknown", 0))
+    if total > 0 and unknown >= 5 and unknown / total >= 0.3:
+        return ("일부 PDF가 정상적으로 인식되지 않았을 수 있습니다. "
+                "원본 파일 형식(심평원/건강보험공단 발급 진료내역)을 확인해 주세요.")
+    return None
+
+
 def _empty_ai_result() -> dict:
     return {
         "flagged_items": [],
@@ -775,6 +792,8 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
     all_records, parse_errors = await _parse_all_pdfs(active_files, birthdate_pw)
     # BOHUMFIT-047: ftype별 총 파싱 레코드 수 — 결과 dict 노출(프런트가 파싱 불완전 표면화) + 로깅.
     record_counts = dict(Counter(str(r.get("_ftype", "unknown")) for r in all_records))
+    # BOHUMFIT-054 STEP2: 파싱 불완전(ftype 미인식 과다) 사용자 경고 — 분석은 막지 않음(경고만).
+    parse_quality_warning = _parse_quality_warning(record_counts)
     # ── disease_stats + raw_entries 빌드 ─────────────────────────
     disease_stats, cross_surgery_hints, date_warnings, raw_entries, lines_by_file = \
         build_disease_stats(all_records, today)
@@ -926,6 +945,7 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
 
     return {
         "record_counts":           record_counts,
+        "parse_quality_warning":   parse_quality_warning,   # BOHUMFIT-054 STEP2 (None=정상)
         "ai_result":               ai_result,
         "summary_reports":         {k: list(v) for k, v in summary_reports.items()},
         "standard_reports":        {k: list(v) for k, v in std_reports.items()},

@@ -15,6 +15,10 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-17 `BOHUMFIT-054` - Codex - Windows 전체 검증 완료 후 범위 파일 커밋/푸시 진행. `Disclosure.tsx` TS7053 타입 오류는 집계창 라벨 맵에 `Record<string, string>` 타입 부여로 해소(표현/동작 동일). 검증: STEP2 회귀 11 passed, 전체 backend 317 passed/7 skipped, tsc app/node, lint, npm test 45 passed, build pass(기존 chunk warning만). PII/PDF/brand/unrelated stage 금지 준수.
+
+- 2026-06-17 `BOHUMFIT-054` - Cowork - 백로그 4건 완료. STEP1(읽기): AI 5초 예산은 Q2 고지 항목 미드롭(결정론) but 041 "가능성" 주석은 Gemini>5초 시 소실(graceful 폴백)—실측(budget 60/5/0). 수정방향 Human(예산 상향/Q2 전용). STEP2(구현): `analyzer._parse_quality_warning`(보수적 unknown≥5&≥30%)+결과 dict `parse_quality_warning`+회귀4. STEP3(구현): Disclosure.tsx Chip `title` 창 툴팁(섹션헤더는 이미 "5년 이내" 표시). STEP4(읽기): 순차 파싱 메모리 안전(~250-300MB), 타임아웃이 먼저 한계(10×104p≈270s→300s 근접). /tmp 311 passed(신규4·회귀0; main_launch_guardrails만 env 제외→Codex). 분석 카운트·판정 무변경·실 PDF/PII 로컬만·미커밋·작업파일 삭제·마운트 git 미실행. → Codex 전체검증·tsc(Disclosure.tsx)·커밋·푸시 / Human STEP1·4 근본대응 / 프런트 parse_quality_warning 배너 후속.
+
 - 2026-06-17 `BOHUMFIT-053` - Codex - Windows 전체 검증·비번/업로드 변경분 053 분리·범위 파일 커밋/푸시 진행. `46e8dbf`가 직통 요청으로 052 번호를 선점했으므로 PDF 비번 8/6자리 자동해제·업로드 6→10 변경은 BOHUMFIT-053으로 publish.
 
 - 2026-06-17 `BOHUMFIT-051` - Codex - Windows 전체 검증·B-1 reference_date 전송·간편심사 라벨 3-10-5 교정·실 데이터 PDF 6페이지 육안 확인 완료. 범위 파일만 커밋/푸시 진행, PII/PDF/brand/unrelated stage 금지 준수.

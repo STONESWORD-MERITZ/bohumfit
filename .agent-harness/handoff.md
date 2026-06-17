@@ -16,6 +16,50 @@
 
 # Handoff
 
+## 2026-06-17 Codex BOHUMFIT-054 [Windows 검증·publish / Next: Human STEP1·4 판단]
+### Changed
+- Cowork 구현 범위 검증: `backend/analyzer.py`의 `_parse_quality_warning()` 및 결과 dict `parse_quality_warning`, `src/pages/Disclosure.tsx`의 칩 툴팁, `backend/tests/test_parse_quality_warning.py`, 054 task.
+- Codex 마무리: `Disclosure.tsx`의 질문별 집계창 라벨 맵에 `Record<string, string>` 타입을 부여해 Windows `tsc` 오류(TS7053)를 해소. 화면 동작·문구는 Cowork 구현과 동일.
+### Verified
+- truncation 선제 점검: `backend/analyzer.py`, `src/pages/Disclosure.tsx`, `backend/tests/test_parse_quality_warning.py`, `.agent-harness/tasks/BOHUMFIT-054.md` 모두 NUL 없음·strict UTF-8 OK·tail 완결.
+- `Select-String backend/analyzer.py "_parse_quality_warning","parse_quality_warning"` → helper/호출/응답 필드 확인.
+- `Select-String src/pages/Disclosure.tsx "5년","집계"` → STEP3 칩 툴팁 문구 확인.
+- `cd backend && python -m pytest -q tests/ -k "parse_quality or warning or BOHUMFIT_054" -vv` → 11 passed, 313 deselected.
+- `cd backend && python -m pytest -q` → 317 passed, 7 skipped.
+- `npx tsc -p tsconfig.app.json --noEmit` → pass.
+- `npx tsc -p tsconfig.node.json --noEmit` → pass.
+- `npm run lint` → pass.
+- `npm test` → 4 files / 45 tests passed.
+- `npm run build` → pass. 기존 Vite chunk-size warning만 출력.
+### Notes
+- 분석 카운트·판정 로직은 변경하지 않음. `parse_quality_warning`은 경고 신호만 추가하며 분석을 막지 않음.
+- PII/PDF/brand/unrelated 파일 stage 금지 준수. 커밋 자기참조 해시는 handoff 내부에 고정 기입할 수 없어 최종 응답/git log로 보고.
+### Next
+- Human: STEP1 AI 예산값(5s 유지 vs 상향/Q2 전용) 및 STEP4 대용량 타임아웃 근본대응 판단.
+- 후속: `parse_quality_warning` 화면 배너 노출 여부 결정.
+
+## 2026-06-17 Cowork BOHUMFIT-054 [백로그 4건: AI예산 Q2진단·파싱경고·5년명시·부하진단 / Next: Codex + Human]
+### Changed
+- `backend/analyzer.py` — STEP2: `_parse_quality_warning(record_counts)` 신설(보수적: unknown≥5건 AND ≥30%) + run_analysis 결과 dict에 `"parse_quality_warning"`(None=정상). 분석 미차단.
+- `src/pages/Disclosure.tsx` — STEP3: `Chip` `title?` 추가 + 질문별 집계창 라벨 툴팁(통원/입원/수술/투약 칩에 "가입예정일 기준 {3개월/1년/5년/5~10년} 집계"). 표현만.
+- `backend/tests/test_parse_quality_warning.py` 신규(4).
+- `.agent-harness/tasks/BOHUMFIT-054.md` 신규.
+- (STEP1·4는 읽기 전용 진단 — 코드 변경 없음.)
+### Verified
+- [x] cd backend && python -m pytest -q → /tmp **311 passed**(신규 4 포함, 회귀 0; `test_main_launch_guardrails`만 sandbox 제외 → Codex). report_pdf/analyzer 마운트 view 절단은 tail 재구성으로 검증.
+- [x] STEP1 실측(실데이터 기본진료, AI mock 지연): budget=60s→N95 q2_suspicion 정상 / **budget=5s→N95 항목 유지·q2_suspicion 소실·타임아웃 경고** / budget=0→비활성 경고.
+- [ ] (Codex) 전체 pytest·tsc/lint/test/build(Disclosure.tsx 포함).
+### Notes
+- **STEP1 결론**: 5초 AI 예산은 **Q2 고지 항목을 드롭하지 않음**(결정론 항목 — 고지 누락 아님). 단 **041의 "가능성 높음/낮음" AI 주석은 Gemini >5초 시 소실**(graceful 폴백+경고). 5초는 경계값(flash Q2 ~3~8s) → 운영서 041 주석 자주 누락 가능. 수정방향(Human): 예산 ~10~12s 상향 또는 Q2 전용 예산(052의 프록시 타임아웃 회피와 트레이드오프).
+- **STEP2**: record_counts 기반 보수적 경고만 추가(오탐 억제). 프런트 배너 노출은 후속.
+- **STEP3**: 화면은 이미 섹션 헤더 "5년 이내…" + 카드 detail "5년이내 통원 N회"로 5년 기준 표시 중. 칩 레벨 혼동(정답표 전기간/10년) 방지로 창 툴팁 보강.
+- **STEP4 결론**: 순차 파싱이라 **메모리 안전**(10 대용량도 피크 ~250-300MB, Railway 내). **타임아웃이 먼저 한계** — 10×104p≈270s 파싱 → 300s 근접/초과 위험(현실 소형 파일 10개는 ~30-60s 안전). 권장: 총 페이지 가드·타임아웃 검토. (단일 파싱 047 권위 27s/250MB 인용 — 이번 세션 샌드박스 부하로 재측정 타임아웃.)
+- 분석 카운트·판정 로직 무변경. 실 PDF·생년월일·환자명 로컬만·PII/복제파일 미커밋·작업파일 삭제·마운트 git 미실행.
+### Next
+- **Codex(Windows)**: 전체 pytest·tsc/lint/test/build(Disclosure.tsx) → 범위 파일 커밋·푸시. 커밋: `BOHUMFIT-054: 파싱 불완전 경고(parse_quality_warning) + 통원/투약 칩 5년 기준 툴팁`.
+- **Human**: STEP1 AI 예산값 / STEP4 대용량 타임아웃 근본대응 판단.
+- **프런트 후속**: Disclosure.tsx가 `result.parse_quality_warning` 배너 노출(STEP2 완결).
+
 ## 2026-06-17 20:43 Codex BOHUMFIT-053 [Windows 검증·비번/업로드 변경 publish / Next: Human 운영 E2E]
 ### Changed
 - 번호 정리: `46e8dbf`가 직통 요청(분석 요청 프록시 끊김 방지)으로 BOHUMFIT-052 번호를 먼저 사용했으므로, Cowork의 PDF 비번/업로드 변경분은 **BOHUMFIT-053**으로 분리 커밋.
