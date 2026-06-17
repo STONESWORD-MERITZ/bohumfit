@@ -310,9 +310,12 @@ def _serialize_reports(summary_reports: dict) -> dict:
 
 
 # ── 업로드 제한 ──────────────────────────────────────────────────────────────
-MAX_FILE_COUNT = 6
+# BOHUMFIT-053: 10년 고지형 전체 분석 = 발급기간별 분할 파일 최대 10개(기본/세부/처방 + 연도별 + 자동차).
+#   순차 파싱(OOM 핫픽스)으로 메모리 피크는 파일 1개분으로 유지되나, 대용량 PDF 다수 시 총
+#   파싱 시간이 ANALYZE_TIMEOUT_SECONDS(300s)에 근접할 수 있음 — handoff 경고 참조.
+MAX_FILE_COUNT = 10
 MAX_FILE_SIZE  = 15 * 1024 * 1024   # 파일당 15MB
-MAX_TOTAL_SIZE = 40 * 1024 * 1024   # 총합 40MB
+MAX_TOTAL_SIZE = 40 * 1024 * 1024   # 총합 40MB (10개×소형 PDF 충분)
 # BOHUMFIT-BUG-006: 318p 대용량 PDF Gemini 응답 + 후처리 합산 ~170s 초과로 타임아웃 연장.
 # 기존: 170 (프런트 180초보다 짧게) → 300 으로 상향. 프런트 타임아웃도 함께 검토 필요.
 ANALYZE_TIMEOUT_SECONDS = 300       # 서버측 분석 상한 (318p 대용량 PDF 대응)

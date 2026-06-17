@@ -4,9 +4,12 @@ from __future__ import annotations
 import functools
 import gc
 import io
+import logging
 import re
 
 import pdfplumber
+
+logger = logging.getLogger(__name__)
 
 from .helpers import (
     _FTYPE_KW,
@@ -107,24 +110,38 @@ def _resolve_ftype(headers, page_ftype: str) -> str:
     return detect_file_type(headers)
 
 
-def _open_pdf(data, bdate_str):
+def _pw_candidates(bdate_str: str | None) -> list[str]:
+    """BOHUMFIT-053: 생년월일 비번 후보 목록.
+
+    발급기간별로 PDF 비번 자리수가 다르다(0~5년=생년월일 8자리, 5~10년=6자리 YYMMDD).
+    사용자는 8자리만 입력해도 되도록, 8자리 입력 시 뒤 6자리(YYMMDD)를 자동 재시도한다.
+    6자리 직접 입력·빈 비번(비번 불요 PDF)·하이픈 포함 입력 모두 안전하게 동작한다.
+    순서: [빈값, 입력원본, 숫자만, 8→6(YYMMDD) | 6→8(prefix)].
+    """
     bd = (bdate_str or "").strip()
     bd_digits = re.sub(r"\D", "", bd)
-    candidates = [""]
+    candidates = [""]                       # 비번 불요 PDF
     if bd:
-        candidates.append(bd)
+        candidates.append(bd)               # 입력값 그대로(8자리 등)
     if bd_digits and bd_digits != bd:
-        candidates.append(bd_digits)
+        candidates.append(bd_digits)        # 하이픈 등 제거한 숫자만
     if len(bd_digits) == 8:
-        candidates.append(bd_digits[2:])
+        candidates.append(bd_digits[2:])    # 8자리 → 뒤 6자리(YYMMDD) 자동 재시도
     elif len(bd_digits) == 6:
         yy = int(bd_digits[:2])
         prefix = "20" if yy <= 24 else "19"
-        candidates.append(prefix + bd_digits)
-    candidates = list(dict.fromkeys(candidates))
+        candidates.append(prefix + bd_digits)  # 6자리 → 8자리
+    return list(dict.fromkeys(candidates))
+
+
+def _open_pdf(data, bdate_str):
+    candidates = _pw_candidates(bdate_str)
     for pw in candidates:
         try:
-            return pdfplumber.open(io.BytesIO(data), password=pw)
+            pdf = pdfplumber.open(io.BytesIO(data), password=pw)
+            # BOHUMFIT-053: 어느 자리수 비번으로 풀렸는지만 로깅(PII 주의 — 값 미기록, 자리수만).
+            logger.info("BOHUMFIT-053 PDF 해제: pw_len=%d", len(pw))
+            return pdf
         except Exception:
             continue
     raise ValueError("PDF 비밀번호 해제 실패 — 생년월일을 확인해 주세요.")

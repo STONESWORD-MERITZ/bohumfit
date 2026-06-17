@@ -4,7 +4,7 @@ import AnalysisProgress from "../components/AnalysisProgress";
 import { useAuth } from "../lib/auth-context";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
-const MAX_FILE_COUNT = 6;
+const MAX_FILE_COUNT = 10; // BOHUMFIT-053: 10년 고지형 전체 = 발급기간별 분할 파일 최대 10개
 const MAX_FILE_SIZE = 15 * 1024 * 1024;
 const MAX_TOTAL_SIZE = 40 * 1024 * 1024;
 

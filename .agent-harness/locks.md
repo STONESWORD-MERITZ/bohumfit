@@ -15,7 +15,11 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-17 `BOHUMFIT-053` - Codex - Windows 전체 검증·비번/업로드 변경분 053 분리·범위 파일 커밋/푸시 진행. `46e8dbf`가 직통 요청으로 052 번호를 선점했으므로 PDF 비번 8/6자리 자동해제·업로드 6→10 변경은 BOHUMFIT-053으로 publish.
+
 - 2026-06-17 `BOHUMFIT-051` - Codex - Windows 전체 검증·B-1 reference_date 전송·간편심사 라벨 3-10-5 교정·실 데이터 PDF 6페이지 육안 확인 완료. 범위 파일만 커밋/푸시 진행, PII/PDF/brand/unrelated stage 금지 준수.
+
+- 2026-06-17 `BOHUMFIT-053` - Cowork - PDF 비번 8/6 자동해제 추출·로깅 + 업로드 6→10 + 10파일 자체분석 완료. STEP1: `_open_pdf` 8/6 후보 로직 기존 존재 → `_pw_candidates()` 추출·자리수 로깅(PII 값 미기록)·회귀 6. **실 10파일 8자리 입력 1개로 전부 해제**(5~10년 공단 16-17·17-18=pw_len6 자동 재시도). STEP2: main.py·Disclosure.tsx MAX_FILE_COUNT 6→10(SIZE/TOTAL 유지, ⚠초대용량 다수 시 300s 타임아웃 근접 경고). STEP3(읽기): 453행/110그룹, 건강체 Q3=K21·L90(수술)/Q4=M51·K60(입원)·K01·K63(수술의심), 간편(3-10-5) 2번=K21·L90·M51·K60. 자동차 ftype 정상(basic2/detail57)·일반 동일집계·공단vs심평원 입원중복 0. /tmp 305 passed(신규6·회귀0; main_launch_guardrails만 env 제외→Codex). 분석 로직 무변경·실 PDF/생년월일/환자명 로컬만·PII 미커밋·작업파일 삭제·마운트 git 미실행. → Codex 전체검증·tsc(Disclosure.tsx)·커밋·푸시 / Human 개수 상향·자동차 포함 승인.
 
 - 2026-06-17 `BOHUMFIT-051` - Cowork - 고지 리포트 PDF 표현 개선 구현+회귀 완료(분석 로직 불변). A-1 로고: 깨진 경로-SVG 보조텍스트 → CSS 텍스트 워드마크(브랜드 그린)+보조라인. A-2 KST: `_now_kst()`(ZoneInfo Asia/Seoul)로 생성일시·문서번호(BF-YYYYMMDD-HHMMSS) 통일. A-3 간편심사 page-break-before+헤더/카드 고아·분할 방지. A-4 소재지 `_split_address` 2줄(addr-detail)+max-width. B-1 점검기준일: report는 정상 렌더, 비는 원인=프런트 Disclosure.tsx 보고 payload reference_date 미전송(범위 외, 1줄 후속). C 브랜딩: :root 토큰(--brand-green/ink/gray)+`--accent` 보정·q-badge/badge-reco 그린. 범위: report_pdf.py·report_disclosure.html·신규 test_report_pdf_branding.py(7). /tmp 299 passed(신규7·회귀0; main_launch_guardrails만 env 제외→Codex). Jinja 렌더 마커 10/10 OK. ⚠Chromium PDF·6페이지 육안 sandbox 불가→Codex/Windows 필수. 산출물/스크린샷 미커밋·PII 미사용·마운트 git 미실행. → Codex 전체검증·실 PDF 6p 육안·커밋·푸시 / 후속 프런트 1줄(reference_date).
 

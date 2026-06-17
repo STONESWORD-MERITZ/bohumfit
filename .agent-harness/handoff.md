@@ -16,6 +16,30 @@
 
 # Handoff
 
+## 2026-06-17 20:43 Codex BOHUMFIT-053 [Windows 검증·비번/업로드 변경 publish / Next: Human 운영 E2E]
+### Changed
+- 번호 정리: `46e8dbf`가 직통 요청(분석 요청 프록시 끊김 방지)으로 BOHUMFIT-052 번호를 먼저 사용했으므로, Cowork의 PDF 비번/업로드 변경분은 **BOHUMFIT-053**으로 분리 커밋.
+- `backend/pipeline/pdf_parser.py`: `_pw_candidates()` 추출, 8자리 입력 시 6자리 YYMMDD 자동 재시도, 6자리→8자리 보강, 해제 성공 시 `pw_len` 자리수만 로깅(PII 값 미기록).
+- `backend/main.py`: `MAX_FILE_COUNT` 6→10.
+- `src/pages/Disclosure.tsx`: 프런트 업로드 제한 6→10.
+- `backend/tests/test_pdf_pw_candidates.py`: 비번 후보 회귀 6건 추가.
+- `.agent-harness/tasks/BOHUMFIT-053.md`: 기존 BOHUMFIT-052 task를 053으로 리네임/정리.
+### Verified
+- truncation 선제 점검: pdf_parser.py, main.py, Disclosure.tsx, test_pdf_pw_candidates.py, BOHUMFIT-053 task, handoff/locks 모두 NUL 없음·strict UTF-8 decode OK·tail 완결.
+- grep 확인: `_pw_candidates`, `pw_len`, `MAX_FILE_COUNT=10` backend/frontend 반영. 범위 파일 내 `BOHUMFIT-052` 잔존 0.
+- `cd backend && python -m pytest -q tests/ -k "pw or candidate or password" -vv` -> 13 passed, 307 deselected.
+- `cd backend && python -m pytest -q` -> 313 passed, 7 skipped.
+- `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- `npm run lint` -> pass.
+- `npm test` -> 4 files / 45 tests passed.
+- `npm run build` -> pass. 기존 Vite chunk-size warning만 출력.
+### Notes
+- Commit: BOHUMFIT-053 publish commit. 자기 자신 commit hash는 객체 생성 후 확정되므로 최종 해시는 Codex 최종 응답/git log에 기록.
+- PII/PDF/생년월일/환자명/brand/unrelated 파일은 stage 금지. `병력/` PDF 묶음, 실명 PDF, brand 산출물, unrelated old task는 제외.
+### Next
+- Human: 10파일 업로드, 8자리 입력으로 6자리 PDF 자동 해제, 자동차 진료 포함 고지 결과 운영 E2E 확인.
+
 ## 2026-06-17 20:25 Codex BOHUMFIT-051 [Windows 검증·실 PDF 6p 육안·B-1/라벨 완결 / Next: Human 배포 E2E]
 ### Changed
 - Cowork 범위 검증: `backend/pipeline/report_pdf.py`, `backend/templates/report_disclosure.html`, `backend/tests/test_report_pdf_branding.py`.
@@ -38,9 +62,32 @@
 ### Notes
 - 검수용 PDF/PNG는 `tmp/pdfs`에서 생성 후 삭제. PII 원본/PDF 산출물/스크린샷/brand 원본은 stage 금지.
 - `backend/pipeline/pdf_parser.py`, `backend/tests/test_pdf_pw_candidates.py`, 병력 PDF 묶음 등은 기존 별도 변경/자료로 판단하여 이번 051 stage 대상에서 제외.
-- Commit: Codex BOHUMFIT-051 publish commit (hash는 커밋 생성 후 최종 응답에 기록).
+- Commit: `dd56b4c` `BOHUMFIT-051: 고지 리포트 PDF 개선(KST·간편심사 페이지 구분·로고·소재지 줄바꿈·브랜딩 토큰) + 점검기준일 전송 + 간편심사 라벨 3-10-5 교정`
 ### Next
 - Human: 배포 반영 후 실제 화면에서 고지 리포트 PDF 저장 E2E 확인.
+
+## 2026-06-17 Cowork BOHUMFIT-053 [PDF 비번 8/6 자동해제·업로드 6→10·10파일 자체분석 / Next: Codex + Human]
+### Changed
+- `backend/pipeline/pdf_parser.py` — `_open_pdf` 후보 생성을 `_pw_candidates()`로 추출(8자리→6자리 YYMMDD 자동 재시도·6→8·빈값·하이픈), `import logging`·해제 성공 자리수 로깅(`pw_len`, PII 값 미기록). (8/6 핵심 로직은 기존 존재 — 추출·로깅·테스트로 견고화.)
+- `backend/main.py` — `MAX_FILE_COUNT` 6→**10**(메모리/타임아웃 주석).
+- `src/pages/Disclosure.tsx` — `MAX_FILE_COUNT` 6→**10**.
+- `backend/tests/test_pdf_pw_candidates.py` 신규(6).
+- `.agent-harness/tasks/BOHUMFIT-053.md` 신규.
+### Verified
+- [x] cd backend && python -m pytest -q → /tmp **305 passed**(신규 6 포함, 회귀 0; `test_main_launch_guardrails`만 sandbox app-import 제외 → Codex). 기준선 051 후 +6.
+- [x] **실 10파일 8자리 입력 1개로 전부 복호화**: 5~10년 공단 파일(16-17·17-18)=pw_len=6 자동 재시도 해제, 그 외 pw_len=8·0. (8자리만 입력해도 6자리 PDF 자동 해제 실증)
+- [ ] (Codex) 전체 pytest·tsc/lint/test/build(프런트 Disclosure.tsx 포함 — sandbox tsc 불가).
+### Notes (STEP3 분석 + 개수 + 자동차)
+- **파일별(ref=2026-06-17)**: 병력16-17 nhis15·17-18 nhis11·18-19 nhis2·19-20 nhis22·20-21 nhis6·기본 basic38·기본_자동차 basic2·세부 detail171·세부_자동차 detail57·처방 pharma129. 총 453행/110 그룹.
+- **건강체**: Q3 = K21(수술·통원1·투약5)·L90(수술·통원1·투약7); Q4(5~10년) = M51 입원·K60 입원·K01 수술의심·K63 수술의심; Q2·Q5 없음.
+- **간편(3-10-5)**: 2번(10년 입원·수술) = K21·L90(수술)·M51·K60(입원); 1·3번 없음.
+- **자동차(Human 확정=포함)**: `_자동차` ftype 정상(basic2·detail57), 일반 진료와 동일 집계.
+- **중복 점검**: 공단(nhis) vs 심평원(basic) 입원일자 중복 **0** — 집계 키 정상, 중복 집계 징후 없음.
+- **개수 제한 현황**: 6→10 상향 완료. SIZE 15MB/TOTAL 40MB 유지(실 10파일 합 ~1.4MB). ⚠ 순차 파싱이라 피크 메모리는 1파일분이나, 초대용량 PDF 다수면 총 파싱시간이 300s 타임아웃 근접 가능(실 10파일은 ~30s 여유).
+- ⚠ pdf_parser/filters 마운트 view 절단은 tail 재구성으로 검증. 실 PDF·생년월일·환자명 로컬만·PII 미커밋·작업파일 삭제·마운트 git 미실행. 분석 로직(filters/aggregator/result_builder) 무변경.
+### Next
+- **Codex(Windows)**: 전체 pytest·tsc/lint/test/build(Disclosure.tsx MAX_FILE_COUNT 포함) → 범위 파일 stage→commit→push. 커밋: `BOHUMFIT-053: PDF 비번 8/6 자동해제 추출·로깅·테스트 + 업로드 개수 6→10`.
+- **Human**: 업로드 10 상향(타임아웃/메모리) 승인 + 자동차 진료 고지 포함 재확인.
 
 ## 2026-06-17 Cowork BOHUMFIT-051 [고지 리포트 PDF 개선(KST·페이지구분·로고·소재지·브랜딩) / Next: Codex]
 ### Changed
