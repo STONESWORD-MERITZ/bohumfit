@@ -5,8 +5,12 @@
 """
 import asyncio
 import gc
+import logging
 import re
+from collections import Counter
 from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 from filters import (
     build_code_based_items as _build_code_based_items,
@@ -112,10 +116,20 @@ async def _parse_all_pdfs(active_files: list, birthdate_pw: str) -> tuple[list, 
         try:
             pr = await asyncio.to_thread(parse_single_pdf, uf, birthdate_pw)
         except Exception as e:
+            # BOHUMFIT-047: 조용한 continue → 파일명+예외를 ERROR 로 명시 로깅(가시성).
+            #   해당 파일 레코드가 전량 소실되므로 운영 진단에서 가장 중요한 신호다.
+            logger.error("BOHUMFIT-047 parse failed: file=%s error=%s", fn, str(e)[:200])
             parse_errors.append(f"⚠️ {fn}: PDF 파싱 중 예외 — {str(e)[:120]}")
             continue
-        all_records.extend(pr["records"])
+        recs = pr["records"]
+        all_records.extend(recs)
         parse_errors.extend(pr["parse_errors"])
+        # BOHUMFIT-047: 파일별·ftype별 파싱 레코드 수 INFO 로깅(부분 파싱·소실 진단).
+        _ft = Counter(str(r.get("_ftype", "unknown")) for r in recs)
+        logger.info(
+            "BOHUMFIT-047 parsed: file=%s records=%d ftype=%s errors=%d",
+            fn, len(recs), dict(_ft), len(pr["parse_errors"]),
+        )
 
     if not all_records:
         if parse_errors:
@@ -736,6 +750,8 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
     retry_warnings = []
 
     all_records, parse_errors = await _parse_all_pdfs(active_files, birthdate_pw)
+    # BOHUMFIT-047: ftype별 총 파싱 레코드 수 — 결과 dict 노출(프런트가 파싱 불완전 표면화) + 로깅.
+    record_counts = dict(Counter(str(r.get("_ftype", "unknown")) for r in all_records))
     # ── disease_stats + raw_entries 빌드 ─────────────────────────
     disease_stats, cross_surgery_hints, date_warnings, raw_entries, lines_by_file = \
         build_disease_stats(all_records, today)
@@ -918,7 +934,14 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
     # BOHUMFIT-BUG-008: 메리츠 간편보험 평가 제거. main.py 호환을 위해 빈 dict 반환.
     meritz_easy_result: dict = {}
 
+    # BOHUMFIT-047: 파싱 가시성 요약 로그(파일 소실·부분 파싱 진단). 결과 dict에도 record_counts 노출.
+    logger.info(
+        "BOHUMFIT-047 run_analysis done: flagged=%d total_q=%d records=%s parse_errors=%d",
+        len(flagged_codes), len(std_reports), record_counts, len(parse_errors),
+    )
+
     return {
+        "record_counts":           record_counts,
         "ai_result":               ai_result,
         "summary_reports":         {k: list(v) for k, v in summary_reports.items()},
         "standard_reports":        {k: list(v) for k, v in std_reports.items()},

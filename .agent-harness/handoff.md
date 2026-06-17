@@ -16,6 +16,126 @@
 
 # Handoff
 
+## 2026-06-17 Cowork BOHUMFIT-047 [q_raw None 크래시 수정·파싱 가시성·비결정성 진단 / Next: Codex + Human]
+### Changed
+- `backend/pipeline/result_builder.py` — `_build_pool`: `source` 상단 이동 + `q_raw=item.get("duty_question")` None/비문자열/빈값 방어(AI→skip, 결정론→warn 후 skip). re.split TypeError 크래시 제거. `import logging`·logger 추가.
+- `backend/analyzer.py` — `_parse_all_pdfs` 파일별·ftype별 INFO 로깅·예외 시 ERROR 로깅, `run_analysis` `record_counts` 산출→결과 dict 추가·완료 요약 INFO. `import logging/Counter`·logger.
+- `backend/tests/test_build_pool_qraw_guard.py` 신규(4).
+- `.agent-harness/tasks/BOHUMFIT-047.md` 신규.
+### Verified
+- [x] cd backend && python -m pytest -q → /tmp **285 passed**(신규 4 포함, 회귀 0; 기준선 281+4. `test_main_launch_guardrails`만 sandbox app-import 의존 제외 → Codex/Windows 권위).
+- [x] 신규 4 단독 pass: q=None/누락/빈값 AI 혼입 무크래시·결정론 Q3 유지·정상 Q2 AI 유지·결정론 q=None skip·결정성.
+- [ ] (Codex) 전체 pytest(기준선 285)·tsc/lint/test/build.
+### Notes (STEP3 비결정성 진단)
+- **파싱은 결정적**: 기본진료 6회=215 전부 동일, 처방조제=747, 세부=1117(반복 동일). record 수 변동 0.
+- 피크 RSS(단일 PDF): 처방조제 **239MB**, 세부 **250MB**(순차 파싱 OOM 핫픽스로 피크≈1파일분). `main.py:318` 타임아웃 **300s**(총 파싱 ~53s, 넉넉).
+- **운영 비결정(16/13/3)·flagged=3 고착 원인**: 파싱 변동 아님 → (a) **q_raw=None 크래시**(Gemini가 run마다 duty_question 누락 항목을 가변 반환→TypeError→부분/실패 결과) + (b) **메모리 압박**(~250MB/파일)으로 대용량 PDF(104p/70p) OOM·부분 파싱(`parse_single_pdf` 페이지 예외 시 부분 레코드 반환·`_parse_all_pdfs` 조용한 continue)→disease_stats 축소→5년 누적 Q3 소실. 고착은 메모리 압박 지속이 가장 잘 설명.
+- **STEP1으로 크래시 제거**, **STEP2로 부분 파싱 가시화**(record_counts·ERROR 로그). 근본 메모리 대응은 Human.
+- ※ main.py("analyze done" 로그·HTTP 응답 record_counts 노출)는 변경 허용 파일 외라 미수정 — analyzer 결과 dict에 record_counts 이미 실림, main.py 1줄 패스스루 후속 필요(handoff 명시).
+- ⚠ result_builder.py 마운트 view 절단(L407~ `m`)은 tail 재구성+writeback으로 보정 검증. helpers/analyzer는 cp 재시도로 클린 확보. 실 PDF 로컬 파싱만·PII 미커밋·작업파일 삭제·마운트 git 미실행.
+### Next
+- **Codex(Windows)**: 전체 pytest(285)·tsc/lint/test/build → 범위 파일 stage→commit→push. 커밋: `BOHUMFIT-047: _build_pool q_raw None 크래시 방어 + 파싱 가시성(record_counts·로깅)`. **main.py 후속**(응답에 record_counts/parse_errors 노출·"analyze done" 로그 확장)은 별도 소태스크 권장.
+- **Human**: 비결정성 근본 대응 — Railway 메모리 상향 vs 페이지 스트리밍/부분파싱 fail-loud 중 택. (STEP1/2는 크래시·가시성 해소, 메모리는 인프라 판단.)
+
+## 2026-06-17 Cowork BOHUMFIT-046 [운영 Q3/Q4/Q5 미생성 원인 추적 — 코드 정상·운영 파싱 불완전 / Next: Cowork 구현]
+### Changed
+- (없음 — 읽기 전용 진단. 실 PDF 로컬 파싱만, PII 미커밋·작업파일 삭제.)
+### Verified
+- [x] result_builder/analyzer/filters 전수 추적 + 합성 ①②③ + 실 PDF run_analysis(AI mock).
+- [x] cd backend && python -m pytest -q → /tmp **244 passed**(회귀 0; 마운트 손상 test_filters·report_pdf·report_pdf_q1q5·general_dept_exclude·main_launch_guardrails 제외 → Codex 권위).
+### Notes
+**■ 결론: Q3/Q4/Q5 생성 코드는 정상. 운영 "flagged=3 total_q=2 (Q1/Q2만)"은 result_builder 버그가 아니라 운영(Railway) 파싱 불완전(레코드 소실)의 산물.**
+
+**[1단계 result_builder]** q_labels 건강체 분기에 **Q1~Q5 전부 정의**(L116~120). `_build_pool` 038 가드 `if source != "code" and q != "Q2": continue`(L365)는 **AI(source!=code) 항목만 차단**. 결정론 항목은 `_make_item`이 `_source:"code"` 설정(filters L248) → Q3/Q4/Q5 코드 항목은 가드 통과. _build_pool 날짜필터(L367~370 `item_dt < since_dt`)도 Q3 항목 date=max(in-window)/latest_date라 정상 통과.
+
+**[2·3단계 analyzer/filters]** run_analysis가 `_build_code_based_items(PRODUCT_HEALTH)`로 Q1~Q5 조립 → build_summary_reports 전달. filters에 `_build_q3_health_items`(L548)·`_build_q4_health_items`(L681, R-H-Q4-INP-510Y·SURG-510Y)·`_build_q5_health_items`(L749, R-H-Q5-MAJOR-5Y) 모두 존재·정상. 040·041·043은 Q3/Q4/Q5 생성 경로 미변경(043=통원 약국 제외·일반의 게이트 제거뿐).
+
+**[4단계 합성 재현 — 전부 발동]**
+- ① 5년내 통원 7회 → R-H-Q3-VISIT-7(code) → [3번질문] 생성 ✅
+- ② 7년전 입원 1회 → R-H-Q4-INP-510Y(code) → [4번질문] 생성 ✅
+- ③ C50 암 5년내 → R-H-Q5-MAJOR-5Y(code) → [5번질문] 생성 ✅
+
+**[5단계 실 PDF run_analysis(완전 파싱)]** standard_reports **total_q=3**: [2번질문]2건·**[3번질문]11건**(B35·B37·B44·E78·J03·J32·K05·M54·M79·N95·S61)·[5번질문]1건(K64). flagged=13. → **운영(total_q=2)과 불일치 = 로컬은 Q3 정상 생성**. 운영 total_q=2는 완전 파싱으로 재현 불가.
+
+**[운영 재현 — truncation 모사]** 최근 소수 레코드(3건)만 build_disease_stats → **flagged=3·total_q=2(Q1/Q2만, Q3=0)** — 운영 로그와 **정확히 일치**. 즉 운영은 ~소수 레코드만 집계됨.
+
+**■ 원인 특정(코드 경로):** Q3 누락은 **레코드 소실(파싱 불완전)**.
+- `analyzer._parse_all_pdfs` L114~116: 파일별 parse 예외를 잡아 `parse_errors`에만 적고 **조용히 `continue`**(해당 파일 레코드 전량 소실).
+- `pdf_parser.parse_single_pdf` L298~311: 페이지 루프 중 예외 시 try/except가 잡고 **그때까지의 부분 레코드만 반환**(부분 파싱).
+- OOM 핫픽스 주석(L101~105)대로 Railway 메모리 한도 → 대용량 PDF(세부 104p·처방 70p) 파싱이 OOM/실패/부분화 → disease_stats 축소 → 5년 누적 필요한 Q3/Q4/Q5 미발동, 최근 Q1/Q2만 표면화.
+
+**■ 수정 방향(구현 금지):**
+1. **파싱 불완전 표면화**: `_parse_all_pdfs`가 파일 skip/부분반환 시 결과에 **눈에 띄는 경고/실패** 전달(현재 parse_errors가 묻힘). 파일별 기대 대비 레코드 급감·내부 예외 발생 시 "일부 PDF 미완전 파싱 — 결과 불완전" 명시 또는 fail-loud.
+2. **파일별 레코드 수 로깅**: 운영 로그에 파일별·ftype별 파싱 레코드 수 출력 → 어느 PDF가 소실됐는지 진단 가능. (운영 재발 시 parse_errors 내용 확인이 1순위.)
+3. **OOM 완화**: 페이지 스트리밍/테이블 조기해제 강화 또는 Railway 메모리 상향. 부분 파싱 감지(파싱 페이지 수 vs 총 페이지) 시 재시도.
+4. **즉시 확인**: 운영 결과 dict의 `parse_errors`/`truncation_warning`에 "PDF 파싱 중 예외"·부분 경고 있는지 점검 → 있으면 본 진단 확정.
+### Next
+- **Cowork**: 파싱 불완전 표면화 + 파일별 레코드 수 로깅 구현(BOHUMFIT-047). 또는 **Human**: 운영 재현 케이스의 `parse_errors`/메모리 로그 확보로 소실 파일 특정 후 구현 범위 확정.
+
+## 2026-06-17 Cowork BOHUMFIT-045 [실 PDF 필터링 전수 진단 — 현 코드 정상·운영 1년창 결함 / Next: Human]
+### Changed
+- `backend/tests/test_q3_real_pattern_regression.py` 신규(6) — Q3 5년 창 통원·투약·입원·수술 회귀(익명 합성, 1년창 회귀 차단).
+- `.agent-harness/tasks/BOHUMFIT-045.md` 신규.
+- (비-테스트 코드 무변경 — 현 코드가 기대대로 동작.)
+### Verified
+- [x] 실 PDF 3종 parse_single_pdf(215/747/1117행) → build_disease_stats → build_code_based_items → build_summary_reports → run_analysis(AI mock) 전 단계 실행(현 코드, Windows==bk045 diff 동일 확인).
+- [x] cd backend && python -m pytest -q → /tmp **244 passed**(신규 6 포함, 회귀 0; 마운트 손상 test_filters·report_pdf·report_pdf_q1q5·general_dept_exclude·main_launch_guardrails 제외). 신규 6 단독 6 passed.
+- [ ] (Codex) 전체 pytest(기준선 281+6=287)·tsc/lint/test/build.
+### Notes
+**■ 결론: 현 코드(034·043 반영)는 정상. 운영 결함은 구버전 배포본(Q3 통원 '1년 창')의 산물 — `f2923f6` 재배포로 해소 진행 중.**
+
+**원인 특정(정량 근거):** 운영 "J32 통원 1회·N95 2회·R51 1회"는 **1년 창** 카운트와 정확 일치 — J32 1년내=1·**5년내=10**, N95 1년내=2, R51 1년내=1. 현 코드는 BOHUMFIT-034대로 Q3를 **5년 창**으로 집계.
+
+**전수 추적(현 코드 실행값):**
+- **J32** visit=10(5년) → R-H-Q3-VISIT-7, Q3 visit=10 ✅
+- **E78(E785)** med_days=240(ezetimibe=크레젯정 복합제 date cross-ref 부착) → R-H-Q3-MED-30D ✅
+- **B44(B448)** inpat=1·surg=1 → R-H-Q3-INP-5Y + R-H-Q3-SURG-5Y(비용적출술·내시경) ✅
+- **S61(S619)** surg=1 → R-H-Q3-SURG-5Y(창상봉합) ✅
+- **K29(K295)** 7 일자 중 5년 내 5건(2건은 2020-12 = 5년 초과) → VISIT-7(≥7) 미발동 ⚠
+- run_analysis(운영 진입점) Q3 = [B35,B37,B44,E78,J03,J32,K05,M54,M79,N95,S61] — 기대 항목 J32·E78·B44·S61 전부 포함.
+- 040 시뮬(일반의 제거)에도 불변 → 040/043 무관.
+
+**체크리스트:** ☑J32 ⚠K295(아래) ☑E785 ☑B448입원 ☑B448수술 ☑S619 ☑회귀0 → **5/6 pass**.
+- **K295만 미충족**: 현 데이터 K29 그룹은 7 일자(5년 내 5건뿐)라 034의 5년 창·VISIT-7(≥7)에서 미발동. "9회" 기대는 pre-034(10년 창) 또는 행-카운트(약국 포함) 기준 추정 → **코드 버그 아님**. 통원 창을 1년/10년으로 바꾸면 034 위배·기존 회귀 파손이라 임의 변경 불가 → Human 사양 확정 필요.
+
+**코드 버그 없음** → 비-테스트 무수정. 대신 회귀 6건으로 5년 창 정상 동작을 고정(1년창 회귀 차단).
+- ⚠ 마운트 view 손상(test_filters NUL·report_pdf·report_pdf_q1q5·general_dept_exclude cp손상·main_launch_guardrails sentry) → Windows 정상→Codex 권위. disease_aggregator/helpers는 mount 절단을 /tmp tail 복구·writeback으로 보정 검증.
+- 실 PDF 로컬 파싱만·PII 미커밋·작업파일 삭제·마운트 git 미실행.
+### Next
+- **Human**: ① **운영 재배포 확인**(`f2923f6` 반영 후 동일 PDF 재분석 → J32/E78/B44/S61 정상 표시 검증). ② **K295 사양 확정**(Q3 통원 5년 유지 시 K295 미표시가 정상 / 통원 카운트 기준=일자 vs 행·약국 포함 여부). 5년 유지면 추가 조치 불요.
+- **Codex**: 신규 회귀 포함 전체 pytest(287)·tsc/lint/test/build → 커밋·푸시.
+
+## 2026-06-17 Codex Railway redeploy trigger: empty commit `f2923f6` pushed to `origin main` for BOHUMFIT-043 deployment.
+
+## 2026-06-16 Cowork BOHUMFIT-044 [실 PDF 3종 파이프라인 점검 — 코드 변경 없음 / Next: Human]
+### Changed
+- (없음 — 읽기 전용 진단. 실 PDF는 로컬 파싱만, PII 미커밋·/tmp 작업파일 삭제.)
+### Verified
+- [x] 실 PDF 3종 parse_single_pdf 직접 파싱: 기본진료 215행(basic)·처방조제 747행(pharma)·세부진료 1117행(detail), 비번 없음·파싱오류 0.
+- [x] build_disease_stats + build_code_based_items + build_summary_reports 전 단계 실행(현재=043 반영 코드).
+- [x] cd backend && python -m pytest -q → /tmp **244 passed**(회귀 0; 마운트 손상 test_filters·report_pdf·report_pdf_q1q5·main_launch_guardrails·analyzer_integration 제외).
+### Notes
+**■ 결론: 현재 코드(043 반영)에서 두 항목 모두 정상 감지·표시됨. 파이프라인 어느 단계에서도 누락 없음. 사용자 "현재 결과"는 구버전 배포본 또는 운영 PDF truncation 산물로 추정.**
+
+**[1단계 파싱]** 3종 모두 ftype 정상 분류. 고지혈증 약 = `크레젯정10/2.5밀리그램`(ezetimibe+rosuvastatin 복합제, 9행). ⚠브랜드명이라 "고지혈/스타틴" 약품명 키워드론 안 잡힘 — 단 코드(E78)+날짜 cross-ref 집계라 약품명 무관. 기본진료 E78 10행(외래, 내과6·일반의4). 세부진료 수술행위 9종(비용적출술·상악동비내수술·하비갑개점막하절제술·코수술·창상봉합술 등 내시경 비강수술군 + 봉합).
+
+**[2단계 집계]** E78 그룹 생성: visit 6일, med_dates_pharma 5일 합 **240일**. 수술: B44(비용적출/상악동/비갑개 = 비강 내시경 수술군) surgery_dates·S61(창상봉합) 집계. pharma cross-ref(date-only, `disease_aggregator` L406~431)로 ezetimibe 처방일 5개 전부 E78 visit과 일치 → E78에 부착.
+
+**[3단계 필터]** `build_code_based_items`: **E78 R-H-Q3-MED-30D(med_days=240) 발동**, B44·S61 R-H-Q3-SURG-5Y 발동. 투약 30일 룰은 N95 외 총 **11개 그룹**(B35·B37·B44·E78·J03·J32·K05·M54·M79·N95·S61) 발동.
+
+**[4단계 result_builder]** 최종 std_reports [3번질문]에 11개 코드(E78 med_days=240 포함) + B44/S61 수술 모두 표시.
+
+**원인 분석:**
+- 040 시뮬(일반의 basic 행 제거)에도 결과 불변 → **040/043 무관**(E78·수술 모두 같은 날 내과 visit이 앵커를 유지). 즉 이번 미감지는 040 cascade가 아님.
+- 현재 코드는 둘 다 감지 → 사용자가 본 "투약 32일(N95)만"은 (a) **043 이전(또는 더 구버전) 배포본** 결과이거나, (b) **운영 PDF 파싱 truncation/OOM** 가능성. 대용량(detail 104p·pharma 70p)이고 E78/ezetimibe/수술 행이 PDF 중반(30~63%)에 위치 → 운영에서 후반 페이지 누락 시 소실 가능(flush_cache OOM 핫픽스 존재 = 과거 메모리 이슈 정황).
+
+**수정 방향(구현 금지):**
+1. **최우선**: 운영(Railway) 배포본이 043 최신 커밋인지 확인 후 동일 PDF 재분석 → 재현 여부 확인. 구버전이면 재배포로 해결(코드 수정 불요).
+2. 최신에서도 미감지면 **운영 파싱 레코드 수·truncation_warning 점검**(대용량 PDF 페이지 누락). 파싱 단계 레코드 수를 결과/로그에 노출해 운영 truncation 가시화 권장.
+3. (참고·이번 건 무관) 고지혈증 약 브랜드명(크레젯정) 식별이 필요하면 성분명(ezetimibe 등) 매핑 사전 보강 검토. 현 코드 기반 집계엔 영향 없음.
+### Next
+- **Human**: ① 운영 배포본 043 반영 여부 확인 + 동일 PDF 재분석으로 재현 점검. ② 재현 시 운영 파싱 레코드 수/truncation 로그 확보 → 후속 태스크(파싱 truncation 진단) 발주 여부 결정.
+
 ## 2026-06-16 Codex BOHUMFIT-043 [Windows 검증·커밋·푸시 완료 / Next: Human E2E]
 ### Changed
 - 커밋/푸시: `c68543c` `BOHUMFIT-043: BOHUMFIT-040 롤백·요양기관명 약국 기반 통원 제외(일반의 입원·수술·투약 집계 복원)`

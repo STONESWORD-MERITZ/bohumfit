@@ -468,10 +468,16 @@ async def analyze(
     today         = result["analysis_today"]
     ai_res        = result["ai_result"]
     meritz        = result.get("meritz_easy", {})
+    record_counts = result.get("record_counts", {})
+    parse_errors  = result.get("parse_errors", [])
 
     logger.info(
-        "analyze done: flagged=%d total_q=%d",
+        "analyze done: flagged=%d total_q=%d records(basic=%d,pharma=%d,detail=%d) parse_errors=%d",
         len(flagged_codes), len(std_reports),
+        record_counts.get("basic", 0),
+        record_counts.get("pharma", 0),
+        record_counts.get("detail", 0),
+        len(parse_errors),
     )
 
     std_kakao  = _build_kakao_message(PRODUCT_TYPE_MAP["standard"], today, std_reports)
@@ -493,7 +499,8 @@ async def analyze(
         "standard_kakao":       std_kakao,
         "easy_kakao":           easy_kakao,
         "kakao_message":        std_kakao,   # 하위 호환
-        "parse_errors":         result["parse_errors"],
+        "record_counts":        record_counts,
+        "parse_errors":         parse_errors,
         "warnings":             result["retry_warnings"],
         # BOHUMFIT-023: 실손 안내용 급여 본인부담 연도별 (additive — 고지 응답 불변).
         "covered_self_pay_by_year": result.get("covered_self_pay_by_year", {}),

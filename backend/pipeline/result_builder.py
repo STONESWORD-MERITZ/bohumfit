@@ -1,9 +1,12 @@
 ﻿"""summary_reports 빌드 — analyzer.py 에서 이동."""
 from __future__ import annotations
 
+import logging
 import re
 from collections import defaultdict
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 from filters import _q3_med_since, _sum_daily_max_presc, INSURANCE_ONLY_Q5_CODES  # BOHUMFIT-031/032/039
 from .helpers import (
@@ -350,13 +353,25 @@ def build_summary_reports(
                 continue
             if _it_name and any(pat in _it_name for pat in _NON_DISEASE_NAME_PATTERNS_MERGE):
                 continue
-            q_raw    = item.get("duty_question", "Q1")
+            source   = item.get("_source", "ai")
+            # BOHUMFIT-047: duty_question 이 None/비문자열/빈값이면 re.split 가 TypeError
+            #   (expected string or bytes-like object, got 'NoneType') 로 전체 분석을 크래시시켰다.
+            #   한 항목 결함이 전체를 죽이지 않도록 방어: AI(비결정론)는 q 불명이면 폐기(038 정신 —
+            #   AI는 Q2만, q 불명이면 버림), 결정론(source=code)도 q 불명이면 경고 로그 후 폐기
+            #   (정상 결정론 항목엔 q 가 항상 있어 발생하지 않음).
+            q_raw    = item.get("duty_question")
+            if not isinstance(q_raw, str) or not q_raw.strip():
+                if source == "code":
+                    logger.warning(
+                        "BOHUMFIT-047: 결정론 항목 duty_question 누락/비문자열 — skip (code=%s, q=%r)",
+                        item.get("code"), q_raw,
+                    )
+                continue
             raw_code_key = item.get("code", item.get("disease", "unknown"))
             code_key = normalize_code(raw_code_key) or raw_code_key
             q_list_ = [q.strip() for q in re.split(r"[,/\s]+", q_raw) if re.match(r"Q\d+", q.strip())]
             if not q_list_:
                 q_list_ = [q_raw.strip()]
-            source = item.get("_source", "ai")
             for q in q_list_:
                 if q not in ("Q1", "Q2", "Q3", "Q4", "Q5"):  # BOHUMFIT-034: Q5 추가
                     continue
@@ -389,7 +404,7 @@ def build_summary_reports(
     _health_since = {"Q1": _d3m_dt, "Q2": _d1y_dt, "Q3": _d5y_dt, "Q4": _d10y_dt, "Q5": _d5y_dt}
     _easy_since   = {"Q1": _d3m_dt, "Q2": _d10y_dt, "Q3": _d5y_dt}
 
-    merged_health = _build_pool(code_based_items_health, True,  _health_since)
+    merged_health = _build_pool(code_based_items_health, True,  _health_since)   # BOHUMFIT-047
     merged_easy   = _build_pool(code_based_items_easy,   False, _easy_since)
     _health_q3_med_since = _q3_med_since(today)
 
