@@ -16,6 +16,29 @@
 
 # Handoff
 
+## 2026-06-17 Codex BOHUMFIT-050 [Windows 검증·커밋·푸시 완료 / Next: Human 운영 E2E]
+### Changed
+- 커밋/푸시: `eb28c62` `BOHUMFIT-050: 약국 기관명 공백 정규화 일관화(_is_pharmacy) + 통원 행 기준·앵커 분리 고정`
+- 범위 파일만 반영: `backend/pipeline/disease_aggregator.py`, `backend/filters.py`, `backend/tests/test_visit_count_row_pharmacy.py`, `.agent-harness/tasks/BOHUMFIT-050.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md`. `backend/pipeline/helpers.py`는 범위 파일이나 변경 없음.
+- 커밋 전 실 PDF 원천 기관명/개별 일자는 handoff/task/locks 신규 diff에서 익명화.
+### Verified
+- truncation 선제 점검: disease_aggregator/filters/helpers/test_visit_count_row_pharmacy tail 확인, NUL 0, strict UTF-8 decode OK.
+- `_is_pharmacy` 확인: helper 정의 + detail-link 인덱스, 통원 visit 분기, hospital_dates, 표시 hospitals 4경로 적용.
+- raw `"약국" in` 잔존 확인: `_is_pharmacy` 내부와 기존 `입내원구분` 약국 분기만 잔존.
+- `cd backend && python -m pytest -q tests/ -k "pharmacy or visit or 약국 or BOHUMFIT_050" -vv` -> 23 passed, 3 skipped, 279 deselected.
+- `cd backend && python -m pytest -q tests/test_visit_count_row_pharmacy.py -vv` -> 7 passed.
+- `cd backend && python -m pytest -q` -> 298 passed, 7 skipped.
+- `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- `npm run lint` -> pass.
+- `npm test` -> 4 files / 45 tests passed.
+- `npm run build` -> pass. 기존 Vite chunk-size warning만 출력.
+### Notes
+- PII 원본/비익명 fixture/PDF/brand/unrelated task 파일은 stage하지 않음.
+- `locks.md` Active는 `(없음)`.
+### Next
+- Human: 운영 동일 PDF E2E에서 J32/K29 수치, 약국 공백 변형 제외, 통원 행 기준 및 pharma 앵커 분리 확인.
+
 ## 2026-06-17 Cowork BOHUMFIT-050 [통원 행 기준 확정 + 약국 공백 정규화 일원화 / Next: Codex]
 ### Changed
 - `backend/pipeline/disease_aggregator.py` — 신규 `_is_pharmacy(name)`(공백 제거 후 '약국' 매칭). 약국 검사 4곳(detail-link 인덱스·통원 visit 분기·hospital_dates·표시 hospitals) `_is_pharmacy`로 일원화(공백 변형 "약 국" 일관 제외). 통원 분기 주석에 단위=행(visit_events)·앵커=visit_dates 분리 명시.
