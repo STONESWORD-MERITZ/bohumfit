@@ -16,6 +16,64 @@
 
 # Handoff
 
+## 2026-06-18 Codex BOHUMFIT-056 [Windows 권위 검증·publish / Next: Human 수술의심 임계 확인]
+### Changed
+- Cowork 056 구현 범위 검증: `backend/pipeline/pdf_parser.py`, `src/pages/Disclosure.tsx`, `backend/tests/test_nhis_history.py`, 신규 `backend/tests/test_nhis_inpatient_days_cost.py`, `.agent-harness/tasks/BOHUMFIT-056.md`, handoff/locks.
+- `locks.md`에서 `BOHUMFIT-056` active lock 해제(Released 기록 유지). 055/056 외 unrelated 파일은 stage 금지.
+### Verified
+- [x] `Select-String backend/pipeline/pdf_parser.py "내원일수","투약일수","nhis_texts"` — 입내원일수/투약일수 분리, nhis 전체텍스트 병합 경로 확인.
+- [x] `Select-String src/pages/Disclosure.tsx "고객님 확인"` — 수술의심/Q2 AI 참고 문구 2곳 확인.
+- [x] `backend,src`에서 `"원자료로 확인"` 검색 0건.
+- [x] `cd backend && python -m pytest -q tests/test_nhis_history.py -vv` — 9 passed.
+- [x] `cd backend && python -m pytest -q tests/ -k "nhis or inpatient or surgery or BOHUMFIT_056" -vv` — 51 passed, 3 skipped, 284 deselected.
+- [x] `cd backend && python -m pytest -q` — 331 passed, 7 skipped.
+- [x] `npx tsc -p tsconfig.app.json --noEmit`, `npx tsc -p tsconfig.node.json --noEmit`, `npm run lint`, `npm test`(45 passed), `npm run build` — all passed. 기존 Vite chunk-size warning만 출력.
+- [x] 실 PDF `병력/이민규 병력 19-20.pdf` 재현: records 22, parse_errors 0. M512/M51 입원 2일(2020-02-24~2020-02-25), 총진료비 561,190, 수술의심 등급 강, 확정수술 없음. K605/K60 입원 3일(2020-05-19~2020-05-21), 총진료비 1,035,220, 수술의심 등급 강, 확정수술 없음. 페이지경계 입원행 복구 확인.
+### Notes
+- `backend/templates/report_disclosure.html`, `backend/tests/test_report_pdf.py`, brand/PDF/untracked task 잔여 파일은 056 범위 밖이므로 제외.
+- `backend/tests/test_q3_real_pattern_regression.py`는 이전부터 남아 있던 untracked 테스트 파일이며 이번 056 커밋에는 포함하지 않음.
+- 수술의심 금액 임계(입원 50만원, 공단+본인 합산 적용)는 과검출 가능성이 있어 Human 확인 필요.
+- Main commit: pending.
+### Next
+- Human: 실제 화면/PDF에서 M512 2일, K605 3일, 수술의심 문구 `"고객님 확인"` 확인. 수술의심 임계(공단+본인 합산 50만원 기준) 유지 여부 결정.
+## 2026-06-18 Cowork BOHUMFIT-056 재검증 [Cowork 가용 검증 완료 — git commit/push·tsc/npm은 Codex/Windows 권위]
+### 재검증 결과(Cowork, 실파일·실 PDF)
+- Grep(실 Windows 파일): `pdf_parser.py` 056 마커 전부 존재(입내원일수→`내원일수`·`투약일수`·`nhis_texts` 병합·`cur_gongdan` 합산). `Disclosure.tsx` "고객님 확인" ×2(L448·L478), **"원자료로 확인" 잔존 0**(src·backend 전수).
+- pdf_parser AST OK. 056 회귀 `test_nhis_inpatient_days_cost.py` **6/6 passed**.
+- **실 PDF(병력 19-20) end-to-end(parse_single_pdf→build_disease_stats)**: M512 **입원 2일**(투약 10·총진료비 561,190=399,690+161,500)·K605 **입원 3일**(총진료비 1,035,220). 페이지 경계 입원 행 누락 없이 복구. M51/K60 의심등급='강'(합산·임계 50만)·**확정수술=False(의심≠확정 구분 유지)**. 정렬은 화면(Disclosure L559)·PDF(_prepare_section L321) 모두 latest_date 내림차순(기구현).
+### 권한 경계 (중요)
+- 본 지시는 **Codex(Windows) 플레이북**(PowerShell Select-String·npx tsc·npm·git commit/push). Cowork(리눅스 샌드박스)는 **마운트 git 뮤테이션 금지**(CLAUDE/AGENTS 규칙) + 이번 세션 마운트 view가 실파일과 분기(stale)라 **마운트에서 commit/push 시 손상/구버전 커밋 위험** → 실행하지 않음. tsc/npm도 샌드박스(rolldown 네이티브 바인딩) 불가.
+- 따라서 **git stage/commit/push·tsc/lint/build·전체 pytest(analyzer/report 의존 포함)는 Codex가 Windows에서 수행**해야 함. 056 변경은 위와 같이 Cowork 가용 범위에서 검증 완료·정합 확인.
+### Next
+- **Codex(Windows)**: handoff/locks의 056 범위 파일만 stage→commit→push. 커밋: `BOHUMFIT-056: 공단 입원일수 파싱 수정(입내원일수 컬럼·페이지경계 입원 누락 복구) + 수술의심 공단+본인 합산 + 문구 고객님 확인`. 전체 pytest(325+6)·tsc(app/node)·lint·test·build·실 PDF 재현(M512 2일/K605 3일) 후 푸시.
+- **Human**: 수술의심 합산 임계(입원 50만) 과검출 여부 확인.
+
+## 2026-06-18 Cowork BOHUMFIT-056 [공단 입원일수 파싱·수술의심 합산·문구·정렬 / Next: Codex + Human]
+### STEP -1 정리
+- 직전 056 중단 = **코드 변경 0**(locks.md 잠금만; git diff 056 마커 검색으로 확인). 워킹트리 기타 더티는 055/이전 마운트-Windows 분기(055/056 마커 없음) → **git restore 미실행**(Cowork 마운트 git 금지·분기 위험; Codex 정리). 055는 HEAD(e27888f/ec4926b).
+### STEP 0 진단
+- **입원일수**: `parse_nhis_text` 1줄 입내원일수 비캡처(버림)·2줄 요양일수를 `"요양일수"`로 저장 → 집계 m_days=요양일수(2줄, 오류). M512가 요양 10으로(정답 입내원 2).
+- **수술의심**: `_extract_nhis_total_cost`가 2줄만 스캔→본인부담금만(공단 1줄 누락). 임계 입원 50만→강/외래 10만→약(`nhis_history_constants`, 범위 외). 입원은 이미 후보.
+- **정렬**: 화면(Disclosure L559)·PDF(report_pdf `_prepare_section` L321) 이미 latest_date 내림차순 → 확인만.
+### Changed
+- `backend/pipeline/pdf_parser.py` — `parse_nhis_text`: 입내원일수(1줄) 캡처→`"내원일수"`(입원일수), `"투약일수"`=요양일수(2줄) 분리, `"총진료비"`=공단(1줄)+본인(2줄) **합산**. `parse_single_pdf` nhis: 페이지별→**전체 텍스트 병합 1회 파싱**(페이지 경계서 끊기던 입원 행 복구).
+- `src/pages/Disclosure.tsx` — 수술의심·Q2AI 문구 "원자료로 확인"→"**고객님 확인이 필요합니다**"(L448·L478).
+- `backend/tests/test_nhis_inpatient_days_cost.py` 신규(6) + `test_nhis_history.py` cost 픽스처 실양식·합산으로 갱신.
+- `.agent-harness/tasks/BOHUMFIT-056.md` 신규.
+- (STEP4 정렬은 기구현 — 변경 없음.)
+### Verified (실 PDF 병력 19-20)
+- end-to-end: **M512 입원 2일**(요양 10 아님)·총진료비 561,190(399,690+161,500); **K605 입원 3일**·1,035,220. M51/K60 입원일수 2/3, **수술의심 '강'**(입원 고액 포함).
+- /tmp: 신규 6/6 passed, 비-analyzer/report **221 passed**. test_nhis_history cost 픽스처 파서 출력 일치 확인.
+- [ ] (Codex) 전체 pytest(325+6)·tsc/lint/build·실 PDF 재현.
+### Notes
+- ⚠ 이번 세션 마운트 view 심각 손상: analyzer.py·report_pdf.py(**056 미접촉**) bash-view stale/절단 → 의존 테스트 /tmp 수집 불가(Codex/Windows 권위). pdf_parser는 tail/블록 재구성으로 end-to-end 검증.
+- **수술의심 임계(50만)**: `nhis_history_constants`(범위 외) 미변경. 합산(더 큰 값) 기준이라 대부분 입원이 '강 의심'화 가능 — 의도(입원 고액 안내)엔 부합하나 과검출 여부 **Human 확인**.
+- PDF엔 수술의심 설명 '문장' 없음(칩만) → STEP3 PDF 변경 불요. 정렬은 화면·PDF 모두 기구현.
+- 실 PDF 로컬만·PII 미커밋·작업파일 삭제·마운트 git 미실행. 분석 판정 로직은 입원일수 정확도·수술의심 금액 기준(의도된 변경)만, 그 외 무변경.
+### Next
+- **Codex(Windows)**: 전체 pytest·tsc/lint/build·실 PDF 재현(M512 2일·수술의심·문구·정렬) → 커밋·푸시. 커밋: `BOHUMFIT-056: 공단 입원일수(입내원일수)·총진료비 공단+본인 합산·페이지경계 병합 + 수술의심 문구 고객님 확인`.
+- **Human**: 수술의심 합산 임계(50만) 과검출 확인.
+
 ## 2026-06-18 Codex BOHUMFIT-055 [Windows 권위 검증·실부하 통과 / Next: Human Railway 워커 설정·대용량 smoke]
 ### Changed
 - `backend/analyzer.py` — Cowork의 파일 단위 ProcessPool 병렬 파싱 구현을 Windows 원본에서 검증. AST 검증을 막던 UTF-8 BOM을 제거해 Python 파서 기준을 정상화(로직 변경 없음).

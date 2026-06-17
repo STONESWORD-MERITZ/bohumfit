@@ -188,17 +188,22 @@ def parse_nhis_text(text, fname):
     records = []
     issue_period = _extract_nhis_issue_period(text)
     lines = [l.strip() for l in text.split('\n') if l.strip()]
-    date_re  = re.compile(r'^(\d{4}\.\d{2}\.\d{2})\s+\d+\s+(.+?)\s+\d{2,4}-\d{3,4}-\d{4}')
+    # BOHUMFIT-056: 1줄에서 '입내원일수'(group2)도 캡처 — 공단 입원 '입원일수'의 정답 컬럼.
+    #   (기존엔 비캡처 \d+ 로 버려, 2줄 '요양(투약)일수'를 입원일수로 오인했음.)
+    date_re  = re.compile(r'^(\d{4}\.\d{2}\.\d{2})\s+(\d+)\s+(.+?)\s+\d{2,4}-\d{3,4}-\d{4}')
     visit_re = re.compile(r'^(외래|입원|약국)\s+(\d+)\s*(.*)')
     seq_re   = re.compile(r'^\d+$')
     cur_date, cur_hospital = None, None
+    cur_visit_days, cur_gongdan = "", 0   # BOHUMFIT-056: 1줄 입내원일수·공단부담금
     i = 0
     while i < len(lines):
         line = lines[i]
         m_d = date_re.match(line)
         if m_d:
-            cur_date     = m_d.group(1)
-            cur_hospital = m_d.group(2).strip()
+            cur_date       = m_d.group(1)
+            cur_visit_days = m_d.group(2)                    # BOHUMFIT-056: 입내원일수(1줄)
+            cur_hospital   = m_d.group(3).strip()
+            cur_gongdan    = _extract_nhis_total_cost(line)  # BOHUMFIT-056: 공단부담금(1줄)
             i += 1
             continue
         if seq_re.match(line) and cur_date:
@@ -223,16 +228,20 @@ def parse_nhis_text(text, fname):
                             break
                     if not name_v and not code_v:
                         name_v = rest
-                    total_cost = _extract_nhis_total_cost(visit_line)  # BOHUMFIT-033
+                    # BOHUMFIT-056: 총진료비 = 공단부담금(1줄) + 본인부담금(2줄) 합산.
+                    #   (기존엔 2줄 본인부담금만 읽어 수술의심 금액 기준이 과소했음 → 입원 고액 건 누락.)
+                    bonin_cost = _extract_nhis_total_cost(visit_line)
+                    total_cost = (cur_gongdan or 0) + bonin_cost
                     if name_v or code_v:
                         records.append({
                             "진료개시일": cur_date,
                             "요양기관명": cur_hospital or "",
                             "입내원구분": in_out_v,
-                            "요양일수":   days_v,
+                            "내원일수":   cur_visit_days or "",   # BOHUMFIT-056: 입내원일수(1줄)=입원/내원 일수
+                            "투약일수":   days_v,                 # BOHUMFIT-056: 요양(투약)일수(2줄) 별도 유지
                             "상병명":     name_v,
                             "상병코드":   code_v,
-                            "총진료비":   str(total_cost),  # BOHUMFIT-033: 공단+본인 합(=총액)
+                            "총진료비":   str(total_cost),  # BOHUMFIT-056: 공단+본인 합(수술의심 기준)
                             "_issue_period": issue_period,  # BOHUMFIT-033: 파일별 발급기간
                             "_ftype":     "nhis",
                             "_fname":     fname,
@@ -274,13 +283,17 @@ def parse_single_pdf(uploaded_file, birthdate_pw) -> dict:
             is_nhis = "건강보험 요양급여내역" in first_text
 
             if is_nhis:
+                # BOHUMFIT-056: 페이지별 파싱은 공단 표의 2줄 1세트(날짜줄+순번+내역줄)가 페이지
+                #   경계에서 끊겨 입원 행이 누락됐다(예: M512/K605 입원). 전체 페이지 텍스트를 모아
+                #   한 번에 파싱해 경계를 보존한다(텍스트만 누적 — 페이지 캐시는 즉시 flush, 메모리 안전).
+                nhis_texts = []
                 for page in pdf.pages:
                     page_text = page.extract_text() or ""
-                    if "건강보험 요양급여내역" in page_text:
-                        recs = parse_nhis_text(page_text, fname)
-                        file_recs.extend(recs)
+                    nhis_texts.append(page_text)
                     del page_text
                     page.flush_cache()  # OOM 핫픽스: 페이지 레이아웃 캐시 즉시 해제
+                file_recs.extend(parse_nhis_text("\n".join(nhis_texts), fname))
+                del nhis_texts
             else:
                 for page in pdf.pages:
                     page_text = page.extract_text() or ""
