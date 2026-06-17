@@ -37,7 +37,7 @@
 - 병렬은 104p급 실 PDF 10개에서 156.72초로 300초 내 통과했으며, 순차 대비 1.66x 개선. 피크 메모리는 Windows 관찰 기준 약 746MB로 상승하므로 Railway 메모리 플랜 확인 후 `BOHUMFIT_PARSE_WORKERS=2` 적용 권장.
 - 실 PDF/복제 파일/PII는 커밋하지 않음. 측정은 `_ParseInput` in-memory 복제로 수행했고 임시 스크립트는 `%TEMP%`에만 사용.
 - unrelated 변경(`backend/templates/report_disclosure.html`, `backend/tests/test_report_pdf.py`, brand/PDF/task 잔여 파일)은 이번 055 커밋에서 제외.
-- Main commit: pending.
+- Main commit: `e27888f` pushed to `origin/main`.
 ### Next
 - Human: Railway 메모리 플랜 확인 후 `BOHUMFIT_PARSE_WORKERS=2` 여부 결정, 배포 후 실제 대용량 PDF 3/5/10개 smoke. 056 Cowork active lock은 유지.
 
