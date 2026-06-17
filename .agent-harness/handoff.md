@@ -33,7 +33,7 @@
 - `backend/templates/report_disclosure.html`, `backend/tests/test_report_pdf.py`, brand/PDF/untracked task 잔여 파일은 056 범위 밖이므로 제외.
 - `backend/tests/test_q3_real_pattern_regression.py`는 이전부터 남아 있던 untracked 테스트 파일이며 이번 056 커밋에는 포함하지 않음.
 - 수술의심 금액 임계(입원 50만원, 공단+본인 합산 적용)는 과검출 가능성이 있어 Human 확인 필요.
-- Main commit: pending.
+- Main commit: `0850cb9` pushed to `origin/main`.
 ### Next
 - Human: 실제 화면/PDF에서 M512 2일, K605 3일, 수술의심 문구 `"고객님 확인"` 확인. 수술의심 임계(공단+본인 합산 50만원 기준) 유지 여부 결정.
 ## 2026-06-18 Cowork BOHUMFIT-056 재검증 [Cowork 가용 검증 완료 — git commit/push·tsc/npm은 Codex/Windows 권위]
