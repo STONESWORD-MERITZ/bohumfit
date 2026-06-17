@@ -6,11 +6,34 @@
 import asyncio
 import gc
 import logging
+import os
 import re
 from collections import Counter
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
+
+
+def _ai_budget_seconds() -> int:
+    """Optional AI enrichment budget for the synchronous /api/analyze request."""
+    try:
+        return max(0, int(os.environ.get("BOHUMFIT_AI_BUDGET_SECONDS", "5")))
+    except (TypeError, ValueError):
+        return 5
+
+
+def _empty_ai_result() -> dict:
+    return {
+        "flagged_items": [],
+        "exempt_items": [],
+        "drug_change_hit": False,
+        "drug_change_reason": "",
+        "total_flagged": 0,
+        "health_verdict": "",
+        "health_reason": "",
+        "recommend": "",
+        "summary": "",
+    }
 
 from filters import (
     build_code_based_items as _build_code_based_items,
@@ -798,94 +821,8 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
     prescription_end_details, earliest_available_date = \
         compute_prescription_end_dates(disease_stats, today)
 
-    # ── drug_change_text / presc_end_text 구성 ───────────────────
     today_str = today.strftime('%Y-%m-%d')
-    d_3m  = (today - timedelta(days=90)).strftime('%Y-%m-%d')
-    d_1y  = (today - timedelta(days=365)).strftime('%Y-%m-%d')
-    d_5y  = _subtract_years(today, 5).strftime('%Y-%m-%d')    # BOHUMFIT-004: 달력 기준 5년
-    d_10y = _subtract_years(today, 10).strftime('%Y-%m-%d')   # BOHUMFIT-004: 달력 기준 10년
-
-    drug_change_text = _build_drug_change_text(drug_change_summary)
-    presc_end_text = _build_presc_end_text(prescription_end_details, earliest_available_date, today)
-    lines_by_file_tagged = _build_tagged_entries(raw_entries, today, _d5y_dt, _d10y_dt)
-    visit_count_lines = _build_visit_count_lines(disease_stats, _d10y_dt)
-    first_diag_lines = _build_first_diag_lines(disease_stats)
-    system_prompt = _build_system_prompt(product_type, today_str, d_3m, d_1y, d_5y, d_10y)
     _mj_type1, _mj_type2 = _build_medical_judgment_inputs(disease_stats, _d3m_dt, _d1y_dt, today_str)
-    # ── Gemini API 호출 (PDF별 병렬 + 의학 판단 병렬) ────────────
-    gemini_payloads = []
-    truncated_files: list[str] = []
-    for uf in active_files:
-        fn = getattr(uf, "name", None) or getattr(uf, "filename", None) or "unknown.pdf"
-        flines = lines_by_file_tagged.get(fn, [])
-        rt_part = _finalize_raw_text_for_gemini(
-            flines,
-            visit_count_lines,
-            cross_surgery_hints,
-            first_diag_lines,
-            drug_change_text,
-            presc_end_text,
-        )
-        # BOHUMFIT-003: 초대용량 PDF로 AI 입력이 잘렸는지 감지 (잘림 로직은 불변)
-        if _is_gemini_input_truncated(flines, rt_part):
-            truncated_files.append(fn)
-        gemini_payloads.append({
-            "filename": fn,
-            "raw_text": rt_part,
-            "system_prompt": system_prompt,
-            "today_str": today_str,
-        })
-
-    # BOHUMFIT-003: 잘림 발생 시 사용자 경고를 retry_warnings 채널로 노출
-    truncation_warning = _build_truncation_warning(truncated_files)
-    if truncation_warning:
-        retry_warnings.append(truncation_warning)
-
-    sem = asyncio.Semaphore(5)
-
-    async def _guarded_gemini(pd: dict):
-        async with sem:
-            return await analyze_single_pdf(pd, product_type, reference_date, api_key)
-
-    _all_api_results = await asyncio.gather(
-        _call_medical_judgment(_mj_type1, _mj_type2, api_key),
-        *[_guarded_gemini(pd) for pd in gemini_payloads],
-        return_exceptions=True,
-    )
-    _med_result_raw = _all_api_results[0]
-    gemini_out      = list(_all_api_results[1:])
-
-    _med_result: dict = (
-        _med_result_raw
-        if isinstance(_med_result_raw, dict)
-        else {"additional_tests": {}, "treatment_ongoing": {}}
-    )
-    if "_error" in _med_result:
-        retry_warnings.append(
-            "⚠️ 추가검사 여부·치료 종결 여부(알릴의무 Q2 등) 자동 판단을 완료하지 못했습니다. "
-            "이 항목은 결과에서 누락됐을 수 있으니 진료 원자료로 직접 확인해 주세요."
-        )
-
-    ai_successes: list[dict] = []
-    for i, go in enumerate(gemini_out):
-        fn = gemini_payloads[i]["filename"]
-        if isinstance(go, BaseException):
-            retry_warnings.append(f"⚠️ {fn}: Gemini 병렬 태스크 예외 — {str(go)[:120]}")
-            continue
-        retry_warnings.extend(go.get("retry_warnings") or [])
-        if go.get("error"):
-            retry_warnings.append(f"⚠️ {fn}: {go['error']}")
-        if go.get("ai_result"):
-            ai_successes.append(go["ai_result"])
-
-    if not ai_successes:
-        raise AnalysisError("모든 PDF에 대한 AI 분석에 실패했습니다.")
-
-    ai_result = _merge_ai_results(ai_successes)
-
-    _apply_medical_judgment(disease_stats, code_based_items, _med_result, _d1y_dt)
-    del system_prompt
-    gc.collect()
 
     # ── BOHUMFIT-009: q1/q2_health/q2_easy/q3_health/q3_easy/q4_health 항목 분리 ──
     _q1_items = [it for it in _health_items if it.get("duty_question") == "Q1"]
@@ -905,17 +842,64 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
     #   0건이면 미호출. (037 B의 검사근거 필수 게이팅 완화 — 임상의사 보수적 판단으로 가능성 산출.)
     _suspicion_prompt_items = list(_q1_items + _q2_health_items)
     _suspicion_apply_items = _suspicion_prompt_items + list(_q1_easy_items)
-    if _suspicion_prompt_items:
+
+    async def _empty_q2_findings() -> dict:
+        return {}
+
+    async def _bounded_ai_enrichment() -> tuple[object, object]:
+        q2_coro = (
+            _call_q2_health_findings(_suspicion_prompt_items, today_str, api_key)
+            if _suspicion_prompt_items
+            else _empty_q2_findings()
+        )
+        return await asyncio.gather(
+            _call_medical_judgment(_mj_type1, _mj_type2, api_key),
+            q2_coro,
+            return_exceptions=True,
+        )
+
+    # BOHUMFIT-052: 배포 프록시가 긴 HTTP 요청을 끊기 전에 결정론 결과를 반환한다.
+    # PDF별 Gemini 전체 분석은 BOHUMFIT-038 이후 Q2 외 표시가 차단되어 사용자 결과에 필수 아님.
+    # Q2 의학 보조 판단만 짧은 예산 안에서 best-effort 실행하고, 초과 시 결정론 결과로 폴백한다.
+    truncation_warning = None
+    ai_result = _empty_ai_result()
+    _med_result: dict = {"additional_tests": {}, "treatment_ongoing": {}}
+    _q2_findings: dict = {}
+    _ai_budget = _ai_budget_seconds()
+    if _ai_budget > 0:
         try:
-            _q2_findings = await _call_q2_health_findings(_suspicion_prompt_items, today_str, api_key)
-        except Exception as _e:
-            retry_warnings.append(f"⚠️ Q1/Q2 의심 소견 생성 실패 — {str(_e)[:80]}")
-            _q2_findings = {}
-        for it in _suspicion_apply_items:
-            code = (it.get("code") or "").upper()
-            susp = _q2_findings.get(code, "")
-            if susp:
-                it["q2_suspicion"] = susp
+            _med_result_raw, _q2_findings_raw = await asyncio.wait_for(
+                _bounded_ai_enrichment(),
+                timeout=_ai_budget,
+            )
+            if isinstance(_med_result_raw, BaseException):
+                retry_warnings.append(f"⚠️ 의학 보조 판단 실패 — {str(_med_result_raw)[:80]}")
+            elif isinstance(_med_result_raw, dict):
+                _med_result = _med_result_raw
+            if isinstance(_q2_findings_raw, BaseException):
+                retry_warnings.append(f"⚠️ Q1/Q2 의심 소견 생성 실패 — {str(_q2_findings_raw)[:80]}")
+            elif isinstance(_q2_findings_raw, dict):
+                _q2_findings = _q2_findings_raw
+        except asyncio.TimeoutError:
+            retry_warnings.append(
+                f"⚠️ AI 보조 판단이 {_ai_budget}초 안에 끝나지 않아 결정론 결과를 먼저 표시합니다. "
+                "필요 시 진료 원자료로 추가검사·치료종결 여부를 확인해 주세요."
+            )
+    else:
+        retry_warnings.append("⚠️ AI 보조 판단이 비활성화되어 결정론 결과만 표시합니다.")
+
+    if "_error" in _med_result:
+        retry_warnings.append(
+            "⚠️ 추가검사 여부·치료 종결 여부(알릴의무 Q2 등) 자동 판단을 완료하지 못했습니다. "
+            "이 항목은 결과에서 누락됐을 수 있으니 진료 원자료로 직접 확인해 주세요."
+        )
+    _apply_medical_judgment(disease_stats, code_based_items, _med_result, _d1y_dt)
+    for it in _suspicion_apply_items:
+        code = (it.get("code") or "").upper()
+        susp = _q2_findings.get(code, "")
+        if susp:
+            it["q2_suspicion"] = susp
+    gc.collect()
 
     # ── summary_reports 빌드 (BOHUMFIT-BUG-010: health/easy 풀 분리 전달) ──
     std_reports, easy_reports, flagged_codes, _ = build_summary_reports(
