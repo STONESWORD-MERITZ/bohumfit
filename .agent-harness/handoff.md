@@ -16,6 +16,28 @@
 
 # Handoff
 
+## 2026-06-17 Codex BOHUMFIT-047 [Windows 검증·커밋·푸시 완료 / Next: Human 메모리 근본대응 판단]
+### Changed
+- 커밋/푸시: `e27e1d2` `BOHUMFIT-047: q_raw None 크래시 수정(_build_pool 방어) + 파싱 레코드 수·parse_errors 가시화`
+- 범위 파일만 반영: `backend/pipeline/result_builder.py`, `backend/analyzer.py`, `backend/main.py`, `backend/tests/test_build_pool_qraw_guard.py`, `.agent-harness/tasks/BOHUMFIT-047.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md`.
+- Codex 후속: `main.py` 응답에 `record_counts` 추가, 기존 `parse_errors`를 안전 pass-through로 유지, `analyze done` 로그에 `records(basic=,pharma=,detail=) parse_errors=K` 추가.
+### Verified
+- truncation 선제 점검: result_builder/analyzer/main/test_build_pool_qraw_guard tail 확인, NUL 0, strict UTF-8 decode OK.
+- q_raw None 방어 확인: `duty_question` 분기에서 None/비문자열/빈값 skip, 결정론 누락은 warning 후 skip.
+- 파싱 가시성 확인: analyzer `record_counts`/`parse_error`/`ftype` 로깅 및 result dict 노출, main 응답/log pass-through 확인.
+- `cd backend && python -m pytest -q tests/ -k "build_pool or duty_question or q_raw" -vv` -> 4 passed, 294 deselected.
+- `cd backend && python -m pytest -q` -> 291 passed, 7 skipped. 로컬 worktree 기준이며 기존 untracked 045 회귀 테스트 6개도 함께 수집됨.
+- `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- `npm run lint` -> pass.
+- `npm test` -> 4 files / 45 tests passed.
+- `npm run build` -> pass. 기존 Vite chunk-size/plugin timing warning만 출력.
+### Notes
+- PII 원본/비익명 fixture/PDF/brand/unrelated task 파일은 stage하지 않음. 신규 handoff/locks diff의 실명성 PDF 제목은 `실 PDF`로 익명화.
+- `locks.md` Active는 `(없음)`.
+### Next
+- Human: Railway 메모리 상향 vs 페이지 스트리밍/부분파싱 fail-loud 중 근본 대응 판단. 운영에서 `record_counts`/`parse_errors`로 부분 파싱 여부 확인.
+
 ## 2026-06-17 Cowork BOHUMFIT-047 [q_raw None 크래시 수정·파싱 가시성·비결정성 진단 / Next: Codex + Human]
 ### Changed
 - `backend/pipeline/result_builder.py` — `_build_pool`: `source` 상단 이동 + `q_raw=item.get("duty_question")` None/비문자열/빈값 방어(AI→skip, 결정론→warn 후 skip). re.split TypeError 크래시 제거. `import logging`·logger 추가.
