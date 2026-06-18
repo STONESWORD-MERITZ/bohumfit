@@ -16,6 +16,43 @@
 
 # Handoff
 
+## 2026-06-19 Codex BOHUMFIT-062 [Windows 검증·실 PDF 육안·051 잔여분 커밋 / Next: Human]
+### Changed
+- 051 잔여 tracked 변경분을 062 범위로 확정: `backend/templates/report_disclosure.html`의 전체 병력 요약 섹션 새 페이지 시작(`.all-history`)과 `backend/tests/test_report_pdf.py` 회귀 테스트.
+- 신규 task 문서 `.agent-harness/tasks/BOHUMFIT-062.md` 포함, handoff/locks 갱신.
+### Verified
+- truncation 선제 점검: `report_disclosure.html`, `test_report_pdf.py`, `BOHUMFIT-062.md` 모두 NUL 없음, strict UTF-8 OK, tail 완결.
+- Jinja 균형: `{% if %}` 24 / `{% endif %}` 24, `{% for %}` 4 / `{% endfor %}` 4.
+- grep 확인: `.all-history`, `page-break-before`, `all_history_summary_starts_new_page` 존재.
+- `cd backend && python -m pytest -q tests/test_report_pdf.py -vv` -> 18 passed.
+- `cd backend && python -m pytest -q` -> 353 passed, 7 skipped.
+### PDF Visual QA
+- 실 데이터 3파일로 고지 리포트 PDF 생성 성공: records basic=215, pharma=747, detail=1117, parse_errors=0.
+- PDF 6페이지 렌더 확인: `전체 병력 요약` 섹션이 5페이지 맨 위에서 새 페이지로 시작, 6페이지까지 표가 자연스럽게 이어짐.
+- 051 간편심사 페이지 구분(4페이지 시작)도 접촉시트에서 유지 확인.
+### Notes
+- 임시 PDF/PNG 렌더 산출물은 커밋 전 삭제. PII/PDF/brand/unrelated 파일 stage 금지 준수.
+- Commit: pending.
+### Next
+- Human: 실제 배포 PDF 저장 플로우에서 동일 레이아웃 최종 확인.
+
+## 2026-06-18 Cowork BOHUMFIT-062 [051 잔여 미커밋 변경 정리 — 전체 병력 요약 새 페이지 / Next: Codex 검증·PDF 육안·커밋(드디어 확정)]
+### STEP0 진단 (잔여 변경 정체)
+- 워킹트리 미커밋 2파일이 **정상 완결된 051 누락분**(마운트 노이즈 아님): `report_disclosure.html` "전체 병력 요약" 새 페이지 구분 + `test_report_pdf.py` 동반 회귀.
+- 템플릿(실파일): `<style>` `.all-history { page-break-before: always; break-before: page; }`(L148)·`.all-history .sec-h2 break-after avoid`(L149)·`.all-tbl tr break-inside avoid`(L157)·`.all-tbl thead table-header-group`(L156); HTML `{% if all_diseases %}<div class="q-block all-history"><h2>전체 병력 요약</h2><table class="all-tbl">…</div>{% endif %}`(L272~295, 정상 개폐·</html> L315). **051 간편심사 `.product-sec.page-break`(L83) 패턴과 일관 → 완결(중간/깨짐 아님)**.
+- 테스트(실파일): `test_disclosure_all_history_summary_starts_new_page`(L176~180)가 위 class·CSS 3종 단언. `DISCLOSURE_PAYLOAD`에 `all_disease_summary`(1건) → `render_disclosure_html`가 `all_diseases=payload["all_disease_summary"]`(report_pdf L421)로 매핑 → 분기 렌더 → 단언 충족.
+### Changed
+- **코드 변경 0** — 051 잔여분이 이미 워킹트리에 완결 상태. 본 태스크는 완결성 확인 + 단독 커밋 인계. (신규: `.agent-harness/tasks/BOHUMFIT-062.md`.)
+### Verified
+- 실파일 정합(Read/Grep): 3개 단언 문자열 verbatim 존재(L148·L156·L273)·`{% if all_diseases %}…{% endif %}` 정상·payload 조건 충족 → 테스트 구성상 통과.
+- **권위 증거**: Codex **060 전체 pytest=353 passed**가 이 051-잔여 워킹트리 파일 존재 상태에서 수행(pytest는 stage 무관 워킹트리 실행) → `test_disclosure_all_history_summary_starts_new_page`가 353에 **이미 포함·통과**.
+- [ ] (Codex/Windows) `pytest tests/test_report_pdf.py -vv`·전체 pytest(353)·실 PDF 6페이지 육안(전체 병력 요약 새 페이지 시작).
+### Notes
+- ⚠ report_disclosure.html·report_pdf.py·test_report_pdf.py 마운트 stale/절단(템플릿 /tmp 복사본 `{% if %}` 미종료 TemplateSyntaxError — 051에서도 잦던 손상). /tmp Jinja 실렌더·Chromium 육안 불가 → Codex/Windows 권위. 실파일 마커는 Read로 확인.
+- 분석 로직 무변경(PDF 표현만)·실 PDF 로컬만·PII 미커밋·작업파일 정리·마운트 git 미실행.
+### Next
+- **Codex(Windows)**: `pytest tests/test_report_pdf.py -vv`+전체 pytest·실 데이터 PDF 6페이지 육안(전체 병력 요약 새 페이지) → **051 잔여분(report_disclosure.html + test_report_pdf.py) 단독 커밋·푸시로 확정**. 커밋: `BOHUMFIT-062: 고지 리포트 전체 병력 요약 섹션 새 페이지 구분(051 잔여분 확정)`.
+
 ## 2026-06-18 Codex BOHUMFIT-061 [Windows 검증·CSP 로컬 헤더 스모크·publish / Next: Human security.txt·HSTS preload·CSP enforce]
 ### Changed
 - Cowork 061 범위 검증 완료: `vercel.json`, 신규 `public/.well-known/security.txt`, `.agent-harness/tasks/BOHUMFIT-061.md`, handoff/locks.

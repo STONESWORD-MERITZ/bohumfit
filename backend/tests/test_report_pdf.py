@@ -173,6 +173,13 @@ def test_disclosure_criteria_numbered_lines():
     assert "중대질환 진료 이력이 확인되지 않은 경우 (5번질문)" in html
 
 
+def test_disclosure_all_history_summary_starts_new_page():
+    html = rp.render_report_html("disclosure", DISCLOSURE_PAYLOAD, GEN_AT)
+    assert 'class="q-block all-history"' in html
+    assert ".all-history { page-break-before: always; break-before: page; }" in html
+    assert ".all-tbl thead { display: table-header-group; }" in html
+
+
 def test_disclosure_confirm_needed_only_when_indeterminate():
     """콘텐츠 수정 2: '확인 필요'는 추가검사/재검사 미확정 항목에만 사용."""
     html = rp.render_report_html("disclosure", DISCLOSURE_PAYLOAD, GEN_AT)

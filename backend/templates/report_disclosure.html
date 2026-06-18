@@ -145,12 +145,16 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
 
 /* ── 전체 병력 요약 ── */
 .all-tbl { width: 100%; border-collapse: collapse; font-size: 8.8pt; margin-top: 4px; }
+.all-history { page-break-before: always; break-before: page; }
+.all-history .sec-h2 { break-after: avoid; page-break-after: avoid; }
 .all-tbl th {
   background: var(--navy); color: #fff; font-weight: 700;
   padding: 5px 7px; text-align: left; border: 1px solid var(--navy);
 }
 .all-tbl td { border: 1px solid var(--line); padding: 4px 7px; }
 .all-tbl tr:nth-child(even) td { background: var(--bg-soft); }
+.all-tbl thead { display: table-header-group; }
+.all-tbl tr { page-break-inside: avoid; break-inside: avoid; }
 .sec-h2 {
   font-size: 11.5pt; font-weight: 800; color: var(--navy-deep);
   margin: 4px 0 6px; padding-left: 8px; border-left: 4px solid #CBD5E1;
@@ -266,7 +270,7 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
 {{ product_section("간편심사 (유병자 3-10-5 기준)", easy_sections, easy_count, "현재 기준으로 간편심사 고지 검토 항목이 없습니다.", true) }}
 
 {% if all_diseases %}
-<div class="q-block">
+<div class="q-block all-history">
   <h2 class="sec-h2">전체 병력 요약</h2>
   <table class="all-tbl">
     <thead>
