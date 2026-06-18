@@ -32,7 +32,7 @@
 - 051 간편심사 페이지 구분(4페이지 시작)도 접촉시트에서 유지 확인.
 ### Notes
 - 임시 PDF/PNG 렌더 산출물은 커밋 전 삭제. PII/PDF/brand/unrelated 파일 stage 금지 준수.
-- Commit: pending.
+- Commit: `ca52509` pushed to `origin/main`.
 ### Next
 - Human: 실제 배포 PDF 저장 플로우에서 동일 레이아웃 최종 확인.
 
