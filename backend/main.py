@@ -16,8 +16,8 @@ from sentry_sdk.integrations.logging import LoggingIntegration
 
 from fastapi import FastAPI, File, Request, UploadFile, Form, HTTPException, Depends, Body
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from fastapi.responses import Response, JSONResponse
+from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -33,7 +33,11 @@ from pipeline.report_pdf import (
 
 # ── 서비스 환경 ──────────────────────────────────────────────────────────────
 SENTRY_DSN  = os.environ.get("SENTRY_DSN", "")
-SERVICE_ENV = os.environ.get("SERVICE_ENV", "development")
+# BOHUMFIT-060 BF-01: 안전 기본 — SERVICE_ENV 미설정/오타 시 production 취급(디버그·문서 비활성).
+#   로컬 개발은 SERVICE_ENV=development 를 명시해야 문서·디버그가 켜진다.
+SERVICE_ENV = os.environ.get("SERVICE_ENV", "production")
+IS_DEVELOPMENT = SERVICE_ENV.strip().lower() == "development"
+IS_PRODUCTION  = not IS_DEVELOPMENT
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
 
@@ -151,12 +155,45 @@ if SENTRY_DSN:
     )
 
 # ── FastAPI 앱 ───────────────────────────────────────────────────────────────
-app = FastAPI(title="BOHUMFIT AI Backend", version="1.0.0")
+# BOHUMFIT-060 BF-01·BF-02: 운영(production)은 debug=False·API 문서(/docs·/redoc·/openapi) 비활성.
+#   개발(SERVICE_ENV=development)에서만 문서·디버그 노출(로컬 편의).
+app = FastAPI(
+    title="BOHUMFIT AI Backend",
+    version="1.0.0",
+    debug=IS_DEVELOPMENT,
+    docs_url=None if IS_PRODUCTION else "/docs",
+    redoc_url=None if IS_PRODUCTION else "/redoc",
+    openapi_url=None if IS_PRODUCTION else "/openapi.json",
+)
+
+
+# ── BOHUMFIT-060 BF-01: 전역 예외 핸들러 ──────────────────────────────────────
+# 미처리 예외의 상세 트레이스백을 클라이언트에 노출하지 않는다(운영·개발 공통).
+#   클라이언트엔 일반화 메시지, 상세는 서버 로그/Sentry 로만(052·047 로깅과 일관).
+#   HTTPException·RateLimitExceeded 는 각자 핸들러가 처리하므로 여기 도달하지 않는다.
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("unhandled error: %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요."},
+    )
+
 
 # ── Rate Limiter ─────────────────────────────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+# BOHUMFIT-060 BF-03: 레이트리밋 초과 시 한국어 안내(429). slowapi 기본 영문 응답 대체.
+def _rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "요청이 너무 잦습니다. 잠시 후 다시 시도해 주세요."},
+    )
+
+
+app.add_exception_handler(RateLimitExceeded, _rate_limit_handler)
 
 # ── CORS ─────────────────────────────────────────────────────────────────────
 _default_origins = "https://bohumfit.ai,https://www.bohumfit.ai,https://surit-react.vercel.app,http://localhost:5173,http://localhost:3000"
@@ -360,16 +397,9 @@ async def verify_jwt(credentials: HTTPAuthorizationCredentials = Depends(_bearer
 # ── 엔드포인트 ───────────────────────────────────────────────────────────────
 @app.get("/api/health")
 def health():
-    google_key_ok = bool(os.environ.get("GOOGLE_API_KEY"))
-    return {
-        "status": "ok",
-        "env": SERVICE_ENV,
-        "deps": {
-            "google_api_key": google_key_ok,
-            "sentry": bool(SENTRY_DSN),
-        },
-        "version": os.environ.get("RAILWAY_GIT_COMMIT_SHA", "dev")[:7],
-    }
+    # BOHUMFIT-060 BF-05: 공개 헬스는 최소 정보만 노출(env·deps·커밋해시 제거).
+    #   Railway 헬스체크용 200 status 는 유지. 상세 관측은 Sentry 로 일원화.
+    return {"status": "ok"}
 
 
 @app.post("/api/analyze")

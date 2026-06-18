@@ -16,6 +16,50 @@
 
 # Handoff
 
+## 2026-06-18 Codex BOHUMFIT-060 [Windows 검증·운영/개발 실기동·publish / Next: Human Supabase·rate limit 운영 확인]
+### Changed
+- Cowork 060 범위 검증 완료: `backend/main.py`, 신규 `backend/tests/test_security_hardening_060.py`, `.agent-harness/tasks/BOHUMFIT-060.md`, handoff/locks.
+- `backend/templates/report_disclosure.html`, `backend/tests/test_report_pdf.py`는 기존 051 잔여 변경으로 확인하고 060 stage 대상에서 제외.
+### Verified
+- truncation 선제 점검: `backend/main.py`, `backend/tests/test_security_hardening_060.py`, `.agent-harness/tasks/BOHUMFIT-060.md` NUL 없음, strict UTF-8 OK, tail 완결.
+- 핵심 패턴: `IS_PRODUCTION`/`IS_DEVELOPMENT`/`docs_url`/`SERVICE_ENV`, 한국어 429 핸들러 확인. `/api/health`는 실응답 기준 `{"status":"ok"}` 단일 키.
+- `python -c "import ast; ast.parse(...)"` -> `main OK`.
+- `cd backend && python -m pytest -q tests/ -k "security or health or rate or BOHUMFIT_060" -vv` -> 34 passed, 6 skipped, 320 deselected.
+- `cd backend && python -m pytest -q tests/test_main_launch_guardrails.py -vv` -> 2 passed.
+- `cd backend && python -m pytest -q` -> 353 passed, 7 skipped.
+- STEP B 실기동: `SERVICE_ENV=production` -> `/docs` 404, `/api/health` `{"status":"ok"}` keys=status. `SERVICE_ENV=development` -> `/docs` 200, `/api/health` `{"status":"ok"}` keys=status.
+- `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- `npm run lint` -> pass.
+- `npm test` -> 4 files / 45 tests passed.
+- `npm run build` -> pass. 기존 Vite 500k chunk warning만 출력.
+### Notes
+- Commit: BOHUMFIT-060 publish commit. 최종 commit hash는 자기참조 특성상 Codex 최종 응답/git log로 보고.
+- PII/PDF/brand/unrelated 파일 stage 금지 준수. 051 잔여 `report_disclosure.html`·`test_report_pdf.py`는 stage 금지.
+### Next
+- Human: Supabase 가입/이메일 인증 설정 확인, 운영 rate limit 수치 및 proxy-IP 기반 throttle 위험 검토.
+
+## 2026-06-18 Cowork BOHUMFIT-060 [백엔드 보안 강화 — 운영모드·문서비활성·헬스최소화·레이트리밋 / Next: Codex 검증·커밋 + Human Supabase·레이트수치]
+### STEP0 진단
+- `SERVICE_ENV` 기본 `"development"`(역안전). `FastAPI(title,version)`만 — debug·docs 설정 없음 → **문서 기본 노출**. `/api/health`(L398~409) env·deps(google_api_key·sentry)·version(커밋해시) 노출. 전역 예외 핸들러 없음. slowapi 레이트리밋은 **이미 존재**(analyze 5/min·30/h L406·report 10/min·60/h L559) but 핸들러 영문 — 갭=한국어·운영 안전기본.
+### Changed (backend/main.py 단일 파일 + 신규 테스트)
+- **BF-01**: `SERVICE_ENV` 기본 `production`(미설정/오타→production). `IS_DEVELOPMENT/IS_PRODUCTION`. `FastAPI(debug=IS_DEVELOPMENT)`. 전역 `@app.exception_handler(Exception)` — 한국어 일반화 500·상세는 로그/Sentry만.
+- **BF-02**: `docs_url/redoc_url/openapi_url = None if IS_PRODUCTION`(개발 유지).
+- **BF-05**: `/api/health` → `{"status":"ok"}`(env·deps·version 제거, 200 유지).
+- **BF-03**: 429 한국어 핸들러(`_rate_limit_handler`)로 교체. 기존 한도·업로드 제한(10·15MB·40MB) 유지. 미사용 import 제거.
+- `backend/tests/test_security_hardening_060.py` 신규(9). `.agent-harness/tasks/BOHUMFIT-060.md` 신규.
+### Verified
+- /tmp(마운트 복구: main.py tail 재구성·pdf_parser splice·surgery_exclusions 059 동기·report_pdf import stub) + slowapi/python-multipart 설치 → **TestClient로 실제 main.py 검증: 060 9/9 passed**. 광범위 **44 passed·회귀 0**(main_launch_guardrails는 production 기본에도 bohumfit.ai CORS 유지로 통과).
+- [ ] (Codex/Windows) 전체 pytest(344+9)·tsc/lint/build.
+### Notes
+- **레이트리밋 수치**(Human 승인): analyze 5/min·30/h, report 10/min·60/h(기존·보수적, 10파일 1회는 미차단). 일일 쿼터 미적용(필요 시 Human 승인 후 추가).
+- ⚠ **proxy-IP 주의**: key=`get_remote_address`(IP). Railway 프록시 뒤 집단 throttle 위험(기존부터). 토큰 단위 키 전환 별도 검토 권장(Human/Codex).
+- **Supabase 가입(disable_signup)·이메일인증**은 코드 밖(대시보드) → **Human 확인** 필요.
+- ⚠ 마운트 손상 지속(main/pdf_parser/report_pdf truncation·analyzer L981·surgery_exclusions stale — 060 무관). 실파일 Read/Grep 정합 확인·TestClient는 복구본. 전체 pytest는 Codex/Windows.
+- 분석/파싱/result_builder·052 끊김방지·055 병렬·058 동적예산 **전부 무변경**(보안 표면만). 실 PDF/PII 미사용·작업파일(/tmp) 정리·마운트 git 미실행.
+### Next
+- **Codex(Windows)**: 전체 pytest·tsc/lint/build → 범위 파일 stage→commit→push. 커밋: `BOHUMFIT-060: 백엔드 보안 강화 — 운영 debug·문서 비활성·헬스 최소화·레이트리밋 한국어 429`.
+- **Human**: 레이트리밋 수치 승인(+proxy-IP/토큰키 판단), Supabase 가입·이메일인증 정책 확인.
+
 ## 2026-06-18 Codex BOHUMFIT-059 [Windows 권위 검증·publish / Next: Human 운영 화면 확인]
 ### Changed
 - Cowork 059 구현 범위 검증 완료: `backend/pipeline/surgery_exclusions.py`, `backend/pipeline/disease_aggregator.py`, 신규 `backend/tests/test_nonsurgery_action_059.py`, `.agent-harness/tasks/BOHUMFIT-059.md`, handoff/locks.

@@ -4,7 +4,7 @@ Use this file to record active Codex file ownership during a task.
 
 ## Active
 
-(없음)
+- 2026-06-18 `BOHUMFIT-060` - Codex - Windows 권위 검증·커밋: `backend/main.py`, `backend/tests/test_security_hardening_060.py`, `.agent-harness/tasks/BOHUMFIT-060.md`, handoff/locks.
 
 ## Rules
 
@@ -14,6 +14,10 @@ Use this file to record active Codex file ownership during a task.
 - Keep this file operational and short. Historical lock detail lives in git history and `handoff.md`.
 
 ## Released
+
+- 2026-06-18 `BOHUMFIT-060` - Codex - Windows 권위 검증 완료. main.py/test_security_hardening_060/task 무결성 OK, AST OK, 060 타깃 34 passed/6 skipped, launch guardrails 2 passed, 전체 backend 353 passed/7 skipped, production `/docs` 404 및 health `{"status":"ok"}`, development `/docs` 200 확인, tsc/lint/npm test/build 통과. 051 잔여 report_disclosure/test_report_pdf 및 PII/PDF/brand/unrelated stage 금지 준수. 범위 파일 커밋/푸시 진행.
+
+- 2026-06-18 `BOHUMFIT-060` - Cowork - 백엔드 보안 강화 완료(backend/main.py 단일 + 신규 테스트). STEP0: SERVICE_ENV 기본 development(역안전)·docs 기본노출·health env/deps/해시 노출·전역예외핸들러 없음·레이트리밋은 이미 존재(영문). 구현: BF-01 SERVICE_ENV 기본 production·IS_PRODUCTION·debug=IS_DEVELOPMENT·전역 Exception 핸들러(한국어 500·상세 로그만); BF-02 운영 docs/redoc/openapi=None(개발 유지); BF-05 /api/health→{"status":"ok"}; BF-03 429 한국어 핸들러·기존 한도(analyze 5/min·30/h·report 10/min·60/h)·업로드(10·15MB·40MB) 유지·미사용 import 제거. 신규 test_security_hardening_060(9). 검증: /tmp 마운트 복구(main tail 재구성·pdf_parser splice·surgery_exclusions 059 동기·report_pdf stub)+slowapi/multipart 설치→TestClient 실제 main.py 060 9/9·광범위 44 passed·회귀0(main_launch_guardrails 통과). 분석/파싱·052/055/058 무변경. ⚠마운트 손상(main/pdf_parser/report_pdf/analyzer·060 무관)→전체 pytest Codex/Windows. 실 PDF/PII 미사용·작업파일 정리·마운트 git 미실행. Notes: 레이트수치 Human 승인·proxy-IP 집단throttle 주의(토큰키 검토)·Supabase 가입/이메일인증(대시보드) Human 확인. → Codex 전체검증(344+9)·커밋 / Human Supabase·레이트수치.
 
 - 2026-06-18 `BOHUMFIT-059` - Codex - Windows 권위 검증 완료: 파일 무결성·AST OK(BOM 제거 포함), 059 선택 테스트 39 passed/1 skipped, 전체 backend 344 passed/7 skipped, tsc/lint/npm test/build 통과, 실 PDF 이민규 K21/L90 수술 1→0 및 최유미 비용적출술·창상봉합술 유지 확인. 커밋 `dcf0903` 푸시 완료.
 
