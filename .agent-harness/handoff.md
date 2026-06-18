@@ -33,7 +33,7 @@
 - `npm test` -> 4 files / 45 tests passed.
 - `npm run build` -> pass. 기존 Vite 500k chunk warning만 출력.
 ### Notes
-- Commit: BOHUMFIT-060 publish commit. 최종 commit hash는 자기참조 특성상 Codex 최종 응답/git log로 보고.
+- Commit: `3120a78` pushed to `origin/main`.
 - PII/PDF/brand/unrelated 파일 stage 금지 준수. 051 잔여 `report_disclosure.html`·`test_report_pdf.py`는 stage 금지.
 ### Next
 - Human: Supabase 가입/이메일 인증 설정 확인, 운영 rate limit 수치 및 proxy-IP 기반 throttle 위험 검토.

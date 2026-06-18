@@ -4,7 +4,7 @@ Use this file to record active Codex file ownership during a task.
 
 ## Active
 
-- 2026-06-18 `BOHUMFIT-060` - Codex - Windows 권위 검증·커밋: `backend/main.py`, `backend/tests/test_security_hardening_060.py`, `.agent-harness/tasks/BOHUMFIT-060.md`, handoff/locks.
+(없음)
 
 ## Rules
 
