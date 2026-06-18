@@ -39,7 +39,7 @@
 - non-CSP 참고: 로컬 origin(`127.0.0.1`)에서 Railway `/api/health` fetch는 backend CORS로 차단 로그가 남음. CSP 위반은 아님.
 - 추가 관찰: 로컬 `.env`의 임시 API URL(`https://임시값.onrender.com`)로 빌드하면 enforced `connect-src`가 해당 임시 도메인을 차단함. 운영/preview 환경변수는 Railway URL이어야 함.
 ### Notes
-- Commit: BOHUMFIT-061 publish commit. 최종 commit hash는 Codex 최종 응답/git log로 보고.
+- Commit: `e7ee40d` pushed to `origin/main`.
 - PII/PDF/brand/unrelated 파일 stage 금지 준수. 051 잔여 `report_disclosure.html`·`test_report_pdf.py`는 stage 금지.
 ### Next
 - Human: `security@bohumfit.ai` 실제 보안 연락처 교체 여부, HSTS preload 등록 여부, 운영 Report-Only 로그 모니터링 후 `script-src 'self'` enforce 전환 판단.
