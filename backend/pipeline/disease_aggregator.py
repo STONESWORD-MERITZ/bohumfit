@@ -1,4 +1,4 @@
-﻿"""disease_stats 빌드 + 약 변경 감지 + 처방 종료일 계산 — analyzer.py 에서 이동."""
+"""disease_stats 빌드 + 약 변경 감지 + 처방 종료일 계산 — analyzer.py 에서 이동."""
 from __future__ import annotations
 
 import gc
@@ -32,7 +32,7 @@ from .helpers import (
     row_is_junk,
     test_keywords,
 )
-from .surgery_exclusions import is_non_surgery_excluded  # BOHUMFIT-062
+from .surgery_exclusions import is_non_surgery_excluded, is_non_surgery_action  # BOHUMFIT-062·059
 from .nhis_history_constants import grade_surgery_suspicion, stronger_grade  # BOHUMFIT-033
 
 
@@ -166,6 +166,8 @@ def _is_detail_surgery_match(text: str) -> bool:
     if not text or _is_detail_support_only(text):
         return False
     if is_non_surgery_excluded(text):  # BOHUMFIT-062: 비수술 코드명 전역 제외
+        return False
+    if is_non_surgery_action(text):    # BOHUMFIT-059: 검사·처치·주사 행위 제외(강수술 신호는 통과)
         return False
     compact = re.sub(r"\s+", "", text)
     return (
@@ -358,7 +360,13 @@ def build_disease_stats(
                 act_name = _detail_action_name(row)
                 surg_col = get_val(row, ["처치및수술", "처치및수 술", "처치/수술"])
                 surg_target = act_name if act_name else name_str
-                is_surg_by_column = bool(surg_col and surg_col.strip() and surg_col.strip() != "0")
+                # BOHUMFIT-059: 처치및수술 컬럼이 비어있지 않아도 검사·처치·주사 행위면 수술 미판정
+                #   (복부초음파·병변내주입요법 등 오탐 제거). 강수술 신호는 is_non_surgery_action 이 통과시킴.
+                _non_surg_action = is_non_surgery_action(surg_target) or is_non_surgery_action(surg_col)
+                is_surg_by_column = (
+                    bool(surg_col and surg_col.strip() and surg_col.strip() != "0")
+                    and not _non_surg_action
+                )
                 is_surg_by_keyword = _is_detail_surgery_match(surg_target)
 
                 if is_surg_by_column:

@@ -16,6 +16,54 @@
 
 # Handoff
 
+## 2026-06-18 Codex BOHUMFIT-059 [Windows 권위 검증·publish / Next: Human 운영 화면 확인]
+### Changed
+- Cowork 059 구현 범위 검증 완료: `backend/pipeline/surgery_exclusions.py`, `backend/pipeline/disease_aggregator.py`, 신규 `backend/tests/test_nonsurgery_action_059.py`, `.agent-harness/tasks/BOHUMFIT-059.md`, handoff/locks.
+- `backend/pipeline/disease_aggregator.py` 선두 BOM은 HEAD에도 있던 기존 상태였으나, 사용자 지정 AST 명령(`encoding='utf-8'`) 통과를 위해 범위 파일 내에서 BOM만 제거.
+- 059 범위 밖 `backend/templates/report_disclosure.html`, `backend/tests/test_report_pdf.py`, brand/PDF/untracked 작업물은 stage 금지.
+### Verified
+- [x] 무결성: `surgery_exclusions.py` 65 lines, `disease_aggregator.py` 799 lines, `test_nonsurgery_action_059.py` 89 lines, strict UTF-8, NUL 0, replacement 0, tail intact.
+- [x] 핵심 심볼: `is_non_surgery_action`, `_NON_SURGERY_ACTION_KEYWORDS`, `disease_aggregator` 양 경로 import/guard 확인.
+- [x] AST: `surgery_exclusions.py` + `disease_aggregator.py` OK.
+- [x] `cd backend && python -m pytest -q tests/ -k "surgery or detail or non_surgery or BOHUMFIT_059" -vv` — 39 passed, 1 skipped.
+- [x] `cd backend && python -m pytest -q` — 344 passed, 7 skipped.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` — passed.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` — passed.
+- [x] `npm run lint` — passed.
+- [x] `npm test` — 45 passed.
+- [x] `npm run build` — passed(기존 500k chunk warning만).
+- [x] 실 PDF 재현: 이민규 10파일 전체 로컬 파싱 453 records / errors 0. 059 이전 모사(monkeypatch) 대비 K21 식도염 수술 1→0, L90 여드름흉터 수술 1→0. 두 항목 모두 통원 1회 유지.
+- [x] 대조군: 최유미 3파일 전체 로컬 파싱 2079 records / errors 0. B44 비용적출술 수술 1건 유지, S61 창상봉합술 수술 1건 유지.
+### Notes
+- 이민규 현행 집계에서 확정수술 그룹은 남지 않고, 기존 공단 수술의심 그룹(K01/K05/K60/K63/M51)은 그대로 유지됨.
+- D 판정: `backend/templates/report_disclosure.html`, `backend/tests/test_report_pdf.py`는 빈 diff/마운트 노이즈가 아니라 “전체 병력 요약 새 페이지 시작 + 회귀 테스트” 의미 있는 미커밋 변경이다. 059와 무관하므로 이번 커밋에 섞지 않음.
+- 실 PDF/PII는 로컬 파싱만 수행했고 커밋/스테이징하지 않음.
+- Main commit: pending.
+### Next
+- Human: 운영 화면에서 K21/L90 수술 0건, 비용적출술·창상봉합술 정탐 유지 확인. 추가 오탐 행위명이 나오면 `backend/pipeline/surgery_exclusions.py`의 `_NON_SURGERY_ACTION_KEYWORDS`에 회귀 테스트와 함께 보강.
+
+## 2026-06-18 Cowork BOHUMFIT-059 [세부진료 수술 오탐 제거(검사·처치·주사 제외) / Next: Codex 전체검증·실 PDF 재현·커밋 + Human 화면확인]
+### PHASE1 진단 (현재 기준 + 분류 + 오탐)
+- **수술 판정 2경로(disease_aggregator detail L357~370)**: ①**컬럼 기반**(L361) `처치및수술` 컬럼 비어있지않으면 행위무관 수술확정 — 검사/처치/주사 필터 **없음** → **복부초음파(검사) 오탐 주범**. ②**키워드 기반**(L362 `_is_detail_surgery_match`) — `_is_surgery_match`의 positive `surg_keywords`에 **"주입"** 포함 → **병변내주입요법(주사)이 "주입" 매칭 → 오탐 주범**.
+- 기존 `is_non_surgery_excluded`(062, exact 코드명 4건)는 키워드 행위 오탐 못 막음.
+- 분류: 진짜수술=비용적출술(적출)·창상봉합술(봉합)·내시경하종양수술(수술) [강수술 신호 보유] / 검사=복부초음파·위내시경검사·CT·MRI·생검 / 주사=병변내주입요법·관절강내주사 / 처치=드레싱·소독. 오탐=복부초음파·병변내주입요법(+위내시경검사류).
+### Changed (PHASE2)
+- `backend/pipeline/surgery_exclusions.py` — `is_non_surgery_action()` 신설(+`_STRONG_SURGERY_KEYWORDS`·`_NON_SURGERY_ACTION_KEYWORDS`). 검사·처치·주사 키워드면 비수술 True, **단 강수술 신호(절제·적출·봉합·수술 등) 있으면 False**(누락 0). 062 단일 소스 확장.
+- `backend/pipeline/disease_aggregator.py` — import에 `is_non_surgery_action`; `_is_detail_surgery_match`에 비수술 가드(경로 B); detail 분기 `is_surg_by_column`에 `and not is_non_surgery_action(surg_target/surg_col)` 가드(경로 A). 교차참조·confirmed-column 경로는 자동 상속. `_is_surgery_match`(basic/nhis)·keywords.json·filters **무변경**.
+- `backend/tests/test_nonsurgery_action_059.py` 신규(7).
+- `.agent-harness/tasks/BOHUMFIT-059.md` 신규.
+### Verified (전후·대조군)
+- 합성 픽스처(행위명 동일): **K21+복부초음파 → 수술 0·통원 유지**, **L90+병변내주입요법 → 수술 0**, **비용적출술/창상봉합술 → 수술 유지(정탐)**, 검사 detail 제외돼도 통원 2 유지.
+- /tmp(마운트 복구본): **059 7/7 + 수술/집계/필터 광범위 222 passed·6 skipped, 회귀 0**. 유일 실패 `test_q2_ai_gate`는 corrupt analyzer.py 소스 grep(**059 무관 환경결함**, Windows 정상).
+- [ ] (Codex/Windows) 전체 pytest(331+7)·tsc/lint/build·실 PDF 재현.
+### Notes
+- ⚠ **실 PDF(이민규 세부진료) 비밀번호(PII 생년월일) 미보유 → 미오픈**. 진단은 코드+증상 행위명("복부초음파"·"병변내주입요법-25cm²미만") 기반, 합성 픽스처로 동일 재현. **Codex가 실 PDF(생년월일)로 K21/L90 수술 1→0 재현 권위**.
+- ⚠ 마운트 view 손상 지속(analyzer 본문·report_pdf·pdf_parser·test_nhis_history stale/절단 — 059 무관). pdf_parser tail 재구성·surgery_exclusions 실파일 동기로 검증. report/analyzer-body·전체 pytest는 Codex/Windows.
+- 강수술 화이트리스트 우선으로 누락 0. 오탐은 detail 한정(증상대로) → basic/nhis 무변경(회귀면 최소). 실 PDF/PII 미커밋·작업파일(/tmp) 정리·마운트 git 미실행.
+### Next
+- **Codex(Windows)**: 전체 pytest·tsc/lint/build·실 PDF(이민규 세부진료+자동차, 생년월일) 재현 — K21·L90 수술 1→0·진짜 수술 유지 → 범위 파일 stage→commit→push. 커밋: `BOHUMFIT-059: 세부진료 수술 오탐 제거(검사·처치·주사 비수술 행위 제외) — 컬럼·키워드 양경로 가드`.
+- **Human**: 운영 화면 K21/L90 수술 0건 확인. 추가 오탐 행위명 시 `_NON_SURGERY_ACTION_KEYWORDS` 보강.
+
 ## 2026-06-18 Codex BOHUMFIT-058 [Windows ?? ???publish / Next: Human ?? ?? ??]
 ### Changed
 - Cowork 058 ?? ?? ?? ??: `backend/analyzer.py`, `backend/main.py`, ?? `backend/tests/test_dynamic_ai_budget.py`, `.agent-harness/tasks/BOHUMFIT-058.md`, handoff/locks.
