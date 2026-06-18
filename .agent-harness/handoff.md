@@ -16,6 +16,54 @@
 
 # Handoff
 
+## 2026-06-18 Codex BOHUMFIT-061 [Windows 검증·CSP 로컬 헤더 스모크·publish / Next: Human security.txt·HSTS preload·CSP enforce]
+### Changed
+- Cowork 061 범위 검증 완료: `vercel.json`, 신규 `public/.well-known/security.txt`, `.agent-harness/tasks/BOHUMFIT-061.md`, handoff/locks.
+- `backend/templates/report_disclosure.html`, `backend/tests/test_report_pdf.py`는 기존 051 잔여 변경으로 확인하고 061 stage 대상에서 제외.
+### Verified
+- `python -c "import json; json.load(open('vercel.json')); print('vercel.json valid')"` -> pass.
+- `vercel.json` 패턴 확인: `Content-Security-Policy-Report-Only`, `max-age=63072000`, `preload`.
+- `public/.well-known/security.txt` 확인: Contact `security@bohumfit.ai`, Expires `2027-01-01T00:00:00Z`, Canonical `https://bohumfit.ai/.well-known/security.txt`.
+- 무결성: `vercel.json`, `public/.well-known/security.txt`, `.agent-harness/tasks/BOHUMFIT-061.md` NUL 없음, strict UTF-8 OK, tail 완결.
+- `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- `npm run lint` -> pass.
+- `npm test` -> 4 files / 45 tests passed.
+- `npm run build` -> pass. 기존 Vite 500k chunk warning만 출력.
+- `cd backend && python -m pytest -q` -> 353 passed, 7 skipped.
+### STEP B
+- 로컬 정적 서버에 `vercel.json` 헤더를 실제 적용해 Chrome DevTools Protocol로 확인.
+- 운영 API URL(`VITE_API_URL=https://surit-react-production.up.railway.app`) 기준 빌드 스모크: 앱 정상 렌더(root children 1), `/login` 정상 렌더, `security.txt` 200, CSP/HSTS/Report-Only 응답 헤더 존재.
+- 로그인 진입: Kakao 버튼 클릭 -> `accounts.kakao.com` OAuth 화면 진입, Google 버튼 클릭 -> `accounts.google.com` OAuth 화면 진입, Email 폼은 가짜 계정 제출 후 화면 응답 유지. 자격증명/실사용자 데이터 전송 없음.
+- CSP 콘솔: enforced CSP 위반 0, Report-Only CSP 위반 0. 인라인 polyfill 위반도 0.
+- non-CSP 참고: 로컬 origin(`127.0.0.1`)에서 Railway `/api/health` fetch는 backend CORS로 차단 로그가 남음. CSP 위반은 아님.
+- 추가 관찰: 로컬 `.env`의 임시 API URL(`https://임시값.onrender.com`)로 빌드하면 enforced `connect-src`가 해당 임시 도메인을 차단함. 운영/preview 환경변수는 Railway URL이어야 함.
+### Notes
+- Commit: BOHUMFIT-061 publish commit. 최종 commit hash는 Codex 최종 응답/git log로 보고.
+- PII/PDF/brand/unrelated 파일 stage 금지 준수. 051 잔여 `report_disclosure.html`·`test_report_pdf.py`는 stage 금지.
+### Next
+- Human: `security@bohumfit.ai` 실제 보안 연락처 교체 여부, HSTS preload 등록 여부, 운영 Report-Only 로그 모니터링 후 `script-src 'self'` enforce 전환 판단.
+
+## 2026-06-18 Cowork BOHUMFIT-061 [프런트·배포 보안 헤더 — CSP 강화·CORS·HSTS·security.txt / Next: Codex build·헤더·로그인 확인·커밋 + Human 연락처·preload·enforce]
+### STEP0 진단
+- 보안 헤더는 **vercel.json `headers`** 한 곳(`public/_headers` 없음). CSP `script-src 'self' 'unsafe-inline'`·HSTS `max-age=31536000; includeSubDomains`. **와일드카드 CORS 부재**(grep 0, Vercel 정적 기본 ACAO 미부여 → STEP2 제거 대상 없음). security.txt 없음. index.html 인라인 스크립트 없음(외부 module만)·vite plain(legacy 없음).
+### Changed (vercel.json + 신규 security.txt — 백엔드 무관·060과 파일 안 겹침)
+- **BF-04(STEP1) CSP**: enforced CSP **유지**(`script-src 'self' 'unsafe-inline'` → 앱 동작 보존). 신규 **`Content-Security-Policy-Report-Only`** 추가 — `script-src 'self'`(unsafe-inline 제거)·나머지 동일. **Report-Only 단계 적용**(빌드 인라인 스크립트=Vite modulepreload polyfill 유무 sandbox 브라우저 확정 불가 + vite.config 범위 밖 → 태스크 권장대로 위반 수집 후 enforce, 앱 깨짐 0 최우선). style-src 'unsafe-inline'(React style)·jsdelivr(Pretendard)·connect-src(supabase·railway) 유지.
+- **CM-01(STEP3) HSTS**: `max-age=63072000; includeSubDomains; preload`.
+- **CM-02(STEP4) security.txt**: `public/.well-known/security.txt` 신규(RFC 9116, Contact 플레이스홀더·Expires 2027-01-01·ko,en·Canonical). Vercel 정적 우선 서빙으로 SPA rewrite와 무충돌.
+- **BF-07(STEP2) CORS**: 대상 없음 → 변경 없음.
+### Verified (앱·로그인은 Codex)
+- vercel.json **유효 JSON**·HSTS·enforced CSP·Report-Only 값 실파일 확인. security.txt 생성 확인. 백엔드 파일 무접촉(무변경).
+- [ ] (Codex/Windows) `npm run build`·tsc·로컬 로그인(Google/Kakao/Email) 깨짐 0·실 응답 헤더·Report-Only 콘솔 위반.
+### Notes — Human/Codex 확인
+- **security.txt 연락처** `security@bohumfit.ai`는 **플레이스홀더** → Human 실제 보안 연락처 교체.
+- **HSTS preload**: 토큰 추가됨. hstspreload.org **등록은 Human 판단**(철회 난이도·전 서브도메인 HTTPS 확신 필요).
+- **CSP enforce 전환**: Report-Only 위반 0 확인 후 enforced `script-src`를 `'self'`로 승격(Human/Codex 게이트). Vite modulepreload polyfill 위반만 있으면 후속 태스크로 `vite.config build.modulePreload.polyfill=false`(061 범위 밖) 후 enforce.
+- ⚠ sandbox 한계: build(rolldown)·브라우저·실 헤더는 Codex/Windows 권위. 마운트 bash-view vercel.json stale/절단 → 실파일 Read로 검증.
+### Next
+- **Codex(Windows)**: build·tsc·로그인 플로우·실 헤더·Report-Only 위반 확인 → 범위 파일 stage→commit→push. 커밋: `BOHUMFIT-061: 프런트 보안 헤더 — CSP script-src Report-Only 강화·HSTS preload·security.txt`.
+- **Human**: security.txt 연락처 교체·HSTS preload 등록 판단·Report-Only 위반 검토 후 CSP enforce 전환 승인.
+
 ## 2026-06-18 Codex BOHUMFIT-060 [Windows 검증·운영/개발 실기동·publish / Next: Human Supabase·rate limit 운영 확인]
 ### Changed
 - Cowork 060 범위 검증 완료: `backend/main.py`, 신규 `backend/tests/test_security_hardening_060.py`, `.agent-harness/tasks/BOHUMFIT-060.md`, handoff/locks.
