@@ -15,7 +15,7 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
-- 2026-06-18 `BOHUMFIT-059` - Codex - Windows 권위 검증 완료: 파일 무결성·AST OK(BOM 제거 포함), 059 선택 테스트 39 passed/1 skipped, 전체 backend 344 passed/7 skipped, tsc/lint/npm test/build 통과, 실 PDF 이민규 K21/L90 수술 1→0 및 최유미 비용적출술·창상봉합술 유지 확인. 커밋/푸시 예정.
+- 2026-06-18 `BOHUMFIT-059` - Codex - Windows 권위 검증 완료: 파일 무결성·AST OK(BOM 제거 포함), 059 선택 테스트 39 passed/1 skipped, 전체 backend 344 passed/7 skipped, tsc/lint/npm test/build 통과, 실 PDF 이민규 K21/L90 수술 1→0 및 최유미 비용적출술·창상봉합술 유지 확인. 커밋 `dcf0903` 푸시 완료.
 
 - 2026-06-18 `BOHUMFIT-059` - Cowork - 세부진료 수술 오탐 제거(검사·처치·주사 비수술 행위 제외) 완료. PHASE1: 수술 2경로 — ①컬럼 기반(`is_surg_by_column`, 처치및수술 컬럼 비어있지않으면 행위무관 확정, 필터 없음→복부초음파 오탐) ②키워드 기반(`_is_detail_surgery_match`→`surg_keywords`의 "주입"→병변내주입요법 오탐). PHASE2: `surgery_exclusions.py`에 `is_non_surgery_action`(검사·처치·주사 키워드, 강수술 신호 우선→누락0) 신설; `disease_aggregator` 두 경로 가드(컬럼 `and not is_non_surgery_action`·`_is_detail_surgery_match` early-False). `_is_surgery_match`/keywords.json/filters 무변경. 신규 `test_nonsurgery_action_059.py`(7). 검증: 합성(행위명 동일) K21+복부초음파→수술0·통원유지, L90+병변내주입요법→수술0, 비용적출술/창상봉합술→수술유지(정탐), /tmp 059 7/7+광범위 222 passed·회귀0(유일실패 test_q2_ai_gate=corrupt analyzer 소스 grep, 059 무관). ⚠실 PDF 비번(PII) 미보유로 미오픈→합성 재현·Codex 실 PDF 권위. 마운트 손상(analyzer 본문·report·pdf_parser·nhis_history)→Codex 전체 pytest. 실 PDF/PII 미커밋·작업파일 정리·마운트 git 미실행. → Codex 전체검증(331+7)·실 PDF K21/L90 1→0 재현·커밋 / Human 화면확인·키워드 보강.
 

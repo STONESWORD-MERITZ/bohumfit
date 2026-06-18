@@ -38,7 +38,7 @@
 - 이민규 현행 집계에서 확정수술 그룹은 남지 않고, 기존 공단 수술의심 그룹(K01/K05/K60/K63/M51)은 그대로 유지됨.
 - D 판정: `backend/templates/report_disclosure.html`, `backend/tests/test_report_pdf.py`는 빈 diff/마운트 노이즈가 아니라 “전체 병력 요약 새 페이지 시작 + 회귀 테스트” 의미 있는 미커밋 변경이다. 059와 무관하므로 이번 커밋에 섞지 않음.
 - 실 PDF/PII는 로컬 파싱만 수행했고 커밋/스테이징하지 않음.
-- Main commit: pending.
+- Main commit: `dcf0903` pushed to `origin/main`.
 ### Next
 - Human: 운영 화면에서 K21/L90 수술 0건, 비용적출술·창상봉합술 정탐 유지 확인. 추가 오탐 행위명이 나오면 `backend/pipeline/surgery_exclusions.py`의 `_NON_SURGERY_ACTION_KEYWORDS`에 회귀 테스트와 함께 보강.
 
