@@ -8,18 +8,48 @@ import gc
 import logging
 import os
 import re
+import time
 from collections import Counter
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
+# BOHUMFIT-058: 서버 분석 상한(=main.py ANALYZE_TIMEOUT_SECONDS)의 단일 소스.
+#   main.py 가 이 상수를 import 해 동일 값을 사용한다(하드코딩 중복 제거). 값 변경 아님(300).
+SERVER_ANALYZE_DEADLINE_SECONDS = 300
 
-def _ai_budget_seconds() -> int:
-    """Optional AI enrichment budget for the synchronous /api/analyze request."""
+# BOHUMFIT-058: 동적 AI 예산 파라미터.
+#   가용 = SERVER_DEADLINE - 경과 - 안전마진; 예산 = clamp(가용, 0, 상한).
+#   상한(MAX)은 BOHUMFIT_AI_BUDGET_SECONDS env 설정 시 그 값으로 override 가능.
+_MAX_AI_BUDGET_SECONDS = 20        # 남은 시간이 충분할 때 AI 예산 상한
+_AI_BUDGET_SAFETY_MARGIN = 30      # 결과 빌드·직렬화·네트워크 응답 여유(초)
+
+
+def _ai_budget_ceiling() -> int:
+    """동적 AI 예산의 상한(MAX). BOHUMFIT_AI_BUDGET_SECONDS 설정 시 그 값(override),
+    미설정 시 기본 _MAX_AI_BUDGET_SECONDS(20). 음수/비정상 입력은 안전 처리."""
+    raw = os.environ.get("BOHUMFIT_AI_BUDGET_SECONDS")
+    if raw is None:
+        return _MAX_AI_BUDGET_SECONDS
     try:
-        return max(0, int(os.environ.get("BOHUMFIT_AI_BUDGET_SECONDS", "5")))
+        return max(0, int(raw))
     except (TypeError, ValueError):
-        return 5
+        return _MAX_AI_BUDGET_SECONDS
+
+
+def _dynamic_ai_budget(elapsed_seconds: float, ceiling: int | None = None) -> int:
+    """BOHUMFIT-058: 남은 시간 기반 동적 AI 예산(초).
+
+    available = SERVER_ANALYZE_DEADLINE_SECONDS - 경과 - _AI_BUDGET_SAFETY_MARGIN
+    budget    = clamp(available, 0, ceiling)
+
+    floor=0 → 남은 시간이 없으면 0(AI 우아하게 skip, 결정론 결과는 그대로·고지 누락 0).
+    동적 clamp 는 env override(상한) 여부와 무관하게 항상 적용된다.
+    """
+    if ceiling is None:
+        ceiling = _ai_budget_ceiling()
+    available = SERVER_ANALYZE_DEADLINE_SECONDS - elapsed_seconds - _AI_BUDGET_SAFETY_MARGIN
+    return int(max(0, min(ceiling, available)))
 
 
 def _parse_quality_warning(record_counts: dict) -> str | None:
@@ -886,6 +916,9 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
     Raises:
         AnalysisError: 분석 실패 시
     """
+    # BOHUMFIT-058: 동적 AI 예산 기준 시각. 서버 300초 wait_for(main.py)가 감싸는 구간의
+    #   시작점으로, 파싱이 길어질수록 AI 예산을 줄여 끊김 재발을 막는다.
+    _t0 = time.monotonic()
     today = datetime(reference_date.year, reference_date.month, reference_date.day)
     _d3m_dt  = today - timedelta(days=90)
     _d1y_dt  = today - timedelta(days=365)
@@ -988,7 +1021,16 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
     ai_result = _empty_ai_result()
     _med_result: dict = {"additional_tests": {}, "treatment_ongoing": {}}
     _q2_findings: dict = {}
-    _ai_budget = _ai_budget_seconds()
+    # BOHUMFIT-058: 고정 5초 → 남은 시간 기반 동적 예산. 파싱이 빠르면 최대 20초(041 Q2
+    #   주석 보존), 파싱이 길어 남은 시간이 없으면 0초(AI 우아하게 skip — 결정론 결과 유지).
+    _ai_ceiling = _ai_budget_ceiling()
+    _elapsed = time.monotonic() - _t0
+    _ai_avail = SERVER_ANALYZE_DEADLINE_SECONDS - _elapsed - _AI_BUDGET_SAFETY_MARGIN
+    _ai_budget = _dynamic_ai_budget(_elapsed, _ai_ceiling)
+    logger.info(
+        "BOHUMFIT-058 ai budget: elapsed=%.1fs avail=%.1fs budget=%ds ceiling=%ds",
+        _elapsed, _ai_avail, _ai_budget, _ai_ceiling,
+    )
     if _ai_budget > 0:
         try:
             _med_result_raw, _q2_findings_raw = await asyncio.wait_for(
@@ -1008,8 +1050,14 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
                 f"⚠️ AI 보조 판단이 {_ai_budget}초 안에 끝나지 않아 결정론 결과를 먼저 표시합니다. "
                 "필요 시 진료 원자료로 추가검사·치료종결 여부를 확인해 주세요."
             )
-    else:
+    elif _ai_ceiling <= 0:
         retry_warnings.append("⚠️ AI 보조 판단이 비활성화되어 결정론 결과만 표시합니다.")
+    else:
+        # BOHUMFIT-058: 남은 시간이 없어 AI skip(끊김 재발 방지). 고지 누락 없음(결정론 유지).
+        retry_warnings.append(
+            f"⚠️ 분석 시간이 촉박해(경과 {int(_elapsed)}초) AI 보조 판단을 건너뛰고 결정론 결과를 먼저 표시합니다. "
+            "필요 시 진료 원자료로 추가검사·치료종결 여부를 확인해 주세요."
+        )
 
     if "_error" in _med_result:
         retry_warnings.append(

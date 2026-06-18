@@ -23,7 +23,7 @@ from slowapi.util import get_remote_address
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import httpx
 
-from analyzer import run_analysis, AnalysisError
+from analyzer import run_analysis, AnalysisError, SERVER_ANALYZE_DEADLINE_SECONDS
 from pipeline.report_pdf import (
     REPORT_TYPES,
     ReportError,
@@ -318,7 +318,9 @@ MAX_FILE_SIZE  = 15 * 1024 * 1024   # 파일당 15MB
 MAX_TOTAL_SIZE = 40 * 1024 * 1024   # 총합 40MB (10개×소형 PDF 충분)
 # BOHUMFIT-BUG-006: 318p 대용량 PDF Gemini 응답 + 후처리 합산 ~170s 초과로 타임아웃 연장.
 # 기존: 170 (프런트 180초보다 짧게) → 300 으로 상향. 프런트 타임아웃도 함께 검토 필요.
-ANALYZE_TIMEOUT_SECONDS = 300       # 서버측 분석 상한 (318p 대용량 PDF 대응)
+# BOHUMFIT-058: 값(300)은 analyzer.SERVER_ANALYZE_DEADLINE_SECONDS 단일 소스에서 공유한다.
+#   analyzer 의 동적 AI 예산이 이 상한을 기준으로 남은 시간을 계산하므로 두 곳이 어긋나면 안 된다.
+ANALYZE_TIMEOUT_SECONDS = SERVER_ANALYZE_DEADLINE_SECONDS   # 서버측 분석 상한 (318p 대용량 PDF 대응)
 
 # ── 인증 (Supabase 토큰 검증) ────────────────────────────────────────────────
 # JWT 비밀키/서명 알고리즘에 의존하지 않고 Supabase Auth 서버에 토큰을 직접

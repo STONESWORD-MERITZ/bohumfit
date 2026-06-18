@@ -16,6 +16,105 @@
 
 # Handoff
 
+## 2026-06-18 Codex BOHUMFIT-058 [Windows ?? ???publish / Next: Human ?? ?? ??]
+### Changed
+- Cowork 058 ?? ?? ?? ??: `backend/analyzer.py`, `backend/main.py`, ?? `backend/tests/test_dynamic_ai_budget.py`, `.agent-harness/tasks/BOHUMFIT-058.md`, handoff/locks.
+- `locks.md`? Active ?? ?? ??. 058 ?? ? `backend/templates/report_disclosure.html`, `backend/tests/test_report_pdf.py`, brand/PDF/untracked ???? stage ??.
+### Verified
+- [x] ???: analyzer.py 1125 lines, main.py 585 lines, test_dynamic_ai_budget.py 137 lines, strict UTF-8, NUL 0, replacement 0, tail intact.
+- [x] ?? ??: `_dynamic_ai_budget`, `_ai_budget_ceiling`, `SERVER_ANALYZE_DEADLINE_SECONDS`, `BOHUMFIT-058 ai budget` ??. ? ?? `_ai_budget_seconds`? CaseSensitive ?? 0?.
+- [x] analyzer AST OK.
+- [x] `cd backend && python -m pytest -q tests/test_dynamic_ai_budget.py -vv` ? 6 passed.
+- [x] `cd backend && python -m pytest -q tests/test_analyze_fast_path.py -vv` ? 2 passed.
+- [x] `cd backend && python -m pytest -q` ? 337 passed, 7 skipped.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` ? passed.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` ? passed.
+- [x] `npm run lint` ? passed.
+- [x] `npm test` ? 45 passed.
+- [x] `npm run build` ? passed(?? 500k chunk warning?).
+- [x] ? PDF AI budget ??(?? ?? ?? ?? Gemini ??? ?? async stub): ??? 3?? ?? `elapsed=107.7s avail=162.3s budget=20s ceiling=20s`; 10x ??? ?? `elapsed=330.9s avail=-60.9s budget=0s ceiling=20s`; elapsed 265s ?? `budget=5s`; `BOHUMFIT_AI_BUDGET_SECONDS=0` ? `budget=0s ceiling=0s` + ??? ?? ??; `BOHUMFIT_AI_BUDGET_SECONDS=10` ? `budget=10s ceiling=10s`.
+### Notes
+- ? PDF ?? ??? ?? ?? ??? budget ?? ??? ????, Gemini ???? stub ???? ???? ?? ??? ????.
+- 10x ??? ?? ? cp949 ?? ??? ????, budget ??? record count ?? ??? ?? ??? ???? ??/?? ?? ???? ?? ??.
+- Main commit: pending.
+### Next
+- Human: ?? ??? `BOHUMFIT-058 ai budget` ?? ?? ? ???? 30s/?? 20s ?? ?? ??.
+
+## 2026-06-18 Cowork BOHUMFIT-058 [동적 AI 예산(남은시간 기반·최대 20s) 구현 / Next: Codex 전체검증·실 PDF 로그·커밋 + Human 튜닝]
+### Changed
+- `backend/analyzer.py` — 고정 5s 예산(`_ai_budget_seconds`) **삭제** → 동적 예산. 신규 상수 `SERVER_ANALYZE_DEADLINE_SECONDS=300`(단일 소스)·`_MAX_AI_BUDGET_SECONDS=20`·`_AI_BUDGET_SAFETY_MARGIN=30`; 신규 `_ai_budget_ceiling()`(env override 상한)·`_dynamic_ai_budget(elapsed, ceiling)`(clamp). `run_analysis` 진입 `_t0=time.monotonic()`; AI 예산 블록 동적화+로그(`BOHUMFIT-058 ai budget: elapsed/avail/budget/ceiling`)+분기(`budget>0`→AI / `ceiling<=0`→"비활성화" / else→"시간이 촉박 skip"). `import time` 추가.
+- `backend/main.py` — `from analyzer import ..., SERVER_ANALYZE_DEADLINE_SECONDS`; `ANALYZE_TIMEOUT_SECONDS = SERVER_ANALYZE_DEADLINE_SECONDS`(값 300 무변경, 단일 소스 공유). 순환 import 없음.
+- `backend/tests/test_dynamic_ai_budget.py` 신규(6: 빠름→20·느림→수축·0이하→0·env 상한 override·AI skip 결정론 보존·main 상수 공유).
+- `.agent-harness/tasks/BOHUMFIT-058.md` 신규.
+### 공식 / 마진값
+- `available = 300(SERVER_DEADLINE) − 경과 − 30(안전마진)`; `AI예산 = clamp(available, 0, 상한)`. 상한 = env `BOHUMFIT_AI_BUDGET_SECONDS`(설정 시) 또는 기본 **20s**. **floor=0** → 남은시간 없으면 AI skip(결정론 결과 유지·고지 누락 0). 동적 clamp는 env 여부 무관 항상 적용.
+- 효과: 소형 3~4파일(경과~17~30s)=예산 20 풀(041 Q2 주석 보존) / 대용량 10파일(경과~270s)=자동 0~소량 수축(끊김 재발 불가).
+### Verified
+- [x] /tmp(마운트 복구본) 동적 예산 헬퍼 ①②③④ **4/4 passed** + 독립 회귀 **54 passed**(056 nhis·필터/집계·pw후보 포함, **회귀 0**).
+- [x] 실파일(Read/Grep): analyzer 동적 예산 블록(L1024~1060)·t0 진입부·helpers(L19~52)·main 상수 공유 정상, `_ai_budget_seconds` 잔존 **0**.
+- [ ] (Codex/Windows) 전체 pytest(331+6)·tsc/lint/test/build·실 PDF AI 예산 로그 확인.
+### Notes
+- ⚠ **이번 세션도 마운트 view 심각 손상**: 샌드박스 `analyzer.py`(run_analysis 본문 절단·`standard_reports` return 누락→None)·`report_pdf.py`·`pdf_parser.py` stale/절단 — **058 신규 본문과 무관한 환경 결함**(054/055/056과 동일 패턴). pdf_parser는 tail 재구성으로 056 테스트 통과. analyzer 본문 의존 통합테스트(⑤·`test_analyze_fast_path`)·report 테스트·`slowapi` 미설치 main 테스트는 **Codex/Windows 권위**.
+- 052 best-effort 구조·동기경로 PDF별 Gemini 제거 상태·서버 300s·프런트 350s·분석 판정 로직(filters/aggregator/result_builder) **전부 불변**. 예산값만 고정→동적.
+- 실 PDF/PII 미사용·작업파일(/tmp) 정리·마운트 git 미실행.
+### Next
+- **Codex(Windows)**: 전체 pytest·tsc/lint/test/build·실 PDF로 `BOHUMFIT-058 ai budget` 로그(소형=20 풀·대용량=수축) 확인 → 범위 파일 stage→commit→push. 커밋: `BOHUMFIT-058: 동적 AI 예산(남은시간 기반·최대 20초·floor 0 skip) — 041 Q2 주석 보존 + 끊김 재발 방지`.
+- **Human**: 운영 로그(`avail`/`budget` 분포) 보고 안전마진(30s)·상한(20s) 튜닝 여부 판단.
+
+## 2026-06-18 Cowork BOHUMFIT-057 [AI 예산 안전 상향값 진단 — 타임아웃 사슬 / 읽기 전용·코드 변경 0 / Next: Human → Cowork 구현]
+
+### [1+2단계] 타임아웃 사슬 전수 (코드/설정 실측)
+| # | 계층 | 위치 | 현재값 | 성격 / 비고 |
+|---|---|---|---|---|
+| ① | 프런트 fetch abort | `src/pages/Disclosure.tsx` L1474 | **350s** (`AbortSignal.timeout(350_000)`) | 클라이언트 요청 중단. 서버 300s보다 길어 서버 504가 먼저(BUG-007 동기화) |
+| ② | Railway edge proxy | 인프라(코드 밖) | **미상(확인 필요)** | 052 "프록시 끊김" 의심처. 코드/설정엔 값 없음 → Human이 Railway에서 확인 |
+| ③ | 서버 분석 상한 | `backend/main.py` L321·L449 `ANALYZE_TIMEOUT_SECONDS` | **300s** | `asyncio.wait_for(run_analysis, 300)` → 초과 시 504. BUG-006서 170→300 상향 |
+| ④ | **AI 예산** | `backend/analyzer.py` L20·L996 `BOHUMFIT_AI_BUDGET_SECONDS` | **5s**(기본) | `asyncio.wait_for(_bounded_ai_enrichment, budget)`. 초과 시 결정론 결과 폴백+경고. **이번 진단 핵심** |
+| ⑤ | Gemini HTTP(Q2·의학) | `backend/pipeline/ai_judgment.py` L259·L364 | 120s (`HttpOptions timeout=120_000`) | `_call_q2_health_findings`·`_call_medical_judgment` 내부 HTTP. **5s 예산에 가려 무발동** |
+| ⑥ | Gemini HTTP(전체PDF) | `ai_judgment.py` L436·L440 `GEMINI_TIMEOUT_SECONDS` | 240s | `analyze_single_pdf` 전용 — **052가 동기경로서 제거**(analyzer L101 import만, 미호출). 사문화 |
+| ⑦ | uvicorn 요청처리 | `backend/start.sh` L10·`Dockerfile` CMD | **없음(무제한)** | `--timeout-keep-alive` 등 미설정. 기본 keep-alive 5s는 요청 간 idle용, 처리 상한 아님 |
+| ⑧ | slowapi rate limit | `main.py` L157·L374 | 5/min·30/hour | 스로틀(타임아웃 아님). 동시·연속 요청 제한일 뿐 단건 처리시간 무관 |
+
+- **가장 약한 고리(단건 전체 요청)** = min(③ 서버 300s, ② Railway proxy 미상, ① 프런트 350s). ①>③이라 코드상으론 **③ 서버 300s**가 binding이지만, **② Railway proxy 실값이 300s보다 작으면 그게 진짜 천장**(052 끊김의 정체로 강력 의심).
+- **052 끊김 지점 추정(코드상)**: 052 이전엔 AI가 동기 전체PDF Gemini(⑥ 240s)로 요청 경로에 있었음 → 318p 대용량서 파싱+Gemini ~170s+ 초과. 당시 서버컷 170s·프런트 180s였고 둘 다 사후 상향(300/350) → 끊김은 **서버/프런트 컷이 아니라 그 위(② Railway proxy) 또는 당시 프런트 180s**. uvicorn(⑦)은 요청 상한이 없어 끊김 주체 아님. ⑤/⑥ Gemini 내부 타임아웃은 현재 5s 예산에 가려 무관.
+
+### [3단계] 응답시간 분해 (055/054 실측·047 권위 인용)
+- run_analysis 순서: **파싱(`_parse_all_pdfs`) → AI 예산창(④, 파싱 후 직렬) → 집계/result_builder/리포트**. 즉 **AI 예산은 파싱시간에 가산**됨(병렬 아님).
+- 최유미 3파일(실측, 운영로그): 파싱 ~17s + AI+기타 ~5s = **총 ~23s** → 300s 대비 헤드룸 대(大).
+- 파싱 워커(055 `_parse_workers` L189): **기본 순차(1)**, 자동 병렬(2)은 멀티코어+cgroup≥1.4GB+총업로드≥`_MIN_PARALLEL_BYTES` **모두 충족 시만**. Railway 메모리 플랜<1.4GB면 순차 유지.
+- 10파일 최악(10×104p): **순차 ~270s**(047: 104p≈27s) / 병렬2 ~145s(055 추정). → **순차일 때 파싱만으로 300s 서버컷 근접/초과**(054 STEP4와 일치). 현실 고지형(소형·수페이지) 10개는 ~30~60s로 안전.
+
+### [4단계] 안전 AI 예산 산출
+- **핵심 비대칭**: 최악(10대용량 순차 ~270s)은 **AI 예산과 무관하게** 이미 300s 천장 포화 → 여기선 AI 예산을 줄여도 못 구함. 진짜 통제축은 **파일수/파싱시간 한계**(054 STEP4 근본대응)지 AI 예산이 아님. 반대로 일반(3~4 소형, 파싱 17~30s)은 헤드룸 막대.
+- **041 주석 보존 최소값**: Gemini Q2 호출 실측 3~8s(054) → 예산 **≥8~10s**면 "가능성 높음/낮음" 주석 안정 포착. 현재 5s는 경계값이라 자주 소실.
+- **권장 ① 고정값(간단)**: `BOHUMFIT_AI_BUDGET_SECONDS` **5 → 12s**.
+  - 근거: Q2 3~8s를 여유 있게 덮음(041 보존). 일반 3~4파일 총 ~30~45s로 300s/프록시 한참 아래. 최악 10대용량은 5→12 차이(7s)가 ~270s 파싱 리스크에 유의미 영향 없음(파싱 한계가 별도 통제).
+- **권장 ② 동적 예산(우선 권장)**: `남은시간 기반`. 파싱 경과(elapsed) 측정 후
+  `ai_budget = clamp( SAFE_DEADLINE − elapsed_parse − REPORT_MARGIN, 0, CEILING )`
+  - `SAFE_DEADLINE` = 0.8 × min(서버 300, Railway proxy). proxy 미상이면 보수적 0.8×300 = **240s**.
+  - `REPORT_MARGIN` ≈ **30s**(집계+result_builder+네트워크), `CEILING` ≈ **20s**, **floor=0**(파싱이 이미 예산 잠식 시 AI 우아하게 skip — 결정론 결과는 그대로, 054 STEP1상 **고지 누락 없음**).
+  - 효과: 소형 다수=넉넉(최대 20s, 041 확실 보존) / 10대용량=자동 0~소량으로 수축 → **끊김 재발 방지**라는 전제를 구조적으로 충족. 고정값보다 안전.
+- 결론: **동적 예산 채택 권장**(끊김 재발 0 + 041 보존 동시 달성). 운영 단순성을 더 원하면 고정 12s가 차선. 어느 쪽이든 env override(`BOHUMFIT_AI_BUDGET_SECONDS`) 유지.
+
+### [5단계] 구현 시 변경 범위 미리보기 (승인 후 Cowork)
+- **고정 12s 안**: `backend/analyzer.py` L20 기본값 `"5"`→`"12"` 1줄. (+회귀 1)
+- **동적 안(권장)**: `analyzer.py` — `run_analysis`에서 `_parse_all_pdfs` 호출 전후 `time.monotonic()`로 elapsed 측정, 신규 `_dynamic_ai_budget(elapsed)` 헬퍼 추가, L996 `wait_for` timeout에 주입(env override 우선). **~10~15줄, analyzer.py 단일 파일**. `filters/disease_aggregator/result_builder` **무변경**(분석 카운트·판정 불변). + `tests/`에 clamp 회귀(소형=CEILING·대용량=0·041 floor) 1개.
+- 프런트·main.py·Gemini·Dockerfile **변경 불요**(④만 조정).
+
+### Railway에서 Human이 확인할 인프라 타임아웃(코드 밖)
+1. **Railway edge/proxy HTTP 요청 타임아웃**(②) — 052 끊김의 진짜 천장 후보. 대시보드/문서서 실값 확인(과거 ~5분 보고 있으나 플랜·버전 의존). 서버 300s는 이 아래에 두려고 잡은 값 → proxy 실값이 동적 예산 `SAFE_DEADLINE` 산정의 입력.
+2. **서비스 메모리 플랜** — ≥1.4GB여야 병렬 파싱(2워커) 게이트 발동 → 10대용량 최악 파싱 270s→145s 단축 여부 결정(예산 헤드룸에 직접 영향).
+3. **uvicorn `--timeout-keep-alive`** — 현재 미설정(요청 처리 상한 아님) → 조치 불요로 추정, 확인만.
+
+### Verified / Notes
+- 코드 변경 **0**(읽기 전용 진단). 수정 파일 = `.agent-harness/locks.md`(잠금)·`handoff.md`(본 기록)뿐.
+- ⚠ `cd backend && python -m pytest -q`(무변경 확인용)는 **이번 세션도 마운트 view 손상으로 in-sandbox 수집 불가**: bash/python이 보는 `analyzer.py` L972가 `tuple[`서 절단(SyntaxError)·`pipeline/pdf_parser.py`가 stale 056-이전본(총진료비=본인만 200,000 반환)으로 056 회귀 6건 실패. **Read/Grep 툴이 보는 실 Windows 파일은 056 fix 정상**(pdf_parser L234 `total_cost=(cur_gongdan or 0)+bonin_cost` 확인). 즉 실패는 100% 마운트 stale/절단 아티팩트 — 057은 코드 무변경이므로 056 커밋(0850cb9) 상태 그대로. 전체 pytest 권위는 Codex/Windows(056서 331 passed 확인됨).
+- 실 PDF/PII 미사용·마운트 git 미실행.
+
+### Next
+- **Human**: ① 안전 AI 예산 방식 승인 — **동적 예산(권장)** vs 고정 12s. ② Railway 인프라 타임아웃 3종(edge proxy 실값·메모리 플랜·keep-alive) 확인 → 동적 예산 `SAFE_DEADLINE` 입력 확정.
+- **이후 Cowork**: 승인안대로 `analyzer.py` ④ 예산 조정(동적 헬퍼 or 기본값 12s)+회귀 → Codex Windows 검증·커밋.
+
 ## 2026-06-18 Codex BOHUMFIT-056 [Windows 권위 검증·publish / Next: Human 수술의심 임계 확인]
 ### Changed
 - Cowork 056 구현 범위 검증: `backend/pipeline/pdf_parser.py`, `src/pages/Disclosure.tsx`, `backend/tests/test_nhis_history.py`, 신규 `backend/tests/test_nhis_inpatient_days_cost.py`, `.agent-harness/tasks/BOHUMFIT-056.md`, handoff/locks.
