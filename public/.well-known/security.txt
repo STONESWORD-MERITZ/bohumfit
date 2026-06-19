@@ -1,5 +1,5 @@
 # BOHUMFIT 보안 취약점 신고 정책 (security.txt — RFC 9116)
-Contact: mailto:contact@bohumfit.ai
+Contact: mailto:qqqwe6701@gmail.com
 Expires: 2027-01-01T00:00:00Z
 Preferred-Languages: ko, en
 Canonical: https://bohumfit.ai/.well-known/security.txt

@@ -16,6 +16,17 @@
 
 # Handoff
 
+## 2026-06-19 Codex BOHUMFIT-064 [security.txt 연락처 교체 / Next: Human]
+### Changed
+- `public/.well-known/security.txt`: Contact 신고 메일을 `mailto:qqqwe6701@gmail.com`으로 교체. `Expires`, `Preferred-Languages`, `Canonical`은 그대로 유지.
+### Verified
+- `Get-Content "public/.well-known/security.txt"`로 Contact 라인과 나머지 필드 유지 확인.
+- `npm run build` -> pass. 기존 Vite chunk size warning만 출력.
+### Notes
+- 단순 텍스트 1줄 변경. PII/PDF/brand/unrelated 파일 stage 금지 준수.
+### Next
+- Human: 배포 후 `https://bohumfit.ai/.well-known/security.txt` 응답에서 연락처 확인.
+
 ## 2026-06-19 Codex BOHUMFIT-063 [Windows 검증·커밋 대기 / Next: Human 신뢰경계]
 ### Changed
 - Cowork 063 구현 검증 완료: `backend/main.py` 레이트리밋 key_func를 `_ratelimit_key`로 교체, 신규 `backend/tests/test_ratelimit_key_063.py`, task/handoff/locks.

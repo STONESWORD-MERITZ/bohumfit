@@ -15,6 +15,8 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-19 `BOHUMFIT-064` - Codex - `public/.well-known/security.txt` Contact 신고 메일을 `mailto:qqqwe6701@gmail.com`으로 교체. `Get-Content` 확인, `npm run build` pass(기존 chunk warning만). 범위 파일만 커밋/푸시 진행.
+
 - 2026-06-19 `BOHUMFIT-063` - Codex - Windows 검증 완료. main/test/task NUL 없음·UTF-8 OK·tail 완결, AST OK. 063 타깃 16 passed/350 deselected(신규 6 포함), launch guardrails 2 passed, 전체 backend 359 passed/7 skipped, tsc app pass, lint pass, npm test 45 passed, npm run build pass(기존 chunk warning만). 첫 build 래퍼 타임아웃 후 tsc-b/vite-build 분리 및 최종 build 재실행 통과. pytest pyc 부산물 복구, PII/PDF/brand/unrelated stage 금지 준수. Commit `7f0e819`.
 
 - 2026-06-18 `BOHUMFIT-063` - Cowork - 레이트리밋 키 전환(user id + IP fallback) 완료(backend/main.py + 신규 테스트). STEP0: 키=get_remote_address(IP)→프록시 뒤 공유 IP throttle·XFF 위조 우회. verify_jwt는 Supabase 서버 httpx(무거움)·의존성(key_func보다 늦음). Supabase 토큰=JWT(sub=uuid)→서명검증 없이 payload 디코드 가능. 구현: import base64/json·신규 _ratelimit_key(Bearer JWT sub→user:{sub}, 토큰없음/malformed/실패 전부 try/except→ip:{addr}·크래시0·경량 네트워크0)·Limiter key_func 교체. 060 한도(analyze 5/min·30/h·report 10/min·60/h)·429 한국어 유지. 신규 test_ratelimit_key_063(6). 검증: /tmp 마운트 복구(main tail 재구성·pdf_parser splice·stub)+slowapi/multipart→TestClient/직접호출 063 6/6+060 9/9+launch 2/2=17 passed·회귀0(유효토큰→user키·토큰없음/malformed 8종→IP·같은IP 다른user 분리·limiter._key_func 교체·429 한국어·key_func 네트워크 미호출). ⚠마운트 손상(main byte-cap 23892·pdf_parser/report_pdf, 063 무관)→전체 pytest Codex/Windows. 분석/파싱·052/055/058·060 한도/429 무변경. Notes: 위조토큰 신뢰경계(sub 서명검증X→남의 한도 소모 경미 DoS 가능·권한상승 아님, 우려시 JWKS 추가 Human)·IP fallback은 비인증 엣지(정상은 전부 user키)·XFF 임의신뢰 미도입. 실 PDF/PII 미사용·작업파일 정리·마운트 git 미실행. → Codex 전체검증(353+6)·커밋 / Human 신뢰경계·프록시 IP 정책.
