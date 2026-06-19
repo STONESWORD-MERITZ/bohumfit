@@ -34,7 +34,7 @@
 ### Notes
 - 첫 `npm run build` 호출이 래퍼 타임아웃으로 종료됐으나, `npx tsc -b --verbose`, `npx vite build --debug`, 최종 `npm run build` 재실행 모두 통과.
 - `backend/__pycache__/main.cpython-312.pyc` pytest 부산물은 커밋 전 복구. PII/PDF/brand/unrelated stage 금지 준수.
-- Commit: pending.
+- Commit: `7f0e819` pushed to `origin/main`.
 ### Next
 - Human: 위조토큰 신뢰경계(JWKS 서명검증 추가 여부)와 프록시 IP 신뢰 정책 판단.
 
