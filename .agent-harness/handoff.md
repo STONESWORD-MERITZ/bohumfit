@@ -16,6 +16,45 @@
 
 # Handoff
 
+## 2026-06-19 Codex BOHUMFIT-063 [Windows 검증·커밋 대기 / Next: Human 신뢰경계]
+### Changed
+- Cowork 063 구현 검증 완료: `backend/main.py` 레이트리밋 key_func를 `_ratelimit_key`로 교체, 신규 `backend/tests/test_ratelimit_key_063.py`, task/handoff/locks.
+- 060 한도 유지 확인: analyze `5/minute,30/hour`, report PDF `10/minute,60/hour`, 429 한국어 핸들러 유지.
+### Verified
+- truncation 선제 점검: `backend/main.py`, `backend/tests/test_ratelimit_key_063.py`, `.agent-harness/tasks/BOHUMFIT-063.md` NUL 없음, strict UTF-8 OK, tail 완결.
+- 핵심 grep 확인: `_ratelimit_key`, `user:`, `ip:`, `key_func`, `5/minute`, `10/minute` 존재.
+- `python -c "ast.parse(...)"` -> main OK.
+- `cd backend && python -m pytest -q tests/ -k "ratelimit or rate or key or BOHUMFIT_063" -vv` -> 16 passed, 350 deselected.
+- `cd backend && python -m pytest -q tests/test_main_launch_guardrails.py -vv` -> 2 passed.
+- `cd backend && python -m pytest -q` -> 359 passed, 7 skipped.
+- `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- `npm run lint` -> pass.
+- `npm test` -> 4 files / 45 tests passed.
+- `npm run build` -> pass. 기존 Vite 500k chunk warning만 출력.
+### Notes
+- 첫 `npm run build` 호출이 래퍼 타임아웃으로 종료됐으나, `npx tsc -b --verbose`, `npx vite build --debug`, 최종 `npm run build` 재실행 모두 통과.
+- `backend/__pycache__/main.cpython-312.pyc` pytest 부산물은 커밋 전 복구. PII/PDF/brand/unrelated stage 금지 준수.
+- Commit: pending.
+### Next
+- Human: 위조토큰 신뢰경계(JWKS 서명검증 추가 여부)와 프록시 IP 신뢰 정책 판단.
+
+## 2026-06-18 Cowork BOHUMFIT-063 [레이트리밋 키 전환 — user id + IP fallback / Next: Codex 검증·커밋 + Human 신뢰경계]
+### STEP0 진단
+- 키=`Limiter(key_func=get_remote_address)`(main.py L184, IP). `verify_jwt`(L368)는 Supabase Auth 서버 httpx 호출(무거움)·엔드포인트 의존성→key_func보다 늦음. Supabase 토큰=JWT(payload `sub`=user uuid)→key_func에서 서명검증 없이 sub 디코드 가능(네트워크 0). get_remote_address=client.host(XFF 미파싱)→프록시 뒤 충돌.
+### Changed (backend/main.py + 신규 테스트)
+- `import base64, json` 추가. 신규 `_ratelimit_key(request)`: Bearer JWT payload의 `sub`→`user:{sub}`; 토큰 없음/malformed/디코드 실패 전부 try/except→`ip:{get_remote_address}`(크래시 0). 경량(서명검증·네트워크·DB 없음). `Limiter(key_func=_ratelimit_key)`로 교체. **060 한도(analyze 5/min·30/h·report 10/min·60/h)·429 한국어 핸들러 유지**.
+- `backend/tests/test_ratelimit_key_063.py` 신규(6). `.agent-harness/tasks/BOHUMFIT-063.md` 신규.
+### Verified
+- /tmp(마운트 복구: main.py 실 tail 재구성·pdf_parser splice·surgery/report_pdf stub)+slowapi/multipart → TestClient/직접호출 **063 6/6 + 060 9/9 + launch 2/2 = 17 passed·회귀 0**. ①유효토큰→user키 ②토큰없음→IP ③malformed 8종→IP·크래시0 ④같은IP 다른user→키분리 ⑤limiter._key_func 교체+429 한국어 ⑥key_func 네트워크 미호출.
+- [ ] (Codex/Windows) 전체 pytest(353+6)·tsc/lint/build.
+### Notes — Human
+- **위조토큰 신뢰경계**: key_func는 sub를 서명검증 없이 키로만 사용 → 위조 sub로 **남의 한도 소모(경미한 사용자별 DoS) 가능, 권한 상승 아님**(실 인증=verify_jwt Supabase 확인). 사양상 허용 위험. 우려 시 JWKS 서명검증 추가 — Human 판단.
+- **IP fallback**: `get_remote_address` 유지. analyze·report는 인증 필수라 정상 트래픽 전부 user 키 → fallback은 비인증(401) 엣지케이스. XFF 임의 신뢰는 위조 방지 위해 미도입(프록시 신뢰경계 확정 후 별도 검토).
+- ⚠ 마운트 손상(main.py byte-cap 23892·pdf_parser/report_pdf — 063 무관)→전체 pytest Codex/Windows. 분석/파싱/result_builder·052/055/058·060 한도/429 무변경. 실 PDF/PII 미사용·작업파일 정리·마운트 git 미실행.
+### Next
+- **Codex(Windows)**: 전체 pytest·tsc/lint/build → 범위 파일 stage→commit→push. 커밋: `BOHUMFIT-063: 레이트리밋 키 user id 기준 전환 + IP fallback(프록시 공유 IP throttle 해소)`.
+- **Human**: 위조토큰 신뢰경계(서명검증 추가 여부)·프록시 IP 신뢰 정책 판단.
+
 ## 2026-06-19 Codex BOHUMFIT-062 [Windows 검증·실 PDF 육안·051 잔여분 커밋 / Next: Human]
 ### Changed
 - 051 잔여 tracked 변경분을 062 범위로 확정: `backend/templates/report_disclosure.html`의 전체 병력 요약 섹션 새 페이지 시작(`.all-history`)과 `backend/tests/test_report_pdf.py` 회귀 테스트.

@@ -1,4 +1,6 @@
 import asyncio
+import base64
+import json
 import logging
 import os
 import re
@@ -181,7 +183,33 @@ async def _unhandled_exception_handler(request: Request, exc: Exception):
 
 
 # ── Rate Limiter ─────────────────────────────────────────────────────────────
-limiter = Limiter(key_func=get_remote_address, default_limits=["60/minute"])
+# BOHUMFIT-063: 레이트리밋 키 = 인증 사용자(Supabase user id) 우선, 실패 시 IP fallback.
+#   문제(060 후속): get_remote_address(IP) 단독 → Railway 프록시 뒤에서 여러 사용자가 같은
+#   프록시 IP로 보여 한 명이 한도를 쓰면 전체가 throttle(오작동) + X-Forwarded-For 위조 우회.
+#   해결: Authorization Bearer JWT 의 sub 클레임으로 사용자별 한도 분리.
+#   ※ key_func 는 매 요청 초기에 실행되고 인증 의존성(verify_jwt)보다 먼저이므로, 여기서는
+#     서명 검증을 하지 않고 JWT payload 의 sub 만 가볍게 디코드한다(네트워크·DB 호출 없음).
+#     실제 인증·권한은 기존 verify_jwt(Supabase Auth 서버 확인)가 담당 — 키는 식별자 용도뿐.
+#     위조 토큰으로 남의 sub 키를 쓰면 그 사용자의 한도를 소모시키는 정도(권한 상승 아님).
+def _ratelimit_key(request: Request) -> str:
+    try:
+        auth = request.headers.get("authorization") or ""
+        if auth[:7].lower() == "bearer ":
+            parts = auth[7:].strip().split(".")
+            if len(parts) == 3 and parts[1]:
+                seg = parts[1]
+                seg += "=" * (-len(seg) % 4)  # base64url 패딩 보정
+                claims = json.loads(base64.urlsafe_b64decode(seg.encode("ascii")))
+                sub = claims.get("sub")
+                if sub and isinstance(sub, str):
+                    return f"user:{sub}"
+    except Exception:
+        # 토큰 없음·malformed·디코드 실패 등 모두 안전하게 IP fallback (크래시 금지).
+        pass
+    return f"ip:{get_remote_address(request)}"
+
+
+limiter = Limiter(key_func=_ratelimit_key, default_limits=["60/minute"])
 app.state.limiter = limiter
 
 
