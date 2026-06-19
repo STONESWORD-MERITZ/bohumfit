@@ -32,7 +32,7 @@
 - `npm run build` -> pass. 기존 Vite chunk size warning만 출력.
 ### Notes
 - `backend/__pycache__/main.cpython-312.pyc` pytest 부산물은 복구. PII/PDF/brand/unrelated 파일 stage 금지 준수 예정.
-- Commit: pending.
+- Commit: `6622589` pushed to `origin/main`.
 ### Next
 - Human: 외래 수술의심 정책 문구 최종 확인.
 
