@@ -127,7 +127,7 @@ def test_parse_nhis_text_cost_and_period():
 def test_grade_thresholds_unit():
     assert grade_surgery_suspicion("입원", 500_000, False, False) == "강"
     assert grade_surgery_suspicion("입원", 499_999, False, False) == ""
-    assert grade_surgery_suspicion("외래", 100_000, False, False) == "약"
+    assert grade_surgery_suspicion("외래", 100_000, False, False) == ""
     assert grade_surgery_suspicion("외래", 99_999, False, False) == ""
     assert grade_surgery_suspicion("외래", 100_000, True, False) == "강"   # 키워드 가중
     assert grade_surgery_suspicion("입원", 600_000, False, True) == "약"   # 062 강등

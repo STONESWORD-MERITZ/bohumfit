@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import time
+import urllib.parse
 from datetime import date
 from pathlib import Path
 
@@ -562,6 +563,7 @@ async def analyze(
         "standard_kakao":       std_kakao,
         "easy_kakao":           easy_kakao,
         "kakao_message":        std_kakao,   # 하위 호환
+        "customer_name":        result.get("customer_name", ""),   # BOHUMFIT-065: 출력 파일명용(판정 무관)
         "record_counts":        record_counts,
         "parse_errors":         parse_errors,
         "warnings":             result["retry_warnings"],
@@ -629,13 +631,23 @@ async def report_pdf(
             detail="리포트를 생성하지 못했어요. 잠시 후 다시 시도해 주세요.",
         )
 
-    filename = f"BF-{report_type}-{date.today().strftime('%Y%m%d')}.pdf"
+    # BOHUMFIT-065: 파일명 = 보험핏-고지내역-{고객이름}-{기준일}. 고객명은 payload 성명(없으면 폴백),
+    #   기준일은 분석 reference_date(없으면 오늘). 비ASCII 호환 위해 RFC 5987 filename* + ASCII filename 병기.
+    ref = str(payload.get("reference_date") or date.today().strftime("%Y-%m-%d"))
+    safe_name = re.sub(r"[^가-힣A-Za-z0-9]", "", str(payload.get("customer_name") or ""))[:20]
+    label = "고지내역" if report_type == "disclosure" else "실손분석"
+    base = f"보험핏-{label}-{safe_name}-{ref}" if safe_name else f"보험핏-{label}-{ref}"
+    ascii_fallback = f"BF-{report_type}-{ref}.pdf"
+    disposition = (
+        f'attachment; filename="{ascii_fallback}"; '
+        f"filename*=UTF-8''{urllib.parse.quote(base + '.pdf')}"
+    )
     logger.info("report pdf done: type=%s bytes=%d", report_type, len(pdf))
     return Response(
         content=pdf,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Disposition": disposition,
             # 민감정보 — 중간 캐시 금지
             "Cache-Control": "no-store",
         },

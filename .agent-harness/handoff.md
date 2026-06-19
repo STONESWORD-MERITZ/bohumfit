@@ -16,6 +16,53 @@
 
 # Handoff
 
+## 2026-06-19 Codex BOHUMFIT-065 [Windows 검증·실 PDF 재현 완료 / Next: Human 외래 임계 정책 확인]
+### Changed
+- Cowork 065 구현 Windows 검증 중 K05 실 PDF 회귀 발견 후 보정: 공단 외래는 비용 단독으로 수술의심을 만들지 않고, `10만원 이상 + 수술 키워드`가 함께 있을 때만 의심으로 판정. K05 치주/치은 고액 외래 오탐 해제, K63 고액+폴립 키워드 강 유지.
+- PDF 고지 안내문구는 수술의심 항목이 실제 있을 때만 렌더되도록 조건화해 기존 Q2/Q3 "확인 필요" 의미 회귀를 차단.
+- 고객명 파일명 체인(`pdf_parser` -> `analyzer` -> `main` -> `Disclosure.tsx`) 및 신규 065 회귀 테스트 포함.
+### Verified
+- truncation 선제 점검: 065 대상/관련 파일 NUL 없음, strict UTF-8 OK, tail 완결.
+- 핵심 grep 확인: `grade_surgery_suspicion`, `customer_name`, "50만/10만/가능성" 문구.
+- `cd backend && python -m pytest -q tests/ -k "surgery or suspicion or grade or BOHUMFIT_065" -vv` -> 46 passed, 1 skipped, 327 deselected.
+- `cd backend && python -m pytest -q` -> 367 passed, 7 skipped.
+- 실 PDF 10파일(제공된 비밀번호 후보, AI 예산 0 결정론): records `nhis=56/basic=40/detail=228/pharma=129`, parse_errors=0, customer_name 추출 확인(실명 미기록).
+- 실 PDF 판정: K01 count 0, K05 count 0(수술의심 해제), M51/K60/K63 표준 Q4 `surgery_suspected_grade="강"` 유지.
+- PDF/HTML: 안내 문구 토큰 "입원 50만원 이상", "외래 10만원 이상", "가능성" 확인.
+- report endpoint 실제 PDF 생성 200, Content-Disposition `보험핏-고지내역-{고객명}-2026-06-17.pdf` RFC5987 포함, 이름 없을 때 `보험핏-고지내역-2026-06-17.pdf` fallback 확인. 생성 PDF는 검증 후 삭제.
+- `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- `npm run lint` -> pass.
+- `npm test` -> 4 files / 45 tests passed.
+- `npm run build` -> pass. 기존 Vite chunk size warning만 출력.
+### Notes
+- `backend/__pycache__/main.cpython-312.pyc` pytest 부산물은 복구. PII/PDF/brand/unrelated 파일 stage 금지 준수 예정.
+- Prompt의 범위 목록에는 일부 실제 고객명 파일명 체인 파일이 누락되어 있었으나, 065 동작에 필요한 실제 변경 파일만 선별 stage 예정.
+- Commit: pending.
+### Next
+- Human: 외래 수술의심 정책 문구(현재 화면/PDF 문구는 "약=외래 10만원 이상" 유지)와 실제 로직(외래 10만원 이상 + 수술 키워드) 표현 정합성 최종 확인.
+
+## 2026-06-19 Cowork BOHUMFIT-065 [수술의심 임계 재검토(약 오탐)+판정근거 문구+PDF 파일명 / Next: Codex 검증·실 PDF·커밋 + Human 외래 임계 정책]
+### PHASE1 진단 (임계·K01/K05 금액·오탐 원인)
+- **임계(nhis_history_constants)**: 입원 `INPATIENT_STRONG_COST=50만`(+2), 외래 `OUTPATIENT_WEAK_COST=10만`(+1), 수술 키워드(+1), 062 비수술 제외(−1). score≥2=강, ==1=약.
+- **실 PDF(공단 19-20, 비번 없이 열림)**: **K01 상악제3대구치의매복 = 외래·공단 27,620+본인 11,700 = 합산 39,320원(<10만)**. `매복`이 `nhis_surg_keywords` 매칭 → **키워드 +1 → 약**. 대조 M512 입원 561,190·K605 입원 고액 → +2 → 강(정상). (K05는 비번 잠긴 16-18 파일에 있어 직접 덤프 불가, 동일 메커니즘 추정.)
+- **오탐 원인(핵심)**: 외래 임계값이 낮아서가 **아님**. 수술 키워드 가중(+1)이 외래 cost 문턱을 **우회**해 저액 외래 치과(매복/발치)가 키워드만으로 '약'. → 임계 VALUE 상향이 아니라 **키워드 가중을 cost≥10만일 때만 적용**해야 정확(단순 상향은 K01 못 막음).
+### Changed
+- `backend/pipeline/nhis_history_constants.py` — `grade_surgery_suspicion`: 수술 키워드 +1을 `total_cost >= OUTPATIENT_WEAK_COST`일 때만 적용. **임계 상수값 무변경**(10만/50만). K01 해제·입원 강 유지·기존 `test_grade_thresholds_unit` 6단언 보존.
+- `src/pages/Disclosure.tsx`(L448) + `backend/templates/report_disclosure.html`(유의사항 범례) — 문구에 **확정 임계 명시**: "강(가능성 높음)=입원 50만원 이상, 약(가능성 낮음)=외래 10만원 이상".
+- **PDF 파일명**(2-C): `pdf_parser._extract_patient_name`(공단 1p `성명 ○○○ 주민등록번호`에서 **성명만**·주민번호 등 PII 미추출) → `analyzer._parse_all_pdfs`(첫 비어있지 않은 값 수집·3-tuple) → `run_analysis`·`main` 응답 `customer_name`. `Disclosure.tsx` 다운로드 `보험핏-고지내역-{성명}-{refDate}.pdf`(폴백 날짜만·sanitize). `main.py` report Content-Disposition RFC5987(`filename*`)+ASCII 병기, 프런트 payload `customer_name` 추가.
+- 신규 `backend/tests/test_surgery_threshold_065.py`(5)·`test_report_filename_065.py`(3). `.agent-harness/tasks/BOHUMFIT-065.md`.
+### Verified
+- /tmp(마운트 복구: nhis_constants/surgery_exclusions 재작성·pdf_parser·main tail 재구성·report_pdf stub·slowapi/multipart) → **065 8/8 + 광범위 92 passed·회귀 0**(059/062/056 nhis·필터·집계·060/063 포함). 저액외래+키워드→미판정, 입원고액→강, 외래경계+키워드게이트, 성명추출(주민번호 미노출·폴백), 파일명 이름+기준일·폴백·sanitize.
+- 실파일 Read/Grep: customer_name 체인(pdf_parser·analyzer L249/258/280/309/323/934·main L566/L634)·grade 게이트 정합 확인.
+- [ ] (Codex/Windows) 전체 pytest(359+8)·tsc/lint/build·실 PDF(10파일, 비번) 재현.
+### Notes — Human
+- **외래 임계 정책**: 임계 VALUE(10만) 유지 + **키워드 가중 cost≥10만 게이트** 채택(진단 기반 — 단순 임계 상향은 키워드 구동 오탐 못 막음). 정책 승인/대안 필요 시 Human.
+- **K05 재현**: 비번 잠긴 공단 파일(16-18, PII 생년월일 미보유)이라 Cowork 직접 덤프 못 함 → **Codex가 전체(비번) 데이터로 K05 1→0 재현 권위**.
+- ⚠ analyzer-body 의존(test_analyze_fast_path·dynamic_ai_budget skip)·test_nhis_history·report 테스트는 마운트 truncation(analyzer /tmp 980 vs 실 ~1130, run_analysis return 절단→None, **065 무관**)으로 /tmp 불가 → Codex/Windows. 입원·통원·투약 판정·056/062/문구 기존 변경 무변경(수술의심 등급만). 실 PDF/PII 미커밋·작업파일 정리·마운트 git 미실행.
+### Next
+- **Codex(Windows)**: 전체 pytest·tsc/lint/build·실 PDF 재현(K01·K05 해제·M51/K60/K63 강 유지·파일명 성명+기준일·문구 임계) → 범위 파일 stage→commit→push. 커밋: `BOHUMFIT-065: 수술의심 키워드 cost-floor 게이트(약 오탐 제거) + 판정근거 임계 문구 + PDF 파일명 고객명·기준일`.
+- **Human**: 외래 임계 정책 승인.
+
 ## 2026-06-19 Codex BOHUMFIT-064 [security.txt 연락처 교체 / Next: Human]
 ### Changed
 - `public/.well-known/security.txt`: Contact 신고 메일을 `mailto:qqqwe6701@gmail.com`으로 교체. `Expires`, `Preferred-Languages`, `Canonical`은 그대로 유지.

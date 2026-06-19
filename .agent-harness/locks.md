@@ -15,6 +15,10 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-19 `BOHUMFIT-065` - Codex - Windows 검증 완료. K05 실 PDF 잔존 수술의심 발견 후 외래 cost-only 의심을 제거하고 외래 10만원 이상+수술 키워드 게이트로 보정. 065 타깃 46 passed/1 skipped/327 deselected, 전체 backend 367 passed/7 skipped, 실 PDF 10파일 K01/K05 해제·M51/K60/K63 강 유지·고객명 파일명/fallback 확인, tsc app/lint/npm test/build pass. PII/PDF/brand/unrelated stage 금지 준수. Commit pending.
+
+- 2026-06-18 `BOHUMFIT-065` - Cowork - 수술의심 임계 재검토(약 오탐)+판정근거 문구+PDF 파일명 완료. PHASE1: 임계 입원 50만(+2)·외래 10만(+1)·키워드(+1)·062 제외(−1). 실 PDF(19-20 비번없이 열림) K01 외래 합산 39,320(<10만)·'매복'(nhis_surg_keyword) 키워드 구동 약. 원인=키워드 가중이 외래 cost 문턱 우회(임계값 낮아서 아님). PHASE2: nhis_history_constants 키워드 +1을 cost≥10만일 때만(임계값 무변경)→K01 해제·입원 강 유지; Disclosure.tsx/template 문구에 확정 임계(강 입원50만/약 외래10만) 명시; PDF 파일명 pdf_parser._extract_patient_name(공단 성명만·주민번호 미추출)→analyzer _parse_all_pdfs 3-tuple·run_analysis/main customer_name→Disclosure 다운로드 보험핏-고지내역-{성명}-{기준일}.pdf(폴백·sanitize)·main report RFC5987 Content-Disposition. 신규 test_surgery_threshold_065(5)·test_report_filename_065(3). /tmp 065 8/8+광범위 92 passed·회귀0. ⚠analyzer-body/test_nhis_history/report 마운트 truncation(analyzer 980 vs 1130, 065 무관)→Codex 전체 pytest. K05는 비번 잠긴 16-18 파일이라 Codex 실 PDF 재현 권위. 입원·통원·투약 판정 무변경. 실 PDF/PII 미커밋·작업파일 정리·마운트 git 미실행. → Codex 전체검증(359+8)·실 PDF K01/K05 해제·강 유지·파일명 재현·커밋 / Human 외래 임계 정책 승인.
+
 - 2026-06-19 `BOHUMFIT-064` - Codex - `public/.well-known/security.txt` Contact 신고 메일을 `mailto:qqqwe6701@gmail.com`으로 교체. `Get-Content` 확인, `npm run build` pass(기존 chunk warning만). 범위 파일만 커밋/푸시 진행.
 
 - 2026-06-19 `BOHUMFIT-063` - Codex - Windows 검증 완료. main/test/task NUL 없음·UTF-8 OK·tail 완결, AST OK. 063 타깃 16 passed/350 deselected(신규 6 포함), launch guardrails 2 passed, 전체 backend 359 passed/7 skipped, tsc app pass, lint pass, npm test 45 passed, npm run build pass(기존 chunk warning만). 첫 build 래퍼 타임아웃 후 tsc-b/vite-build 분리 및 최종 build 재실행 통과. pytest pyc 부산물 복구, PII/PDF/brand/unrelated stage 금지 준수. Commit `7f0e819`.

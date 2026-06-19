@@ -271,15 +271,28 @@ def _empty_result_message(fname: str, n_pages: int, first_text: str) -> str:
     )
 
 
+_PATIENT_NAME_RE = re.compile(r"성\s*명\s+([가-힣]{2,5})\s+주민등록번호")
+
+
+def _extract_patient_name(text: str) -> str:
+    """BOHUMFIT-065: 공단/심평원 PDF 1페이지의 '성명 ○○○ 주민등록번호 …'에서 성명만 추출.
+    출력용 파일명에 쓰기 위함 — 주민등록번호 등 다른 PII는 절대 추출하지 않는다. 없으면 ''.
+    """
+    m = _PATIENT_NAME_RE.search(text or "")
+    return m.group(1).strip() if m else ""
+
+
 def parse_single_pdf(uploaded_file, birthdate_pw) -> dict:
     """PDF 1개 파싱. pdfplumber 동기 I/O."""
     fname = getattr(uploaded_file, "name", None) or getattr(uploaded_file, "filename", None) or "unknown.pdf"
     file_recs: list = []
     parse_errors_local: list = []
+    patient_name = ""
     pdf_data = uploaded_file.read()
     try:
         with _open_pdf(pdf_data, birthdate_pw or "") as pdf:
             first_text = pdf.pages[0].extract_text() or "" if pdf.pages else ""
+            patient_name = _extract_patient_name(first_text)  # BOHUMFIT-065: 파일명용 성명
             is_nhis = "건강보험 요양급여내역" in first_text
 
             if is_nhis:
@@ -338,4 +351,5 @@ def parse_single_pdf(uploaded_file, birthdate_pw) -> dict:
     finally:
         del pdf_data
         gc.collect()
-    return {"filename": fname, "records": file_recs, "parse_errors": parse_errors_local}
+    return {"filename": fname, "records": file_recs, "parse_errors": parse_errors_local,
+            "patient_name": patient_name}

@@ -79,6 +79,7 @@ type AnalyzeResult = {
   all_disease_summary: DiseaseSummary[];
   standard_kakao: string;
   easy_kakao?: string;
+  customer_name?: string;   // BOHUMFIT-065: 출력 파일명용(공단 PDF 성명, 없으면 폴백)
   parse_errors: string[];
   warnings: string[];
   // BOHUMFIT-023: 실손 안내용 급여 본인부담(내가 낸 의료비) 연도별 (additive — 백엔드 surfaced).
@@ -445,7 +446,7 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
             />
           </div>
           <p className="mt-1 text-[11px] leading-relaxed text-amber-700">
-            건보(공단) 자료엔 수술이 명시되지 않아, 진료비 기준으로 추정한 의심 항목입니다. 실제 수술 여부는 고객님 확인이 필요합니다.
+            건보(공단) 자료엔 수술이 명시되지 않아, 진료비(공단+본인 부담금 합산) 기준으로 추정한 의심 항목입니다. 강(가능성 높음)=입원 50만원 이상, 약(가능성 낮음)=외래 10만원 이상. 실제 수술 여부는 고객님 확인이 필요합니다.
           </p>
         </div>
       )}
@@ -1052,6 +1053,7 @@ function ResultView({ result, mode, referenceDate }: { result: AnalyzeResult; mo
         body: JSON.stringify({
           report_type: "disclosure",
           reference_date: referenceDate,
+          customer_name: result.customer_name || "",   // BOHUMFIT-065: 서버 Content-Disposition 파일명용
           standard_reports: result.standard_reports,
           easy_reports: result.easy_reports || {},
           all_disease_summary: result.all_disease_summary || [],
@@ -1066,7 +1068,13 @@ function ResultView({ result, mode, referenceDate }: { result: AnalyzeResult; mo
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `보험핏-고지내역-${new Date().toISOString().slice(0, 10)}.pdf`;
+      // BOHUMFIT-065: 파일명 = 보험핏-고지내역-{고객이름}-{분석기준일}. 이름은 공단 PDF 성명(폴백 시
+      //   날짜만, 기존 동작). 공백·특수문자 제거(안전한 파일명), 길이 제한.
+      const safeName = (result.customer_name || "").replace(/[^가-힣A-Za-z0-9]/g, "").slice(0, 20);
+      const datePart = referenceDate || new Date().toISOString().slice(0, 10);
+      a.download = safeName
+        ? `보험핏-고지내역-${safeName}-${datePart}.pdf`
+        : `보험핏-고지내역-${datePart}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
     } catch (e: unknown) {

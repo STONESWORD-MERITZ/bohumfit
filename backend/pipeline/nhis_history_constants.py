@@ -38,9 +38,12 @@ def grade_surgery_suspicion(
         if total_cost >= INPATIENT_STRONG_COST:
             score += 2
     else:  # 외래 등
-        if total_cost >= OUTPATIENT_WEAK_COST:
-            score += 1
-    if has_surgery_keyword:
+        # BOHUMFIT-065: 외래는 비용 단독으로 수술의심을 만들지 않는다. 10만원 이상 비용과
+        #   수술 키워드가 함께 있을 때만 의심으로 본다. K05처럼 치주/치은 외래 비용이 10만원을
+        #   넘지만 수술 키워드가 없는 행은 해제하고, K63처럼 고액+폴립 키워드가 있는 행은 유지한다.
+        if total_cost >= OUTPATIENT_WEAK_COST and has_surgery_keyword:
+            score += 2
+    if in_out == "입원" and has_surgery_keyword and total_cost >= OUTPATIENT_WEAK_COST:
         score += 1
     if is_non_surgery_excluded:
         score -= 1

@@ -351,6 +351,14 @@ def _count_items(reports) -> int:
     return sum(len(v or []) for v in reports.values())
 
 
+def _has_surgery_suspected(sections: list[dict]) -> bool:
+    for section in sections:
+        for row in section.get("rows") or []:
+            if row.get("suspected_grade") or row.get("suspected_n"):
+                return True
+    return False
+
+
 # ── 폰트 임베딩 ──────────────────────────────────────────────────────────────
 def _font_face_css() -> str:
     """backend/fonts/ 에 폰트 파일이 있으면 @font-face 로 임베딩(선택 사항).
@@ -407,6 +415,8 @@ def _split_address(addr: str) -> list[str]:
 def render_disclosure_html(payload: dict, generated_at: datetime) -> str:
     std_reports = payload.get("standard_reports") or {}
     easy_reports = payload.get("easy_reports") or {}
+    std_sections = _prepare_section(std_reports, is_easy=False)
+    easy_sections = _prepare_section(easy_reports, is_easy=True)
     ctx = {
         **_common_context(generated_at),
         # BOHUMFIT-051 A-1: 깨진 SVG 보조 텍스트 대신 깔끔한 CSS 텍스트 워드마크(브랜드 그린) 사용.
@@ -414,8 +424,9 @@ def render_disclosure_html(payload: dict, generated_at: datetime) -> str:
         # BOHUMFIT-051 A-4: 소재지 도로명/상세 2줄 분리.
         "biz_address_lines": _split_address(BUSINESS_FOOTER.get("address", "-")),
         "reference_date": payload.get("reference_date") or "-",
-        "std_sections": _prepare_section(std_reports, is_easy=False),
-        "easy_sections": _prepare_section(easy_reports, is_easy=True),
+        "std_sections": std_sections,
+        "easy_sections": easy_sections,
+        "has_surgery_suspected": _has_surgery_suspected(std_sections) or _has_surgery_suspected(easy_sections),
         "std_count": _count_items(std_reports),
         "easy_count": _count_items(easy_reports),
         "all_diseases": payload.get("all_disease_summary") or [],

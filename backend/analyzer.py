@@ -246,7 +246,7 @@ def _log_parsed(fn: str, pr: dict) -> None:
     )
 
 
-async def _parse_all_pdfs(active_files: list, birthdate_pw: str) -> tuple[list, list]:
+async def _parse_all_pdfs(active_files: list, birthdate_pw: str) -> tuple[list, list, str]:
     """PDF들을 파싱해 (레코드, 파싱오류) 반환. 레코드 0건이면 AnalysisError.
 
     기본 순차(메모리 피크 1파일분 — BOHUMFIT-047 OOM 핫픽스). 메모리 헤드룸이 있으면
@@ -255,6 +255,7 @@ async def _parse_all_pdfs(active_files: list, birthdate_pw: str) -> tuple[list, 
     """
     all_records: list = []
     parse_errors: list = []
+    customer_name = ""   # BOHUMFIT-065: 출력 파일명용 성명(첫 비어있지 않은 값). 판정 무관.
     names = [getattr(uf, "name", None) or getattr(uf, "filename", None) or f"file_{i}"
              for i, uf in enumerate(active_files)]
     _total_bytes = 0
@@ -276,6 +277,8 @@ async def _parse_all_pdfs(active_files: list, birthdate_pw: str) -> tuple[list, 
                 continue
             all_records.extend(pr["records"])
             parse_errors.extend(pr["parse_errors"])
+            if not customer_name:
+                customer_name = pr.get("patient_name") or ""
             _log_parsed(fn, pr)
     else:
         # ── BOHUMFIT-055: 파일 단위 프로세스 병렬(순서 보존·fail-loud) ──
@@ -303,6 +306,8 @@ async def _parse_all_pdfs(active_files: list, birthdate_pw: str) -> tuple[list, 
         for fn, pr in zip(names, results):   # 파일 순서대로 병합 → 결정성 유지
             all_records.extend(pr["records"])
             parse_errors.extend(pr["parse_errors"])
+            if not customer_name:
+                customer_name = pr.get("patient_name") or ""
             _log_parsed(fn, pr)
 
     if not all_records:
@@ -315,7 +320,7 @@ async def _parse_all_pdfs(active_files: list, birthdate_pw: str) -> tuple[list, 
             "심평원에서 발급한 진료내역 PDF가 맞는지 확인해 주세요."
         )
 
-    return all_records, parse_errors
+    return all_records, parse_errors, customer_name
 
 
 def _build_drug_change_text(drug_change_summary: list[dict]) -> str:
@@ -926,7 +931,7 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
     _d10y_dt = _subtract_years(today, 10)   # BOHUMFIT-004: 달력 기준 10년
     retry_warnings = []
 
-    all_records, parse_errors = await _parse_all_pdfs(active_files, birthdate_pw)
+    all_records, parse_errors, customer_name = await _parse_all_pdfs(active_files, birthdate_pw)
     # BOHUMFIT-047: ftype별 총 파싱 레코드 수 — 결과 dict 노출(프런트가 파싱 불완전 표면화) + 로깅.
     record_counts = dict(Counter(str(r.get("_ftype", "unknown")) for r in all_records))
     # BOHUMFIT-054 STEP2: 파싱 불완전(ftype 미인식 과다) 사용자 경고 — 분석은 막지 않음(경고만).
@@ -1097,6 +1102,7 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
 
     return {
         "record_counts":           record_counts,
+        "customer_name":           customer_name,           # BOHUMFIT-065: 출력 파일명용(판정 무관, 없으면 "")
         "parse_quality_warning":   parse_quality_warning,   # BOHUMFIT-054 STEP2 (None=정상)
         "ai_result":               ai_result,
         "summary_reports":         {k: list(v) for k, v in summary_reports.items()},
