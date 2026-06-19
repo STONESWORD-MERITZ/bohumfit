@@ -1,4 +1,4 @@
-﻿"""
+"""
 BOHUMFIT 알릴의무 필터링 룰 엔진 (건강체 전용 — BOHUMFIT-BUG-008 에서 간편 제거)
 - 입력: disease_stats (Dict[group_key, disease_stats_record]), reference_date (datetime), product_type (str)
 - 출력: code_based_items: list[dict]
@@ -505,7 +505,11 @@ def _build_q2_easy_items(
     _d3m, _d1y, _d5y, d10y = _cutoffs(reference_date)
 
     seen = set()
-    for gk in set(buckets["bucket_10y_hosp"].keys()) | set(buckets["bucket_10y_surg"].keys()):
+    # BOHUMFIT-066: 일반(건강체) Q4와 동기화 — 입원·확정수술뿐 아니라 공단 '수술 의심' 보유 코드도
+    #   포함해 간편 Q2에서 의심 등급(강/약)이 누락되지 않게 한다.
+    _susp_keys = {gk for gk, s in disease_stats.items()
+                  if _dts_in_range(s.get("surgery_suspected_dates", set()), d10y)}
+    for gk in set(buckets["bucket_10y_hosp"].keys()) | set(buckets["bucket_10y_surg"].keys()) | _susp_keys:
         if gk in seen:
             continue
         seen.add(gk)
@@ -545,6 +549,19 @@ def _build_q2_easy_items(
                 is_inpatient=bool(inp_10y), inpatient_days=inp10y_days,
                 rule_id="R-E-Q2-SURG-10Y",
                 evidence={"dates": surg_10y, "surgery": sn},
+            ))
+        # BOHUMFIT-066: 공단 수술 '의심'(강/약) — 일반 Q4 R-H-Q4-SURG-SUSP-510Y와 동기화(간편 10년 창).
+        susp_10y = _dts_in_range(s.get("surgery_suspected_dates", set()), d10y)
+        grade = s.get("surgery_suspected_grade", "")
+        if susp_10y and grade:
+            items.append(_make_item(
+                q="Q2", code=dc, disease=nm, hospital=hp,
+                first_diagnosis_date=fd,
+                reason=f"10년이내 수술 의심({grade}) — 진료비 합산(공단부담금+본인부담금) 기준",
+                date=max(susp_10y), weight=wt,
+                is_inpatient=bool(inp_10y), inpatient_days=inp10y_days,
+                rule_id="R-E-Q2-SURG-SUSP-10Y",
+                evidence={"dates": susp_10y, "grade": grade, "source": "공단"},
             ))
     return items
 
@@ -688,7 +705,7 @@ def _build_q4_health_items(
 ) -> list[dict]:
     """Q4 건강체 (BOHUMFIT-034 신설) — 5년 초과 10년 이내 입원·수술만.
 
-    공단 033의 5~10년 입원(확정)·수술(공단 미명시→진료비 기준 의심 강/약) + 심평원 확정
+    공단 033의 5~10년 입원(확정)·수술(공단 미명시→진료비 합산[공단+본인] 기준 의심 강/약) + 심평원 확정
     입원·수술 중 5~10년 건(소실 방지)을 담는다. Q3(0~5년)과 기간 비중첩.
     범위창 [d10y, d5y) = 5년 초과 10년 이내(_dts_in_window).
     """
@@ -737,12 +754,12 @@ def _build_q4_health_items(
                 evidence={"dates": surg_510, "surgery": sn},
             ))
 
-        # R-H-Q4-SURG-SUSP-510Y: 5년 초과 10년 이내 수술 '의심' (공단 진료비 기준·강/약)
+        # R-H-Q4-SURG-SUSP-510Y: 5년 초과 10년 이내 수술 '의심' (진료비 합산[공단+본인] 기준·강/약)
         _grade = s.get("surgery_suspected_grade", "")
         if susp_510 and _grade:
             items.append(ci(
                 q="Q4", rule_id="R-H-Q4-SURG-SUSP-510Y",
-                reason=f"5년 초과 10년 이내 수술 의심({_grade}) — 공단 진료비 기준",
+                reason=f"5년 초과 10년 이내 수술 의심({_grade}) — 진료비 합산(공단부담금+본인부담금) 기준",
                 date=max(susp_510), weight=wt,
                 evidence={"dates": susp_510, "grade": _grade, "source": "공단"},
             ))

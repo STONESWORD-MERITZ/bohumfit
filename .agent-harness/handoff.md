@@ -16,6 +16,48 @@
 
 # Handoff
 
+## 2026-06-19 Codex BOHUMFIT-066 [Windows 검증·실 PDF 재현 완료 / Next: Human 외래 수술의심 정책 문구 확인]
+### Changed
+- Windows 원본 `backend/filters.py`·`backend/pipeline/result_builder.py`의 UTF-8 BOM 제거로 지정 AST 점검 통과(문자 내용 불변).
+- Cowork 066 범위 구현을 Windows 원본에서 검증: 간편 Q2 수술의심 등급을 일반 Q4와 동일하게 노출하고, 수술의심 근거 문구를 `진료비 합산(공단부담금+본인부담금) 기준`으로 정합화.
+### Verified
+- truncation 선제 점검: 066 범위 파일 NUL 없음, strict UTF-8 OK, tail 완결. `filters.py`·`result_builder.py` AST OK.
+- 핵심 grep: `R-E-Q2-SURG-SUSP-10Y`, 간편 Q2 등급 노출 조건, `진료비 합산(공단부담금+본인부담금) 기준` 확인. 코드 범위 `"공단 진료비 기준"` 잔존 0.
+- `cd backend && python -m pytest -q tests/ -k "surgery or suspect or easy or q2 or q4 or BOHUMFIT_066" -vv` -> 99 passed, 1 skipped, 282 deselected.
+- `cd backend && python -m pytest -q` -> 375 passed, 7 skipped.
+- 실 PDF 10파일(제공된 비밀번호 후보, AI 예산 0 결정론): records `nhis=56/basic=40/detail=228/pharma=129`, parse_errors=0. M51·K60은 일반 Q4와 간편 Q2 모두 `강`+입원동반, K63도 일반 Q4 `강` 및 간편 Q2 동일, K01·K05 수술의심 해제 유지. PDF/HTML 문구 토큰 `진료비 합산(공단부담금+본인부담금) 기준`, `10만원 이상`, `50만원 이상` 확인 및 stale phrase 0.
+- `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- `npm run lint` -> pass.
+- `npm test` -> 4 files / 45 tests passed.
+- `npm run build` -> pass. 기존 Vite chunk size warning만 출력.
+### Notes
+- `backend/__pycache__/main.cpython-312.pyc` pytest 부산물은 복구. PII/PDF/brand/unrelated 파일 stage 금지 준수 예정.
+- Commit: pending.
+### Next
+- Human: 외래 수술의심 정책 문구 최종 확인.
+
+## 2026-06-19 Cowork BOHUMFIT-066 [간편 Q2 수술 동기화 + 합산 명칭 정정 + 비급여 검증 / Next: Codex 검증·실 PDF·커밋 + Human 문구]
+### PHASE1 진단
+- **(A) 간편 Q2 ≠ 일반 Q4 두 원인**: ① `result_builder.py:246` 등급을 `q=="Q4"`에서만 노출 → 간편 Q2 등급 누락(수술 의심 "1건"만). ② `filters._build_q2_easy`에 **공단 수술 의심 경로 자체가 없음**(일반 Q4엔 `R-H-Q4-SURG-SUSP-510Y`)·버킷도 입원∪확정수술만 순회.
+- **(B)** "공단 진료비 기준" = `filters.py:745`(reason)+L691(docstring). 056 합산(공단+본인) 반영 안 된 부정확 명칭.
+- **(C)** `pdf_parser:234 total_cost=(cur_gongdan or 0)+bonin_cost` — 본인부담금 항상 합산(누락 0). 실 PDF 공단=0 행 없음(급여만). K05 만성단순치주염 외래 118,550(공단83,050+본인35,500)·키워드 없음 → 현 로직(외래 cost≥10만 AND 키워드)서 ''(해제 확인).
+### Changed
+- `backend/pipeline/result_builder.py` — 등급 노출 `(not is_easy and q=="Q4") or (is_easy and q=="Q2")` (간편 Q2 동기화).
+- `backend/filters.py` — `_build_q2_easy`: surgery_suspected 보유 코드 순회 추가 + 신규 `R-E-Q2-SURG-SUSP-10Y`(일반 Q4와 동일 의심 경로·간편 10년 창). reason·docstring "공단 진료비 기준"→"진료비 합산(공단부담금+본인부담금) 기준".
+- `src/pages/Disclosure.tsx`(L448)·`backend/templates/report_disclosure.html`(범례) — 수술의심 문구를 **코드 정확**(외래는 cost≥10만+수술행위)·'이상' 명확으로 정정(065 단순 문구 "외래 10만=약"은 부정확 → Codex 065 handoff의 Human 확인사항 해소).
+- `backend/tests/test_easy_q2_surgery_sync_066.py` 신규(8). `.agent-harness/tasks/BOHUMFIT-066.md` 신규.
+- (C 비급여: 코드 무변경 — 합산식 본인부담금 항상 포함 검증만.)
+### Verified
+- /tmp(마운트 복구: filters q5 tail·result_builder std_flagged+return·nhis_constants/surgery_exclusions 재작성·pdf_parser splice) → **066 8/8 + 광범위 85 passed·6 skipped·회귀 0**(test_q4_q5_restructure·q_restructure·filters·nhis·059 포함). 간편 Q2 등급==일반 Q4(강·약·입원동반)·reason 정정·합산 공단+본인·비급여성 본인 포함·임계 '이상' 경계·065(K01/K05) 해제 유지.
+- [ ] (Codex/Windows) 전체 pytest(367+8)·tsc/lint/build·실 PDF 재현.
+### Notes — Human
+- (2-C) 문구를 Codex 보정 로직(외래 cost≥10만+키워드)에 맞춰 정정 — 065 "외래 10만=약"은 부정확이었음(Codex 065 handoff Human 확인항목). 외래 의심 기준 재단순화 원하면 Human.
+- (C) 공단=0 행의 미세 숫자잔여(날짜·전화) 과대평가는 본인부담금 누락 아니며 의심판정 무해. 정밀화 별도(범위 외).
+- ⚠ 마운트 손상 심각(filters/result_builder/pdf_parser/test 파일 truncation·NameError `std_flagg`·`asse` — **066 무관**), /tmp 복구로 검증·실파일 Read/Grep 정합 확인. 전체 pytest·실 PDF Codex/Windows. 입원·통원·투약 판정·056/062/065 grade 로직 무변경. 실 PDF/PII 미커밋·작업파일 정리·마운트 git 미실행.
+### Next
+- **Codex(Windows)**: 전체 pytest·tsc/lint/build·실 PDF 10파일 재현(간편 Q2와 일반 Q4 K60/M51 동일 등급·문구·K01/K05 해제) → 범위 파일 stage→commit→push. 커밋: `BOHUMFIT-066: 간편 Q2 수술의심 동기화(일반 Q4와 동일 등급) + 합산 기준 명칭 정정 + 비급여 합산 검증`.
+- **Human**: 외래 수술의심 정책 문구 최종 확인.
+
 ## 2026-06-19 Codex BOHUMFIT-065 [Windows 검증·실 PDF 재현 완료 / Next: Human 외래 임계 정책 확인]
 ### Changed
 - Cowork 065 구현 Windows 검증 중 K05 실 PDF 회귀 발견 후 보정: 공단 외래는 비용 단독으로 수술의심을 만들지 않고, `10만원 이상 + 수술 키워드`가 함께 있을 때만 의심으로 판정. K05 치주/치은 고액 외래 오탐 해제, K63 고액+폴립 키워드 강 유지.

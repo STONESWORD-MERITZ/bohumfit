@@ -1,4 +1,4 @@
-﻿"""summary_reports 빌드 — analyzer.py 에서 이동."""
+"""summary_reports 빌드 — analyzer.py 에서 이동."""
 from __future__ import annotations
 
 import logging
@@ -243,7 +243,9 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
             "procedure_dates":         _proc_dates,
             "surgery_suspected":       _surg_susp,
             "surgery_suspected_dates": _surg_susp_dates,
-            "surgery_suspected_grade": _ds.get("surgery_suspected_grade", "") if (_ds and q == "Q4") else "",  # BOHUMFIT-033/034: 의심등급은 Q4(5~10년)에서만
+            # BOHUMFIT-033/034: 공단 수술의심 등급은 5~10년 입원·수술 질문에서만 노출.
+            # BOHUMFIT-066: 일반(건강체) Q4 ↔ 간편 Q2(10년 입원·수술)를 동기화 — 양쪽 동일 등급(강/약) 표시.
+            "surgery_suspected_grade": _ds.get("surgery_suspected_grade", "") if (_ds and ((not is_easy and q == "Q4") or (is_easy and q == "Q2"))) else "",
             "additional_tests":        _additional_tests,
             "additional_test_hit":     _add_test_hit,
             "additional_test_reason":  _add_test_reason,
