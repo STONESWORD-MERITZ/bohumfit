@@ -22,6 +22,10 @@ export default function Logo({ size = 28, inverted = false, className }: LogoPro
         alignItems: "baseline",
         gap: size * 0.34,
         lineHeight: 1,
+        // BOHUMFIT-067: 좁은 폭에서 "BohumFit 보험핏"·"보험/핏" 줄바꿈 방지 — 항상 한 줄.
+        whiteSpace: "nowrap",
+        wordBreak: "keep-all",
+        flexShrink: 0,
       }}
     >
       <span

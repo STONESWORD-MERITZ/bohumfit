@@ -187,6 +187,7 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
 <div class="head">
   {% if logo_data_uri %}<img class="brand-logo" src="{{ logo_data_uri }}" alt="BOHUMFIT">{% else %}<div class="brandblock"><div class="wordmark">BOHUMFIT<span class="dot">.</span></div><div class="wordmark-sub">보험핏 · 알릴의무 분석</div></div>{% endif %}
   <div class="head-meta">
+    {% if customer_name %}고객명 <b>{{ customer_name }}</b><br>{% endif %}
     문서번호 <b>{{ doc_no }}</b><br>
     생성일시 {{ generated_at }} · 점검 기준일 <b>{{ reference_date }}</b>
   </div>

@@ -1042,6 +1042,9 @@ function ResultView({ result, mode, referenceDate }: { result: AnalyzeResult; mo
   const { session } = useAuth();
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfError, setPdfError] = useState("");
+  // BOHUMFIT-067: 고객명 직접 입력(선택). 우선순위 = 사용자 입력 > 공단 PDF 자동추출(065) > 날짜 폴백.
+  const [customerName, setCustomerName] = useState("");
+  const effectiveCustomerName = (customerName.trim() || result.customer_name || "").trim();
   async function saveDisclosurePdf() {
     const token = session?.access_token;
     setPdfLoading(true);
@@ -1053,7 +1056,7 @@ function ResultView({ result, mode, referenceDate }: { result: AnalyzeResult; mo
         body: JSON.stringify({
           report_type: "disclosure",
           reference_date: referenceDate,
-          customer_name: result.customer_name || "",   // BOHUMFIT-065: 서버 Content-Disposition 파일명용
+          customer_name: effectiveCustomerName,   // BOHUMFIT-067: 입력>자동추출>"" (파일명·본문 공용)
           standard_reports: result.standard_reports,
           easy_reports: result.easy_reports || {},
           all_disease_summary: result.all_disease_summary || [],
@@ -1070,7 +1073,7 @@ function ResultView({ result, mode, referenceDate }: { result: AnalyzeResult; mo
       a.href = url;
       // BOHUMFIT-065: 파일명 = 보험핏-고지내역-{고객이름}-{분석기준일}. 이름은 공단 PDF 성명(폴백 시
       //   날짜만, 기존 동작). 공백·특수문자 제거(안전한 파일명), 길이 제한.
-      const safeName = (result.customer_name || "").replace(/[^가-힣A-Za-z0-9]/g, "").slice(0, 20);
+      const safeName = effectiveCustomerName.replace(/[^가-힣A-Za-z0-9]/g, "").slice(0, 20);
       const datePart = referenceDate || new Date().toISOString().slice(0, 10);
       a.download = safeName
         ? `보험핏-고지내역-${safeName}-${datePart}.pdf`
@@ -1107,6 +1110,18 @@ function ResultView({ result, mode, referenceDate }: { result: AnalyzeResult; mo
           <Metric label="총 투약일" value={`${result.total_med_sum}일`} />
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
+          {/* BOHUMFIT-067: 고객명 직접 입력(선택). 입력 시 파일명·리포트 본문에 우선 적용, 비우면 자동추출/날짜 폴백. */}
+          <label className="flex items-center gap-1.5 text-[12px] text-gray-600">
+            <span className="whitespace-nowrap">고객명</span>
+            <input
+              type="text"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder={result.customer_name || "선택 입력"}
+              maxLength={20}
+              className="w-28 rounded-[6px] border border-gray-300 px-2 py-1 text-sm focus:border-accent-600 focus:outline-none"
+            />
+          </label>
           <button
             type="button"
             onClick={saveDisclosurePdf}

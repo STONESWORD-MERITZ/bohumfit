@@ -424,6 +424,9 @@ def render_disclosure_html(payload: dict, generated_at: datetime) -> str:
         # BOHUMFIT-051 A-4: 소재지 도로명/상세 2줄 분리.
         "biz_address_lines": _split_address(BUSINESS_FOOTER.get("address", "-")),
         "reference_date": payload.get("reference_date") or "-",
+        # BOHUMFIT-067: 리포트 본문(헤더)에 고객명 표시. payload 값(사용자 입력>자동추출)이며 없으면 ""(줄 생략).
+        #   PII — 화면·PDF 표시만, 서버 영구 저장 안 함(기존 휘발 설계 유지).
+        "customer_name": (payload.get("customer_name") or "").strip(),
         "std_sections": std_sections,
         "easy_sections": easy_sections,
         "has_surgery_suspected": _has_surgery_suspected(std_sections) or _has_surgery_suspected(easy_sections),

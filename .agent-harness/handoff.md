@@ -16,6 +16,43 @@
 
 # Handoff
 
+## 2026-06-20 Codex BOHUMFIT-067 [Windows 검증·실 UI/PDF 육안 완료 / Next: Human 모바일 로고 폭 미세조정 여부]
+### Changed
+- Cowork 067 구현을 Windows 원본에서 검증: 로그인 로고 한 줄 유지, 고객명 직접 입력 UI, 리포트 payload/파일명 우선순위, PDF 본문 고객명 표시/공백 생략.
+### Verified
+- truncation 선제 점검: `Logo.tsx`, `Disclosure.tsx`, `report_pdf.py`, `report_disclosure.html`, 신규 테스트/task NUL 없음, strict UTF-8 OK, tail 완결. `report_pdf.py` AST OK.
+- 핵심 grep: `nowrap`/`keep-all`, `customerName`/`effectiveCustomerName`, template/report_pdf `customer_name` 확인.
+- `cd backend && python -m pytest -q tests/ -k "customer or report or BOHUMFIT_067" -vv` -> 39 passed, 347 deselected.
+- `cd backend && python -m pytest -q` -> 379 passed, 7 skipped.
+- `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- `npm run lint` -> pass.
+- `npm test` -> 4 files / 45 tests passed.
+- `npm run build` -> pass. 기존 Vite chunk size warning + plugin timing warning만 출력.
+- 실 브라우저(Playwright/Chromium): 로그인 로고 데스크탑·320px 모바일 모두 한 줄, "보험/핏" 줄바꿈 없음. 결과 화면 고객명 입력 필드 표시, 자동추출명 placeholder 확인, 입력값 `입력고객`이 report payload와 다운로드 파일명(`보험핏-고지내역-입력고객-2026-06-19.pdf`)에 반영됨.
+- 실 PDF(Chromium 생성 + pdfplumber 텍스트 + pypdfium2 렌더): 본문 헤더 `고객명 입력고객` 정상 표시, 공백만 입력 시 고객명 줄 생략. 렌더 육안에서 한글 정상.
+### Notes
+- Browser 플러그인 REPL 도구가 세션에 노출되지 않아 로컬 Playwright/Chromium으로 실 브라우저 확인을 대체. PDF 렌더는 `pdftoppm` 부재로 `pypdfium2` 사용.
+- 모바일 320px에서 로고는 줄바꿈 없이 한 줄이나 화면 오른쪽에 가깝게 붙음. 크기/중앙 정렬 미세조정은 후속 UX 판단.
+- 검증 산출물/임시 PDF/스크린샷 삭제, pytest pyc 부산물 복구. PII/PDF/brand/unrelated stage 금지 준수 예정.
+### Next
+- Commit/push 후 Human: 모바일 로고 폭 미세조정 필요 여부만 확인.
+
+## 2026-06-19 Cowork BOHUMFIT-067 [로그인 로고 한 줄 + PDF 고객명 직접입력·리포트 본문 표시 / Next: Codex build·tsc·실 PDF·커밋]
+### Changed
+- **(A)** `src/components/Logo.tsx` — inline-flex에 `whiteSpace:nowrap`·`wordBreak:keep-all`·`flexShrink:0` → 로그인 "보험핏"·"보험/핏" 줄바꿈 방지(한 줄).
+- **(B)** `src/pages/Disclosure.tsx`(ResultView) — `customerName` state + PDF 저장 영역 입력 필드. `effectiveCustomerName = 입력.trim() || result.customer_name(065) || ""` → report payload·다운로드 파일명 공용. 우선순위 입력>자동추출>날짜.
+- **(C)** `backend/pipeline/report_pdf.py` — `render_disclosure_html` ctx에 `customer_name=(payload.customer_name or "").strip()`. `backend/templates/report_disclosure.html` head-meta(문서번호 옆)에 `{% if customer_name %}고객명 …{% endif %}`(없으면 줄 생략).
+- **(D)** 파일명 `보험핏-고지내역-{effectiveCustomerName}-{기준일}.pdf`(sanitize·RFC5987은 065 유지).
+- `backend/tests/test_report_customer_name_067.py` 신규(4). `.agent-harness/tasks/BOHUMFIT-067.md` 신규.
+### Verified
+- /tmp(마운트 복구: template tail·report_pdf tail splice) → **067 4/4 + test_report_pdf_q1q5 6/6 = 10 passed·회귀0**. 실 템플릿 standalone Jinja: `{% if customer_name %}` 설정→고객명 표시·""→생략·공백만→strip 생략·헤더(문서번호/생성일시/점검 기준일) 유지.
+- [ ] (Codex/Windows) `npm run build`·tsc/lint·실 PDF 본문 고객명·로그인 한 줄 육안·전체 pytest(375+4).
+### Notes
+- 분석/판정·056~066 로직 무변경(report-only + 로고/입력 UI). 고객명 PII는 출력(화면·PDF·파일명)만·서버 미저장(휘발 유지). ①②③ 파일명 우선순위는 프런트 로직(065 filename 회귀가 payload→파일명 경로 커버, 우선순위는 Codex tsc/build). ⚠report_pdf/template 마운트 truncation(067 무관)→/tmp 복구 검증. 066 커밋(6622589) 위 추가 작업. 실 PDF/PII 미커밋·작업파일 정리·마운트 git 미실행.
+### Next
+- **Codex(Windows)**: build·tsc(app/node)·lint·실 PDF 본문 "고객명" 표시·로그인 "보험핏" 한 줄 육안·전체 pytest → 범위 파일 stage→commit→push. 커밋: `BOHUMFIT-067: 로그인 로고 한 줄 + PDF 고객명 직접 입력·리포트 본문 표시`.
+
 ## 2026-06-19 Codex BOHUMFIT-066 [Windows 검증·실 PDF 재현 완료 / Next: Human 외래 수술의심 정책 문구 확인]
 ### Changed
 - Windows 원본 `backend/filters.py`·`backend/pipeline/result_builder.py`의 UTF-8 BOM 제거로 지정 AST 점검 통과(문자 내용 불변).
