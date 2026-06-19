@@ -37,7 +37,7 @@
 ### Notes
 - `backend/__pycache__/main.cpython-312.pyc` pytest 부산물은 복구. PII/PDF/brand/unrelated 파일 stage 금지 준수 예정.
 - Prompt의 범위 목록에는 일부 실제 고객명 파일명 체인 파일이 누락되어 있었으나, 065 동작에 필요한 실제 변경 파일만 선별 stage 예정.
-- Commit: pending.
+- Commit: `f1da115` pushed to `origin/main`.
 ### Next
 - Human: 외래 수술의심 정책 문구(현재 화면/PDF 문구는 "약=외래 10만원 이상" 유지)와 실제 로직(외래 10만원 이상 + 수술 키워드) 표현 정합성 최종 확인.
 
