@@ -19,6 +19,7 @@
 ## 2026-06-20 Codex BOHUMFIT-067 [Windows 검증·실 UI/PDF 육안 완료 / Next: Human 모바일 로고 폭 미세조정 여부]
 ### Changed
 - Cowork 067 구현을 Windows 원본에서 검증: 로그인 로고 한 줄 유지, 고객명 직접 입력 UI, 리포트 payload/파일명 우선순위, PDF 본문 고객명 표시/공백 생략.
+- Commit `d670da8` pushed to `origin/main`.
 ### Verified
 - truncation 선제 점검: `Logo.tsx`, `Disclosure.tsx`, `report_pdf.py`, `report_disclosure.html`, 신규 테스트/task NUL 없음, strict UTF-8 OK, tail 완결. `report_pdf.py` AST OK.
 - 핵심 grep: `nowrap`/`keep-all`, `customerName`/`effectiveCustomerName`, template/report_pdf `customer_name` 확인.
@@ -34,9 +35,9 @@
 ### Notes
 - Browser 플러그인 REPL 도구가 세션에 노출되지 않아 로컬 Playwright/Chromium으로 실 브라우저 확인을 대체. PDF 렌더는 `pdftoppm` 부재로 `pypdfium2` 사용.
 - 모바일 320px에서 로고는 줄바꿈 없이 한 줄이나 화면 오른쪽에 가깝게 붙음. 크기/중앙 정렬 미세조정은 후속 UX 판단.
-- 검증 산출물/임시 PDF/스크린샷 삭제, pytest pyc 부산물 복구. PII/PDF/brand/unrelated stage 금지 준수 예정.
+- 검증 산출물/임시 PDF/스크린샷 삭제, pytest pyc 부산물 복구. PII/PDF/brand/unrelated stage 금지 준수.
 ### Next
-- Commit/push 후 Human: 모바일 로고 폭 미세조정 필요 여부만 확인.
+- Human: 모바일 로고 폭 미세조정 필요 여부만 확인.
 
 ## 2026-06-19 Cowork BOHUMFIT-067 [로그인 로고 한 줄 + PDF 고객명 직접입력·리포트 본문 표시 / Next: Codex build·tsc·실 PDF·커밋]
 ### Changed
