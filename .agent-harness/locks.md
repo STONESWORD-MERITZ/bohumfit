@@ -15,6 +15,13 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-20 `BOHUMFIT-086+087+088: Windows 검증·태스크별 커밋` - Codex - 086 was not on main, so committed prerequisite first (`d694fee`), then 087 docs (`1d2288f`) and 088 duplicate phone guard (`a2ed8e3`). Verification passed: tsc app/node, lint, npm test 53 passed, backend 402 passed/8 skipped, build pass with existing warnings. Next: Human SQL 0004, identity plan review/vendor decision, live CI integration task.
+
+- 2026-06-20 `BOHUMFIT-087` - Cowork - 본인확인(휴대폰/PASS) 연동 설계 조사 문서 작성 완료(코드 무변경). docs/identity-verification-plan.md 신규 — 후보비교(포트원/토스/다날/KG)·추천·CI 기반 1인1계정 아키텍처·개인정보·선행조건·다음태스크. 1차출처(포트원 헬프센터/블로그) URL 명기. 단가·토스 세부는 "확인 불가"로 명시(추측 안 함, 견적·브라우저 추가조사 필요). → Codex 커밋·푸시.
+- 2026-06-20 `BOHUMFIT-088` - Cowork - 휴대폰 번호 중복가입 임시 방어 구현 완료. phone_guard.py(순수 판정 신규)·main.py verify-phone(role internal 우회+동일번호 다른계정 조회→409)·20260620000004_phone_unique.sql(부분 UNIQUE·★Human 실행)·PhoneVerify.tsx(409 안내)·test_phone_guard.py(4케이스). 검증: pytest test_phone_guard 4 passed(샌드박스)·main.py edit Read 검증. ⚠전체 pytest(main truncation)·tsc/lint/build(rolldown) 샌드박스 불가→Codex/Windows. 임시방편(다른번호 입력 우회 가능, 087 CI로 완성). 086 미커밋 시 086→088 순서 권장. 마운트 git 미실행. → Codex 검증·커밋·푸시 + Human SQL 실행.
+
+- 2026-06-20 `BOHUMFIT-086` - Cowork - 폰인증 게이트 미동작 진단·수정 + 로그인 로고 잘림 + Footer 정리. 진단: 원인 (a/e) 확정 — OAuth redirectTo=origin → 로그인 직후 도착 `/`(Home)이 비보호 라우트라 게이트 미평가(이메일 navigate("/")도 동일). (c) 보조 — profiles 본인 SELECT 정책 부재. 수정: phoneGate.ts(순수 판정 신규)·usePhoneGate.tsx(훅+PhoneGate 신규)·ProtectedRoute(훅 일원화)·App index를 PhoneGate로 감쌈(랜딩 게이트)·Login 로고 28/36·overflow-x-clip 제거·20260620000003 RLS SELECT 정책 SQL(신규·★Human 실행)·phoneGate.test.ts(8케이스). Footer.tsx 의도 dirty 유지(미수정·Codex 커밋 포함). 검증: /tmp 로직 8/8·정적 자기검토. ⚠샌드박스 tsc(마운트 truncation)·vitest/build(rolldown 네이티브 미설치) 실행 불가 → Codex/Windows 권위. 백엔드 무변경·마운트 git 미실행. → Codex tsc·lint·build·test·커밋·푸시 + Human RLS SQL 실행.
+
 - 2026-06-20 `BOHUMFIT-084+085: 검증·태스크별 커밋` - Codex - Windows authority verification passed(tsc app/node, lint, npm test 45 passed, backend 398 passed/8 skipped, build pass). Commits pushed: 084 `f110463`, 085 `2e1c174`; `backend/main.py` upsert `on_conflict="id"` 보강 포함. `src/components/Footer.tsx` dirty is out-of-scope and left unstaged. Next: Human Supabase SQL 실행·소셜 폰게이트 실기기 확인·084 스크린샷 교체.
 
 - 2026-06-20 `BOHUMFIT-084` - Cowork - DownloadGuide 전면 개편 구현 완료(심평원 HIRA 6단계 5파일 + 건강보험공단 NHIS 6단계 1년단위·최대10년 + 최종 체크리스트 useState + 스크린샷 플레이스홀더). 082 타이포 적용. 정적 자기검토(Read=원본) JSX 균형·탭 타입 정상. ⚠샌드박스 tsc/lint/build 마운트 truncation으로 실행 불가 → Codex/Windows 권위. 분석/판정·백엔드 무관·마운트 git 미실행. → Codex tsc·lint·build·커밋·푸시.

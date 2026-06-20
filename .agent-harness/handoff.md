@@ -16,6 +16,91 @@
 
 # Handoff
 
+## 2026-06-20 Codex BOHUMFIT-086 + BOHUMFIT-087 + BOHUMFIT-088 [Windows 검증·태스크별 커밋·푸시 완료]
+### Changed
+- BOHUMFIT-086 commit `d694fee`: `src/lib/phoneGate.ts`, `src/lib/usePhoneGate.tsx`, `src/lib/phoneGate.test.ts`, `src/components/ProtectedRoute.tsx`, `src/App.tsx`, `src/pages/Login.tsx`, `src/components/Footer.tsx`, `supabase/migrations/20260620000003_profiles_select_policy.sql`, `.agent-harness/tasks/BOHUMFIT-086-phone-gate-debug-and-fixes.md`.
+- BOHUMFIT-087 commit `1d2288f`: `docs/identity-verification-plan.md`, `.agent-harness/tasks/BOHUMFIT-087-identity-verification-research.md`.
+- BOHUMFIT-088 commit `a2ed8e3`: `backend/phone_guard.py`, `backend/main.py`, `backend/tests/test_phone_guard.py`, `supabase/migrations/20260620000004_phone_unique.sql`, `src/pages/PhoneVerify.tsx`, `.agent-harness/tasks/BOHUMFIT-088-phone-unique-guard.md`.
+- `.agent-harness/handoff.md`, `.agent-harness/locks.md`: Codex 검증 결과 기록 및 잠금 해제.
+### Verified
+- [x] 086 존재 확인: `git log --oneline -20`에서 BOHUMFIT-086 커밋 미존재 → 지시대로 086을 먼저 커밋 후 087·088 커밋.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass. 최초 실패(`usePhoneGate.tsx` effect 즉시 setState)는 086 범위에서 `setResult(null)` 제거 후 재검증 통과.
+- [x] `npm test` -> 5 files passed, 53 tests passed(기준선 45 + 086 phoneGate 8).
+- [x] `cd backend && python -m pytest -q` -> 402 passed, 8 skipped(기준선 398 + 088 phone_guard 4).
+- [x] `npm run build` -> pass. 기존 Vite chunk size warning 및 plugin timing warning 출력.
+- [x] 088 동작 정적 확인: `.neq("id", user_id)`로 다른 user만 차단, `is_internal` 우회, `PhoneVerify.tsx` 409 한국어 안내 분기 확인.
+- [x] 087 문서 확인: 단가·토스 세부는 "확인 불가"로 명시, CI 기반 1인1계정 설계와 견적 필요 사항 명시.
+- [x] `git push origin main` -> pass (`85b7888..a2ed8e3`).
+### Notes
+- ★ `supabase/migrations/20260620000004_phone_unique.sql`은 Human이 Supabase에서 실행 필요. 기존 중복 데이터가 있으면 인덱스 생성 실패 → SQL 주석의 중복 확인/정리 쿼리로 정리 후 재실행 필요.
+- 086의 `supabase/migrations/20260620000003_profiles_select_policy.sql`도 Human이 Supabase에서 실행 필요(RLS 본인 SELECT 정책).
+- 088은 동일 번호 재사용만 차단하는 임시방편이다. 사용자가 다른 번호를 입력하면 우회 가능하며, 진짜 1인1계정은 087의 CI 기반 실본인확인 연동에서 완성해야 한다.
+- 087 문서의 단가·토스 본인인증 세부는 공개/렌더링 제약으로 "확인 불가"로 남김 → 실연동 전 견적·계약 조건 추가 조사 필요.
+- `backend/__pycache__/main.cpython-312.pyc`는 pytest 부산물로 변경되어 원복했다. PII/PDF/brand/fithere/unrelated 및 기존 untracked 파일들은 stage하지 않음.
+### Next
+- Human -> `20260620000004_phone_unique.sql` 실행.
+- Human -> `docs/identity-verification-plan.md` 검토 후 본인확인 대행사(포트원/토스) 견적·계약 방향 결정.
+- Human -> 사업자 승인 후 실연동 태스크 착수.
+
+## 2026-06-20 Cowork BOHUMFIT-087 + BOHUMFIT-088 [본인확인 설계조사 문서 + 휴대폰 중복 임시방어 구현 완료·Codex 검증 대기]
+### 087 (문서만 — 코드 무변경)
+- `docs/identity-verification-plan.md` (신규): 본인확인 연동 설계 조사. 후보 비교(포트원 휴대폰/통합인증·토스페이먼츠·다날·KG이니시스)·추천(포트원 경유, 토스는 견적 후 비교)·CI 기반 1인1계정 아키텍처·개인정보 처리·선행조건 체크리스트·다음 태스크 분해.
+- 조사 출처(1차): 포트원 헬프센터 본인인증(지원 PG 다날/NHN KCP·통합인증 KG이니시스·수단 PASS/네이버/카카오/토스 등·카카오 별도서류·CI 제공), 포트원 블로그. ★ **단가·가입비·난이도·토스 본인인증 세부는 "확인 불가"로 명시(추측 안 함)** — 견적/브라우저 추가조사 필요. 토스 공식문서는 클라이언트 렌더링으로 본문 미취득.
+### 088 Changed
+- `backend/phone_guard.py` (신규): 순수 판정 `is_phone_duplicate_blocked`(phone 없음·internal→False, 동일번호 다른 인증계정 존재→True). main.py 분리로 단위테스트 용이.
+- `backend/main.py` `/auth/verify-phone`: upsert 전 ① 현재 user role 조회(internal 우회) ② 동일 phone·phone_verified=true·다른 user(`.neq(id)`) 조회 → 중복이면 **409 "이미 인증에 사용된 번호입니다…"**. internal·번호없음·자기번호 재인증은 비차단.
+- `supabase/migrations/20260620000004_phone_unique.sql` (신규): `profiles(phone)` 부분 UNIQUE(`where phone_verified=true and phone is not null`), 멱등. ★Human 실행 필요. 기존 중복데이터 있으면 생성 실패 → 주석에 중복 정리 쿼리 안내.
+- `src/pages/PhoneVerify.tsx`: 409 응답 시 중복 안내 메시지 분기(정상 성공 흐름은 086 그대로).
+- `backend/tests/test_phone_guard.py` (신규): 4케이스(번호없음·internal우회·중복없음·중복차단).
+- `.agent-harness/tasks/BOHUMFIT-087·088-*.md` (신규).
+### Verified
+- [x] `python -m pytest tests/test_phone_guard.py -q` → **4 passed**(샌드박스 실행 성공, phone_guard는 순수 모듈).
+- [x] main.py verify-phone 편집 Read 검증(원본): 구조·분기·import 정합. 중복검사가 자기번호 재인증을 막지 않음(`.neq(id)`)·service role은 RLS 우회로 전 행 조회 가능.
+- [ ] `cd backend && python -m pytest -q`(전체) — ★main.py 임포트는 샌드박스 마운트 truncation(bash뷰 539줄/실제 ~880)으로 불가 → Codex/Windows 권위.
+- [ ] `npx tsc app/node` / `npm run lint` / `npm test`(vitest) / `npm run build` — ★샌드박스 불가(마운트 truncation·rolldown 네이티브 미설치). Codex/Windows.
+- [ ] 수동: 동일 번호로 2번째 계정 인증 시 409 안내, internal 우회, 정상 인증 흐름 (Codex 또는 Human, profiles 데이터 필요)
+### Notes
+- ★ `20260620000004_phone_unique.sql`은 **Human이 Supabase SQL 에디터에서 실행 필요**. 기존 중복 번호가 있으면 인덱스 생성 실패 → 문서 주석의 중복확인 쿼리로 정리 후 재실행.
+- **088은 임시방편**: 사용자가 번호 직접 입력 스텁이라 "다른 번호 입력"으로 우회 가능. 동일 번호 재사용만 차단. 진짜 1인1계정은 087(CI 기반) 실연동에서 완성.
+- 087은 **코드 무변경·문서만**. 실제 키·계약·연동은 사업자 승인 후 별도 태스크.
+- 의존성: 088이 `src/pages/PhoneVerify.tsx`(086)·`backend/main.py` verify-phone(085 커밋됨)을 수정. **086이 아직 Codex 미커밋이면** 086 → 088 순서로 커밋 권장(또는 함께).
+- 마운트 git 미실행. 전체 tsc/lint/build/pytest 권위 검증은 Codex/Windows.
+### Next
+- Codex: tsc(app·node)·lint·vitest·build·backend pytest → 통과 시 087(docs+task) / 088(phone_guard.py·main.py·SQL·PhoneVerify.tsx·test_phone_guard.py·task) 각각 stage·commit(`BOHUMFIT-087: 본인확인 연동 설계조사 문서`, `BOHUMFIT-088: 휴대폰 번호 중복가입 임시 방어`)·push. + Human: 088 phone UNIQUE SQL 실행.
+
+## 2026-06-20 Cowork BOHUMFIT-086 [폰게이트 진단·수정 + 로그인 로고 + Footer 정리 구현 완료·Codex 검증 대기]
+### 진단 결론(작업1)
+- ★ 원인 (a)/(e) 확정(코드 검증): 카카오/구글 OAuth `redirectTo: window.location.origin` → 로그인 직후 도착 라우트가 `/`(App.tsx `index`=Home)인데 Home은 ProtectedRoute로 감싸이지 않은 **공개 라우트**라 게이트가 아예 평가되지 않음. 이메일 로그인도 `navigate("/")`로 동일. → "로그인 직후 그냥 통과"의 직접 원인.
+- 원인 (c) 보조(잠재): 클라이언트 profiles 조회는 ProtectedRoute 1곳뿐(grep 전수). subscriptions/usage_logs엔 본인 SELECT 정책이 있으나 **profiles엔 없음**. profiles에 RLS가 켜져 정책이 없으면 본인 행을 못 읽어(빈 결과) 인증 후 phone_verified=true 를 못 읽고 /phone-verify 루프 가능 → 안전망으로 SELECT 정책 SQL 추가.
+- (b) deploy-safe 분기 단독으로 "통과"가 되려면 조회가 error여야 하는데, RLS 거부는 보통 빈 결과(무에러)→미인증이라 단독 원인 아님. 다만 data=null(행 없음/빈 결과)은 085 코드에서 이미 미인증 처리됨(유지). (d) 로딩 타이밍은 loading 상태로 이미 보호됨(유지·강화).
+### Changed (작업1·2)
+- `src/lib/phoneGate.ts` (신규): 순수 판정 함수 `decidePhoneGate`(React/Supabase 무의존). 행없음·false→unverified, true·internal→verified, 조회전/세션로딩→loading, 진짜 조회오류만 deploy-safe verified.
+- `src/lib/usePhoneGate.tsx` (신규): `usePhoneGateStatus` 훅(profiles maybeSingle 조회→decidePhoneGate) + `PhoneGate` 래퍼(공개 라우트에서 "로그인&미인증"만 /phone-verify로, 비로그인·인증완료·로딩은 통과 렌더).
+- `src/components/ProtectedRoute.tsx`: 판정 로직을 `usePhoneGateStatus`로 일원화(중복 제거). 동작 동일·행없음 미인증 유지·from 전달.
+- `src/App.tsx`: index(Home) 라우트를 `<PhoneGate>`로 감쌈 → 소셜/이메일 로그인 후 도착 랜딩도 게이트 평가(원인 a/e 교정). 공개 방문자(비로그인)는 그대로 노출.
+- `supabase/migrations/20260620000003_profiles_select_policy.sql` (신규): profiles RLS enable + 본인 SELECT 정책(auth.uid()=id), 멱등. ★Human 실행 필요.
+- `src/pages/Login.tsx`: 큰 로고 좌우 잘림 수정 — 로고 사이즈 36/44 → 28/36(최소 320px 화면에 맞춤), h1의 `overflow-x-clip`(중앙정렬 양끝 잘림 유발) 제거. Logo는 내부에서 한 줄 유지(083 의도 보존, 충돌 없음).
+- `src/lib/phoneGate.test.ts` (신규): 게이트 판정 단위 테스트 8케이스(행없음→미인증/false→미인증/true→통과/internal→우회/로딩중→미판정/anonymous/error deploy-safe).
+- (작업3) `src/components/Footer.tsx`: 의도된 dirty 변경(면책 문구 한 줄+overflow-x-auto whitespace-nowrap) **미수정 유지** — Codex가 086 커밋에 포함.
+### Verified
+- [x] 게이트 순수 로직 격리 검증(/tmp node, decidePhoneGate 동일 로직) 8/8 통과 = phoneGate.test.ts 기대치와 일치.
+- [x] 정적 자기검토(Read=원본): ProtectedRoute/usePhoneGate/App import·타입·JSX 정합, 미사용 import 없음, ProfileRow/PhoneGateStatus 사용 정상, react-refresh disable 주석 추가(훅+컴포넌트 동거 파일).
+- [ ] `npx tsc -p tsconfig.app.json/.node.json --noEmit` — ★샌드박스 실행 불가(마운트 truncation: ProtectedRoute가 bash뷰 6줄/실제 28줄, Logo L44 잘림 등). Codex/Windows 권위.
+- [ ] `npm run lint` (Codex)
+- [ ] `npm test` (vitest) — ★샌드박스 실행 불가: `rolldown-binding.linux-x64-gnu.node` 네이티브 바인딩 미설치(vitest4/rolldown). Codex/Windows. (대체로 /tmp 로직 검증 수행)
+- [ ] `npm run build` (Codex, 동일 rolldown 제약)
+- [ ] `cd backend && python -m pytest -q` (Codex — 백엔드 무변경이나 게이트 게이트)
+- [ ] 수동: 카카오/구글 로그인→/phone-verify 강제→인증→복귀, internal 우회, 로그인 로고 320/375/768px 미잘림 (Codex 또는 Human)
+### Notes
+- ★ `20260620000003_profiles_select_policy.sql`은 **Human이 Supabase SQL 에디터에서 실행 필요**. RLS를 profiles에 enable함 — 클라이언트 profiles 접근은 ProtectedRoute/PhoneGate 본인 SELECT뿐이고 백엔드는 서비스롤(RLS 우회)이라 안전(코드 전수 확인). 다른 대시보드 관리 접근이 있으면 Human 확인.
+- 주 수정은 프런트 라우팅(원인 a/e). RLS 정책은 (c) 안전망 — 현재 "통과" 증상이면 profiles RLS는 꺼져 있을 가능성이 높아(읽기 성공) 정책 없이도 게이트는 동작하나, 보안·일관성 위해 정책 추가 권장.
+- Footer.tsx 의도 변경 보존 — 되돌리지 않음. 086 커밋에 포함.
+- 마운트 git 미실행. tsc/lint/build/test 권위 검증은 Codex/Windows.
+### Next
+- Codex: tsc(app·node)·lint·build·vitest·backend pytest → 통과 시 BOHUMFIT-086 범위(phoneGate.ts/usePhoneGate.tsx/ProtectedRoute.tsx/App.tsx/Login.tsx/phoneGate.test.ts/SQL/Footer.tsx + task·handoff·locks) stage·commit(`BOHUMFIT-086: 폰인증 게이트 미동작 수정·로그인 로고·Footer`)·push. + Human: 086 RLS SELECT 정책 SQL 실행.
+
 ## 2026-06-20 Codex BOHUMFIT-084 + BOHUMFIT-085 [Windows 검증·태스크별 커밋·푸시 완료]
 ### Changed
 - BOHUMFIT-084 commit `f110463`: `src/pages/DownloadGuide.tsx`, `.agent-harness/tasks/BOHUMFIT-084-download-guide-revamp.md`.
