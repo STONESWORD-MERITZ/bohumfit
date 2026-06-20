@@ -42,11 +42,12 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-canvas px-4">
-      <div className="w-full max-w-sm">
+    <div className="flex min-h-screen items-center justify-center overflow-x-clip bg-canvas px-4">
+      <div className="w-full max-w-sm min-w-0">
         <div className="mb-8 text-center">
-          <h1>
-            <Logo size={44} />
+          <h1 className="flex w-full min-w-0 justify-center overflow-x-clip">
+            <Logo size={36} className="sm:hidden" />
+            <Logo size={44} className="hidden sm:inline-flex" />
           </h1>
           <p className="mt-3 text-body text-ink-soft">보험 고지 리스크 점검을 시작하세요</p>
         </div>

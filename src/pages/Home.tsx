@@ -79,8 +79,8 @@ function FadeIn({ children, className = "", delay = 0 }: { children: React.React
 
 // ── 데이터 ────────────────────────────────────────────────────
 const STATS = [
-  { value: 3,  suffix: "분", label: "PDF 업로드부터 결과까지" },
-  { value: 98, suffix: "%", label: "고지의무 검출 정확도" },
+  { value: 1,  suffix: "분", label: "PDF 업로드부터 결과까지" },
+  { value: 99, suffix: "%", label: "고지의무 검출 정확도" },
   { value: 30, suffix: "초", label: "리포트 생성 시간" },
 ];
 
@@ -139,7 +139,7 @@ export default function Home() {
           <h1 className="ko-heading mt-6 text-4xl font-extrabold leading-[1.15] tracking-tight text-white md:text-6xl break-keep">
             고지의무 검토,
             <br />
-            이제 <span className="text-accent-400">3분</span>이면 끝납니다
+            이제 <span className="text-accent-400">1분</span>이면 끝납니다
           </h1>
           <p className="ko-text mobile-copy mt-7 max-w-2xl text-lg leading-8 text-ink-200 break-keep">
             설계사님이 매번 수작업으로 하던 병력 분석을
@@ -252,7 +252,7 @@ export default function Home() {
                 <div className="flex h-36 w-36 items-center justify-center rounded-full border border-line-strong bg-ink-100">
                   <span className="text-caption font-medium text-ink-400">사진 준비 중</span>
                 </div>
-                <p className="mt-4 text-sm font-bold text-ink-900">이름: (추후 입력)</p>
+                <p className="mt-4 text-sm font-bold text-ink-900">이민규</p>
                 <p className="mt-1 text-[13px] leading-5 text-ink-soft break-keep">
                   전 메리츠화재 지점장 · 보험핏 대표
                 </p>
