@@ -240,7 +240,7 @@ export default function Subscription() {
               <ul className="mt-4 space-y-1.5 text-sm text-gray-600">
                 <li>· 베이직 모든 기능</li>
                 <li>· 매월 100회 분석</li>
-                <li>· 우선 처리</li>
+                <li>· 보장분석 기능 포함</li>
               </ul>
               <button
                 onClick={() => handleSubscribe("pro")}

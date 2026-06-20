@@ -1090,10 +1090,6 @@ function ResultView({ result, mode, referenceDate }: { result: AnalyzeResult; mo
 
   return (
     <div>
-      {/* BOHUMFIT-071: 구독 상태·이번 달 사용량 배지(내부 사용자·무료 동작 시 자동 숨김). */}
-      <div className="mb-3 flex justify-end">
-        <UsageBadge />
-      </div>
       {(result.parse_errors || []).map((e, i) => (
         <div key={`parse-${i}`} className="mb-3 rounded-[8px] bg-amber-50 p-3 text-sm font-semibold text-amber-700">
           {e}
@@ -1541,6 +1537,10 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
       </div>
 
       <section className="mb-5 rounded-[8px] bg-white p-6 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
+        {/* BOHUMFIT-076: 구독 상태·이번 달 사용량 배지를 분석(업로드) 영역 상단으로 이동(내부 사용자·무료 동작 시 자동 숨김). */}
+        <div className="mb-4 flex justify-end">
+          <UsageBadge />
+        </div>
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <div data-tour="date">
             <label className="mb-2 block text-sm font-semibold text-gray-700">{copy.dateLabel}</label>
