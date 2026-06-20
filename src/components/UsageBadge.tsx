@@ -10,6 +10,8 @@ type BillingStatus = {
   status: string;
   used: number;
   limit: number;
+  trial_used?: number;   // BOHUMFIT-072: 이번 달 무료 체험 사용량
+  trial_limit?: number;
   is_internal: boolean;
   enabled?: boolean;
   period_end?: string | null;
@@ -42,14 +44,31 @@ export default function UsageBadge() {
   if (data.is_internal) return null; // 내부 사용자: 무제한 — 배지 숨김
   if (data.enabled === false) return null; // 구독 게이트 비활성(기존 무료 동작)
 
+  // BOHUMFIT-072: 미구독 → 무료 체험 사용량 표시(남으면 체험, 소진 시 구독 유도).
   if (data.status !== "active") {
+    const trialLimit = data.trial_limit ?? 5;
+    const trialUsed = data.trial_used ?? 0;
+    const trialLeft = Math.max(0, trialLimit - trialUsed);
+    if (trialLeft > 0) {
+      return (
+        <button
+          type="button"
+          onClick={() => navigate("/subscription")}
+          className="inline-flex items-center gap-1.5 rounded-[8px] border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[12px] font-medium text-emerald-700 hover:bg-emerald-100"
+          title="구독 관리"
+        >
+          무료 체험 <b className="font-bold">{trialUsed}</b> / {trialLimit}회 사용
+          <span className="text-emerald-500">(남은 {trialLeft}회)</span>
+        </button>
+      );
+    }
     return (
       <button
         type="button"
         onClick={() => navigate("/subscription")}
         className="inline-flex items-center gap-1.5 rounded-[8px] border border-amber-300 bg-amber-50 px-3 py-1.5 text-[12px] font-bold text-amber-700 hover:bg-amber-100"
       >
-        구독 필요 · 분석을 이용하려면 구독하세요 →
+        구독 필요 · 무료 체험을 모두 사용했어요 →
       </button>
     );
   }

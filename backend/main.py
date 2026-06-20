@@ -434,9 +434,24 @@ async def verify_jwt(credentials: HTTPAuthorizationCredentials = Depends(_bearer
 # /api/analyze 성공 시 월 30회 한도 체크·차감. internal(profiles.role) 무제한.
 # Supabase 서비스롤 키·supabase 패키지가 없으면 게이트 비활성(기존 무료 동작 유지) — graceful.
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
-MONTHLY_ANALYZE_LIMIT = 30
+# BOHUMFIT-072: 플랜·무료 체험. 미구독자는 이번 달 TRIAL_LIMIT(5)회까지 무료 체험, 초과 시 구독 유도.
+PLANS = {
+    "trial": {"price_krw": 0,     "limit": 5},     # 무료 체험(미구독)
+    "basic": {"price_krw": 14900, "limit": 30},    # 베이직
+    "pro":   {"price_krw": 24900, "limit": 100},   # 프로
+}
+TRIAL_LIMIT = PLANS["trial"]["limit"]
+MONTHLY_ANALYZE_LIMIT = PLANS["basic"]["limit"]   # 하위 호환(베이직 기본 한도)
 _supabase_admin_client = None
 _supabase_admin_inited = False
+
+
+def _month_bounds() -> tuple[str, str]:
+    """이번 달(UTC) 시작·다음 달 시작 ISO. 무료 체험 횟수 집계 창."""
+    now = datetime.now(timezone.utc)
+    start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    nxt = start.replace(year=start.year + 1, month=1) if start.month == 12 else start.replace(month=start.month + 1)
+    return start.isoformat(), nxt.isoformat()
 
 
 def _get_supabase_admin():
@@ -464,6 +479,16 @@ async def _enforce_subscription(user_id: str) -> dict:
     if admin is None:
         return {"is_internal": True, "enabled": False, "period_start": None, "period_end": None}
 
+    def _count_usage(ps: str, pe: str) -> int:
+        try:
+            u = (
+                admin.table("usage_logs").select("id", count="exact")
+                .eq("user_id", user_id).gte("used_at", ps).lte("used_at", pe).execute()
+            )
+            return getattr(u, "count", 0) or 0
+        except Exception:
+            return 0
+
     def _check() -> dict:
         try:
             prof = admin.table("profiles").select("role").eq("id", user_id).single().execute()
@@ -471,25 +496,28 @@ async def _enforce_subscription(user_id: str) -> dict:
         except Exception:
             role = None
         if role == "internal":
-            return {"is_internal": True, "enabled": True, "period_start": None, "period_end": None}
+            return {"is_internal": True, "enabled": True, "plan": "internal", "period_start": None, "period_end": None}
+        # 활성 구독 → 플랜별 한도.
         try:
             sub = admin.table("subscriptions").select("*").eq("user_id", user_id).eq("status", "active").single().execute()
             sub_data = getattr(sub, "data", None)
         except Exception:
             sub_data = None
-        if not sub_data:
-            raise HTTPException(status_code=402, detail="구독이 필요합니다.")
-        ps, pe = sub_data.get("current_period_start"), sub_data.get("current_period_end")
-        usage = (
-            admin.table("usage_logs").select("id", count="exact")
-            .eq("user_id", user_id).gte("used_at", ps).lte("used_at", pe).execute()
-        )
-        if (getattr(usage, "count", 0) or 0) >= MONTHLY_ANALYZE_LIMIT:
+        if sub_data:
+            plan = sub_data.get("plan") or "basic"
+            limit = PLANS.get(plan, PLANS["basic"])["limit"]
+            ps, pe = sub_data.get("current_period_start"), sub_data.get("current_period_end")
+            if _count_usage(ps, pe) >= limit:
+                raise HTTPException(status_code=429, detail=f"이번 달 분석 횟수({limit}회)를 모두 사용했습니다.")
+            return {"is_internal": False, "enabled": True, "plan": plan, "period_start": ps, "period_end": pe}
+        # BOHUMFIT-072: 미구독자 → 이번 달 무료 체험 TRIAL_LIMIT(5)회.
+        tps, tpe = _month_bounds()
+        if _count_usage(tps, tpe) >= TRIAL_LIMIT:
             raise HTTPException(
-                status_code=429,
-                detail=f"이번 달 분석 횟수({MONTHLY_ANALYZE_LIMIT}회)를 모두 사용했습니다.",
+                status_code=402,
+                detail=f"무료 체험 {TRIAL_LIMIT}회를 모두 사용했습니다. 구독 후 계속 이용하세요.",
             )
-        return {"is_internal": False, "enabled": True, "period_start": ps, "period_end": pe}
+        return {"is_internal": False, "enabled": True, "plan": "trial", "period_start": tps, "period_end": tpe}
 
     return await asyncio.to_thread(_check)
 
@@ -525,8 +553,9 @@ def health():
 
 
 # ── 구독 결제 (BOHUMFIT-070 토스페이먼츠) ────────────────────────────────────
-SUBSCRIPTION_PRICE_KRW = 9900
 SUBSCRIPTION_PERIOD_DAYS = 30
+# BOHUMFIT-072 오픈 이벤트: 베이직 첫 결제 9,900원(이후 정상가 14,900). 프로는 정상가.
+OPEN_EVENT_BASIC_KRW = 9900
 
 
 def _iso(dt: datetime) -> str:
@@ -546,8 +575,14 @@ async def billing_issue_key(
         raise HTTPException(status_code=503, detail="구독 기능을 준비 중입니다. 잠시 후 다시 시도해 주세요.")
     auth_key = (payload.get("authKey") or "").strip()
     customer_key = (payload.get("customerKey") or user_id or "").strip()
+    plan = (payload.get("plan") or "basic").strip()
+    if plan not in ("basic", "pro"):
+        plan = "basic"
     if not auth_key or not customer_key:
         raise HTTPException(status_code=400, detail="authKey·customerKey가 필요합니다.")
+    # BOHUMFIT-072: 베이직 첫 결제는 오픈 이벤트가(9,900), 프로는 정상가(24,900). 플랜 한도 basic 30·pro 100.
+    amount = OPEN_EVENT_BASIC_KRW if plan == "basic" else PLANS[plan]["price_krw"]
+    plan_limit = PLANS[plan]["limit"]
     try:
         issued = await issue_billing_key(auth_key, customer_key)
         billing_key = issued.get("billingKey")
@@ -555,7 +590,7 @@ async def billing_issue_key(
             raise TossError("빌링키 발급 응답에 billingKey가 없습니다.")
         order_id = f"sub-{user_id[:8]}-{int(time.time())}"
         payment = await charge_billing(
-            billing_key, customer_key, SUBSCRIPTION_PRICE_KRW, order_id, "보험핏 구독 (월 30회)",
+            billing_key, customer_key, amount, order_id, f"보험핏 {plan} 구독 (월 {plan_limit}회)",
         )
     except TossConfigError:
         raise HTTPException(status_code=503, detail="결제 설정이 준비되지 않았습니다. 관리자에게 문의해 주세요.")
@@ -573,8 +608,8 @@ async def billing_issue_key(
         admin.table("subscriptions").upsert({
             "user_id": user_id,
             "status": "active",
-            "plan": "basic",
-            "price_krw": SUBSCRIPTION_PRICE_KRW,
+            "plan": plan,
+            "price_krw": PLANS[plan]["price_krw"],
             "current_period_start": period_start,
             "current_period_end": period_end,
             "toss_customer_key": customer_key,
@@ -582,8 +617,8 @@ async def billing_issue_key(
         }, on_conflict="user_id").execute()
 
     await asyncio.to_thread(_upsert)
-    logger.info("subscription activated: user=%s order=%s", user_id[:8], order_id)
-    return {"status": "active", "plan": "basic", "period_end": period_end}
+    logger.info("subscription activated: user=%s plan=%s order=%s", user_id[:8], plan, order_id)
+    return {"status": "active", "plan": plan, "period_end": period_end}
 
 
 @app.post("/billing/webhook")
@@ -634,11 +669,22 @@ async def billing_webhook(request: Request):
 
 @app.get("/billing/status")
 async def billing_status(user_id: str = Depends(verify_jwt)):
-    """구독 상태·이번 달 사용량 조회 — { status, plan, period_end, used, limit, is_internal }."""
+    """구독 상태·이번 달 사용량·무료 체험 조회 — BOHUMFIT-072 trial 필드 포함."""
     admin = _get_supabase_admin()
     if admin is None:
         return {"status": "inactive", "plan": None, "period_end": None,
-                "used": 0, "limit": MONTHLY_ANALYZE_LIMIT, "is_internal": False, "enabled": False}
+                "used": 0, "limit": TRIAL_LIMIT, "trial_used": 0, "trial_limit": TRIAL_LIMIT,
+                "is_internal": False, "enabled": False}
+
+    def _count(ps, pe) -> int:
+        try:
+            u = (
+                admin.table("usage_logs").select("id", count="exact")
+                .eq("user_id", user_id).gte("used_at", ps).lte("used_at", pe).execute()
+            )
+            return getattr(u, "count", 0) or 0
+        except Exception:
+            return 0
 
     def _query() -> dict:
         try:
@@ -652,29 +698,51 @@ async def billing_status(user_id: str = Depends(verify_jwt)):
             sub_data = getattr(sub, "data", None)
         except Exception:
             sub_data = None
-        used = 0
-        if sub_data and sub_data.get("status") == "active":
-            try:
-                u = (
-                    admin.table("usage_logs").select("id", count="exact")
-                    .eq("user_id", user_id)
-                    .gte("used_at", sub_data.get("current_period_start"))
-                    .lte("used_at", sub_data.get("current_period_end")).execute()
-                )
-                used = getattr(u, "count", 0) or 0
-            except Exception:
-                used = 0
+        is_active = bool(sub_data) and sub_data.get("status") == "active"
+        plan = (sub_data or {}).get("plan") if is_active else None
+        used = _count(sub_data.get("current_period_start"), sub_data.get("current_period_end")) if is_active else 0
+        limit = PLANS.get(plan, PLANS["basic"])["limit"] if is_active else TRIAL_LIMIT
+        # BOHUMFIT-072: 무료 체험 사용량(이번 달) — 미구독자 배지·구독 유도용.
+        tps, tpe = _month_bounds()
+        trial_used = _count(tps, tpe) if not is_active else 0
         return {
-            "status": (sub_data or {}).get("status", "inactive"),
-            "plan": (sub_data or {}).get("plan"),
-            "period_end": (sub_data or {}).get("current_period_end"),
+            "status": "active" if is_active else "inactive",
+            "plan": plan,
+            "period_end": (sub_data or {}).get("current_period_end") if is_active else None,
             "used": used,
-            "limit": MONTHLY_ANALYZE_LIMIT,
+            "limit": limit,
+            "trial_used": trial_used,
+            "trial_limit": TRIAL_LIMIT,
             "is_internal": is_internal,
             "enabled": True,
         }
 
     return await asyncio.to_thread(_query)
+
+
+# ── 휴대폰 본인인증 (BOHUMFIT-074 — 현재 스텁, 추후 토스 본인인증 라이브 키 후 실연동) ──
+@app.post("/auth/verify-phone")
+@limiter.limit("10/minute")
+async def verify_phone(
+    request: Request,
+    payload: dict = Body(...),
+    user_id: str = Depends(verify_jwt),
+):
+    """휴대폰 본인인증 결과 수신 → profiles.phone_verified=true 마킹(1인 1계정·어뷰징 방지).
+    TODO: 토스 본인인증 라이브 키 발급 후 실제 검증(토큰/CI 대조) 로직 추가. 현재는 스텁."""
+    phone = (payload.get("phone") or "").strip()
+    admin = _get_supabase_admin()
+    if admin is not None:
+        def _update() -> None:
+            try:
+                patch: dict = {"phone_verified": True}
+                if phone:
+                    patch["phone"] = phone
+                admin.table("profiles").update(patch).eq("id", user_id).execute()
+            except Exception as e:
+                logger.warning("phone_verified 갱신 실패: %s", e)
+        await asyncio.to_thread(_update)
+    return {"verified": True, "message": "본인인증이 완료되었습니다."}
 
 
 @app.post("/api/analyze")
