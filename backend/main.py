@@ -516,6 +516,7 @@ async def _log_usage(user_id: str, ctx: dict) -> None:
 
 
 # ── 엔드포인트 ───────────────────────────────────────────────────────────────
+@app.get("/health")
 @app.get("/api/health")
 def health():
     # BOHUMFIT-060 BF-05: 공개 헬스는 최소 정보만 노출(env·deps·커밋해시 제거).
