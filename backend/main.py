@@ -6,7 +6,7 @@ import os
 import re
 import time
 import urllib.parse
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -27,6 +27,13 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import httpx
 
 from analyzer import run_analysis, AnalysisError, SERVER_ANALYZE_DEADLINE_SECONDS
+from tosspayments import (
+    issue_billing_key,
+    charge_billing,
+    verify_webhook_signature,
+    TossError,
+    TossConfigError,
+)
 from pipeline.report_pdf import (
     REPORT_TYPES,
     ReportError,
@@ -514,6 +521,159 @@ def health():
     # BOHUMFIT-060 BF-05: 공개 헬스는 최소 정보만 노출(env·deps·커밋해시 제거).
     #   Railway 헬스체크용 200 status 는 유지. 상세 관측은 Sentry 로 일원화.
     return {"status": "ok"}
+
+
+# ── 구독 결제 (BOHUMFIT-070 토스페이먼츠) ────────────────────────────────────
+SUBSCRIPTION_PRICE_KRW = 9900
+SUBSCRIPTION_PERIOD_DAYS = 30
+
+
+def _iso(dt: datetime) -> str:
+    return dt.astimezone(timezone.utc).isoformat()
+
+
+@app.post("/billing/issue-key")
+@limiter.limit("10/minute")
+async def billing_issue_key(
+    request: Request,
+    payload: dict = Body(...),
+    user_id: str = Depends(verify_jwt),
+):
+    """토스 SDK 인증(authKey) → 빌링키 발급 → 최초 9,900원 결제 → subscriptions upsert."""
+    admin = _get_supabase_admin()
+    if admin is None:
+        raise HTTPException(status_code=503, detail="구독 기능을 준비 중입니다. 잠시 후 다시 시도해 주세요.")
+    auth_key = (payload.get("authKey") or "").strip()
+    customer_key = (payload.get("customerKey") or user_id or "").strip()
+    if not auth_key or not customer_key:
+        raise HTTPException(status_code=400, detail="authKey·customerKey가 필요합니다.")
+    try:
+        issued = await issue_billing_key(auth_key, customer_key)
+        billing_key = issued.get("billingKey")
+        if not billing_key:
+            raise TossError("빌링키 발급 응답에 billingKey가 없습니다.")
+        order_id = f"sub-{user_id[:8]}-{int(time.time())}"
+        payment = await charge_billing(
+            billing_key, customer_key, SUBSCRIPTION_PRICE_KRW, order_id, "보험핏 구독 (월 30회)",
+        )
+    except TossConfigError:
+        raise HTTPException(status_code=503, detail="결제 설정이 준비되지 않았습니다. 관리자에게 문의해 주세요.")
+    except TossError as e:
+        logger.warning("토스 빌링/결제 실패: %s", e)
+        raise HTTPException(status_code=502, detail="결제 처리에 실패했어요. 카드 정보를 확인하고 다시 시도해 주세요.")
+    if str(payment.get("status")) != "DONE":
+        raise HTTPException(status_code=402, detail="결제가 승인되지 않았습니다. 다시 시도해 주세요.")
+
+    start = datetime.now(timezone.utc)
+    end = start + timedelta(days=SUBSCRIPTION_PERIOD_DAYS)
+    period_start, period_end = _iso(start), _iso(end)
+
+    def _upsert() -> None:
+        admin.table("subscriptions").upsert({
+            "user_id": user_id,
+            "status": "active",
+            "plan": "basic",
+            "price_krw": SUBSCRIPTION_PRICE_KRW,
+            "current_period_start": period_start,
+            "current_period_end": period_end,
+            "toss_customer_key": customer_key,
+            "toss_billing_key": billing_key,
+        }, on_conflict="user_id").execute()
+
+    await asyncio.to_thread(_upsert)
+    logger.info("subscription activated: user=%s order=%s", user_id[:8], order_id)
+    return {"status": "active", "plan": "basic", "period_end": period_end}
+
+
+@app.post("/billing/webhook")
+async def billing_webhook(request: Request):
+    """토스 웹훅 — HMAC 서명 검증 후 결제상태 반영(DONE→active / CANCELED·FAIL→inactive)."""
+    raw = await request.body()
+    secret = os.environ.get("TOSS_WEBHOOK_SECRET", "")
+    if not secret:
+        raise HTTPException(status_code=503, detail="웹훅 설정이 준비되지 않았습니다.")
+    signature = (
+        request.headers.get("TossPayments-Signature")
+        or request.headers.get("toss-signature")
+        or request.headers.get("x-toss-signature")
+        or ""
+    )
+    if not verify_webhook_signature(secret, raw, signature):
+        raise HTTPException(status_code=401, detail="유효하지 않은 웹훅 서명입니다.")
+    try:
+        body = json.loads(raw or b"{}")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="잘못된 웹훅 본문입니다.")
+    data = body.get("data") if isinstance(body.get("data"), dict) else body
+    status = str(data.get("status") or "")
+    customer_key = data.get("customerKey") or ""
+    admin = _get_supabase_admin()
+    if admin is None:
+        return {"ok": True, "ignored": "subscription backend disabled"}
+
+    new_status = None
+    if status == "DONE":
+        new_status = "active"
+    elif status in ("CANCELED", "CANCELLED", "FAILED", "ABORTED", "EXPIRED"):
+        new_status = "inactive"
+    if new_status and customer_key:
+        def _update() -> None:
+            patch = {"status": new_status}
+            if new_status == "active":
+                start = datetime.now(timezone.utc)
+                patch["current_period_start"] = _iso(start)
+                patch["current_period_end"] = _iso(start + timedelta(days=SUBSCRIPTION_PERIOD_DAYS))
+            try:
+                admin.table("subscriptions").update(patch).eq("toss_customer_key", customer_key).execute()
+            except Exception as e:
+                logger.warning("웹훅 구독 갱신 실패: %s", e)
+        await asyncio.to_thread(_update)
+    return {"ok": True}
+
+
+@app.get("/billing/status")
+async def billing_status(user_id: str = Depends(verify_jwt)):
+    """구독 상태·이번 달 사용량 조회 — { status, plan, period_end, used, limit, is_internal }."""
+    admin = _get_supabase_admin()
+    if admin is None:
+        return {"status": "inactive", "plan": None, "period_end": None,
+                "used": 0, "limit": MONTHLY_ANALYZE_LIMIT, "is_internal": False, "enabled": False}
+
+    def _query() -> dict:
+        try:
+            prof = admin.table("profiles").select("role").eq("id", user_id).single().execute()
+            role = (getattr(prof, "data", None) or {}).get("role")
+        except Exception:
+            role = None
+        is_internal = role == "internal"
+        try:
+            sub = admin.table("subscriptions").select("*").eq("user_id", user_id).single().execute()
+            sub_data = getattr(sub, "data", None)
+        except Exception:
+            sub_data = None
+        used = 0
+        if sub_data and sub_data.get("status") == "active":
+            try:
+                u = (
+                    admin.table("usage_logs").select("id", count="exact")
+                    .eq("user_id", user_id)
+                    .gte("used_at", sub_data.get("current_period_start"))
+                    .lte("used_at", sub_data.get("current_period_end")).execute()
+                )
+                used = getattr(u, "count", 0) or 0
+            except Exception:
+                used = 0
+        return {
+            "status": (sub_data or {}).get("status", "inactive"),
+            "plan": (sub_data or {}).get("plan"),
+            "period_end": (sub_data or {}).get("current_period_end"),
+            "used": used,
+            "limit": MONTHLY_ANALYZE_LIMIT,
+            "is_internal": is_internal,
+            "enabled": True,
+        }
+
+    return await asyncio.to_thread(_query)
 
 
 @app.post("/api/analyze")
