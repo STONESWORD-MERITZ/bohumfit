@@ -5,7 +5,8 @@ import { useAuth } from "../lib/auth-context";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 const TOSS_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY || "";
-const TOSS_SCRIPT_SRC = "https://js.tosspayments.com/v2/standard";
+// BOHUMFIT-071-hotfix2: 결제위젯(v2/standard·사업자 신청 필요) → 빌링키(v1/payment·테스트 즉시) 방식.
+const TOSS_SCRIPT_SRC = "https://js.tosspayments.com/v1/payment";
 
 type BillingStatus = {
   status: string;
@@ -17,21 +18,10 @@ type BillingStatus = {
   enabled?: boolean;
 };
 
-type TossPaymentsPayment = {
-  requestBillingAuth(options: {
-    method: "CARD";
-    successUrl: string;
-    failUrl: string;
-  }): Promise<void>;
-};
-
-type TossPaymentsInstance = {
-  payment(options: { customerKey: string }): TossPaymentsPayment;
-};
-
 declare global {
   interface Window {
-    TossPayments?: (clientKey: string) => TossPaymentsInstance;
+    // v1 빌링키 인스턴스. 메서드 시그니처는 (window as any)로 호출하므로 느슨하게 둔다.
+    TossPayments?: (clientKey: string) => unknown;
   }
 }
 
@@ -147,10 +137,11 @@ export default function Subscription() {
       if (!tossReady || !window.TossPayments) {
         throw new Error("결제 모듈을 아직 불러오는 중입니다. 잠시 후 다시 시도해 주세요.");
       }
-      const tossPayments = window.TossPayments(TOSS_CLIENT_KEY);
-      const payment = tossPayments.payment({ customerKey: user.id });
-      await payment.requestBillingAuth({
-        method: "CARD",
+      // BOHUMFIT-071-hotfix2: v1 빌링키 — 인스턴스에서 직접 카드 등록(메서드 문자열 '카드').
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const toss = (window as any).TossPayments(TOSS_CLIENT_KEY);
+      await toss.requestBillingAuth("카드", {
+        customerKey: user.id,
         successUrl: `${window.location.origin}/subscription?result=success`,
         failUrl: `${window.location.origin}/subscription?result=fail`,
       });
