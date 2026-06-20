@@ -20,19 +20,23 @@ type MenuItem =
       items: ReadonlyArray<{ to: string; label: string; caption: string }>;
     };
 
+// BOHUMFIT-077/079: 설계사 업무 흐름 기준 메뉴 재구성.
+//   자료 받기 | 고지의무 분석 | 보장 비교분석 | 실손 계산 | 요금제
+//   ("왜 중요한가" 제거→메인 통합, "알릴의무 필터"→"고지의무 분석", "보장분석"→"보장 비교분석"=/coverage-compare)
 const NAV: ReadonlyArray<MenuItem> = [
-  { kind: "link", to: "/why", label: "왜 중요한가" },
+  { kind: "link", to: "/download-guide", label: "자료 받기" },
   {
     kind: "dropdown",
-    label: "알릴의무 필터",
+    label: "고지의무 분석",
     match: "/disclosure",
     items: [
-      { to: "/disclosure?mode=agent", label: "설계사용", caption: "청약 전 알릴의무 필터" },
+      { to: "/disclosure?mode=agent", label: "설계사용", caption: "청약 전 고지의무 분석" },
       { to: "/disclosure?mode=customer", label: "고객용", caption: "기존 보험 고지 점검" },
     ],
   },
-  { kind: "link", to: "/coverage", label: "보장분석" },
+  { kind: "link", to: "/coverage-compare", label: "보장 비교분석" },
   { kind: "link", to: "/insurance", label: "실손 계산" },
+  { kind: "link", to: "/subscription", label: "요금제" },
 ];
 
 const LINK_BASE =
