@@ -8,6 +8,8 @@ python-dotenv==1.2.2
 slowapi==0.1.9
 sentry-sdk[fastapi]==2.60.0
 httpx==0.28.1
+# BOHUMFIT-069/070: 구독·사용량 게이트 + 토스페이먼츠 — Supabase 서비스롤 클라이언트.
+supabase==2.31.0
 # BOHUMFIT-030 리포트 PDF: HTML 템플릿 + 헤드리스 Chromium 렌더.
 # 배포(Railway) 빌드 단계는 nixpacks.toml에서 `python -m playwright install --with-deps chromium` 실행.
 # 한글 폰트: 시스템 패키지 fonts-noto-cjk 설치(또는 backend/fonts/ 에 Noto CJK 파일 배치).

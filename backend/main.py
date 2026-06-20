@@ -423,6 +423,91 @@ async def verify_jwt(credentials: HTTPAuthorizationCredentials = Depends(_bearer
     return user_id
 
 
+# ── 구독·사용량 게이트 (BOHUMFIT-069) ────────────────────────────────────────
+# /api/analyze 성공 시 월 30회 한도 체크·차감. internal(profiles.role) 무제한.
+# Supabase 서비스롤 키·supabase 패키지가 없으면 게이트 비활성(기존 무료 동작 유지) — graceful.
+SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+MONTHLY_ANALYZE_LIMIT = 30
+_supabase_admin_client = None
+_supabase_admin_inited = False
+
+
+def _get_supabase_admin():
+    """서비스롤 Supabase 클라이언트(지연 초기화·캐시). 키/패키지 없으면 None → 게이트 비활성."""
+    global _supabase_admin_client, _supabase_admin_inited
+    if _supabase_admin_inited:
+        return _supabase_admin_client
+    _supabase_admin_inited = True
+    if not (SUPABASE_URL and SUPABASE_SERVICE_KEY):
+        logger.warning("구독 게이트 비활성: SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY 미설정")
+        return None
+    try:
+        from supabase import create_client
+        _supabase_admin_client = create_client(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+    except Exception as e:  # 패키지 미설치·초기화 실패 → 비활성(서비스 중단 방지)
+        logger.warning("구독 게이트 비활성: supabase 클라이언트 초기화 실패 — %s", e)
+        _supabase_admin_client = None
+    return _supabase_admin_client
+
+
+async def _enforce_subscription(user_id: str) -> dict:
+    """월 한도·구독 체크. 위반 시 HTTPException(402 구독없음 / 429 한도초과).
+    반환 dict: {is_internal, enabled, period_start, period_end}. 동기 SDK는 to_thread로 감싼다."""
+    admin = _get_supabase_admin()
+    if admin is None:
+        return {"is_internal": True, "enabled": False, "period_start": None, "period_end": None}
+
+    def _check() -> dict:
+        try:
+            prof = admin.table("profiles").select("role").eq("id", user_id).single().execute()
+            role = (getattr(prof, "data", None) or {}).get("role")
+        except Exception:
+            role = None
+        if role == "internal":
+            return {"is_internal": True, "enabled": True, "period_start": None, "period_end": None}
+        try:
+            sub = admin.table("subscriptions").select("*").eq("user_id", user_id).eq("status", "active").single().execute()
+            sub_data = getattr(sub, "data", None)
+        except Exception:
+            sub_data = None
+        if not sub_data:
+            raise HTTPException(status_code=402, detail="구독이 필요합니다.")
+        ps, pe = sub_data.get("current_period_start"), sub_data.get("current_period_end")
+        usage = (
+            admin.table("usage_logs").select("id", count="exact")
+            .eq("user_id", user_id).gte("used_at", ps).lte("used_at", pe).execute()
+        )
+        if (getattr(usage, "count", 0) or 0) >= MONTHLY_ANALYZE_LIMIT:
+            raise HTTPException(
+                status_code=429,
+                detail=f"이번 달 분석 횟수({MONTHLY_ANALYZE_LIMIT}회)를 모두 사용했습니다.",
+            )
+        return {"is_internal": False, "enabled": True, "period_start": ps, "period_end": pe}
+
+    return await asyncio.to_thread(_check)
+
+
+async def _log_usage(user_id: str, ctx: dict) -> None:
+    """분석 성공 후 usage_logs 1건 적재. internal·게이트 비활성 시 skip. 실패는 분석을 막지 않음."""
+    if not ctx.get("enabled") or ctx.get("is_internal"):
+        return
+    admin = _get_supabase_admin()
+    if admin is None:
+        return
+
+    def _ins() -> None:
+        try:
+            admin.table("usage_logs").insert({
+                "user_id": user_id,
+                "period_start": ctx.get("period_start"),
+                "period_end": ctx.get("period_end"),
+            }).execute()
+        except Exception as e:
+            logger.warning("usage_logs insert 실패(분석은 정상 반환): %s", e)
+
+    await asyncio.to_thread(_ins)
+
+
 # ── 엔드포인트 ───────────────────────────────────────────────────────────────
 @app.get("/api/health")
 def health():
@@ -466,6 +551,9 @@ async def analyze(
             status_code=503,
             detail="서비스 점검 중입니다. 잠시 후 다시 시도해 주세요.",
         )
+
+    # BOHUMFIT-069: 구독·월 한도 체크(internal 무제한·미설정 시 비활성). 위반 시 402/429.
+    _sub_ctx = await _enforce_subscription(user_id)
 
     logger.info(
         "analyze start: ref_date=%s files=%d",
@@ -525,6 +613,9 @@ async def analyze(
             status_code=500,
             detail="서버에서 분석을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.",
         )
+
+    # BOHUMFIT-069: 분석 성공 → 사용량 1건 차감(internal·비활성 시 skip, 실패는 응답 막지 않음).
+    await _log_usage(user_id, _sub_ctx)
 
     std_reports   = result["standard_reports"]
     easy_reports  = result["easy_reports"]
