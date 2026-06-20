@@ -16,6 +16,42 @@
 
 # Handoff
 
+## 2026-06-20 Codex BOHUMFIT-071-hotfix [Windows 검증 통과 / Commit: pending]
+### Changed
+- `src/pages/Subscription.tsx`: 토스페이먼츠 npm SDK 경로 대신 `https://js.tosspayments.com/v2/standard` CDN script 로드와 `window.TossPayments(VITE_TOSS_CLIENT_KEY)` 초기화 경로 검증.
+- `package.json`, `package-lock.json`: `@tosspayments/tosspayments-sdk` 의존성 제거 상태 검증.
+- `.agent-harness/handoff.md`: Windows 검증 결과 기록.
+### Verified
+- `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- `npm run lint` -> pass.
+- `npm test` -> 4 files / 45 tests passed.
+- `npm run build` -> pass. 기존 Vite chunk size warning만 출력.
+### Notes
+- 백엔드 변경 없음.
+- 기존 미추적 068/task, PII/PDF, brand/unrelated 파일은 stage 금지 대상으로 보존.
+- 커밋 해시는 hotfix 커밋 생성 후 handoff/locks 정리 커밋에서 상단 항목에 기록 예정.
+### Next
+- Human -> Vercel Redeploy 후 `/subscription` 페이지 토스 SDK 로드 확인.
+
+## 2026-06-20 Codex BOHUMFIT-071-hotfix [토스 SDK 로드 오류 CDN 방식 전환 / Next: Codex 검증·커밋·푸시]
+### Changed
+- `src/pages/Subscription.tsx`: `@tosspayments/tosspayments-sdk` 동적 import 제거, `https://js.tosspayments.com/v2/standard` CDN script를 `useEffect`에서 로드하도록 변경.
+- `src/pages/Subscription.tsx`: 구독 시작 시 `window.TossPayments(VITE_TOSS_CLIENT_KEY)`로 초기화하고 기존 `payment.requestBillingAuth(...)` 흐름 유지.
+- `package.json`, `package-lock.json`: `@tosspayments/tosspayments-sdk` 의존성 제거(`npm uninstall @tosspayments/tosspayments-sdk`).
+### Verified
+- `AGENTS.md`, `CLAUDE.md`, 최신 handoff/locks 확인.
+- grep 확인: `js.tosspayments.com/v2/standard`, `window.TossPayments`, `tossReady` 존재.
+- grep 확인: `@tosspayments/tosspayments-sdk`, `loadTossPayments` 잔존 0.
+- `git diff --check` -> pass.
+- full gate는 지시된 Next 단계로 남김.
+### Notes
+- CDN script 로드 실패 시 “결제 모듈을 불러오지 못했어요...” 토스트를 표시.
+- 이미 `window.TossPayments`가 존재하면 timer callback으로 ready 처리해 React lint의 effect 동기 setState 패턴을 피함.
+- 기존 미추적 068 파일, PII/PDF/brand/unrelated 파일은 건드리지 않음.
+### Next
+- Codex: `npx tsc -p tsconfig.app.json --noEmit`, `npm run lint`, `npm run build`, 범위 파일 stage→commit→push.
+
 ## 2026-06-20 Codex BOHUMFIT-069~071 [Windows 검증·3커밋 push 완료 / Next: Human env·웹훅·샌드박스 E2E]
 ### Changed
 - 069: `backend/main.py`, `backend/requirements.txt`, `backend/tests/test_usage_middleware.py`, `.agent-harness/tasks/BOHUMFIT-069-usage-middleware.md` — 월 30회 사용량 게이트, internal 바이패스, 성공 분석 후 usage log, Supabase SDK 의존성.

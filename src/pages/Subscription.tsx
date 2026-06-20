@@ -5,6 +5,7 @@ import { useAuth } from "../lib/auth-context";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 const TOSS_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY || "";
+const TOSS_SCRIPT_SRC = "https://js.tosspayments.com/v2/standard";
 
 type BillingStatus = {
   status: string;
@@ -15,6 +16,24 @@ type BillingStatus = {
   is_internal: boolean;
   enabled?: boolean;
 };
+
+type TossPaymentsPayment = {
+  requestBillingAuth(options: {
+    method: "CARD";
+    successUrl: string;
+    failUrl: string;
+  }): Promise<void>;
+};
+
+type TossPaymentsInstance = {
+  payment(options: { customerKey: string }): TossPaymentsPayment;
+};
+
+declare global {
+  interface Window {
+    TossPayments?: (clientKey: string) => TossPaymentsInstance;
+  }
+}
 
 function fmtDate(iso: string | null): string {
   if (!iso) return "-";
@@ -32,7 +51,28 @@ export default function Subscription() {
   const [status, setStatus] = useState<BillingStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [tossReady, setTossReady] = useState(false);
   const [toast, setToast] = useState<{ kind: "ok" | "err"; msg: string } | null>(null);
+
+  useEffect(() => {
+    if (window.TossPayments) {
+      const timer = window.setTimeout(() => setTossReady(true), 0);
+      return () => window.clearTimeout(timer);
+    }
+
+    const script = document.createElement("script");
+    script.src = TOSS_SCRIPT_SRC;
+    script.async = true;
+    script.onload = () => setTossReady(true);
+    script.onerror = () => {
+      setTossReady(false);
+      setToast({ kind: "err", msg: "결제 모듈을 불러오지 못했어요. 잠시 후 다시 시도해 주세요." });
+    };
+    document.head.appendChild(script);
+    return () => {
+      document.head.removeChild(script);
+    };
+  }, []);
 
   const loadStatus = useCallback(async () => {
     const token = session?.access_token;
@@ -63,31 +103,31 @@ export default function Subscription() {
     const customerKey = params.get("customerKey");
     const token = session?.access_token;
     const timer = window.setTimeout(() => {
-    const clear = () => setParams({}, { replace: true });
-    if (result === "success" && authKey && token) {
-      setBusy(true);
-      fetch(`${API_BASE}/billing/issue-key`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ authKey, customerKey: customerKey || user?.id }),
-      })
-        .then(async (r) => {
-          if (!r.ok) {
-            const d = await r.json().catch(() => ({}));
-            throw new Error(d.detail || "결제 처리에 실패했어요.");
-          }
-          setToast({ kind: "ok", msg: "구독이 시작되었습니다. 감사합니다!" });
-          await loadStatus();
+      const clear = () => setParams({}, { replace: true });
+      if (result === "success" && authKey && token) {
+        setBusy(true);
+        fetch(`${API_BASE}/billing/issue-key`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ authKey, customerKey: customerKey || user?.id }),
         })
-        .catch((e: unknown) => setToast({ kind: "err", msg: e instanceof Error ? e.message : "결제 실패" }))
-        .finally(() => {
-          setBusy(false);
-          clear();
-        });
-    } else if (result === "fail") {
-      setToast({ kind: "err", msg: "결제가 취소되었거나 실패했어요." });
-      clear();
-    }
+          .then(async (r) => {
+            if (!r.ok) {
+              const d = await r.json().catch(() => ({}));
+              throw new Error(d.detail || "결제 처리에 실패했어요.");
+            }
+            setToast({ kind: "ok", msg: "구독이 시작되었습니다. 감사합니다!" });
+            await loadStatus();
+          })
+          .catch((e: unknown) => setToast({ kind: "err", msg: e instanceof Error ? e.message : "결제 실패" }))
+          .finally(() => {
+            setBusy(false);
+            clear();
+          });
+      } else if (result === "fail") {
+        setToast({ kind: "err", msg: "결제가 취소되었거나 실패했어요." });
+        clear();
+      }
     }, 0);
 
     return () => window.clearTimeout(timer);
@@ -104,8 +144,10 @@ export default function Subscription() {
     }
     setBusy(true);
     try {
-      const { loadTossPayments } = await import("@tosspayments/tosspayments-sdk");
-      const tossPayments = await loadTossPayments(TOSS_CLIENT_KEY);
+      if (!tossReady || !window.TossPayments) {
+        throw new Error("결제 모듈을 아직 불러오는 중입니다. 잠시 후 다시 시도해 주세요.");
+      }
+      const tossPayments = window.TossPayments(TOSS_CLIENT_KEY);
       const payment = tossPayments.payment({ customerKey: user.id });
       await payment.requestBillingAuth({
         method: "CARD",
