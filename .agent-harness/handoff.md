@@ -16,6 +16,70 @@
 
 # Handoff
 
+## 2026-06-20 Codex BOHUMFIT-069~071 [Windows 검증·3커밋 push 완료 / Next: Human env·웹훅·샌드박스 E2E]
+### Changed
+- 069: `backend/main.py`, `backend/requirements.txt`, `backend/tests/test_usage_middleware.py`, `.agent-harness/tasks/BOHUMFIT-069-usage-middleware.md` — 월 30회 사용량 게이트, internal 바이패스, 성공 분석 후 usage log, Supabase SDK 의존성.
+- 070: `backend/main.py`, `backend/tosspayments.py`, `backend/tests/test_tosspayments.py`, `.agent-harness/tasks/BOHUMFIT-070-tosspayments.md` — 토스 빌링키 발급, 최초 결제, 웹훅 HMAC 검증, 구독 상태 API.
+- 071: `src/components/UsageBadge.tsx`, `src/pages/Subscription.tsx`, `src/App.tsx`, `src/pages/Disclosure.tsx`, `package.json`, `package-lock.json`, `.agent-harness/tasks/BOHUMFIT-071-subscription-ui.md` — 구독 UI, UsageBadge, `/subscription` 보호 라우트, 토스 SDK 빌링 플로우.
+- Commits pushed to `origin/main`: 069 `9e28e75`, 070 `bcc8281`, 071 `c136cc7`.
+### Verified
+- `cd backend && pip install supabase==2.31.0 --break-system-packages` -> installed `supabase 2.31.0` and dependencies.
+- `cd backend && python -m pytest -q tests/test_usage_middleware.py tests/test_tosspayments.py -vv` -> 16 passed.
+- `cd backend && python -m pytest -q` -> 395 passed, 8 skipped.
+- `npx tsc -p tsconfig.app.json --noEmit` -> initial fail: `@tosspayments/tosspayments-sdk` missing. `npm install` 후 pass.
+- `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- `npm run lint` -> initial fail: `Subscription.tsx` effect synchronous setState. 071 범위에서 timer callback으로 이동 후 pass.
+- `npm test` -> 4 files / 45 tests passed.
+- `npm run build` -> pass. 기존 Vite chunk size warning + plugin timing warning 출력.
+### Notes
+- `npm install`로 `@tosspayments/tosspayments-sdk`가 lockfile에 반영되어 `package-lock.json`도 071 커밋에 포함함. `npm audit`은 8 vulnerabilities(1 low, 1 moderate, 6 high)를 보고했으나 이번 범위 밖이라 자동 수정하지 않음.
+- 환경변수 미설정 시 동작: `SUPABASE_SERVICE_ROLE_KEY` 또는 Supabase admin 초기화 실패면 분석 게이트는 비활성화되어 기존 무료 분석 동작을 유지. billing API는 Supabase/Toss 설정 부재 시 503 또는 disabled 상태로 graceful 응답. 프런트는 `VITE_TOSS_CLIENT_KEY` 없으면 구독 시작 버튼에서 안내 토스트 표시.
+- 069 기준 수치 보강: `test_usage_middleware.py`를 8개로 맞추며 inactive row 필터 회귀를 추가. 테스트 더블이 `.eq()` 필터를 반영하도록 보정.
+- pytest가 건드린 tracked `backend/__pycache__/main.cpython-312.pyc` 부산물은 원복. PII/PDF/brand/unrelated 파일 stage 금지 준수.
+### Next
+- Human: Railway 환경변수 추가 — `SUPABASE_SERVICE_ROLE_KEY`, `TOSS_CLIENT_KEY`, `TOSS_SECRET_KEY`, `TOSS_WEBHOOK_SECRET`.
+- Human: Vercel 환경변수 추가 — `VITE_TOSS_CLIENT_KEY`.
+- Human: 토스 대시보드 웹훅 URL 등록 — `https://{api도메인}/billing/webhook`.
+- Human: 토스 샌드박스 E2E 결제 흐름 전체 테스트.
+
+## 2026-06-20 Cowork BOHUMFIT-069~071 [구독제 전체 구현(횟수 미들웨어·토스페이먼츠·프런트 UI) / Next: Codex 검증·커밋 + Human Supabase·env]
+### Changed
+- **069 (backend/main.py)**: `_get_supabase_admin()`(서비스롤 지연초기화·키/패키지 없으면 None→게이트 비활성·graceful), `_enforce_subscription(user_id)`(402 미구독·429 월30회 초과·internal 무제한·to_thread), `_log_usage`(분석 성공 후 usage_logs 1건·internal/비활성 skip). `/api/analyze`에 enforce(api_key 직후)·log(분석 성공 후) 통합. `MONTHLY_ANALYZE_LIMIT=30`. `requirements.txt` `supabase==2.31.0` 추가. 신규 `tests/test_usage_middleware.py`(7).
+- **070 (backend/tosspayments.py 신규 + main.py)**: `issue_billing_key`·`charge_billing`·`verify_webhook_signature`(HMAC-SHA256 hex/base64·상수시간). main.py 엔드포인트 3개 — `POST /billing/issue-key`(빌링키→9,900 결제→subscriptions upsert), `POST /billing/webhook`(HMAC 검증→DONE=active/CANCELED·FAIL=inactive), `GET /billing/status`({status,plan,period_end,used,limit:30,is_internal}). 환경변수 없으면 503 graceful. 신규 `tests/test_tosspayments.py`(8).
+- **071 (프런트)**: `src/components/UsageBadge.tsx`(신규·/billing/status·"이번 달 {used}/30회"·미구독 "구독 필요"→/subscription·internal/비활성 숨김), `src/pages/Subscription.tsx`(신규·상태 조회·토스 SDK 카드등록 빌링 플로우·result 토스트·구독중/미구독 카드), `src/App.tsx`(/subscription 보호 라우트), `src/pages/Disclosure.tsx`(결과 상단 `<UsageBadge/>`), `package.json`(`@tosspayments/tosspayments-sdk ^2.4.0`).
+- 신규 task: `.agent-harness/tasks/BOHUMFIT-069·070·071*.md`.
+### Verified (샌드박스 가용 범위)
+- **070 test_tosspayments: 8 passed**(HMAC hex/base64·str payload·불일치/빈입력 reject·Basic 헤더·env 가드).
+- **069 로직: 8/8** — main.py에서 추출한 실제 `_enforce_subscription`/`_log_usage` 소스를 가짜 supabase admin으로 직접 실행: internal 무제한·402 미구독·402 조회예외·429 초과·한도내 통과+차감·미설정 bypass·internal 미차감 전부 PASS.
+- 빌링 엔드포인트(L535~676) Read 전수 확인: try/except·return·중첩함수 모두 정상 개폐. 069 helper 블록 AST OK·tosspayments AST OK.
+- [ ] (Codex/Windows) 전체 pytest(기준선 379 + 신규 15)·`npm run build`·tsc/lint·실 토스/Supabase 연동.
+### Notes — Human/Codex
+- ⚠ **Supabase 스키마는 068 마이그레이션(human-gated)** — Human이 `20260620000000_subscription_schema.sql` 수동 실행 후 `profiles.role`/`subscriptions`/`usage_logs` 존재해야 게이트 활성. 미실행/미설정 시 `_get_supabase_admin()` None → **게이트 비활성(기존 무료 동작 유지)** 이라 배포는 안전.
+- **Human env (Codex 커밋 후)**: Railway `SUPABASE_SERVICE_ROLE_KEY`·`TOSS_CLIENT_KEY`·`TOSS_SECRET_KEY`·`TOSS_WEBHOOK_SECRET` / Vercel `VITE_TOSS_CLIENT_KEY` / 토스 대시보드 웹훅 URL `https://{api}/billing/webhook`.
+- ⚠ main.py 마운트 truncation(547줄/실~872 — 069~071 무관 환경결함)으로 main-import 통합테스트는 /tmp 불가 → 069 로직은 실소스 추출로 검증, 전체 pytest는 Codex/Windows. 프런트 tsc/lint/build·실 결제 플로우도 Codex/Windows. 분석/판정 로직 무변경. 토스 SDK API(`loadTossPayments`/`requestBillingAuth`)는 동적 import — tsc로 Codex 확인.
+- 069 게이트는 `/api/analyze` 성공 경로만 차감(실패는 미차감). 동기 supabase SDK는 `asyncio.to_thread`로 감쌈.
+### Next
+- **Codex(Windows)**: 전체 pytest·tsc/lint/build·`pip install -r requirements.txt`(supabase) → 069~071 범위 파일 stage→commit→push(3 커밋 또는 묶음). **Human**: 068 마이그레이션 실행 + 위 env/웹훅 등록.
+
+## 2026-06-20 Codex BOHUMFIT-068 [subscriptions·usage_logs 스키마 마이그레이션 추가 / Next: Human Supabase 수동 실행]
+### Changed
+- `supabase/migrations/20260620000000_subscription_schema.sql` 추가: `profiles.role`, `subscriptions`, `usage_logs`, RLS SELECT 정책, `subscriptions.updated_at` 트리거 정의.
+- `backend/tests/test_subscription_schema.py` 추가: Supabase 서비스롤 REST 연결이 있으면 `subscriptions`, `usage_logs`, `profiles.role` 존재 확인. 연결 정보가 없거나 Supabase가 닿지 않으면 `pytest.skip()`.
+- `.agent-harness/tasks/BOHUMFIT-068-subscription-schema.md` 추가.
+### Verified
+- truncation 선제 점검: migration SQL, 신규 테스트, task, locks NUL 없음, strict UTF-8 OK, tail 완결.
+- 핵심 grep: `ADD COLUMN IF NOT EXISTS role`, `CREATE TABLE IF NOT EXISTS public.subscriptions`, `CREATE TABLE IF NOT EXISTS public.usage_logs`, `ENABLE ROW LEVEL SECURITY`, `subscriptions_updated_at` 확인.
+- `cd backend && python -m pytest -q tests/test_subscription_schema.py -vv` -> 1 skipped. 현재 Windows 환경에 Supabase service role 연결 정보 없음.
+- `cd backend && python -m pytest -q` -> 379 passed, 8 skipped.
+- `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- `.agent-harness/verify.md`: `npm run lint` -> pass, `npm test` -> 4 files / 45 tests passed, `npm run build` -> pass. 기존 Vite chunk size warning만 출력.
+### Notes
+- `supabase/` 디렉터리는 기존에 없어 신규 생성됨.
+- pytest가 건드린 tracked `backend/__pycache__/main.cpython-312.pyc` 부산물은 원복.
+- Supabase 대시보드/SQL editor에서 마이그레이션은 아직 실행하지 않음. Human 수동 실행 후 테이블 2개와 `profiles.role` 확인 필요.
+### Next
+- Human: Supabase 대시보드에서 `20260620000000_subscription_schema.sql` 수동 실행 및 `profiles.role`, `subscriptions`, `usage_logs` 확인 후 BOHUMFIT-069 진행.
+
 ## 2026-06-20 Codex BOHUMFIT-067 [Windows 검증·실 UI/PDF 육안 완료 / Next: Human 모바일 로고 폭 미세조정 여부]
 ### Changed
 - Cowork 067 구현을 Windows 원본에서 검증: 로그인 로고 한 줄 유지, 고객명 직접 입력 UI, 리포트 payload/파일명 우선순위, PDF 본문 고객명 표시/공백 생략.
