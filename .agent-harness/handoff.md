@@ -16,6 +16,41 @@
 
 # Handoff
 
+## 2026-06-20 Codex BOHUMFIT-071-hotfix2 [Windows 검증·커밋·푸시 완료 / Commit: f7c1fa1]
+### Changed
+- `src/pages/Subscription.tsx`: 토스 SDK 초기화를 v2 `standard` 결제위젯 경로에서 v1 `payment` 빌링키 경로로 전환한 Cowork 작업분을 Windows에서 검증·확정.
+- `.agent-harness/tasks/BOHUMFIT-071-hotfix2-toss-billing-init.md`: hotfix2 태스크 파일 신규 포함.
+- `.agent-harness/handoff.md`, `.agent-harness/locks.md`: Codex 검증 결과 기록 및 잠금 해제.
+### Verified
+- `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- `npm run lint` -> pass.
+- `npm run build` -> pass. 기존 Vite chunk size warning만 출력.
+- 정적 확인: `v1/payment` 및 `requestBillingAuth("카드", ...)` 존재, `v2/standard` 및 `.payment(` 호출 잔존 0.
+### Notes
+- hotfix2 commit `f7c1fa1` pushed to `origin/main`.
+- 이번 검증 중 `Subscription.tsx` 수정은 추가로 필요 없었음.
+- 기존 미추적 task/PDF/brand/068 파일과 범위 밖 더티 파일은 stage 금지 대상으로 보존.
+### Next
+- Human -> `/subscription` 페이지에서 "구독 시작" 버튼 클릭 후 토스 카드 등록 화면 진입 확인.
+- Human -> 확인 후 BOHUMFIT-072~074 Cowork 진행.
+
+## 2026-06-20 Cowork BOHUMFIT-071-hotfix2 [토스 빌링 초기화 v2 결제위젯→v1 빌링키 / Next: Codex tsc·lint·build·커밋]
+### Changed
+- `src/pages/Subscription.tsx` — 토스 초기화를 **결제위젯(v2/standard·사업자 신청 필요)** → **빌링키(v1/payment·테스트 즉시)** 방식으로 교체:
+  - CDN `TOSS_SCRIPT_SRC`: `https://js.tosspayments.com/v2/standard` → `https://js.tosspayments.com/v1/payment`.
+  - v2 전용 타입(`TossPaymentsInstance`/`TossPaymentsPayment`·`.payment()`) 제거, `Window.TossPayments`를 `(clientKey)=>unknown`으로 느슨화.
+  - `startSubscribe`: `(window as any).TossPayments(VITE_TOSS_CLIENT_KEY)` 인스턴스에서 **`requestBillingAuth("카드", { customerKey: user.id, successUrl, failUrl })`** 직접 호출(v1). TS any는 `eslint-disable-next-line` 처리.
+  - `setTossReady(true)`(script.onload)·리다이렉트 success→`/billing/issue-key`·result 토스트 로직은 그대로 유지.
+### Verified
+- 정적 검토: v2 잔재(`.payment(`·v2 타입) 0(grep), `requestBillingAuth("카드",…)` 1, CDN v1/payment 적용. 백엔드·다른 파일 무접촉.
+- [ ] (Codex/Windows) `npx tsc -p tsconfig.app.json --noEmit`·`npm run lint`·`npm run build`·실 /subscription "구독 시작"→토스 카드 등록 페이지 이동.
+### Notes
+- ⚠ 샌드박스 tsc/lint/build 불가(rolldown 네이티브)·실 결제 플로우 = Codex/Windows. 변경은 Subscription.tsx 단일·프런트 한정(분석/판정·백엔드 무관).
+- 빌링키 방식은 사업자 심사 전에도 토스 테스트 클라이언트키로 카드 등록(빌링키 발급) 가능 → "결제 모듈을 불러오지 못했어요" 오류 해소.
+### Next
+- **Codex(Windows)**: tsc/lint/build·/subscription 스모크 → `src/pages/Subscription.tsx` stage→commit→push. 커밋: `BOHUMFIT-071-hotfix2: 토스 빌링 초기화 v1 빌링키 방식으로 수정`.
+
 ## 2026-06-20 Codex BOHUMFIT-071-hotfix [Windows 검증·커밋·푸시 완료 / Commit: 599eb1c]
 ### Changed
 - `src/pages/Subscription.tsx`: 토스페이먼츠 npm SDK 경로 대신 `https://js.tosspayments.com/v2/standard` CDN script 로드와 `window.TossPayments(VITE_TOSS_CLIENT_KEY)` 초기화 경로 검증.

@@ -4,7 +4,7 @@ Use this file to record active Codex file ownership during a task.
 
 ## Active
 
-(없음)
+- 2026-06-20 `BOHUMFIT-072~074` - Cowork - SaaS 플랜·이벤트·본인인증. 편집: backend/main.py(PLANS·TRIAL·_enforce·/billing/status·issue-key plan·/auth/verify-phone)·backend/tests/test_usage_middleware.py·src/pages/Subscription.tsx(2플랜·이벤트·trial·handleSubscribe(plan))·src/components/UsageBadge.tsx(trial)·src/pages/Signup.tsx(본인인증 게이트)·supabase/migrations/20260620000001_phone_verification.sql(신규), tasks/072·073·074(신규). ⚠`Subscription.tsx`는 Codex hotfix2 active lock과 겹침 — hotfix2(토스 v1 init)는 이미 워킹트리 반영, 072/073은 그 위에 누적. Codex: hotfix2 먼저 커밋 후 072~074(또는 fold). ⚠Supabase 마이그레이션 human-gated·074 실인증 미연동(UI만).
 
 ## Rules
 
@@ -14,6 +14,10 @@ Use this file to record active Codex file ownership during a task.
 - Keep this file operational and short. Historical lock detail lives in git history and `handoff.md`.
 
 ## Released
+
+- 2026-06-20 `BOHUMFIT-071-hotfix2: 검증·커밋` - Codex - Windows frontend gate 통과(tsc app/node, lint, build). Commit `f7c1fa1` pushed to `origin/main`; `src/pages/Subscription.tsx` v1 payment billing-key path verified, task file included. Next: Human `/subscription` 구독 시작 버튼으로 토스 카드 등록 화면 진입 확인 후 BOHUMFIT-072~074 Cowork 진행.
+
+- 2026-06-20 `BOHUMFIT-071-hotfix2` - Cowork - 토스 빌링 초기화 v2 결제위젯→v1 빌링키 방식 수정 완료(src/pages/Subscription.tsx 단일). CDN v2/standard→v1/payment, v2 타입(.payment()/TossPaymentsInstance) 제거·Window.TossPayments→(clientKey)=>unknown, startSubscribe를 `(window as any).TossPayments(clientKey).requestBillingAuth("카드",{customerKey:user.id,successUrl,failUrl})`로 교체(any eslint-disable). onload setTossReady·success→issue-key·토스트 유지. 정적: v2 잔재 0(grep)·v1 호출 1·백엔드/타 파일 무접촉. ⚠tsc/lint/build·실 결제 플로우=Codex/Windows(샌드박스 rolldown 불가). 빌링키 방식은 사업자 심사 전 테스트키로 카드등록 가능→"결제 모듈 못 불러옴" 해소. → Codex tsc/lint/build·/subscription 스모크·커밋.
 
 - 2026-06-20 `BOHUMFIT-071-hotfix: 검증·커밋` - Codex - Windows frontend gate 통과(tsc app/node, lint, npm test 45 passed, build pass). Hotfix commit `599eb1c` pushed to `origin/main`; `@tosspayments/tosspayments-sdk` 제거 및 CDN `https://js.tosspayments.com/v2/standard` + `window.TossPayments(VITE_TOSS_CLIENT_KEY)` 경로 확정. PII/PDF/brand/unrelated stage 금지 준수. Next: Human Vercel redeploy 후 `/subscription` 토스 SDK 로드 확인.
 
