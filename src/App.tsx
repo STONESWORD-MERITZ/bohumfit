@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import * as Sentry from "@sentry/react";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { PhoneGate } from "./lib/usePhoneGate";
 import Home from "./pages/Home";
 import DisclosureHub from "./pages/DisclosureHub";
 import InsuranceCalculator from "./pages/InsuranceCalculator";
@@ -72,7 +73,9 @@ function App() {
         {/* BOHUMFIT-075: 소셜/이메일 공통 휴대폰 본인인증 게이트(로그인 필요·전체화면) */}
         <Route path="/phone-verify" element={<ProtectedRoute><PhoneVerify /></ProtectedRoute>} />
         <Route element={<Layout />}>
-          <Route index element={<Home />} />
+          {/* BOHUMFIT-086: 소셜/이메일 로그인 후 도착하는 랜딩(/)도 게이트를 거치게 함.
+              비로그인은 공개로 노출, 로그인했지만 미인증이면 /phone-verify로 이동. */}
+          <Route index element={<PhoneGate><Home /></PhoneGate>} />
           {/* BOHUMFIT-046: 고객용/설계사용 통합 허브 — 모드는 ?mode= 파라미터 */}
           <Route
             path="disclosure"

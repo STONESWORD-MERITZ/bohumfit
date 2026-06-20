@@ -45,9 +45,12 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center overflow-x-clip bg-canvas px-4">
       <div className="w-full max-w-sm min-w-0">
         <div className="mb-8 text-center">
-          <h1 className="flex w-full min-w-0 justify-center overflow-x-clip">
-            <Logo size={36} className="sm:hidden" />
-            <Logo size={44} className="hidden sm:inline-flex" />
+          {/* BOHUMFIT-086: 좁은 폭에서 로고가 컨테이너보다 넓어 좌우로 잘리던 문제 수정.
+              사이즈를 max-w-sm(최소 320px 화면)에 맞춰 축소하고, 중앙정렬+overflow-x-clip의
+              양끝 잘림을 제거. 로고는 Logo 내부에서 항상 한 줄 유지(083 의도 보존). */}
+          <h1 className="flex w-full min-w-0 justify-center">
+            <Logo size={28} className="sm:hidden" />
+            <Logo size={36} className="hidden sm:inline-flex" />
           </h1>
           <p className="mt-3 text-body text-ink-soft">보험 고지 리스크 점검을 시작하세요</p>
         </div>
