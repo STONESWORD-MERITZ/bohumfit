@@ -16,11 +16,12 @@
 
 # Handoff
 
-## 2026-06-20 Codex BOHUMFIT-071-hotfix [Windows 검증 통과 / Commit: pending]
+## 2026-06-20 Codex BOHUMFIT-071-hotfix [Windows 검증·커밋·푸시 완료 / Commit: 599eb1c]
 ### Changed
 - `src/pages/Subscription.tsx`: 토스페이먼츠 npm SDK 경로 대신 `https://js.tosspayments.com/v2/standard` CDN script 로드와 `window.TossPayments(VITE_TOSS_CLIENT_KEY)` 초기화 경로 검증.
 - `package.json`, `package-lock.json`: `@tosspayments/tosspayments-sdk` 의존성 제거 상태 검증.
-- `.agent-harness/handoff.md`: Windows 검증 결과 기록.
+- `.agent-harness/handoff.md`: Windows 검증 결과와 hotfix 커밋 해시 기록.
+- `.agent-harness/locks.md`: `BOHUMFIT-071-hotfix: 검증·커밋` 잠금 해제.
 ### Verified
 - `npx tsc -p tsconfig.app.json --noEmit` -> pass.
 - `npx tsc -p tsconfig.node.json --noEmit` -> pass.
@@ -30,7 +31,7 @@
 ### Notes
 - 백엔드 변경 없음.
 - 기존 미추적 068/task, PII/PDF, brand/unrelated 파일은 stage 금지 대상으로 보존.
-- 커밋 해시는 hotfix 커밋 생성 후 handoff/locks 정리 커밋에서 상단 항목에 기록 예정.
+- hotfix commit `599eb1c` pushed to `origin/main`; handoff hash/lock cleanup은 별도 하네스 정리 커밋으로 기록.
 ### Next
 - Human -> Vercel Redeploy 후 `/subscription` 페이지 토스 SDK 로드 확인.
 
