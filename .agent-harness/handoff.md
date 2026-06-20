@@ -16,6 +16,58 @@
 
 # Handoff
 
+## 2026-06-20 Codex BOHUMFIT-077~081 [Windows 검증·5커밋·푸시 완료]
+### Changed
+- BOHUMFIT-077 commit `c06632c`: `src/pages/DownloadGuide.tsx`, `.agent-harness/tasks/BOHUMFIT-077-download-guide.md`.
+- BOHUMFIT-078 commit `180b8bc`: `src/pages/Home.tsx`, `.agent-harness/tasks/BOHUMFIT-078-main-redesign.md`.
+- BOHUMFIT-079 commit `f0a3f44`: `src/components/Layout.tsx`, `.agent-harness/tasks/BOHUMFIT-079-nav-restructure.md`.
+- BOHUMFIT-080 commit `2b65716`: `.agent-harness/tasks/BOHUMFIT-080-trust-story.md`. 080의 Home 신뢰 스토리 코드는 078과 같은 `Home.tsx` 변경이라 `180b8bc`에 함께 포함됨.
+- BOHUMFIT-081 commit `b79cd4d`: `src/pages/CoverageCompare.tsx`, `src/App.tsx`, `.agent-harness/tasks/BOHUMFIT-081-coverage-compare.md`. `/download-guide` 라우트도 지시된 App staging 순서상 이 커밋에 함께 포함됨.
+- `.agent-harness/handoff.md`, `.agent-harness/locks.md`: Codex 검증 결과 기록 및 잠금 해제.
+### Verified
+- `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- `npm run lint` -> pass.
+- `npm test` -> 4 files passed, 45 tests passed.
+- `npm run build` -> pass. 기존 Vite chunk size warning만 출력.
+- `git diff --cached --check` -> 각 feature commit staging 전 pass.
+- `git push origin main` -> pass (`144f148..b79cd4d`).
+### Notes
+- 078/080은 `Home.tsx`가 동일 파일이라 지시된 add 순서에 따라 080 코드가 078 커밋에 함께 들어갔고, 080 커밋은 태스크 경계 기록만 포함함.
+- 077의 공개 페이지 라우트는 `App.tsx` 공유 변경이라 081 커밋에 함께 들어감. 최종 `main`에는 `/download-guide`와 `/coverage-compare` 라우트가 모두 연결됨.
+- 이미지 플레이스홀더, 유튜브 링크, 지점장 이름·프로필 사진, 알림신청 Supabase 저장은 후속 Human/태스크 영역.
+- PII/PDF/brand/fithere/unrelated 및 오래 남은 untracked 파일들은 stage하지 않음.
+### Next
+- Human -> bohumfit.ai 전체 페이지 확인.
+- Human -> 이미지 플레이스홀더 실제 심평원 캡처로 교체.
+- Human -> 유튜브 링크 실제 영상으로 교체.
+- Human -> 지점장 이름·프로필 사진 실제 정보로 교체.
+- Human -> "요금제" 메뉴 비로그인 공개 여부 결정.
+
+## 2026-06-20 Cowork BOHUMFIT-077~081 [전체 사이트 디벨롭 구현 완료·Codex 검증 대기]
+### Changed
+- `src/pages/DownloadGuide.tsx` (신규·077): 심평원 3종 자료 다운로드 가이드 공개 페이지. 안내 배너·유튜브 링크(@hira_kr 플레이스홀더)·3단계 카드(기본/세부/처방, 발급경로·hira.or.kr 링크·이미지 플레이스홀더)·하단 CTA(→/disclosure?mode=agent).
+- `src/pages/CoverageCompare.tsx` (신규·081): 보장 비교분석 UI 뼈대. "준비 중" 배너 + 알림신청 이메일 폼(로컬 상태 스텁, Supabase 저장 TODO)·2칼럼 업로드 미리보기(비활성)·분석 시작 버튼 비활성.
+- `src/pages/Home.tsx` (078+080 전면 개편): 다크 히어로("고지의무 검토, 이제 3분이면 끝납니다", →/signup·#features)·핵심수치(3분/98%/30초 카운트업)·3단계 흐름·핵심기능 3(id=features)·만든이야기 신뢰섹션(메리츠 지점장·원형 사진 플레이스홀더·연한 그린 배경)·가격 CTA(무료체험5/베이직14,900/프로24,900+오픈이벤트9,900). 기존 "KNOW BEFORE YOU SIGN"·ROADMAP·VALUES·TWO PATHS·HomeMission import 제거.
+- `src/components/Layout.tsx` (077+079): NAV 재구성 → 자료 받기(/download-guide) | 고지의무 분석(드롭다운, /disclosure) | 보장 비교분석(/coverage-compare) | 실손 계산(/insurance) | 요금제(/subscription). "왜 중요한가"(/why) 제거. 데스크탑·모바일 동일 NAV 소스 → 자동 반영. "구독" 우측 메뉴(075) 유지.
+- `src/App.tsx`: `/download-guide`(공개·Layout) + `/coverage-compare`(ProtectedRoute·Layout) 라우트 및 import 추가.
+- `.agent-harness/tasks/BOHUMFIT-077~081-*.md` (신규 5).
+### Verified
+- [x] 정적 확인: Home에 KNOW BEFORE/ROADMAP/VALUES/HomeMission/why/check 라이브 참조 0(주석만). Layout NAV 라이브 항목=신규 5개·/why·/coverage 링크 0. App DownloadGuide/CoverageCompare import·라우트 연결 확인. 신규 페이지 토큰(ink/accent/line/canvas/warning/danger) index.css 정의 범위 내.
+- [ ] `npx tsc -p tsconfig.app.json --noEmit` (Codex)
+- [ ] `npx tsc -p tsconfig.node.json --noEmit` (Codex)
+- [ ] `npm run lint` (Codex)
+- [ ] `npm run build` (Codex)
+- [ ] 수동: /download-guide·/coverage-compare 접근, 메인 개편 카피·반응형, 모바일 메뉴 (Codex 또는 Human)
+### Notes
+- 이미지 플레이스홀더(다운로드 가이드 캡처·지점장 프로필 사진), 유튜브 실제 영상 링크, 만든이야기 이름은 추후 입력.
+- 알림 신청(CoverageCompare) Supabase 저장은 추후 별도 태스크 — 현재 UI 확인용 로컬 스텁.
+- `/coverage`(CoverageAnalysis "Coming Soon")·`/why`(WhyDisclosure) 라우트는 유지(직접 접근 가능)하되 NAV에서만 제외. `HomeMission.tsx`는 import 제거로 미사용(파일은 보존, 빌드 무해).
+- "요금제"→/subscription은 ProtectedRoute라 비로그인 클릭 시 /login으로 이동(메뉴 표시는 로그인 무관). 공개 요금제 페이지 분리가 필요하면 후속 태스크로.
+- 마운트 git 미실행. 풀 tsc/lint/build·실 브라우저 스모크는 Codex/Windows 권위.
+### Next
+- Codex: tsc(app·node)·lint·build → 통과 시 BOHUMFIT-077~081 범위 5파일(+ tasks 5·handoff·locks) stage·commit(`BOHUMFIT-077~081: 설계사 중심 전체 사이트 디벨롭`)·push origin main.
+
 ## 2026-06-20 Codex BOHUMFIT-076 [Windows 검증·커밋·푸시 완료 / Commit: de30eb0]
 ### Changed
 - `src/pages/Disclosure.tsx`: `UsageBadge`를 결과 화면 상단에서 분석 전 업로드 폼 영역 상단으로 이동한 Cowork 변경을 Windows에서 검증·확정.
