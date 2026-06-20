@@ -13,6 +13,7 @@ import Signup from "./pages/Signup";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Terms from "./pages/Terms";
 import WhyDisclosure from "./pages/WhyDisclosure";
+import Subscription from "./pages/Subscription";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -85,6 +86,11 @@ function App() {
           <Route
             path="before-after"
             element={<ProtectedRoute><BeforeAfterComingSoon /></ProtectedRoute>}
+          />
+          {/* BOHUMFIT-071: 구독 관리 */}
+          <Route
+            path="subscription"
+            element={<ProtectedRoute><Subscription /></ProtectedRoute>}
           />
           <Route path="why" element={<WhyDisclosure />} />
           <Route path="privacy" element={<PrivacyPolicy />} />

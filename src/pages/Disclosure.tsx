@@ -1,6 +1,7 @@
 ﻿import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import AnalysisProgress from "../components/AnalysisProgress";
+import UsageBadge from "../components/UsageBadge";
 import { useAuth } from "../lib/auth-context";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
@@ -1089,6 +1090,10 @@ function ResultView({ result, mode, referenceDate }: { result: AnalyzeResult; mo
 
   return (
     <div>
+      {/* BOHUMFIT-071: 구독 상태·이번 달 사용량 배지(내부 사용자·무료 동작 시 자동 숨김). */}
+      <div className="mb-3 flex justify-end">
+        <UsageBadge />
+      </div>
       {(result.parse_errors || []).map((e, i) => (
         <div key={`parse-${i}`} className="mb-3 rounded-[8px] bg-amber-50 p-3 text-sm font-semibold text-amber-700">
           {e}
