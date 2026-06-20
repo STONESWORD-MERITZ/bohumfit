@@ -27,6 +27,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import httpx
 
 from analyzer import run_analysis, AnalysisError, SERVER_ANALYZE_DEADLINE_SECONDS
+from phone_guard import is_phone_duplicate_blocked  # BOHUMFIT-088
 from tosspayments import (
     issue_billing_key,
     charge_billing,
@@ -729,21 +730,59 @@ async def verify_phone(
     user_id: str = Depends(verify_jwt),
 ):
     """휴대폰 본인인증 결과 수신 → profiles.phone_verified=true 마킹(1인 1계정·어뷰징 방지).
-    TODO: 토스 본인인증 라이브 키 발급 후 실제 검증(토큰/CI 대조) 로직 추가. 현재는 스텁."""
+    TODO: 토스 본인인증 라이브 키 발급 후 실제 검증(토큰/CI 대조) 로직 추가. 현재는 스텁.
+    BOHUMFIT-088: 실본인확인 전 임시 방어 — 동일 번호로 이미 인증된 다른 계정이 있으면 409.
+    internal 역할은 우회. (진짜 1인 1계정은 087 CI 기반에서 완성)"""
     phone = (payload.get("phone") or "").strip()
     admin = _get_supabase_admin()
     if admin is not None:
-        def _update() -> None:
+        def _check_and_update() -> str:
             try:
+                # 현재 사용자 role(internal 우회 판정).
+                is_internal = False
+                try:
+                    me = admin.table("profiles").select("role").eq("id", user_id).limit(1).execute()
+                    me_rows = me.data or []
+                    is_internal = bool(me_rows and me_rows[0].get("role") == "internal")
+                except Exception as e:
+                    logger.warning("role 조회 실패(중복검사 계속): %s", e)
+
+                # 088: 동일 phone·phone_verified=true·다른 user 존재 여부.
+                other_rows = None
+                if phone:
+                    dup = (
+                        admin.table("profiles")
+                        .select("id")
+                        .eq("phone", phone)
+                        .eq("phone_verified", True)
+                        .neq("id", user_id)
+                        .limit(1)
+                        .execute()
+                    )
+                    other_rows = dup.data or []
+
+                if is_phone_duplicate_blocked(
+                    phone=phone, is_internal=is_internal, other_verified_rows=other_rows
+                ):
+                    return "duplicate"
+
                 # BOHUMFIT-085: UPDATE→UPSERT. profiles 행이 없는 계정(소셜·기존 가입)도
                 # 인증 즉시 행이 생성·반영되어 게이트를 통과(행 없음 → UPDATE no-op 잠금 방지).
                 patch: dict = {"id": user_id, "phone_verified": True}
                 if phone:
                     patch["phone"] = phone
                 admin.table("profiles").upsert(patch, on_conflict="id").execute()
+                return "ok"
             except Exception as e:
                 logger.warning("phone_verified 갱신 실패: %s", e)
-        await asyncio.to_thread(_update)
+                return "error"
+
+        result = await asyncio.to_thread(_check_and_update)
+        if result == "duplicate":
+            raise HTTPException(
+                status_code=409,
+                detail="이미 인증에 사용된 번호입니다. 본인 명의의 다른 번호로 시도하거나 고객센터로 문의해 주세요.",
+            )
     return {"verified": True, "message": "본인인증이 완료되었습니다."}
 
 

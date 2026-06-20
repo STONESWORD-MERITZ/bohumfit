@@ -34,6 +34,12 @@ export default function PhoneVerify() {
       });
       if (!r.ok) {
         const d = await r.json().catch(() => ({}));
+        // 088: 동일 번호 중복가입 차단(409) → 명확한 한국어 안내.
+        if (r.status === 409) {
+          throw new Error(
+            d.detail || "이미 인증에 사용된 번호입니다. 본인 명의의 다른 번호로 시도하거나 고객센터로 문의해 주세요.",
+          );
+        }
         throw new Error(d.detail || "본인인증에 실패했어요. 잠시 후 다시 시도해 주세요.");
       }
       // 085: 인증 성공 → profiles.phone_verified=true 영속됨. 원래 가려던 경로(없으면 홈)로 복귀.
