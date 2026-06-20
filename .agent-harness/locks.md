@@ -4,8 +4,6 @@ Use this file to record active Codex file ownership during a task.
 
 ## Active
 
-- 2026-06-20 `BOHUMFIT-072~074` - Cowork - SaaS 플랜·이벤트·본인인증. 편집: backend/main.py(PLANS·TRIAL·_enforce·/billing/status·issue-key plan·/auth/verify-phone)·backend/tests/test_usage_middleware.py·src/pages/Subscription.tsx(2플랜·이벤트·trial·handleSubscribe(plan))·src/components/UsageBadge.tsx(trial)·src/pages/Signup.tsx(본인인증 게이트)·supabase/migrations/20260620000001_phone_verification.sql(신규), tasks/072·073·074(신규). ⚠`Subscription.tsx`는 Codex hotfix2 active lock과 겹침 — hotfix2(토스 v1 init)는 이미 워킹트리 반영, 072/073은 그 위에 누적. Codex: hotfix2 먼저 커밋 후 072~074(또는 fold). ⚠Supabase 마이그레이션 human-gated·074 실인증 미연동(UI만).
-
 ## Rules
 
 - New work follows the Claude Chat→Cowork→Codex three-role workflow unless the user explicitly assigns another owner or owner sequence.
@@ -14,6 +12,8 @@ Use this file to record active Codex file ownership during a task.
 - Keep this file operational and short. Historical lock detail lives in git history and `handoff.md`.
 
 ## Released
+
+- 2026-06-20 `BOHUMFIT-072~074: 검증·커밋` - Codex - Windows verification passed and scoped commits pushed: 072 `3f78222`, 073 `3a5a946`, 074 `476b06a`. Backend pytest 398 passed/8 skipped, tsc app/node gates passed where requested, lint/build passed with existing Vite chunk warning. Supabase migration and Toss live E2E remain Human gates.
 
 - 2026-06-20 `BOHUMFIT-HARNESS-three-role-workflow` - Codex - Claude Chat(프롬프트 작성자) → Claude Cowork(코딩) → Codex(Windows 권위 검증·커밋·푸시·배포 확인) 3역할 하네스 문서화 완료. `AGENTS.md`, `CLAUDE.md`, 신규 `.agent-harness/WORKFLOW.md`, task/handoff 갱신. 취지 기준 보강·New Chat Packet·Publish Gate 명문화.
 

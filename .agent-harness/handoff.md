@@ -16,6 +16,28 @@
 
 # Handoff
 
+## 2026-06-20 Codex BOHUMFIT-072~074 [Windows 검증·커밋·푸시 완료]
+### Changed
+- BOHUMFIT-072 commit `3f78222`: `backend/main.py`, `backend/tests/test_usage_middleware.py`, `src/components/UsageBadge.tsx`, `src/pages/Subscription.tsx`, `.agent-harness/tasks/BOHUMFIT-072-pricing-plan.md`.
+- BOHUMFIT-073 commit `3a5a946`: `.agent-harness/tasks/BOHUMFIT-073-toss-billing-init.md`. 073의 `Subscription.tsx` 플랜 전송 코드는 072와 같은 파일 변경이라 `3f78222`에 함께 포함됨.
+- BOHUMFIT-074 commit `476b06a`: `src/pages/Signup.tsx`, `supabase/migrations/20260620000001_phone_verification.sql`, `.agent-harness/tasks/BOHUMFIT-074-phone-verification.md`. 074의 `backend/main.py` 스텁은 072와 같은 파일 변경이라 `3f78222`에 함께 포함됨.
+- `.agent-harness/handoff.md`, `.agent-harness/locks.md`: Codex 검증 결과와 잠금 해제 기록 추가.
+### Verified
+- 072 gate: `cd backend; python -m pytest -q` -> 398 passed, 8 skipped. `npx tsc -p tsconfig.app.json --noEmit` pass. `npx tsc -p tsconfig.node.json --noEmit` pass. `npm run lint` pass. `npm run build` pass, 기존 Vite chunk size warning만 출력.
+- 073 gate: `npx tsc -p tsconfig.app.json --noEmit` pass. `npm run lint` pass. `npm run build` pass, 기존 Vite chunk size warning만 출력.
+- 074 gate: `cd backend; python -m pytest -q` -> 398 passed, 8 skipped. `npx tsc -p tsconfig.app.json --noEmit` pass. `npm run lint` pass. `npm run build` pass, 기존 Vite chunk size warning만 출력.
+- `git push origin main` pass: `e6e6373..476b06a main -> main`.
+### Notes
+- 테스트 중 생성된 `backend/__pycache__/main.cpython-312.pyc` 변경은 산출물이라 복원했고 stage하지 않음.
+- PII/PDF/brand/fithere/unrelated 및 오래 남은 untracked task 파일들은 stage하지 않음.
+- 072/073/074 구현 파일 일부가 `backend/main.py`, `src/pages/Subscription.tsx`에 겹쳐 있어 코드 변경은 072 커밋에 함께 실렸고, 073/074는 남은 task/UI/migration 경계로 분리 커밋함.
+- Supabase `20260620000001_phone_verification.sql`은 Human 수동 실행 전까지 운영 DB에 미적용.
+- 토스페이먼츠 라이브 키와 사업자 승인 전까지 실결제 E2E는 Human gate.
+### Next
+- Human -> Supabase SQL Editor에서 `20260620000001_phone_verification.sql` 수동 실행.
+- Human -> 토스페이먼츠 사업자 승인 후 라이브 키 교체 -> 실결제 테스트.
+- Human -> 전체 E2E 테스트.
+
 ## 2026-06-20 Codex BOHUMFIT-HARNESS-three-role-workflow [Claude Chat→Cowork→Codex 3역할 운영 방식 문서화]
 ### Changed
 - `AGENTS.md`: 기존 Cowork→Codex 중심 설명을 Claude Chat(프롬프트 작성자) → Claude Cowork(코딩) → Codex(Windows 검증·커밋·푸시·배포 확인) 3역할 구조로 갱신.
@@ -34,6 +56,25 @@
 - Human/Claude Chat: 새 작업 지시 시 `.agent-harness/WORKFLOW.md`의 New Chat Packet 형식으로 목표·범위·검증을 작성.
 - Cowork: 구현 후 handoff.
 - Codex: Windows 권위 검증 후 scoped commit/push.
+
+## 2026-06-20 Cowork BOHUMFIT-072~074 [SaaS 플랜·오픈이벤트·무료체험·본인인증 / Next: Codex 검증·커밋 + Human 마이그레이션·키]
+### Changed
+- **072 가격/이벤트/체험 (backend/main.py)**: `PLANS{trial:0/5, basic:14900/30, pro:24900/100}`·`TRIAL_LIMIT=5`·`_month_bounds()`. `_enforce_subscription`: internal 무제한 / active 구독→플랜 한도(basic 30·pro 100, 초과 429) / 미구독→이번 달 무료 체험 5회(초과 402 "무료 체험 5회…"). `/billing/status`에 `trial_used`·`trial_limit`·플랜별 `limit` 추가. `/billing/issue-key`: `plan` 수신·베이직 첫 결제 오픈이벤트가(9,900)·프로 정상가(24,900)·subscriptions plan/price 저장. `backend/tests/test_usage_middleware.py` 체험·플랜 로직 갱신(10).
+- **072/073 프런트**: `src/pages/Subscription.tsx` — 2 플랜 카드(베이직 오픈이벤트 9,900/첫3개월·이후 14,900·30회 / 프로 24,900·100회), 미구독 무료 체험 배너, `handleSubscribe(plan)`(v1 빌링키·successUrl `?plan=`·issue-key에 plan 전송). `src/components/UsageBadge.tsx` — 미구독 "무료 체험 {used}/5회"·소진 "구독 필요". (073 토스 v1 init은 071-hotfix2[f7c1fa1]에서 적용·동일 파일 누적.)
+- **074 본인인증**: `supabase/migrations/20260620000001_phone_verification.sql`(신규·`profiles.phone`·`phone_verified`). `backend/main.py` `POST /auth/verify-phone` 스텁. `src/pages/Signup.tsx` 휴대폰 본인인증 게이트(번호 입력·인증 요청·완료 전 가입 비활성·"1인 1계정" 안내). **현재 UI 게이트만, 실인증은 토스 라이브 키 후 연동.**
+- 신규 task: `.agent-harness/tasks/BOHUMFIT-072·073·074*.md`.
+### Verified (샌드박스 가용)
+- **072 _enforce 로직 7/7** — main.py 추출 실소스+가짜 admin 직접 실행: internal·trial 한도내(plan=trial)·trial 5소진 402·inactive→trial·basic 30 429·pro 30 통과·pro 100 429 PASS.
+- 프런트 정합: Subscription `startSubscribe` 잔재 0·`handleSubscribe("basic"/"pro")` 연결·trial 변수 정의. UsageBadge trial 분기. 추출 AST OK.
+- [ ] (Codex/Windows) 전체 pytest(test_usage_middleware 10 갱신)·`npm run build`·tsc/lint·실 토스/Supabase.
+### Notes — Human/Codex
+- ⚠ **Supabase 마이그레이션 human-gated**: 068(subscriptions/usage_logs)+074(profiles.phone/phone_verified) Human 수동 실행. 미실행 시 게이트 비활성(무료 동작)·배포 안전.
+- ⚠ **074 실인증 미연동**: Signup UI 게이트만(번호→인증 요청→통과). 실 휴대폰 본인인증은 토스 본인인증 계약·라이브 키 후 `/auth/verify-phone` 실검증 연동(현재 스텁).
+- **Human env**: Railway `SUPABASE_SERVICE_ROLE_KEY`·`TOSS_*` / Vercel `VITE_TOSS_CLIENT_KEY` / 토스 웹훅. 라이브 키 교체 시 실결제·실인증.
+- 071-hotfix2(f7c1fa1) 커밋 완료 → Subscription.tsx 072/073 변경은 그 위 누적(lock 충돌 해소).
+- ⚠ main.py 마운트 truncation(무관)으로 main-import 통합/전체 pytest는 Codex/Windows; 072 로직은 실소스 추출 검증. 프런트 tsc/lint/build도 Codex. 분석/판정 무변경.
+### Next
+- **Codex(Windows)**: 전체 pytest·tsc/lint/build → 072·073·074 stage→commit→push. **Human**: 068+074 마이그레이션·env·토스 본인인증 계약.
 
 ## 2026-06-20 Codex BOHUMFIT-071-hotfix2 [Windows 검증·커밋·푸시 완료 / Commit: f7c1fa1]
 ### Changed
