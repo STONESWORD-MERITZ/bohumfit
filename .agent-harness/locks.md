@@ -4,6 +4,8 @@ Use this file to record active Codex file ownership during a task.
 
 ## Active
 
+- (없음)
+
 ## Rules
 
 - New work follows the Claude Chat→Cowork→Codex three-role workflow unless the user explicitly assigns another owner or owner sequence.
@@ -12,6 +14,10 @@ Use this file to record active Codex file ownership during a task.
 - Keep this file operational and short. Historical lock detail lives in git history and `handoff.md`.
 
 ## Released
+
+- 2026-06-20 `BOHUMFIT-075: 검증·커밋` - Codex - Windows frontend gate passed(tsc app/node, lint, npm test 45 passed, build pass). Commit `3654adc` pushed to `origin/main`; `ProtectedRoute.tsx` lint-safe userId-scoped phone gate fix included. Next: Human bohumfit.ai 구독 메뉴, 소셜 로그인 휴대폰 인증 게이트, UsageBadge 확인.
+
+- 2026-06-20 `BOHUMFIT-075` - Cowork - 구독 네비 메뉴 + 소셜/이메일 공통 휴대폰 인증 게이트 구현 완료. ProtectedRoute.tsx(profiles.phone_verified 1회 조회→false면 /phone-verify, 오류·미설정 통과로 deploy-safe, /phone-verify 자체 게이트 제외)·PhoneVerify.tsx(신규, 번호입력→POST /auth/verify-phone→/disclosure, "1인1계정" 안내·다른계정 링크)·App.tsx(/phone-verify 라우트, ProtectedRoute·Layout 밖)·Layout.tsx(UserArea "구독" NavLink, 이메일·로그아웃 사이). 정적 검증: accent-50/700 토큰 index.css 확인·참조 일관·누락 없음. ⚠tsc/lint/build·소셜 로그인 수동 E2E는 Codex/Windows. ⚠게이트 동작에 profiles.phone_verified 컬럼(20260620000001 마이그레이션) 필요·미적용시 비활성 통과. 분석/판정·백엔드 무변경(074 verify-phone 재사용)·마운트 git 미실행. → Codex tsc·lint·build·커밋·푸시.
 
 - 2026-06-20 `BOHUMFIT-072~074: 검증·커밋` - Codex - Windows verification passed and scoped commits pushed: 072 `3f78222`, 073 `3a5a946`, 074 `476b06a`. Backend pytest 398 passed/8 skipped, tsc app/node gates passed where requested, lint/build passed with existing Vite chunk warning. Supabase migration and Toss live E2E remain Human gates.
 

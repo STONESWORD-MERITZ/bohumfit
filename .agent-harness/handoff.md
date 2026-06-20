@@ -16,6 +16,51 @@
 
 # Handoff
 
+## 2026-06-20 Codex BOHUMFIT-075 [Windows 검증·커밋·푸시 완료 / Commit: 3654adc]
+### Changed
+- `src/components/ProtectedRoute.tsx`: Cowork 구현의 휴대폰 인증 게이트를 검증하고, lint 대응으로 `phoneGate`를 userId별 상태로 보관하도록 조정해 사용자 전환 시 stale gate를 막으면서 effect 동기 setState를 제거.
+- `src/pages/PhoneVerify.tsx`: 신규 휴대폰 인증 게이트 화면 포함.
+- `src/App.tsx`: `/phone-verify` 라우트 포함.
+- `src/components/Layout.tsx`: 로그인 상태 상단 메뉴에 `구독` 링크 포함.
+- `.agent-harness/tasks/BOHUMFIT-075-nav-social-auth.md`: 075 태스크 파일 포함.
+- `.agent-harness/handoff.md`, `.agent-harness/locks.md`: Codex 검증 결과 기록 및 잠금 해제.
+### Verified
+- `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- `npm run lint` -> pass. 최초 1회 `ProtectedRoute.tsx`의 effect 내 동기 `setState` lint 오류를 범위 내 수정 후 재통과.
+- `npm test` -> 4 files passed, 45 tests passed.
+- `npm run build` -> pass. 기존 Vite chunk size warning만 출력.
+- `git push origin main` -> pass (`bcc428d..3654adc`).
+### Notes
+- 휴대폰 인증 게이트의 실제 동작은 `profiles.phone_verified` 컬럼이 필요하므로 `20260620000001_phone_verification.sql` 적용 전에는 오류 통과(deploy-safe)로 기존 흐름을 보존함.
+- `/auth/verify-phone`은 BOHUMFIT-074 스텁을 재사용하며, 토스 실 본인인증 연동은 별도 Human/후속 작업.
+- 소셜 로그인 실 E2E와 UsageBadge 배포 확인은 로컬 검증 범위를 넘어 Human 확인으로 남김.
+- PII/PDF/brand/fithere/unrelated 및 오래 남은 untracked 파일들은 stage하지 않음.
+### Next
+- Human -> bohumfit.ai 접속 후 상단 "구독" 메뉴 확인.
+- Human -> 소셜 로그인 후 휴대폰 인증 게이트 동작 확인.
+- Human -> UsageBadge 표시 확인 (Vercel Redeploy 후).
+
+## 2026-06-20 Cowork BOHUMFIT-075 [구현 완료·Codex 검증 대기]
+### Changed
+- `src/components/ProtectedRoute.tsx`: 로그인 보호에 휴대폰 본인인증 게이트 추가. 세션 있으면 `profiles.phone_verified`(RLS 본인 SELECT) 1회 조회 → false면 `/phone-verify` 리다이렉트. 소셜/이메일 공통, DB 기준 일원화. 컬럼/행 없음·RLS·네트워크 오류 시 통과(마이그레이션 미실행 deploy-safe). `/phone-verify` 경로 자체는 게이트 제외(무한 리다이렉트 방지).
+- `src/pages/PhoneVerify.tsx` (신규): 번호 입력 + 인증 요청(스텁) → POST `/auth/verify-phone`(phone_verified=true 영속) → `/disclosure?mode=customer` 이동. "1인 1계정 최초 1회 인증" 안내, "다른 계정으로 로그인"(signOut→/login) 링크.
+- `src/App.tsx`: `PhoneVerify` import + `/phone-verify` 라우트(ProtectedRoute 래핑·Layout 밖 전체화면).
+- `src/components/Layout.tsx`: `UserArea`에 "구독" NavLink 추가(로그인 시 표시, → `/subscription`, 이메일·로그아웃 사이). active 시 accent 강조.
+### Verified
+- [x] 정적 확인: 토큰 `accent-50`/`accent-700` index.css 정의 확인. import/route/컴포넌트 참조 일관. 누락 참조 없음.
+- [ ] `npx tsc -p tsconfig.app.json --noEmit` (Codex)
+- [ ] `npx tsc -p tsconfig.node.json --noEmit` (Codex)
+- [ ] `npm run lint` (Codex)
+- [ ] `npm run build` (Codex)
+- [ ] 수동: 소셜 로그인(phone_verified=false) → /phone-verify 강제, 인증 후 /disclosure / 구독 메뉴 노출·이동 (Codex 또는 Human, Supabase profiles 컬럼 필요)
+### Notes
+- 실제 본인인증은 토스 라이브 키 후 연동 — 현재 `/auth/verify-phone`은 phone_verified=true 영속 스텁(BOHUMFIT-074).
+- 게이트 동작에는 `supabase/migrations/20260620000001_phone_verification.sql`(profiles.phone_verified 컬럼) 적용 필요. 미적용 시 게이트 비활성으로 안전 통과(기존 동작 보존).
+- 마운트 git 미실행 / 풀 pytest·tsc·build는 Codex Windows 권위 검증.
+### Next
+- Codex: tsc(app·node)·lint·build 검증 → 통과 시 BOHUMFIT-075 범위 4파일 + 태스크/handoff/locks stage·commit(`BOHUMFIT-075: 구독 네비 메뉴·소셜 휴대폰 인증 게이트`)·push origin main.
+
 ## 2026-06-20 Codex BOHUMFIT-072~074 [Windows 검증·커밋·푸시 완료]
 ### Changed
 - BOHUMFIT-072 commit `3f78222`: `backend/main.py`, `backend/tests/test_usage_middleware.py`, `src/components/UsageBadge.tsx`, `src/pages/Subscription.tsx`, `.agent-harness/tasks/BOHUMFIT-072-pricing-plan.md`.
