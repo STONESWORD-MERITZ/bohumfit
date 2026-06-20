@@ -16,6 +16,40 @@
 
 # Handoff
 
+## 2026-06-20 Codex BOHUMFIT-076 [Windows 검증·커밋·푸시 완료 / Commit: de30eb0]
+### Changed
+- `src/pages/Disclosure.tsx`: `UsageBadge`를 결과 화면 상단에서 분석 전 업로드 폼 영역 상단으로 이동한 Cowork 변경을 Windows에서 검증·확정.
+- `src/pages/Subscription.tsx`: 프로 플랜 혜택 문구를 `우선 처리`에서 `보장분석 기능 포함`으로 변경.
+- `.agent-harness/tasks/BOHUMFIT-076-ui-fixes.md`: 076 태스크 파일 포함.
+- `.agent-harness/handoff.md`, `.agent-harness/locks.md`: Codex 검증 결과 기록 및 잠금 해제.
+### Verified
+- `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- `npm run lint` -> pass.
+- `npm run build` -> pass. 기존 Vite chunk size warning만 출력.
+- 정적 확인: `Disclosure.tsx`의 `UsageBadge` 참조는 import 포함 2건(렌더 1건), `Subscription.tsx`의 `우선 처리` 0건, `보장분석 기능 포함` 1건.
+- `git push origin main` -> pass (`3b6121f..de30eb0`).
+### Notes
+- 순수 UI 위치·문구 변경이며 분석/판정 로직과 백엔드는 변경 없음.
+- PII/PDF/brand/fithere/unrelated 및 오래 남은 untracked 파일들은 stage하지 않음.
+### Next
+- Human -> bohumfit.ai 접속 후 UsageBadge 분석 전 화면 표시 확인 + 프로 플랜 혜택 확인.
+
+## 2026-06-20 Cowork BOHUMFIT-076 [구현 완료·Codex 검증 대기]
+### Changed
+- `src/pages/Disclosure.tsx`: `<UsageBadge />`를 결과 화면 상단에서 제거하고, 분석 전 업로드 폼 영역 상단(청약예정일·PDF 비밀번호 입력 위, AI 고지 리스크 점검 버튼 위)으로 이동. 분석 전 화면에서 항상 노출. import는 그대로 사용(단일 참조).
+- `src/pages/Subscription.tsx`: 프로 플랜 혜택 `· 우선 처리` → `· 보장분석 기능 포함` 으로 변경.
+### Verified
+- [x] 정적 확인: Disclosure UsageBadge 참조 1건(업로드 폼)·import 유지·결과뷰 잔존 0. Subscription `우선 처리` 0건·`보장분석 기능 포함` 1건.
+- [ ] `npx tsc -p tsconfig.app.json --noEmit` (Codex)
+- [ ] `npm run lint` (Codex)
+- [ ] `npm run build` (Codex)
+- [ ] 수동: 분석 전 화면에서 배지 노출 위치 확인 / 구독 페이지 프로 혜택 문구 (Codex 또는 Human)
+### Notes
+- 순수 UI 위치·문구 변경. 분석/판정 로직·백엔드 무변경. 마운트 git 미실행.
+### Next
+- Codex: tsc(app)·lint·build → 통과 시 BOHUMFIT-076 범위 2파일 + 태스크/handoff/locks stage·commit(`BOHUMFIT-076: UsageBadge 위치·프로 혜택 문구 수정`)·push origin main.
+
 ## 2026-06-20 Codex BOHUMFIT-075 [Windows 검증·커밋·푸시 완료 / Commit: 3654adc]
 ### Changed
 - `src/components/ProtectedRoute.tsx`: Cowork 구현의 휴대폰 인증 게이트를 검증하고, lint 대응으로 `phoneGate`를 userId별 상태로 보관하도록 조정해 사용자 전환 시 stale gate를 막으면서 effect 동기 setState를 제거.

@@ -15,6 +15,10 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-20 `BOHUMFIT-076: 검증·커밋` - Codex - Windows frontend gate passed(tsc app/node, lint, build). Commit `de30eb0` pushed to `origin/main`; UsageBadge moved to pre-analysis upload area and Pro benefit copy changed to 보장분석 기능 포함. Next: Human bohumfit.ai UsageBadge pre-analysis position + Pro plan benefit 확인.
+
+- 2026-06-20 `BOHUMFIT-076` - Cowork - UsageBadge 위치 이동 + 프로 혜택 문구 수정 구현 완료. Disclosure.tsx(결과뷰 상단 배지 제거→업로드 폼 영역 상단 이동, 분석 전 항상 노출)·Subscription.tsx(프로 혜택 "우선 처리"→"보장분석 기능 포함"). 정적: UsageBadge 참조 1건·import 유지·결과뷰 잔존 0, "우선 처리" 0건. 순수 UI·분석/판정·백엔드 무변경·마운트 git 미실행. → Codex tsc·lint·build·커밋·푸시.
+
 - 2026-06-20 `BOHUMFIT-075: 검증·커밋` - Codex - Windows frontend gate passed(tsc app/node, lint, npm test 45 passed, build pass). Commit `3654adc` pushed to `origin/main`; `ProtectedRoute.tsx` lint-safe userId-scoped phone gate fix included. Next: Human bohumfit.ai 구독 메뉴, 소셜 로그인 휴대폰 인증 게이트, UsageBadge 확인.
 
 - 2026-06-20 `BOHUMFIT-075` - Cowork - 구독 네비 메뉴 + 소셜/이메일 공통 휴대폰 인증 게이트 구현 완료. ProtectedRoute.tsx(profiles.phone_verified 1회 조회→false면 /phone-verify, 오류·미설정 통과로 deploy-safe, /phone-verify 자체 게이트 제외)·PhoneVerify.tsx(신규, 번호입력→POST /auth/verify-phone→/disclosure, "1인1계정" 안내·다른계정 링크)·App.tsx(/phone-verify 라우트, ProtectedRoute·Layout 밖)·Layout.tsx(UserArea "구독" NavLink, 이메일·로그아웃 사이). 정적 검증: accent-50/700 토큰 index.css 확인·참조 일관·누락 없음. ⚠tsc/lint/build·소셜 로그인 수동 E2E는 Codex/Windows. ⚠게이트 동작에 profiles.phone_verified 컬럼(20260620000001 마이그레이션) 필요·미적용시 비활성 통과. 분석/판정·백엔드 무변경(074 verify-phone 재사용)·마운트 git 미실행. → Codex tsc·lint·build·커밋·푸시.
