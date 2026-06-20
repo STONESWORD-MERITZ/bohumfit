@@ -16,6 +16,26 @@
 
 # Handoff
 
+## 2026-06-20 Codex BOHUMFIT-083 [텍스트·모바일UI 수정 완료 / Commit: ef75fbe]
+### Changed
+- `src/pages/Home.tsx`: 히어로 "3분" 문구를 "1분"으로 수정, 핵심 수치 `3분`→`1분`, `98%`→`99%`, 신뢰 스토리 이름을 `이민규`로 교체.
+- `src/pages/Login.tsx`: 로그인 화면 로고 컨테이너에 `overflow-x-clip`/`min-w-0` 보강, 모바일에서는 `Logo size={36}`을 사용하고 `sm` 이상에서는 기존 `size={44}` 유지.
+- `.agent-harness/tasks/BOHUMFIT-083-text-ui-fixes.md`: 083 태스크 파일 생성.
+- `.agent-harness/handoff.md`, `.agent-harness/locks.md`: Codex 검증 결과 기록 및 잠금 해제.
+### Verified
+- `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- `npm run lint` -> pass.
+- `npm run build` -> pass. 기존 Vite chunk size warning만 출력.
+- `git diff --check` -> CRLF 안내 외 문제 없음.
+- 정적 확인: `3분`/`98%`/`이름: (추후 입력)`은 코드에서 제거, `1분`/`99%`/`이민규` 및 로그인 모바일 로고 분기 적용 확인.
+- `git push origin main` -> pass (`47aba91..ef75fbe`).
+### Notes
+- 순수 텍스트·UI 수정이며 분석/판정/백엔드는 변경 없음.
+- 모바일 로고는 전역 `Logo` 컴포넌트를 바꾸지 않고 로그인 화면에서만 모바일 크기를 줄여 기존 헤더/브랜드 사용처를 건드리지 않음.
+- PII/PDF/brand/fithere/unrelated 및 기존 untracked 파일들은 stage하지 않음.
+### Next
+- Human -> 083 확인 후 084+085 Cowork 진행.
+
 ## 2026-06-20 Codex BOHUMFIT-082 [Windows 검증·커밋·푸시 완료 / Commit: f1df02a]
 ### Changed
 - `src/index.css`: 한국어 모바일 타이포그래피 전역 규칙(`--font-ko`, keep-all, text-wrap balance/pretty, safe-break, mobile-copy, card-title/desc, button-text, textarea)을 검증·확정.

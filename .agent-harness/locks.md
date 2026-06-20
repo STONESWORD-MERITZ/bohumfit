@@ -15,6 +15,8 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-20 `BOHUMFIT-083: 텍스트·모바일UI 수정` - Codex - Home 수치/이름 및 Login 모바일 로고 잘림 보정 완료. Windows gate passed(tsc app, lint, build). Commit `ef75fbe` pushed to `origin/main`; docs recorded separately. Next: Human 083 확인 후 084+085 Cowork 진행.
+
 - 2026-06-20 `BOHUMFIT-082: 검증·커밋` - Codex - Windows frontend gate passed(tsc app/node, lint, npm test 45 passed, build pass). Commit `f1df02a` pushed to `origin/main`; Korean mobile typography classes/global CSS confirmed. Build emitted existing Vite chunk size and plugin timing warnings only. Next: Human 실기기 iPhone/Galaxy 줄바꿈 육안 확인.
 
 - 2026-06-20 `BOHUMFIT-082` - Cowork - 한국어 모바일 타이포그래피 최적화 구현 완료. index.css(전역 ko 타이포: keep-all·text-wrap balance/pretty·line-height·safe-break·mobile-copy·card-title/desc·button-text·textarea)·Home/DownloadGuide/Subscription/Disclosure(클래스 적용). 정적: 타이포 블록·--font-ko 추가·Home 20곳 적용 확인. ⚠의도보강: --font-ko 선두에 Pretendard 유지(브랜드폰트 보존). ⚠전역 textarea 규칙 FinalComparison.tsx 영향(Tailwind 유틸 우선·회귀낮음). tsc/lint/build·실기기 줄바꿈 육안은 Codex/Windows. 분석/판정·백엔드 무변경·마운트 git 미실행. → Codex tsc·lint·build·커밋·푸시.
