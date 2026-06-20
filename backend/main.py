@@ -735,10 +735,12 @@ async def verify_phone(
     if admin is not None:
         def _update() -> None:
             try:
-                patch: dict = {"phone_verified": True}
+                # BOHUMFIT-085: UPDATE→UPSERT. profiles 행이 없는 계정(소셜·기존 가입)도
+                # 인증 즉시 행이 생성·반영되어 게이트를 통과(행 없음 → UPDATE no-op 잠금 방지).
+                patch: dict = {"id": user_id, "phone_verified": True}
                 if phone:
                     patch["phone"] = phone
-                admin.table("profiles").update(patch).eq("id", user_id).execute()
+                admin.table("profiles").upsert(patch, on_conflict="id").execute()
             except Exception as e:
                 logger.warning("phone_verified 갱신 실패: %s", e)
         await asyncio.to_thread(_update)

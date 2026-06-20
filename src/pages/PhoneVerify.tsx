@@ -1,7 +1,7 @@
 // BOHUMFIT-075: 소셜/이메일 로그인 후 최초 1회 휴대폰 본인인증 게이트.
 //   현재는 UI 게이트 — 실인증은 토스 본인인증 라이브 키 후 연동. 완료 시 /auth/verify-phone 영속.
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth-context";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
@@ -9,6 +9,9 @@ const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").repla
 export default function PhoneVerify() {
   const { session, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  // 085: ProtectedRoute가 전달한 원래 경로. 없으면 홈으로.
+  const from = (location.state as { from?: string } | null)?.from;
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -22,7 +25,7 @@ export default function PhoneVerify() {
     setError("");
     setBusy(true);
     try {
-      // TODO(BOHUMFIT-074): 토스 본인인증 팝업 연동(라이브 키 후). 현재는 스텁 — 서버에 phone_verified=true 영속.
+      // TODO(BOHUMFIT-074): 토스 본인인증 팝업 연동(라이브 키 후). 현재는 스텁 — 서버에 phone+phone_verified 영속(upsert).
       const token = session?.access_token;
       const r = await fetch(`${API_BASE}/auth/verify-phone`, {
         method: "POST",
@@ -33,7 +36,8 @@ export default function PhoneVerify() {
         const d = await r.json().catch(() => ({}));
         throw new Error(d.detail || "본인인증에 실패했어요. 잠시 후 다시 시도해 주세요.");
       }
-      navigate("/disclosure?mode=customer", { replace: true });
+      // 085: 인증 성공 → profiles.phone_verified=true 영속됨. 원래 가려던 경로(없으면 홈)로 복귀.
+      navigate(from || "/", { replace: true });
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "본인인증에 실패했어요.");
       setBusy(false);
