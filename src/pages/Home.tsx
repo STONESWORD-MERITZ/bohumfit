@@ -43,7 +43,7 @@ function StatCard({ value, suffix, label, delay }: { value: number; suffix: stri
       <p className="text-5xl font-extrabold tabular-nums tracking-tight text-ink-900 md:text-6xl">
         {count}<span className="text-accent-600">{suffix}</span>
       </p>
-      <p className="mt-3 text-sm leading-relaxed text-ink-soft break-keep">{label}</p>
+      <p className="ko-text mt-3 text-sm leading-relaxed text-ink-soft break-keep">{label}</p>
     </div>
   );
 }
@@ -136,30 +136,30 @@ export default function Home() {
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accent-400">
             For Insurance Planners
           </p>
-          <h1 className="mt-6 text-4xl font-extrabold leading-[1.15] tracking-tight text-white md:text-6xl break-keep">
+          <h1 className="ko-heading mt-6 text-4xl font-extrabold leading-[1.15] tracking-tight text-white md:text-6xl break-keep">
             고지의무 검토,
             <br />
             이제 <span className="text-accent-400">3분</span>이면 끝납니다
           </h1>
-          <p className="mt-7 max-w-2xl text-lg leading-8 text-ink-200 break-keep">
+          <p className="ko-text mobile-copy mt-7 max-w-2xl text-lg leading-8 text-ink-200 break-keep">
             설계사님이 매번 수작업으로 하던 병력 분석을
             심평원 PDF 한 장으로 AI가 자동 완성합니다.
           </p>
           <div className="mt-9 flex flex-wrap gap-3">
             <Link
               to="/signup"
-              className="rounded-btn bg-accent-600 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-accent-700"
+              className="button-text rounded-btn bg-accent-600 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-accent-700"
             >
               무료로 시작하기 →
             </Link>
             <a
               href="#features"
-              className="rounded-btn border border-ink-700 bg-transparent px-6 py-3.5 text-sm font-semibold text-ink-100 transition hover:bg-ink-800"
+              className="button-text rounded-btn border border-ink-700 bg-transparent px-6 py-3.5 text-sm font-semibold text-ink-100 transition hover:bg-ink-800"
             >
               기능 둘러보기
             </a>
           </div>
-          <p className="mt-5 text-caption text-ink-400">
+          <p className="ko-text mt-5 text-caption text-ink-400">
             가입 후 5회 무료 체험 · 신용카드 불필요
           </p>
         </div>
@@ -183,7 +183,7 @@ export default function Home() {
           <div className="mx-auto max-w-6xl px-6">
             <FadeIn className="mb-14">
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent-600">How it works</p>
-              <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-ink-900 md:text-4xl break-keep">
+              <h2 className="ko-heading mt-4 text-3xl font-extrabold tracking-tight text-ink-900 md:text-4xl break-keep">
                 업로드 한 번, 3단계로 끝
               </h2>
             </FadeIn>
@@ -192,8 +192,8 @@ export default function Home() {
                 <FadeIn key={s.no} delay={i * 120}>
                   <div className="h-full rounded-card border border-line bg-white p-7">
                     <span className="text-3xl font-extrabold text-accent-600">{s.no}</span>
-                    <h3 className="mt-4 text-lg font-bold tracking-tight text-ink-900">{s.title}</h3>
-                    <p className="mt-2 text-[13px] leading-6 text-ink-soft break-keep">{s.body}</p>
+                    <h3 className="card-title mt-4 text-lg font-bold tracking-tight text-ink-900">{s.title}</h3>
+                    <p className="card-desc mt-2 text-[13px] leading-6 text-ink-soft break-keep">{s.body}</p>
                   </div>
                 </FadeIn>
               ))}
@@ -206,7 +206,7 @@ export default function Home() {
           <div className="mx-auto max-w-6xl px-6">
             <FadeIn className="mb-14">
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent-600">Features</p>
-              <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-ink-900 md:text-4xl break-keep">
+              <h2 className="ko-heading mt-4 text-3xl font-extrabold tracking-tight text-ink-900 md:text-4xl break-keep">
                 설계사 업무를 줄여주는 3가지
               </h2>
             </FadeIn>
@@ -215,8 +215,8 @@ export default function Home() {
                 <FadeIn key={f.title} delay={i * 100}>
                   <div className="h-full rounded-card border border-line bg-white p-7">
                     <span className="text-3xl" aria-hidden>{f.icon}</span>
-                    <h3 className="mt-4 text-lg font-bold tracking-tight text-ink-900">{f.title}</h3>
-                    <p className="mt-3 text-[13px] leading-6 text-ink-soft break-keep">{f.body}</p>
+                    <h3 className="card-title mt-4 text-lg font-bold tracking-tight text-ink-900">{f.title}</h3>
+                    <p className="card-desc mt-3 text-[13px] leading-6 text-ink-soft break-keep">{f.body}</p>
                   </div>
                 </FadeIn>
               ))}
@@ -230,10 +230,10 @@ export default function Home() {
             <div className="grid items-center gap-10 md:grid-cols-[1fr_auto]">
               <FadeIn>
                 <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent-700">Our Story</p>
-                <h2 className="mt-4 text-2xl font-extrabold leading-snug tracking-tight text-ink-900 md:text-3xl break-keep">
+                <h2 className="ko-heading mt-4 text-2xl font-extrabold leading-snug tracking-tight text-ink-900 md:text-3xl break-keep">
                   "현장에서 느낀 불편함이 보험핏을 만들었습니다"
                 </h2>
-                <div className="mt-6 space-y-4 text-[15px] leading-8 text-ink-soft break-keep">
+                <div className="ko-text mt-6 space-y-4 text-[15px] leading-8 text-ink-soft break-keep">
                   <p>
                     메리츠화재 지점장으로 근무하며 설계사들이 매번 고객 병력을
                     수작업으로 검토하는 모습을 봐왔습니다.
@@ -265,28 +265,28 @@ export default function Home() {
         <section className="py-28">
           <div className="mx-auto max-w-5xl px-6 text-center">
             <FadeIn>
-              <h2 className="text-3xl font-extrabold tracking-tight text-ink-900 md:text-4xl break-keep">
+              <h2 className="ko-heading text-3xl font-extrabold tracking-tight text-ink-900 md:text-4xl break-keep">
                 지금 바로 시작해보세요
               </h2>
               <div className="mt-12 grid gap-5 sm:grid-cols-3">
                 {PRICING.map((p) => (
                   <div key={p.name} className="rounded-card border border-line bg-white px-6 py-8">
-                    <p className="text-sm font-semibold text-accent-700">{p.name}</p>
+                    <p className="card-title text-sm font-semibold text-accent-700">{p.name}</p>
                     <p className="mt-3 text-2xl font-extrabold tracking-tight text-ink-900">{p.price}</p>
-                    <p className="mt-2 text-[13px] text-ink-soft">{p.sub}</p>
+                    <p className="card-desc mt-2 text-[13px] text-ink-soft">{p.sub}</p>
                   </div>
                 ))}
               </div>
-              <p className="mt-6 text-caption text-ink-400">
+              <p className="ko-text mt-6 text-caption text-ink-400">
                 오픈이벤트 — 베이직 첫 3개월 월 9,900원
               </p>
               <Link
                 to="/signup"
-                className="mt-8 inline-flex rounded-btn bg-accent-600 px-8 py-4 text-base font-semibold text-white transition hover:bg-accent-700"
+                className="button-text mt-8 inline-flex rounded-btn bg-accent-600 px-8 py-4 text-base font-semibold text-white transition hover:bg-accent-700"
               >
                 무료로 시작하기 →
               </Link>
-              <p className="mt-4 text-xs text-ink-400">
+              <p className="ko-text mt-4 text-xs text-ink-400">
                 본 결과는 AI 보조 도구가 제공하는 참고 자료입니다. 가입·인수·보험금 지급을 보장하지 않습니다.
               </p>
             </FadeIn>

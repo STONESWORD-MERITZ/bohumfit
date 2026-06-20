@@ -53,32 +53,32 @@ export default function DownloadGuide() {
       {/* 헤더 */}
       <header className="mb-8">
         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent-600">Download Guide</p>
-        <h1 className="mt-3 text-3xl font-extrabold tracking-tight text-ink-900 md:text-4xl break-keep">
+        <h1 className="ko-heading mt-3 text-3xl font-extrabold tracking-tight text-ink-900 md:text-4xl break-keep">
           심평원 진료 자료 다운로드 가이드
         </h1>
-        <p className="mt-3 text-[15px] leading-7 text-ink-soft break-keep">
+        <p className="ko-text mobile-copy mt-3 text-[15px] leading-7 text-ink-soft break-keep">
           보험핏 분석을 위해 아래 3가지 자료가 필요합니다.
         </p>
       </header>
 
       {/* 안내 배너 */}
       <div className="mb-8 rounded-card border border-accent-200 bg-accent-50 p-5">
-        <p className="text-[14px] leading-6 text-accent-800 break-keep">
+        <p className="ko-text text-[14px] leading-6 text-accent-800 break-keep">
           💡 자료는 건강보험심사평가원(심평원) 홈페이지에서 무료로 발급받을 수 있습니다.
         </p>
       </div>
 
       {/* 유튜브 영상 섹션 */}
       <section className="mb-10 rounded-card border border-line bg-white p-6">
-        <h2 className="text-lg font-bold tracking-tight text-ink-900">📹 영상으로 보기</h2>
-        <p className="mt-2 text-[14px] leading-6 text-ink-soft break-keep">
+        <h2 className="ko-heading text-lg font-bold tracking-tight text-ink-900">📹 영상으로 보기</h2>
+        <p className="ko-text mt-2 text-[14px] leading-6 text-ink-soft break-keep">
           영상을 보시면 3분 안에 자료 발급이 가능합니다.
         </p>
         <a
           href={YOUTUBE_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-4 inline-flex items-center gap-2 rounded-btn bg-ink-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-ink-700"
+          className="button-text mt-4 inline-flex items-center gap-2 rounded-btn bg-ink-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-ink-700"
         >
           <span aria-hidden>▶</span> 유튜브에서 영상 보기
         </a>
@@ -95,18 +95,18 @@ export default function DownloadGuide() {
                   STEP {i + 1}
                 </span>
               </div>
-              <h3 className="mt-4 text-lg font-bold tracking-tight text-ink-900">{c.title}</h3>
-              <p className="mt-2 text-[13px] leading-6 text-ink-soft break-keep">{c.desc}</p>
+              <h3 className="card-title mt-4 text-lg font-bold tracking-tight text-ink-900">{c.title}</h3>
+              <p className="card-desc mt-2 text-[13px] leading-6 text-ink-soft break-keep">{c.desc}</p>
               <div className="mt-4 rounded-[8px] bg-ink-50 p-3">
                 <p className="text-[11px] font-semibold text-ink-400">발급처</p>
-                <p className="mt-1 text-[12px] leading-5 text-ink-700 break-keep">{c.path}</p>
+                <p className="ko-text mt-1 text-[12px] leading-5 text-ink-700 break-keep">{c.path}</p>
               </div>
               <ImagePlaceholder label={c.placeholder} />
               <a
                 href={HIRA_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-4 inline-flex items-center text-sm font-semibold text-accent-700 hover:text-accent-800"
+                className="safe-break mt-4 inline-flex items-center text-sm font-semibold text-accent-700 hover:text-accent-800"
               >
                 심평원 홈페이지 바로가기 →
               </a>
@@ -117,12 +117,12 @@ export default function DownloadGuide() {
 
       {/* 하단 CTA */}
       <section className="rounded-card border border-accent-200 bg-accent-50 p-8 text-center">
-        <h2 className="text-2xl font-extrabold tracking-tight text-ink-900 break-keep">
+        <h2 className="ko-heading text-2xl font-extrabold tracking-tight text-ink-900 break-keep">
           자료를 모두 준비하셨나요?
         </h2>
         <Link
           to="/disclosure?mode=agent"
-          className="mt-6 inline-flex rounded-btn bg-accent-600 px-8 py-4 text-base font-semibold text-white transition hover:bg-accent-700"
+          className="button-text mt-6 inline-flex rounded-btn bg-accent-600 px-8 py-4 text-base font-semibold text-white transition hover:bg-accent-700"
         >
           고지의무 분석 시작하기 →
         </Link>

@@ -1532,8 +1532,8 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
 
       <div className="mb-6">
         <p className="mb-1 text-xs font-bold tracking-wider text-accent-600">{copy.badge}</p>
-        <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">{copy.title}</h1>
-        <p className="mt-1 text-sm leading-6 text-gray-500 break-keep">{copy.subtitle}</p>
+        <h1 className="ko-heading text-2xl font-extrabold tracking-tight text-gray-900">{copy.title}</h1>
+        <p className="ko-text mt-1 text-sm leading-6 text-gray-500 break-keep">{copy.subtitle}</p>
       </div>
 
       <section className="mb-5 rounded-[8px] bg-white p-6 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">

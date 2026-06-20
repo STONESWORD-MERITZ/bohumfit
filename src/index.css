@@ -169,3 +169,99 @@ html, body {
     page-break-inside: avoid;
   }
 }
+
+/* ===== 한국어 모바일 타이포그래피 시스템 (BOHUMFIT-082) ===== */
+/* 주: 스펙의 --font-ko 선두에 Pretendard(브랜드 가변폰트)를 유지해
+   기존 html,body 폰트 설정을 덮지 않도록 보강(한글 시스템 스택은 폴백). */
+:root {
+  --font-ko: "Pretendard Variable", Pretendard, system-ui, -apple-system, BlinkMacSystemFont,
+    "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+}
+html {
+  font-family: var(--font-ko);
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  line-height: 1.6;
+  letter-spacing: -0.01em;
+}
+/* 한국어 본문 */
+.ko-text,
+.mobile-copy,
+p,
+li {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  line-break: auto;
+  line-height: 1.62;
+}
+/* 한국어 제목 */
+.ko-heading,
+h1,
+h2,
+h3 {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  line-height: 1.28;
+  letter-spacing: -0.025em;
+}
+/* 최신 브라우저 보조 */
+.text-balance,
+.ko-heading,
+h1, h2, h3 {
+  text-wrap: balance;
+}
+.text-pretty,
+.ko-text,
+.mobile-copy,
+p {
+  text-wrap: pretty;
+}
+/* 긴 URL·이메일·코드·해시태그 예외 */
+.safe-break,
+.url,
+.email,
+.code {
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+/* 모바일 본문 */
+.mobile-copy {
+  font-size: clamp(15px, 3.8vw, 17px);
+  line-height: 1.68;
+  max-width: 36em;
+}
+/* 카드 내부 텍스트 */
+.card-title {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  line-height: 1.35;
+  text-wrap: balance;
+}
+.card-desc {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+/* 버튼 텍스트 */
+.button-text,
+.cta-button {
+  word-break: keep-all;
+  line-height: 1.35;
+  text-align: center;
+  white-space: normal;
+}
+/* 한국어 textarea */
+.ko-textarea,
+textarea {
+  font-family: var(--font-ko);
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  line-height: 1.6;
+  padding: 14px 16px;
+  border-radius: 14px;
+  resize: vertical;
+}

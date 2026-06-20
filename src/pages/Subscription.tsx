@@ -210,16 +210,16 @@ export default function Subscription() {
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             {/* 베이직 */}
             <div className="rounded-2xl border border-accent-200 bg-white p-6 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent-600">베이직 플랜</p>
+              <p className="card-title text-xs font-bold uppercase tracking-[0.2em] text-accent-600">베이직 플랜</p>
               <div className="mt-2">
                 <span className="inline-block rounded-full bg-accent-50 px-2 py-0.5 text-[11px] font-bold text-accent-700">오픈 이벤트 · 첫 3개월</span>
                 <h2 className="mt-1.5 text-2xl font-extrabold text-gray-950">월 9,900원</h2>
                 <p className="text-[12px] text-gray-400">이벤트 후 월 14,900원 · 매월 30회</p>
               </div>
               <ul className="mt-4 space-y-1.5 text-sm text-gray-600">
-                <li>· 건강체·간편심사 고지 검토</li>
-                <li>· 고객용 PDF 저장</li>
-                <li>· 매월 30회 분석</li>
+                <li className="ko-text">· 건강체·간편심사 고지 검토</li>
+                <li className="ko-text">· 고객용 PDF 저장</li>
+                <li className="ko-text">· 매월 30회 분석</li>
               </ul>
               <button
                 onClick={() => handleSubscribe("basic")}
@@ -232,15 +232,15 @@ export default function Subscription() {
 
             {/* 프로 */}
             <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-gray-500">프로 플랜</p>
+              <p className="card-title text-xs font-bold uppercase tracking-[0.2em] text-gray-500">프로 플랜</p>
               <div className="mt-2">
                 <h2 className="mt-1.5 text-2xl font-extrabold text-gray-950">월 24,900원</h2>
                 <p className="text-[12px] text-gray-400">매월 100회</p>
               </div>
               <ul className="mt-4 space-y-1.5 text-sm text-gray-600">
-                <li>· 베이직 모든 기능</li>
-                <li>· 매월 100회 분석</li>
-                <li>· 보장분석 기능 포함</li>
+                <li className="ko-text">· 베이직 모든 기능</li>
+                <li className="ko-text">· 매월 100회 분석</li>
+                <li className="ko-text">· 보장분석 기능 포함</li>
               </ul>
               <button
                 onClick={() => handleSubscribe("pro")}
