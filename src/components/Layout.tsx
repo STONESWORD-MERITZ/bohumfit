@@ -143,6 +143,17 @@ function UserArea({ stacked = false }: { stacked?: boolean }) {
       <span className={`truncate text-caption text-ink-soft ${stacked ? "block" : "hidden md:inline"}`} title={user.email ?? undefined}>
         {user.email}
       </span>
+      {/* BOHUMFIT-075: 구독 메뉴(로그인 시) — 로그아웃 왼쪽 */}
+      <NavLink
+        to="/subscription"
+        className={({ isActive }) =>
+          `rounded-btn px-3.5 py-1.5 text-caption font-semibold transition-colors ${stacked ? "block w-full text-center " : ""}${
+            isActive ? "bg-accent-50 text-accent-700" : "text-ink-800 hover:bg-ink-50"
+          }`
+        }
+      >
+        구독
+      </NavLink>
       <button
         onClick={signOut}
         className={`rounded-btn border border-line-strong bg-white px-3.5 py-1.5 text-caption font-semibold text-ink-800 transition-colors hover:bg-ink-50 ${stacked ? "w-full" : ""}`}

@@ -14,6 +14,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Terms from "./pages/Terms";
 import WhyDisclosure from "./pages/WhyDisclosure";
 import Subscription from "./pages/Subscription";
+import PhoneVerify from "./pages/PhoneVerify";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -66,6 +67,8 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        {/* BOHUMFIT-075: 소셜/이메일 공통 휴대폰 본인인증 게이트(로그인 필요·전체화면) */}
+        <Route path="/phone-verify" element={<ProtectedRoute><PhoneVerify /></ProtectedRoute>} />
         <Route element={<Layout />}>
           <Route index element={<Home />} />
           {/* BOHUMFIT-046: 고객용/설계사용 통합 허브 — 모드는 ?mode= 파라미터 */}
