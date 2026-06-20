@@ -1,54 +1,58 @@
 type LogoProps = {
   /** Wordmark base size in px. */
   size?: number;
-  /** Use white text on dark backgrounds. */
+  /** Use white text and symbol on dark backgrounds. */
   inverted?: boolean;
   className?: string;
 };
 
 const GREEN = "#15663D";
-const INK = "#16213b";
 
 export default function Logo({ size = 28, inverted = false, className }: LogoProps) {
-  const en = inverted ? "#FFFFFF" : GREEN;
-  const ko = inverted ? "#FFFFFF" : INK;
+  const color = inverted ? "#FFFFFF" : GREEN;
+  const symbolSize = size * 1.38;
 
   return (
     <span
-      className={className}
-      aria-label="보험핏"
+      className={["inline-flex shrink-0 items-center whitespace-nowrap leading-none", className]
+        .filter(Boolean)
+        .join(" ")}
+      aria-label="BOHUMFIT 보험핏"
       style={{
-        display: "inline-flex",
-        alignItems: "baseline",
-        gap: size * 0.34,
-        lineHeight: 1,
-        // BOHUMFIT-067: 좁은 폭에서 "BohumFit 보험핏"·"보험/핏" 줄바꿈 방지 — 항상 한 줄.
-        whiteSpace: "nowrap",
-        wordBreak: "keep-all",
-        flexShrink: 0,
+        gap: size * 0.42,
       }}
     >
-      <span
-        style={{
-          fontFamily: "'Cormorant Garamond','Noto Serif KR',serif",
-          fontWeight: 700,
-          fontSize: size * 1.18,
-          letterSpacing: 0,
-          color: en,
-        }}
+      <svg
+        width={symbolSize}
+        height={symbolSize}
+        viewBox="0 0 130 130"
+        aria-hidden="true"
+        focusable="false"
+        style={{ display: "block", flex: "0 0 auto" }}
       >
-        BohumFit
-      </span>
+        <g
+          fill="none"
+          stroke={color}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="7.4"
+        >
+          <path d="M45 14 L116 14 L116 116 L14 116 L14 45" />
+          <path d="M58 42 L58 92" />
+          <path d="M58 42 L88 42" />
+          <path d="M58 65 L82 65" />
+        </g>
+      </svg>
       <span
         style={{
-          fontFamily: "'IBM Plex Sans KR','Apple SD Gothic Neo','Noto Sans KR',sans-serif",
-          fontWeight: 700,
+          color,
+          fontFamily: "Arial, 'Helvetica Neue', sans-serif",
           fontSize: size,
-          letterSpacing: 0,
-          color: ko,
+          fontWeight: 700,
+          letterSpacing: size * 0.12,
         }}
       >
-        보험핏
+        BOHUMFIT
       </span>
     </span>
   );
