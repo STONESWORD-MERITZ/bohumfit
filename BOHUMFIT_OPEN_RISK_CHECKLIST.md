@@ -32,6 +32,13 @@
 - [x] `www.bohumfit.ai`는 `bohumfit.ai`로 308 redirect된다.
 - [x] 배포 후 `bohumfit.ai`, `www.bohumfit.ai`, 로그인 OAuth redirect, API CORS를 실제 네트워크 요청으로 확인했다.
 
+## 운영 하네스
+- [x] Claude Chat→Claude Cowork→Codex 3역할 workflow를 `AGENTS.md`, `CLAUDE.md`, `.agent-harness/WORKFLOW.md`에 문서화했다.
+- [x] Codex publish gate를 명문화했다. Windows 권위 검증, scoped staging, commit/push 전 범위 확인이 필수다.
+- [x] Cowork 마운트 git 금지와 ENV-MOUNT-NOTES 회피 규칙을 유지한다.
+- [ ] 구독제·오픈 이벤트·본인인증(BOHUMFIT-072~074)은 Codex Windows 검증·커밋 후 운영 배포한다.
+- [ ] 결제·본인인증·Supabase 정책처럼 코드 밖 설정은 Human이 대시보드에서 최종 확인한다.
+
 ## 실제 QA
 - [ ] 실제 로그인 세션으로 오성심 PDF 3종 end-to-end 분석을 수행한다.
 - [ ] 같은 PDF 반복 분석 시 고지 질병코드·질병명·건수·질문 분류가 동일한지 확인한다.

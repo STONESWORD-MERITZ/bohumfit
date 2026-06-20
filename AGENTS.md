@@ -5,7 +5,7 @@ This repository runs a three-role workflow: Claude Chat writes intent-centered t
 ## Project
 
 - Name: BOHUMFIT
-- Local path: `C:\Users\18_rk\surit-react`
+- Local path: `C:\Users\18_rk\BOHUMFIT`
 - Task prefix: `BOHUMFIT`
 - Project context guide: `CLAUDE.md`
 
