@@ -11,10 +11,24 @@ export default function Signup() {
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [agreeMedical, setAgreeMedical] = useState(false);
+  // BOHUMFIT-074: 휴대폰 본인인증(1인 1계정). 현재는 UI 게이트만 — 실인증은 토스 라이브 키 후 연동.
+  const [phone, setPhone] = useState("");
+  const [phoneVerified, setPhoneVerified] = useState(false);
+
+  const requestPhoneVerify = () => {
+    const digits = phone.replace(/[^0-9]/g, "");
+    if (digits.length < 10) {
+      setError("휴대폰 번호를 정확히 입력해 주세요.");
+      return;
+    }
+    // TODO(BOHUMFIT-074): 토스 본인인증 팝업 연동(라이브 키 발급 후). 현재는 UI 게이트로 통과 처리.
+    setError("");
+    setPhoneVerified(true);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!agreeTerms || !agreePrivacy || !agreeMedical) return;
+    if (!agreeTerms || !agreePrivacy || !agreeMedical || !phoneVerified) return;
     setError("");
     setLoading(true);
     const { error } = await supabase.auth.signUp({ email, password });
@@ -73,6 +87,34 @@ export default function Signup() {
             className="w-full rounded-[8px] bg-white px-4 py-3 text-sm text-gray-800 shadow-[0_1px_3px_rgba(0,0,0,0.06)] placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-accent-600/30"
           />
 
+          {/* BOHUMFIT-074: 휴대폰 본인인증 게이트 */}
+          <div className="rounded-[8px] border border-gray-200 bg-white p-3">
+            <p className="text-[12px] font-semibold text-gray-700">휴대폰 본인인증 (필수)</p>
+            <p className="mt-0.5 text-[11px] text-gray-400">1인 1계정 원칙에 따라 휴대폰 본인인증이 필요합니다.</p>
+            <div className="mt-2 flex gap-2">
+              <input
+                type="tel"
+                inputMode="numeric"
+                placeholder="휴대폰 번호 (- 없이)"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                disabled={phoneVerified}
+                className="min-w-0 flex-1 rounded-[8px] bg-white px-3 py-2 text-sm text-gray-800 shadow-[0_1px_3px_rgba(0,0,0,0.06)] placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-accent-600/30 disabled:bg-gray-50 disabled:text-gray-400"
+              />
+              <button
+                type="button"
+                onClick={requestPhoneVerify}
+                disabled={phoneVerified}
+                className="shrink-0 rounded-[8px] border border-accent-600 px-3 py-2 text-[12px] font-bold text-accent-700 disabled:border-emerald-300 disabled:text-emerald-600"
+              >
+                {phoneVerified ? "인증 완료" : "인증 요청"}
+              </button>
+            </div>
+            {phoneVerified && (
+              <p className="mt-1.5 text-[11px] text-emerald-600">본인인증이 완료되었습니다.</p>
+            )}
+          </div>
+
           <div className="mt-4 space-y-2 text-sm">
             <label className="flex items-start gap-2">
               <input
@@ -116,10 +158,10 @@ export default function Signup() {
 
           <button
             type="submit"
-            disabled={loading || !agreeTerms || !agreePrivacy || !agreeMedical}
+            disabled={loading || !agreeTerms || !agreePrivacy || !agreeMedical || !phoneVerified}
             className="w-full rounded-[8px] bg-accent-600 py-3 text-sm font-bold text-white shadow-[0_2px_8px_rgba(21,102,61,0.3)] transition-colors hover:bg-accent-700 disabled:opacity-50"
           >
-            {loading ? "가입 중..." : "회원가입"}
+            {loading ? "가입 중..." : !phoneVerified ? "휴대폰 본인인증 후 가입" : "회원가입"}
           </button>
         </form>
 
