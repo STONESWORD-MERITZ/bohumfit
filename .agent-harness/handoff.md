@@ -16,6 +16,53 @@
 
 # Handoff
 
+## 2026-06-20 Codex BOHUMFIT-082 [Windows 검증·커밋·푸시 완료 / Commit: f1df02a]
+### Changed
+- `src/index.css`: 한국어 모바일 타이포그래피 전역 규칙(`--font-ko`, keep-all, text-wrap balance/pretty, safe-break, mobile-copy, card-title/desc, button-text, textarea)을 검증·확정.
+- `src/pages/Home.tsx`: 주요 제목·본문·카드·CTA에 한국어 타이포 클래스 적용.
+- `src/pages/DownloadGuide.tsx`: 제목·본문·카드·CTA·외부 링크에 한국어 타이포 및 safe-break 적용.
+- `src/pages/Subscription.tsx`: 플랜 제목과 혜택 목록에 카드/본문 타이포 클래스 적용.
+- `src/pages/Disclosure.tsx`: 분석 화면 인트로 제목·부제에 한국어 타이포 클래스 적용.
+- `.agent-harness/tasks/BOHUMFIT-082-korean-typography.md`: 082 태스크 파일 포함.
+- `.agent-harness/handoff.md`, `.agent-harness/locks.md`: Codex 검증 결과 기록 및 잠금 해제.
+### Verified
+- `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- `npm run lint` -> pass.
+- `npm test` -> 4 files passed, 45 tests passed.
+- `npm run build` -> pass. 기존 Vite chunk size warning 및 plugin timing warning만 출력.
+- `git diff --check` -> CRLF 안내 외 문제 없음.
+- 정적 확인: `word-break: keep-all`, `ko-heading`, `ko-text`, `mobile-copy`, `card-title`, `card-desc`, `button-text`, `safe-break`, `ko-textarea` 적용 확인.
+- `git push origin main` -> pass (`3bb7ea5..f1df02a`).
+### Notes
+- 분석/판정 로직과 백엔드는 변경 없음.
+- `--font-ko`는 브랜드 폰트 보존을 위해 Pretendard를 선두에 두고 한글 시스템 스택을 fallback으로 유지한 Cowork 보강안을 그대로 확정.
+- 전역 textarea 규칙은 Tailwind 유틸 클래스가 있는 곳에서는 유틸 우선으로 동작하며, 실제 모바일 줄바꿈 육안은 Human 실기기 확인으로 남김.
+- PII/PDF/brand/fithere/unrelated 및 오래 남은 untracked 파일들은 stage하지 않음.
+### Next
+- Human -> 실기기(iPhone SE/14/15·Galaxy S)에서 줄바꿈 육안 확인.
+
+## 2026-06-20 Cowork BOHUMFIT-082 [한국어 모바일 타이포 구현 완료·Codex 검증 대기]
+### Changed
+- `src/index.css`: 한국어 모바일 타이포그래피 시스템 전역 규칙 추가(파일 말미). word-break:keep-all 전역(html), body line-height 1.6·letter-spacing -0.01em, p/li 1.62·text-wrap:pretty, h1~h3 1.28·letter-spacing -0.025em·text-wrap:balance, .safe-break(overflow-wrap:anywhere), .mobile-copy(clamp 15~17px·max-width 36em), .card-title/.card-desc, .button-text, .ko-textarea/textarea(line-height 1.6·padding 14/16·radius 14·resize vertical).
+- `src/pages/Home.tsx`: 히어로 h1/섹션 h2 → ko-heading, 본문 p → ko-text(+히어로 mobile-copy), CTA 링크 → button-text, STEP·FEATURE·가격 카드 제목/설명 → card-title/card-desc.
+- `src/pages/DownloadGuide.tsx`: h1/h2 → ko-heading, 안내·설명 p → ko-text(+상단 mobile-copy), 카드 제목/설명 → card-title/card-desc, 유튜브·CTA 버튼 → button-text, hira.or.kr 외부 링크 → safe-break.
+- `src/pages/Subscription.tsx`: 베이직·프로 플랜 제목 → card-title, 혜택 목록 li → ko-text.
+- `src/pages/Disclosure.tsx`: 분석 화면 인트로 제목 h1 → ko-heading, 부제 p → ko-text. (textarea 없음 → ko-textarea 미적용, 전역 textarea 규칙으로 커버.)
+- `.agent-harness/tasks/BOHUMFIT-082-korean-typography.md` (신규).
+### Verified
+- [x] 정적 확인: index.css 타이포 블록·--font-ko 추가 확인. Home 신규 클래스 20곳 적용. 클래스 추가는 기존 className 문자열 보강뿐(JSX 구조 무변경). 전역 규칙이 모든 p/li/h1~h3/textarea 커버.
+- [ ] `npx tsc -p tsconfig.app.json --noEmit` (Codex)
+- [ ] `npm run lint` (Codex)
+- [ ] `npm run build` (Codex)
+- [ ] 수동: iPhone SE/14/15·Galaxy S 폭에서 한글 줄바꿈(글자단위 끊김 없음)·제목 balance·textarea 패딩 확인 (Codex 또는 Human)
+### Notes
+- 의도 보강: 스펙의 `--font-ko`는 Pretendard 미포함이라 그대로 적용 시 기존 브랜드 가변폰트(index.css html,body)를 덮음. 이를 막기 위해 `--font-ko` 선두에 "Pretendard Variable", Pretendard 를 추가하고 한글 시스템 스택은 폴백으로 유지(이유: 브랜드 폰트 보존 + 한국어 타이포 동시 충족).
+- 전역 `textarea` 규칙은 사이트 전역 영향: `src/components/coverage/FinalComparison.tsx` textarea 1곳 포함. 단 Tailwind 유틸 클래스(specificity 우위)가 padding/radius를 이미 지정한 경우 유틸이 우선, 전역은 미지정 갭만 채움 → 회귀 위험 낮음. Codex 빌드·육안 확인 권장.
+- 전역 h/p line-height·letter-spacing은 전 페이지에 적용(스펙 의도). 마운트 git 미실행.
+### Next
+- Codex: tsc(app)·lint·build → 통과 시 BOHUMFIT-082 범위 5파일(+task·handoff·locks) stage·commit(`BOHUMFIT-082: 한국어 모바일 타이포그래피 최적화`)·push origin main.
+
 ## 2026-06-20 Codex BOHUMFIT-077~081 [Windows 검증·5커밋·푸시 완료]
 ### Changed
 - BOHUMFIT-077 commit `c06632c`: `src/pages/DownloadGuide.tsx`, `.agent-harness/tasks/BOHUMFIT-077-download-guide.md`.

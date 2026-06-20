@@ -15,6 +15,10 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-20 `BOHUMFIT-082: 검증·커밋` - Codex - Windows frontend gate passed(tsc app/node, lint, npm test 45 passed, build pass). Commit `f1df02a` pushed to `origin/main`; Korean mobile typography classes/global CSS confirmed. Build emitted existing Vite chunk size and plugin timing warnings only. Next: Human 실기기 iPhone/Galaxy 줄바꿈 육안 확인.
+
+- 2026-06-20 `BOHUMFIT-082` - Cowork - 한국어 모바일 타이포그래피 최적화 구현 완료. index.css(전역 ko 타이포: keep-all·text-wrap balance/pretty·line-height·safe-break·mobile-copy·card-title/desc·button-text·textarea)·Home/DownloadGuide/Subscription/Disclosure(클래스 적용). 정적: 타이포 블록·--font-ko 추가·Home 20곳 적용 확인. ⚠의도보강: --font-ko 선두에 Pretendard 유지(브랜드폰트 보존). ⚠전역 textarea 규칙 FinalComparison.tsx 영향(Tailwind 유틸 우선·회귀낮음). tsc/lint/build·실기기 줄바꿈 육안은 Codex/Windows. 분석/판정·백엔드 무변경·마운트 git 미실행. → Codex tsc·lint·build·커밋·푸시.
+
 - 2026-06-20 `BOHUMFIT-077~081: 검증·커밋` - Codex - Windows frontend gate passed(tsc app/node, lint, npm test 45 passed, build pass). Commits pushed: 077 `c06632c`, 078 `180b8bc`, 079 `f0a3f44`, 080 `2b65716`, 081 `b79cd4d`. Shared-file note: 080 Home story code is in 078 commit; `/download-guide` App route is in 081 commit. Next: Human full-page review and placeholder replacements.
 
 - 2026-06-20 `BOHUMFIT-077~081` - Cowork - 설계사 중심 전체 사이트 디벨롭 구현 완료. DownloadGuide.tsx(신규·077 심평원 자료 가이드 공개)·CoverageCompare.tsx(신규·081 보장비교 뼈대·알림신청 스텁)·Home.tsx(078+080 다크히어로·3단계·기능·만든이야기·가격CTA, 구 영문카피 제거)·Layout.tsx(077+079 NAV 재구성: 자료받기·고지의무분석·보장비교분석·실손계산·요금제)·App.tsx(/download-guide 공개·/coverage-compare 보호 라우트). 정적: 라이브 dangling 참조 0·토큰 정의 범위 내. ⚠tsc/lint/build·브라우저 스모크 Codex/Windows. ⚠이미지·유튜브·지점장 이름 플레이스홀더·알림신청 Supabase 추후. /coverage·/why 라우트 유지(NAV만 제외)·HomeMission 미사용(보존). 분석/판정·백엔드 무변경·마운트 git 미실행. → Codex tsc·lint·build·커밋·푸시.
