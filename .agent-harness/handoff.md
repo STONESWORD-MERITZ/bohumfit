@@ -16,6 +16,25 @@
 
 # Handoff
 
+## 2026-06-20 Codex BOHUMFIT-HARNESS-three-role-workflow [Claude Chat→Cowork→Codex 3역할 운영 방식 문서화]
+### Changed
+- `AGENTS.md`: 기존 Cowork→Codex 중심 설명을 Claude Chat(프롬프트 작성자) → Claude Cowork(코딩) → Codex(Windows 검증·커밋·푸시·배포 확인) 3역할 구조로 갱신.
+- `CLAUDE.md`: 새 작업 시작 순서와 절대 규칙에 `.agent-harness/WORKFLOW.md` 확인, 취지 기준 보강, Human 결정 영역 분리를 추가.
+- `.agent-harness/WORKFLOW.md`: 새 채팅에서도 이어받을 수 있는 역할 정의, New Chat Packet, Intent-Based Execution, Publish Gate 문서 신규 추가.
+- `.agent-harness/tasks/BOHUMFIT-HARNESS-three-role-workflow.md`: 본 문서화 작업 범위와 검증 기준 기록.
+- `.agent-harness/locks.md`: Codex 문서 작업 잠금 해제. Cowork `BOHUMFIT-072~074` active lock은 보존.
+### Verified
+- `AGENTS.md`, `CLAUDE.md`, `.agent-harness/WORKFLOW.md` 내용 확인.
+- `rg`로 운영 문구 잔재 확인: 현재 문서의 old two-track 언급은 역사 기록 설명만 남김.
+- [x] `git diff --check` pass. CRLF 안내 경고만 출력.
+### Notes
+- 이번 작업은 운영 문서만 수정. 현재 Cowork가 잠근 `backend/main.py`, `backend/tests/test_usage_middleware.py`, `src/pages/Subscription.tsx` 등 SaaS/결제/본인인증 작업 파일은 건드리지 않음.
+- 새 원칙: 사용자의 문장을 문자 그대로만 수행하지 않고, 취지를 기준으로 테스트·경계조건·오류방지·UX를 범위 안에서 보강한다. 단, 결제·법무·개인정보·운영정책은 Human 결정으로 남긴다.
+### Next
+- Human/Claude Chat: 새 작업 지시 시 `.agent-harness/WORKFLOW.md`의 New Chat Packet 형식으로 목표·범위·검증을 작성.
+- Cowork: 구현 후 handoff.
+- Codex: Windows 권위 검증 후 scoped commit/push.
+
 ## 2026-06-20 Codex BOHUMFIT-071-hotfix2 [Windows 검증·커밋·푸시 완료 / Commit: f7c1fa1]
 ### Changed
 - `src/pages/Subscription.tsx`: 토스 SDK 초기화를 v2 `standard` 결제위젯 경로에서 v1 `payment` 빌링키 경로로 전환한 Cowork 작업분을 Windows에서 검증·확정.

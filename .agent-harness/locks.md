@@ -8,12 +8,14 @@ Use this file to record active Codex file ownership during a task.
 
 ## Rules
 
-- New work follows the Cowork→Codex two-track unless the user explicitly assigns another owner or owner sequence.
+- New work follows the Claude Chat→Cowork→Codex three-role workflow unless the user explicitly assigns another owner or owner sequence.
 - Add active locks before editing task-scoped files.
 - Release locks when the task is complete, blocked, or handed back to the user.
 - Keep this file operational and short. Historical lock detail lives in git history and `handoff.md`.
 
 ## Released
+
+- 2026-06-20 `BOHUMFIT-HARNESS-three-role-workflow` - Codex - Claude Chat(프롬프트 작성자) → Claude Cowork(코딩) → Codex(Windows 권위 검증·커밋·푸시·배포 확인) 3역할 하네스 문서화 완료. `AGENTS.md`, `CLAUDE.md`, 신규 `.agent-harness/WORKFLOW.md`, task/handoff 갱신. 취지 기준 보강·New Chat Packet·Publish Gate 명문화.
 
 - 2026-06-20 `BOHUMFIT-071-hotfix2: 검증·커밋` - Codex - Windows frontend gate 통과(tsc app/node, lint, build). Commit `f7c1fa1` pushed to `origin/main`; `src/pages/Subscription.tsx` v1 payment billing-key path verified, task file included. Next: Human `/subscription` 구독 시작 버튼으로 토스 카드 등록 화면 진입 확인 후 BOHUMFIT-072~074 Cowork 진행.
 
