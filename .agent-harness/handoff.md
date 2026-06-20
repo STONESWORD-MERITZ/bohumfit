@@ -16,6 +16,58 @@
 
 # Handoff
 
+## 2026-06-20 Codex BOHUMFIT-084 + BOHUMFIT-085 [Windows 검증·태스크별 커밋·푸시 완료]
+### Changed
+- BOHUMFIT-084 commit `f110463`: `src/pages/DownloadGuide.tsx`, `.agent-harness/tasks/BOHUMFIT-084-download-guide-revamp.md`.
+- BOHUMFIT-085 commit `2e1c174`: `supabase/migrations/20260620000002_backfill_profiles_phone.sql`, `src/components/ProtectedRoute.tsx`, `src/pages/PhoneVerify.tsx`, `backend/main.py`, `.agent-harness/tasks/BOHUMFIT-085-phone-gate-enforcement.md`.
+- `backend/main.py`: verify-phone 영속화가 `update().eq()`에서 `upsert(..., on_conflict="id")`로 보강되어 profiles 행이 없는 계정도 인증 성공 시 행 생성/갱신.
+- `.agent-harness/handoff.md`, `.agent-harness/locks.md`: Codex 검증 결과 기록 및 잠금 해제.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 4 files passed, 45 tests passed.
+- [x] `cd backend && python -m pytest -q` -> 398 passed, 8 skipped.
+- [x] `npm run build` -> pass. 기존 Vite chunk size warning만 출력.
+- [x] `git diff --check`(084/085 staged 범위) -> CRLF 안내 외 문제 없음.
+- [x] `git push origin main` -> pass (`d0ef7f0..2e1c174`).
+### Notes
+- ★ 085 백필 SQL `supabase/migrations/20260620000002_backfill_profiles_phone.sql`은 Human이 Supabase SQL Editor에서 직접 실행해야 하며, 현재 저장소 커밋만 완료되고 운영 DB에는 아직 미실행 상태로 간주.
+- `backend/main.py` upsert 보강 검증: payload는 `id`, `phone_verified=true`, 선택 `phone`을 포함하고 `on_conflict="id"`로 profiles PK 기준 생성/갱신한다. 기존 `/auth/verify-phone` 내부 영속화 경로만 변경되어 다른 호출 경로 부작용은 없는 것으로 판단.
+- profiles INSERT는 SQL에서 `id`만 명시한다. 068/074 마이그레이션 기준 `role` 기본값 `user`, `phone_verified` 기본값 `false`가 있어 정상이나, 운영 DB에 NOT NULL/기본값 없는 추가 컬럼이 있으면 Human SQL 실행 시 INSERT 컬럼 보강 필요.
+- 정책 기본값 적용됨: 기존 가입자 인증 강제 YES(행 없음 -> 미인증), internal 우회 YES(`profiles.role='internal'`), 일시 오류/스키마 미적용 오류는 deploy-safe 통과.
+- [2] 실제 변경 목록은 예상과 달리 `src/components/Footer.tsx` tracked dirty 변경이 추가로 존재했다. 084/085 범위 밖이라 stage/commit하지 않고 워킹트리에 보존.
+- `backend/__pycache__/main.cpython-312.pyc`는 pytest 부산물로 변경되어 원복했다. PII/PDF/brand/fithere/unrelated 및 기존 untracked 파일들은 stage하지 않음.
+### Next
+- Human -> Supabase SQL Editor에서 `20260620000002_backfill_profiles_phone.sql` 실행.
+- Human -> 카카오/구글 소셜 로그인 실기기로 폰인증 게이트 동작 확인.
+- Human -> 084 가이드 스크린샷을 PII 마스킹본으로 교체.
+
+## 2026-06-20 Cowork BOHUMFIT-084 + BOHUMFIT-085 [구현 완료·Codex 검증 대기]
+### Changed
+- (084) `src/pages/DownloadGuide.tsx`: 전면 재작성. 탭 2개(심평원 HIRA / 건강보험공단 NHIS) 단계별 안내. HIRA 6단계(건보 3탭+자보 2탭=5개 파일, 민감상병 ★표시)·NHIS 6단계(1년 단위 끊어 조회·최대 10년·특수상병 체크). 단계별 스크린샷 플레이스홀더(/images/guide/*.png, 실 캡처·PII 없음). 최종 체크리스트 컴포넌트(useState, 심평원 건보3+자보2 / 공단 1~5년차, 진행 카운트). 082 타이포(ko-heading/ko-text/safe-break/button-text) 적용·기존 토큰 재사용.
+- (085·신규 SQL) `supabase/migrations/20260620000002_backfill_profiles_phone.sql`: ① handle_new_user() 트리거(auth.users INSERT마다 profiles 행 생성, security definer·search_path=public, ON CONFLICT DO NOTHING → 소셜 최초 로그인 포함 보장) ② 기존 계정 백필(profiles 행 없는 auth.users 전체 INSERT). 멱등.
+- (085) `src/components/ProtectedRoute.tsx`: 게이트 판정 버그 수정. `.single()`→`.maybeSingle()`, `select("phone_verified, role")`. 행 없음(data=null) → 미인증 → /phone-verify 리다이렉트(★ 기존 "행 없으면 통과" 버그 수정). role='internal' → 우회. error(테이블/컬럼 미존재·일시오류) → 통과(deploy-safe). 리다이렉트 시 state.from 전달.
+- (085) `src/pages/PhoneVerify.tsx`: 인증 성공 후 state.from(원래 가려던 경로, 없으면 "/")로 복귀. (기존 하드코딩 /disclosure 대체)
+- (085) `backend/main.py` /auth/verify-phone: profiles `update().eq()` → `upsert({id,...})`. 행 없는 계정도 인증 즉시 행 생성·반영 → 백필 SQL 실행 전이라도 잠금(무한 게이트) 방지. ※ 지정 범위 외 파일이나, 행 없음 시 UPDATE no-op로 인증이 영속되지 않아 잠금되는 핵심 결함 차단 위해 1메서드 보강(사유 기록).
+- `.agent-harness/tasks/BOHUMFIT-084-*.md`, `BOHUMFIT-085-*.md` (신규).
+### Verified
+- [x] 정적 자기검토(Read 툴=Windows 원본): ProtectedRoute 로직 4분기(없음→리다이렉트/false→리다이렉트/true→통과/internal→우회, error→통과) 정합, DownloadGuide JSX 균형·탭 타입(as const) 정상, PhoneVerify from 사용 정상, SQL 멱등.
+- [ ] `npx tsc -p tsconfig.app.json --noEmit` — ★샌드박스 실행 불가(마운트 truncation). 증거: bash 뷰에서 무관 파일 Logo.tsx가 L44에서 잘림, Home.tsx L300 전체 NUL(^@), ProtectedRoute.tsx가 7줄로 truncate. → Codex/Windows 권위 검증 필요.
+- [ ] `npm run lint` (Codex)
+- [ ] `npm run build` (Codex, 기존 Vite chunk size warning만 허용)
+- [ ] `npm test` (Codex, 기준선 45 — ProtectedRoute 테스트 파일 없음 확인, 회귀 가능성 낮음)
+- [ ] 수동: 소셜 로그인(행 없음/false)→/phone-verify 강제→인증→원래 경로 복귀, internal 우회, DownloadGuide 탭·체크리스트 (Codex 또는 Human)
+### Notes
+- ★ 085 SQL `20260620000002_backfill_profiles_phone.sql`은 **Human이 Supabase SQL 에디터에서 직접 실행 필요**(저장소 마이그레이션 자동 실행 아님). 미실행 시에도 backend upsert로 신규 인증은 동작하나, 기존 미로그인 계정의 일괄 행 생성은 SQL 실행 시 적용됨.
+- 정책 기본값 **적용됨**(Human 사후 확인 가능): ① 기존 가입자도 다음 로그인 시 휴대폰 인증 강제 = YES(행 없음→미인증). ② internal 역할 게이트 우회 = YES(profiles.role='internal').
+- 가정: profiles INSERT는 id만 명시(role 기본 'user'·phone_verified 기본 false·phone null). profiles에 기본값 없는 다른 NOT NULL 컬럼이 있으면 백필 INSERT 조정 필요 — Human 실행 시 확인.
+- backend upsert는 profiles PK가 id(=auth.users.id)임을 전제. 토스 실본인인증 연동·중복 번호 1인1계정 강제는 범위 밖.
+- DownloadGuide 스크린샷은 플레이스홀더 — 추후 마스킹된 예시 이미지로 교체(PII 포함 실 캡처 금지).
+- 마운트 git 미실행. tsc/lint/build/test 권위 검증은 Codex/Windows.
+### Next
+- Codex: (태스크별) tsc·lint·build·test → 통과 시 084 범위(DownloadGuide+task) / 085 범위(SQL·ProtectedRoute·PhoneVerify·backend main.py·task) 각각 stage·commit(`BOHUMFIT-084: 다운로드 가이드 전면 개편`, `BOHUMFIT-085: 휴대폰 인증 게이트 실동작`)·push. + Human: 085 백필 SQL 실행.
+
 ## 2026-06-20 Codex BOHUMFIT-083 [텍스트·모바일UI 수정 완료 / Commit: ef75fbe]
 ### Changed
 - `src/pages/Home.tsx`: 히어로 "3분" 문구를 "1분"으로 수정, 핵심 수치 `3분`→`1분`, `98%`→`99%`, 신뢰 스토리 이름을 `이민규`로 교체.

@@ -15,6 +15,11 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-20 `BOHUMFIT-084+085: 검증·태스크별 커밋` - Codex - Windows authority verification passed(tsc app/node, lint, npm test 45 passed, backend 398 passed/8 skipped, build pass). Commits pushed: 084 `f110463`, 085 `2e1c174`; `backend/main.py` upsert `on_conflict="id"` 보강 포함. `src/components/Footer.tsx` dirty is out-of-scope and left unstaged. Next: Human Supabase SQL 실행·소셜 폰게이트 실기기 확인·084 스크린샷 교체.
+
+- 2026-06-20 `BOHUMFIT-084` - Cowork - DownloadGuide 전면 개편 구현 완료(심평원 HIRA 6단계 5파일 + 건강보험공단 NHIS 6단계 1년단위·최대10년 + 최종 체크리스트 useState + 스크린샷 플레이스홀더). 082 타이포 적용. 정적 자기검토(Read=원본) JSX 균형·탭 타입 정상. ⚠샌드박스 tsc/lint/build 마운트 truncation으로 실행 불가 → Codex/Windows 권위. 분석/판정·백엔드 무관·마운트 git 미실행. → Codex tsc·lint·build·커밋·푸시.
+- 2026-06-20 `BOHUMFIT-085` - Cowork - 휴대폰 인증 게이트 실동작 구현 완료. 신규 SQL(handle_new_user 트리거+기존계정 백필, ★Human Supabase 실행 필요)·ProtectedRoute(maybeSingle, 행없음→미인증 버그수정, internal 우회, error→deploy-safe 통과, from 전달)·PhoneVerify(from 복귀)·backend verify-phone(update→upsert, 행없음 자기치유로 잠금방지). 정책 기본값 적용: 기존가입자 강제 YES·internal 우회 YES. ⚠샌드박스 tsc/lint/build/test 마운트 truncation으로 실행 불가(증거: Logo/Home/ProtectedRoute bash뷰 truncate·NUL) → Codex/Windows 권위. 마운트 git 미실행. → Codex tsc·lint·build·test·커밋·푸시 + Human 백필 SQL 실행.
+
 - 2026-06-20 `BOHUMFIT-083: 텍스트·모바일UI 수정` - Codex - Home 수치/이름 및 Login 모바일 로고 잘림 보정 완료. Windows gate passed(tsc app, lint, build). Commit `ef75fbe` pushed to `origin/main`; docs recorded separately. Next: Human 083 확인 후 084+085 Cowork 진행.
 
 - 2026-06-20 `BOHUMFIT-082: 검증·커밋` - Codex - Windows frontend gate passed(tsc app/node, lint, npm test 45 passed, build pass). Commit `f1df02a` pushed to `origin/main`; Korean mobile typography classes/global CSS confirmed. Build emitted existing Vite chunk size and plugin timing warnings only. Next: Human 실기기 iPhone/Galaxy 줄바꿈 육안 확인.
