@@ -15,6 +15,11 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-22 `BOHUMFIT-095+096` - Codex - backend 전체 pytest 409 passed/8 skipped. 095는 윤년 컷오프 회귀 테스트만 커밋(`85dc30c`), 프로덕션 코드 무변경. 096은 requirements.txt 13개 직접 의존성 전부 `==` 고정 확인, requirements 무변경·태스크 기록만 커밋 예정.
+
+- 2026-06-21 `BOHUMFIT-095` - Cowork - 윤년 컷오프: 진단상 이미 BOHUMFIT-004(_subtract_years 달력기준)로 5y/10y 적용 완료, 프로덕션에 3650 없음·1825는 의도적 투약창(032). helpers.py·filters.py **무변경**, test_date_boundary.py에 _cutoffs 레벨 윤년 회귀 4종 보강. pytest: date_boundary+leap 15 passed·med 클러스터 37 passed. ⚠전체 pytest는 마운트 truncation 수집실패→Codex/Windows. → Codex 커밋(test+task).
+- 2026-06-21 `BOHUMFIT-096` - Cowork - 의존성 고정: requirements.txt 이미 13개 직접의존성 전부 ==고정(미고정 0). **무변경**. /tmp 정제본 dry-run 충돌없음(핀 버전 그대로). 샌드박스 설치본 드리프트는 환경 드리프트지 의도버전 아님→샌드박스 기준 고정 시 업/다운그레이드라 금지사항 위반. → Codex 커밋(task만, requirements 무변경).
+
 - 2026-06-21 `BOHUMFIT-092+093` - Codex - Windows tsc app/node, lint, npm test 53 passed, build pass. Browser `/insurance-links`: 검색/탭/팩스 fixed·virtual·unknown/뱃지/면책/네비 진입 확인. 092 커밋 완료, 093 네비·handoff 기록 커밋 예정.
 
 - 2026-06-21 `BOHUMFIT-092` - Cowork - 보험사 전산·약관·팩스 링크모음 페이지 구현 완료. InsuranceLinks.tsx(신규·39개사 하드코딩·검색/탭 필터·카드 3버튼·fax_type 분기 fixed/virtual/unknown·확인상태 뱃지)·App.tsx(/insurance-links 공개 라우트). 자기검토: 39개사(손해17/생명22)·status 4종·fax_type 3종 유니온 정합. ⚠tsc/lint/build 샌드박스 불가→Codex/Windows. 백엔드·타페이지 무변경·마운트 git 미실행. → Codex 검증·커밋·푸시.

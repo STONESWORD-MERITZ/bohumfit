@@ -16,6 +16,48 @@
 
 # Handoff
 
+## 2026-06-22 Codex BOHUMFIT-095 [윤년 컷오프 회귀 테스트 검증·커밋]
+### Changed
+- `backend/tests/test_date_boundary.py`: `_cutoffs` 레벨 윤년 회귀 테스트 4종 추가 확인 및 커밋.
+- `.agent-harness/tasks/BOHUMFIT-095-leap-year-fix.md`: 태스크 문서 포함.
+### Verified
+- [x] `cd backend && python -m pytest -q` -> 409 passed, 8 skipped.
+### Notes
+- 프로덕션 코드 무변경. 5년/10년 컷오프는 이미 `_subtract_years` 달력 연도 기준으로 구현되어 있음.
+- `Q3_MED_WINDOW_DAYS=1825`는 BOHUMFIT-032의 투약 전용 고정창으로 의도적 유지.
+- Commit: `85dc30c` (`BOHUMFIT-095: 윤년 컷오프 회귀 테스트 보강 (이미 calendar-year 기준 구현 확인)`).
+### Next
+- Human -> 확인.
+
+## 2026-06-22 Codex BOHUMFIT-096 [의존성 고정 상태 확인·태스크 기록]
+### Changed
+- 코드/의존성 파일 변경 없음. `.agent-harness/tasks/BOHUMFIT-096-dependency-pin.md` 태스크 문서만 커밋 대상.
+### Verified
+- [x] `backend/requirements.txt` 직접 의존성 13개 전부 `==` 고정 확인.
+- [x] `git diff -- backend/requirements.txt --stat` -> 변경 없음.
+- [x] `cd backend && python -m pytest -q` -> 409 passed, 8 skipped.
+### Notes
+- `requirements.txt`는 무변경 유지. 샌드박스 설치본 드리프트가 아니라 커밋된 핀 파일이 배포 재현성의 권위 소스.
+### Next
+- Human -> Railway 다음 배포 시 빌드 확인.
+
+## 2026-06-21 Cowork BOHUMFIT-095 + BOHUMFIT-096 [윤년 컷오프·의존성 고정 — 진단상 이미 충족, 회귀 테스트만 보강]
+### BOHUMFIT-095 (윤년 컷오프)
+- Changed: `backend/tests/test_date_boundary.py` — `_cutoffs` 레벨 윤년 회귀 4종 추가(`_cutoffs` import). **helpers.py·filters.py 프로덕션 무변경.**
+- 진단: 5년/10년 경계는 이미 `_subtract_years`(달력 연도·2/29→2/28 보정)로 계산됨 — `filters._cutoffs()`(L284~285), `analyzer.py`(L930~931). BOHUMFIT-004에서 이미 고정 일수→달력 기준으로 교체 완료. 프로덕션에 `3650` 상수 없음(10년도 연도 기준). `1825`는 `Q3_MED_WINDOW_DAYS`(투약 30일 판정창)뿐 — BOHUMFIT-032가 **의도적 고정**(header==badge 불변식·전용 경계 테스트). 변경 대상 아님(건드리면 032 회귀). 기존 `test_leap_year_cutoff.py`도 _subtract_years를 광범위 검증 중.
+- Verified: `pytest tests/test_date_boundary.py tests/test_leap_year_cutoff.py` → **15 passed**(신규 4 포함). 영향권 `test_med_window_5y·test_med_badge_header_align·test_bug012_q2_q3·test_q3_real_pattern_regression` → **37 passed**(무변경 확인). ⚠전체 pytest는 샌드박스 마운트 truncation으로 수집 실패(test_usage_middleware L159 unterminated 등 11 collection error) → Codex/Windows 권위(기준선 405).
+- Notes: 추가 윤년 케이스 — ref 2024-02-29 → d5y 2019-02-28·d10y 2014-02-28(2/28 보정), ref 2024-03-01 → 2019/2014-03-01, 달력컷오프 < 고정 1825/3650(더 과거), 경계 포함(>=). dateutil 미사용(코드의 `_subtract_years` 사용 — requirements에 python-dateutil 직접 의존 없음, pandas 통해 전이적으로만 존재).
+- Next: Human — 분석 결과 날짜 경계 확인(이미 004 적용 상태라 동작 변화 없음, 회귀 테스트만 강화됨).
+### BOHUMFIT-096 (의존성 고정)
+- Changed: **requirements.txt 무변경.** (이미 13개 직접 의존성 전부 `==` 고정 — 미고정 항목 0)
+- Verified: `grep` 미고정 라인 0건. 정제본 `pip install -r --dry-run` → 충돌 없이 핀 버전 그대로 설치 예정("Would install Jinja2-3.1.6 fastapi-0.136.3 …"). ⚠마운트 requirements.txt 원본 직접 dry-run은 mount truncation으로 UnicodeDecodeError(byte 522) → /tmp 정제본으로 검증.
+- Notes: 샌드박스 설치본은 핀과 드리프트(fastapi 0.137.1/jinja2 3.0.3↓/uvicorn 미설치 등) — 그러나 이는 **샌드박스 환경 드리프트이지 프로젝트 의도 버전 아님**. 커밋된 핀이 Railway 재현성의 권위 소스. "현재 설치 버전으로 고정"을 샌드박스 기준으로 적용하면 업/다운그레이드가 되어 태스크 금지사항 위반 → 무변경 유지. 전이 의존성까지 잠그려면 lock 파일(pip-compile/uv) 도입이 별도 결정(Human).
+- Next: Human — Railway 다음 배포 시 빌드 확인(핀 그대로라 변화 없음).
+### 커밋 플랜(Codex 실행 — Cowork는 마운트 git 미실행)
+- 커밋1 `BOHUMFIT-095: 윤년 컷오프 회귀 테스트 보강`: stage `backend/tests/test_date_boundary.py`, `.agent-harness/tasks/BOHUMFIT-095-leap-year-fix.md`. (helpers.py·filters.py는 무변경이라 stage 없음 — 이미 004로 달력 기준)
+- 커밋2 `BOHUMFIT-096: requirements.txt 핀 상태 확인(무변경)`: stage `.agent-harness/tasks/BOHUMFIT-096-dependency-pin.md`만(requirements.txt 무변경). 커밋이 불필요하면 생략 가능.
+- push origin main. ※ 원 지시의 commit 메시지/stage 목록은 helpers/filters/requirements 변경을 전제했으나, 실제 변경이 없어 위와 같이 조정함.
+
 ## 2026-06-21 Codex BOHUMFIT-092 [보험사 전산·약관·팩스 링크모음 페이지 검증·커밋]
 ### Changed
 - `src/pages/InsuranceLinks.tsx`: 보험사 39개사 링크모음 페이지 신규 추가(검색, 전체/손해/생명 탭, 전산·약관·팩스 버튼, 확인상태 뱃지, 면책 문구).
