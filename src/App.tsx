@@ -18,6 +18,7 @@ import Subscription from "./pages/Subscription";
 import PhoneVerify from "./pages/PhoneVerify";
 import DownloadGuide from "./pages/DownloadGuide";
 import CoverageCompare from "./pages/CoverageCompare";
+import InsuranceLinks from "./pages/InsuranceLinks";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -85,6 +86,8 @@ function App() {
           <Route path="check" element={<Navigate to="/disclosure?mode=customer" replace />} />
           {/* BOHUMFIT-077: 심평원 자료 다운로드 가이드(공개) */}
           <Route path="download-guide" element={<DownloadGuide />} />
+          {/* BOHUMFIT-092: 보험사 전산·약관·팩스 링크모음(공개) */}
+          <Route path="insurance-links" element={<InsuranceLinks />} />
           {/* BOHUMFIT-081: 보장 비교분석 페이지 뼈대(로그인 필요) */}
           <Route
             path="coverage-compare"
