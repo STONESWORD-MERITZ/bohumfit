@@ -15,6 +15,10 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-21 `BOHUMFIT-091` - Codex - 카카오톡 복사 Q4 5~10년 수술의심 누락 수정. `_build_kakao_message`가 `surgery_suspected`를 수술 신호로 분류하고 `_kakao_item`이 수술의심명/등급을 표시. 신규 `test_kakao_window.py` 3 passed, 전체 backend 405 passed/8 skipped. Commit/push 완료 예정.
+
+- 2026-06-21 `BOHUMFIT-090` - Cowork - 카카오 복사 5년초과 누락 **진단 완료·프런트 무수정**. 카카오 텍스트는 백엔드 `result.standard_kakao`(main.py `_build_kakao_message`)를 Disclosure.tsx가 `writeText(memo)`로 그대로 복사할 뿐 — 프런트에 창 필터/슬라이스 없음. 카카오·화면 동일 `std_reports` 사용. → 태스크 가설(프런트 슬라이스)·스코프(프런트만·백엔드무변경)로는 해결 불가. 코드 변경 없이 종료, 태스크 문서에 진단·백엔드 후속 권장 기록. → Human 스코프 재정의(백엔드 태스크 발행).
+
 - 2026-06-21 `BOHUMFIT-089` - Codex - `public/images/guide/` 12장 복사, DownloadGuide 12개 경로 매칭·브라우저 로드 확인, tsc/lint/test/build 통과. Commit/push 완료 예정.
 
 - 2026-06-21 `BOHUMFIT-089` - Cowork - 가이드 이미지 슬롯 9→12 확장·경로 연결 구현 완료. DownloadGuide.tsx: placeholder div → `<img src alt loading=lazy>`, 12개 실제 파일명 매핑(HIRA 7: menu/login/basic/detail/prescription/auto-basic/auto-detail, NHIS 5: search/keyword/service/overview/result), 신규 슬롯 HIRA 2(no=7,8)·NHIS 1(no=7) 추가, Shot/StepRow alt 추가. 검증: 자기검토(경로 12 전수·잔여 -step 0·JSX 균형)·guide-images/ 12 .png와 코드 경로 정확 일치 확인(089 불일치 해소). 이미지 파일 복사·public/images/guide 생성은 Codex. ⚠tsc/lint/build 샌드박스 불가→Codex/Windows. 분석/판정·백엔드 무관·마운트 git 미실행. → Codex 이미지 복사·검증·커밋·푸시.

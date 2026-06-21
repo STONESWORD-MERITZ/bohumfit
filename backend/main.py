@@ -289,6 +289,20 @@ def _with_kakao_disclaimer(message: str) -> str:
     return message.rstrip() + KAKAO_DISCLAIMER
 
 
+def _kakao_values(value) -> list[str]:
+    if not value:
+        return []
+    if isinstance(value, (list, tuple, set)):
+        raw_values = value
+    else:
+        raw_values = [value]
+    return [_s(v).strip() for v in raw_values if _s(v).strip()]
+
+
+def _kakao_has_surgery_signal(item: dict) -> bool:
+    return bool(_kakao_values(item.get("surgeries")) or _kakao_values(item.get("surgery_suspected")))
+
+
 def _kakao_item(item: dict) -> str:
     fd = _s(item.get("first_date"))
     ld = _s(item.get("latest_date"))
@@ -309,9 +323,16 @@ def _kakao_item(item: dict) -> str:
     line1 = f"{date_str} / {visit_str} / {code_clean} / {kind}{_s(item.get('name'))}\n"
 
     surgeries = item.get("surgeries") or []
+    suspected_names = _kakao_values(item.get("surgery_suspected"))
+    suspected_grade = _s(item.get("surgery_suspected_grade")).strip()
     if surgeries:
         surg_names = [s for s in surgeries if s and s != "수술"]
         line2 = (", ".join(surg_names) if surg_names else "수술") + "\n"
+    elif suspected_names:
+        suspected_text = ", ".join(suspected_names)
+        if suspected_grade:
+            suspected_text += f" ({suspected_grade})"
+        line2 = f"수술 의심: {suspected_text}\n"
     else:
         detail = _s(item.get("detail"))
         line2 = f"{detail[:60]}\n" if detail else ""
@@ -336,8 +357,8 @@ def _build_kakao_message(product_type_kr: str, today, summary_reports: dict) -> 
         msg += f"> {clean_title}\n"
         items_q = summary_reports.get(q_title) or []
         inpatient_items = [i for i in items_q if (i.get("inpatient") or 0) > 0]
-        surgery_items   = [i for i in items_q if not (i.get("inpatient") or 0) > 0 and i.get("surgeries")]
-        other_items     = [i for i in items_q if not (i.get("inpatient") or 0) > 0 and not i.get("surgeries")]
+        surgery_items   = [i for i in items_q if not (i.get("inpatient") or 0) > 0 and _kakao_has_surgery_signal(i)]
+        other_items     = [i for i in items_q if not (i.get("inpatient") or 0) > 0 and not _kakao_has_surgery_signal(i)]
 
         if inpatient_items:
             msg += "[입원]\n"

@@ -16,6 +16,45 @@
 
 # Handoff
 
+## 2026-06-21 Codex BOHUMFIT-091 [카카오톡 복사 Q4 5~10년 수술의심 누락 수정]
+### Changed
+- `backend/main.py`: `_build_kakao_message()`의 카카오 분류에서 `surgery_suspected`를 수술 신호로 인정하도록 수정. `_kakao_item()`이 수술의심명과 등급을 `수술 의심: {명칭} ({등급})` 형태로 표시하도록 보강.
+- `backend/tests/test_kakao_window.py`: 신규 회귀 테스트 추가. Q4(5년 초과~10년) 입원·확정수술·수술의심, Q4 입원+수술의심 동시 보유, 기존 Q1/Q2/Q3 창 출력 순서를 커버.
+- `.agent-harness/tasks/BOHUMFIT-091-kakao-window-fix.md`: 태스크 파일 생성.
+### Verified
+- [x] 수정 전 직접 재현: Q4 `surgery_suspected=["관혈적정복술"]` 행이 `[통원]`으로 분류되고 의심 수술명이 누락됨.
+- [x] `cd backend && python -m pytest -q` 수정 전 기준선 -> 402 passed, 8 skipped.
+- [x] `cd backend && python -m pytest -q tests/test_kakao_window.py -vv` -> 3 passed.
+- [x] `cd backend && python -m pytest -q` 수정 후 전체 -> 405 passed, 8 skipped.
+### Notes
+- 확정 원인: `backend/main.py` `_build_kakao_message()`가 수술 분류 기준으로 `surgeries`만 보고 있었고, `_kakao_item()`도 `surgery_suspected`를 출력하지 않았다. 화면/PDF는 `standard_reports`를 직접 렌더링하므로 정상, 카카오 텍스트 전용 포맷 경로만 누락.
+- 입력 데이터(`std_reports = result["standard_reports"]`)는 화면용 `standard_reports`와 동일 dict를 사용함을 확인. std_reports 생성 단계가 아니라 카카오 포맷 단계의 문제로 확정.
+- 프런트는 변경하지 않음. PII/PDF/brand/unrelated 파일 stage 금지 유지.
+### Next
+- Human -> 실 PDF로 카카오 복사 최종 확인: 5년 초과~10년 입원·수술의심 항목이 카카오 텍스트에 표시되는지 확인.
+
+## 2026-06-21 Cowork BOHUMFIT-090 [카카오 5년초과 누락 — 진단 완료·프런트 수정 불가(원인 백엔드)]
+### Changed
+- 코드 변경 없음(프런트 무수정). `.agent-harness/tasks/BOHUMFIT-090-kakao-copy-window-fix.md` 생성(+진단 결과 부기), handoff/locks.
+### Verified (진단 — 정확한 원인 코드)
+- 카카오 복사 텍스트는 **프런트에서 조합하지 않음**. `src/pages/Disclosure.tsx`:
+  - L518-522 `handleCopy`: `navigator.clipboard.writeText(memo)` — memo를 그대로 복사.
+  - L1038 `const activeMemo = productTab === "standard" ? result.standard_kakao : (result.easy_kakao || "")` — 백엔드 응답 문자열을 그대로 사용.
+  - L81-82 인터페이스: `standard_kakao: string` / `easy_kakao?: string` — 백엔드 생성 필드. 프런트에 90/365/1825/3650 창 필터·슬라이스 없음.
+- 실제 카카오 생성은 **백엔드** `backend/main.py`:
+  - `_build_kakao_message(...)` (≈L322) — `summary_reports` 전 질문 키 순회(누락 슬라이스 없음). `_kakao_item`(≈L292)도 창 필터 없음.
+  - L908 `std_kakao = _build_kakao_message(..., std_reports)`, L921 `"standard_reports": _serialize_reports(std_reports)` — **카카오와 화면이 동일 `std_reports`(=`result["standard_reports"]`) 사용.**
+- 결론: 태스크 가설(프런트 슬라이스 오류)과 불일치. 카카오는 100% 백엔드 산출 문자열이라 **Disclosure.tsx에서 고칠 수 없음**(Scope=프런트만·Out of Scope=백엔드무변경 모순). 따라서 프런트 무수정으로 종료.
+### Notes
+- 가능 원인(백엔드 영역, 실 PDF 재현 필요):
+  1) `std_reports`에 Q4(5년 초과~10년 입원·수술)가 있는데 카카오에서 누락 → `_build_kakao_message`/`_kakao_item` 분류·포맷 점검(현 코드상 입원/수술/통원 모두 방출되어 누락 지점 미발견 → 재현 필수).
+  2) 화면의 5년초과 입원·수술이 `standard_reports` 외 별도 필드(수술의심 오버레이, 033/034)로 노출 → `std_reports`엔 없어 카카오·(동일소스면 리포트도) 누락. "리포트 정상" 단서를 보면 리포트 경로와 카카오 경로의 입력 차이를 함께 확인 필요.
+- 실 PDF는 로컬 전용·PII 미커밋 → 재현·수정은 Codex/Windows(또는 Human) 영역.
+- 마운트 git 미실행. 프런트 변경 없음 → tsc/lint/build 영향 없음.
+### Next
+- Human: 스코프 재정의 결정 — 카카오 창 누락은 **백엔드 수정**이 필요(이 태스크의 "백엔드 무변경" 제약과 충돌). 백엔드 후속 태스크(예: BOHUMFIT-091: 실 PDF 재현 → `standard_reports` Q4 포함 여부 확인 → 리포트↔카카오 창 패리티 수정 + 회귀 테스트) 발행 권장.
+- Codex: 본 090은 코드 변경 없으므로 커밋 대상은 태스크 문서·handoff뿐(필요 시).
+
 ## 2026-06-21 Codex BOHUMFIT-089 [가이드 이미지 12장 연결 검증·커밋]
 ### Changed
 - `public/images/guide/`: HIRA 7장, NHIS 5장 PNG 복사 완료.
