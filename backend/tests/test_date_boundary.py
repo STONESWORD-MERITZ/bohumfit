@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from filters import _dts_in_range as _dts_filters, _max_presc as _max_presc_filters
+from filters import _dts_in_range as _dts_filters, _max_presc as _max_presc_filters, _cutoffs
 from pipeline.helpers import _dts_in_range as _dts_helpers, _max_presc as _max_presc_helpers
 from pipeline.disease_aggregator import build_disease_stats
 
@@ -147,6 +147,43 @@ def test_today_dated_row_kept_by_aggregator():
               if s.get("has_pharma") or k.startswith("PHARMA|")]
     total_seen = sum(len(s.get("_pharma_seen", set())) for s in groups)
     assert total_seen == 1, "오늘 일자 행이 잘못 드롭됨"
+
+
+# ── BOHUMFIT-095: 윤년 컷오프(창 함수 _cutoffs 레벨) 회귀 ──────────────────────
+# 5년/10년 경계는 고정 1825/3650일이 아니라 달력 연도 기준(_subtract_years, BOHUMFIT-004)이다.
+# 윤년(2/29) 기준일·경계 포함(>=)·고정일수보다 더 과거임을 _cutoffs 레벨에서 고정한다.
+def test_cutoffs_leap_day_reference_2024_02_29():
+    """기준일 2024-02-29: 5년 전=2019-02-28, 10년 전=2014-02-28(비윤년 2/28 보정)."""
+    ref = datetime(2024, 2, 29)
+    d3m, d1y, d5y, d10y = _cutoffs(ref)
+    assert d5y == datetime(2019, 2, 28), "5년 경계 달력 보정 오류"
+    assert d10y == datetime(2014, 2, 28), "10년 경계 달력 보정 오류"
+    # 3개월/1년 단기창은 고정 일수 유지(윤년 영향 미미)
+    assert d3m == ref - timedelta(days=90)
+    assert d1y == ref - timedelta(days=365)
+
+
+def test_cutoffs_non_leap_reference_2024_03_01():
+    """기준일 2024-03-01: 5년 전=2019-03-01, 10년 전=2014-03-01(같은 월·일 유지)."""
+    _d3m, _d1y, d5y, d10y = _cutoffs(datetime(2024, 3, 1))
+    assert d5y == datetime(2019, 3, 1)
+    assert d10y == datetime(2014, 3, 1)
+
+
+def test_cutoffs_calendar_earlier_than_fixed_days():
+    """달력 기준 5/10년 컷오프가 고정 1825/3650일보다 더 과거다(창이 2~3일 더 넓음)."""
+    ref = datetime(2026, 5, 25)
+    _d3m, _d1y, d5y, d10y = _cutoffs(ref)
+    assert d5y < ref - timedelta(days=1825)
+    assert d10y < ref - timedelta(days=3650)
+
+
+def test_cutoffs_boundary_inclusive_at_leap_cutoff():
+    """정확히 5년 전 경계일(2024-02-29 기준 → 2019-02-28)은 창 포함(>=), 하루 전은 제외."""
+    _d3m, _d1y, d5y, _d10y = _cutoffs(datetime(2024, 2, 29))
+    assert _dts_helpers({"2019-02-28"}, d5y) == ["2019-02-28"]  # 경계일 포함
+    assert _dts_filters({"2019-02-28"}, d5y) == ["2019-02-28"]
+    assert _dts_helpers({"2019-02-27"}, d5y) == []              # 하루 전 제외
 
 
 # ── 진료일자 빈 행 경고 (감사: 조용한 누락 방지) ─────────────────────────────
