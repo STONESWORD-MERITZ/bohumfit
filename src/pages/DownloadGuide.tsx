@@ -7,19 +7,28 @@ import { Link } from "react-router-dom";
 const HIRA_URL = "https://www.hira.or.kr/main.do";
 const NHIS_URL = "https://www.nhis.or.kr/nhis/index.do";
 
-// ── 스크린샷 플레이스홀더 ─────────────────────────────────────
-function Shot({ src }: { src: string }) {
+// ── 스크린샷(BOHUMFIT-089: 실제 이미지 연결) ──────────────────
+//   이미지 파일(public/images/guide/*)은 Codex가 Windows에서 복사. 여기선 경로·alt만.
+function Shot({ src, alt }: { src: string; alt: string }) {
   return (
-    <div className="mt-3 flex h-32 flex-col items-center justify-center rounded-[10px] border border-dashed border-line-strong bg-ink-50 text-center">
-      <span className="text-xl text-ink-300" aria-hidden>🖼️</span>
-      <span className="safe-break mt-1 px-2 text-[11px] text-ink-400">{src}</span>
-      <span className="text-[11px] text-ink-300">스크린샷 준비 중</span>
-    </div>
+    <figure className="mt-3 overflow-hidden rounded-[10px] border border-line bg-ink-50">
+      <img src={src} alt={alt} loading="lazy" className="block w-full" />
+    </figure>
   );
 }
 
 // ── 단계 행 ───────────────────────────────────────────────────
-function StepRow({ no, shot, children }: { no: number; shot?: string; children: React.ReactNode }) {
+function StepRow({
+  no,
+  shot,
+  alt,
+  children,
+}: {
+  no: number;
+  shot?: string;
+  alt?: string;
+  children: React.ReactNode;
+}) {
   return (
     <li className="flex gap-3.5">
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-600 text-sm font-bold text-white">
@@ -27,7 +36,7 @@ function StepRow({ no, shot, children }: { no: number; shot?: string; children: 
       </span>
       <div className="min-w-0 flex-1 pb-2">
         <div className="ko-text text-[14px] leading-7 text-ink-800">{children}</div>
-        {shot && <Shot src={shot} />}
+        {shot && <Shot src={shot} alt={alt ?? ""} />}
       </div>
     </li>
   );
@@ -161,16 +170,16 @@ export default function DownloadGuide() {
             {HIRA_URL}
           </a>
           <ol className="mt-5 space-y-4">
-            <StepRow no={1} shot="/images/guide/hira-step1.png">
+            <StepRow no={1} shot="/images/guide/hira-1-menu.png" alt="심평원 메뉴 진입">
               로그인 후 <b className="font-semibold text-ink-900">[조회·신청 &gt; 내 진료정보 열람]</b> 으로 들어갑니다.
             </StepRow>
-            <StepRow no={2} shot="/images/guide/hira-step2.png">
+            <StepRow no={2} shot="/images/guide/hira-2-login.png" alt="로그인">
               '고유식별정보 처리 고지' 화면에서 <b className="font-semibold text-ink-900">['내 진료정보 열람' 조회하기]</b> 를 누릅니다.
             </StepRow>
             <StepRow no={3}>
               로그인 방식을 선택합니다(간편인증 / 공동인증서 / 금융인증서 / 모바일 신분증).
             </StepRow>
-            <StepRow no={4} shot="/images/guide/hira-step4.png">
+            <StepRow no={4} shot="/images/guide/hira-3-basic.png" alt="기본진료내역 다운로드">
               진료정보 조회 설정을 맞춥니다:
               <ul className="mt-2 space-y-1.5 border-l-2 border-accent-100 pl-3">
                 <Setting label="보험종별" value="건강보험 · 의료급여 · 보훈 선택" />
@@ -180,13 +189,19 @@ export default function DownloadGuide() {
                 <Setting label="대상기간" value="5년" />
               </ul>
             </StepRow>
-            <StepRow no={5} shot="/images/guide/hira-step5.png">
+            <StepRow no={5} shot="/images/guide/hira-4-detail.png" alt="세부진료정보 다운로드">
               아래 3개 탭에서 각각 <b className="font-semibold text-ink-900">[전체 다운로드]</b>:
               <span className="mt-1 block text-ink-soft">기본진료내역 · 세부진료정보 · 처방조제정보</span>
             </StepRow>
-            <StepRow no={6} shot="/images/guide/hira-step6.png">
+            <StepRow no={6} shot="/images/guide/hira-5-prescription.png" alt="처방조제정보 다운로드">
               보험종별을 <b className="font-semibold text-ink-900">[자동차보험]</b> 으로 바꾼 뒤 2개 탭에서 <b className="font-semibold text-ink-900">[전체 다운로드]</b>:
               <span className="mt-1 block text-ink-soft">기본진료내역 · 세부진료정보</span>
+            </StepRow>
+            <StepRow no={7} shot="/images/guide/hira-6-auto-basic.png" alt="자동차보험 기본진료내역 다운로드">
+              보험종별을 <b className="font-semibold text-ink-900">'자동차보험'</b> 으로 변경 후 기본진료내역 전체 다운로드
+            </StepRow>
+            <StepRow no={8} shot="/images/guide/hira-7-auto-detail.png" alt="자동차보험 세부진료정보 다운로드">
+              자동차보험 세부진료정보 전체 다운로드
             </StepRow>
           </ol>
           <p className="ko-text mt-5 rounded-[8px] bg-accent-50 px-4 py-3 text-[13px] font-semibold text-accent-800">
@@ -210,16 +225,16 @@ export default function DownloadGuide() {
             {NHIS_URL}
           </a>
           <ol className="mt-5 space-y-4">
-            <StepRow no={1} shot="/images/guide/nhis-step1.png">
+            <StepRow no={1} shot="/images/guide/nhis-1-search.png" alt="통합검색 클릭">
               로그인 후 상단 <b className="font-semibold text-ink-900">[통합검색]</b> 에서 "요양급여" 를 검색합니다.
             </StepRow>
-            <StepRow no={2} shot="/images/guide/nhis-step2.png">
+            <StepRow no={2} shot="/images/guide/nhis-2-keyword.png" alt="요양급여 검색어 입력">
               <b className="font-semibold text-ink-900">[건강보험 요양급여내역 조회]</b> → <b className="font-semibold text-ink-900">[조회하기]</b>.
             </StepRow>
             <StepRow no={3}>
               1단계 유의사항 → 2단계 사전면담 → 3단계 내역조회 순서로 진행합니다.
             </StepRow>
-            <StepRow no={4} shot="/images/guide/nhis-step4.png">
+            <StepRow no={4} shot="/images/guide/nhis-3-service.png" alt="요양급여내역 조회 서비스 클릭">
               진료개시일 기간을 설정합니다:
               <ul className="mt-2 space-y-1.5 border-l-2 border-accent-100 pl-3">
                 <Setting label="조회 구간" value="최대 1년 — 1년 단위로 끊어 조회" mark />
@@ -230,8 +245,11 @@ export default function DownloadGuide() {
             <StepRow no={5}>
               특수상병 포함 여부: <b className="font-semibold text-ink-900">체크</b>.
             </StepRow>
-            <StepRow no={6} shot="/images/guide/nhis-step6.png">
+            <StepRow no={6} shot="/images/guide/nhis-4-overview.png" alt="내역조회 개요 확인">
               <b className="font-semibold text-ink-900">[조회]</b> → <b className="font-semibold text-ink-900">[프린트발급]</b> 으로 PDF 저장(연도별 1개씩).
+            </StepRow>
+            <StepRow no={7} shot="/images/guide/nhis-5-result.png" alt="조회 결과 확인 및 프린트/발급">
+              조회 결과 확인 후 우측 하단 <b className="font-semibold text-ink-900">'프린트/발급'</b> 클릭하여 자료 저장
             </StepRow>
           </ol>
           <p className="ko-text mt-5 rounded-[8px] bg-accent-50 px-4 py-3 text-[13px] font-semibold text-accent-800">

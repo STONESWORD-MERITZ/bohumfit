@@ -15,6 +15,10 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-21 `BOHUMFIT-089` - Codex - `public/images/guide/` 12장 복사, DownloadGuide 12개 경로 매칭·브라우저 로드 확인, tsc/lint/test/build 통과. Commit/push 완료 예정.
+
+- 2026-06-21 `BOHUMFIT-089` - Cowork - 가이드 이미지 슬롯 9→12 확장·경로 연결 구현 완료. DownloadGuide.tsx: placeholder div → `<img src alt loading=lazy>`, 12개 실제 파일명 매핑(HIRA 7: menu/login/basic/detail/prescription/auto-basic/auto-detail, NHIS 5: search/keyword/service/overview/result), 신규 슬롯 HIRA 2(no=7,8)·NHIS 1(no=7) 추가, Shot/StepRow alt 추가. 검증: 자기검토(경로 12 전수·잔여 -step 0·JSX 균형)·guide-images/ 12 .png와 코드 경로 정확 일치 확인(089 불일치 해소). 이미지 파일 복사·public/images/guide 생성은 Codex. ⚠tsc/lint/build 샌드박스 불가→Codex/Windows. 분석/판정·백엔드 무관·마운트 git 미실행. → Codex 이미지 복사·검증·커밋·푸시.
+
 - 2026-06-20 `BOHUMFIT-086+087+088: Windows 검증·태스크별 커밋` - Codex - 086 was not on main, so committed prerequisite first (`d694fee`), then 087 docs (`1d2288f`) and 088 duplicate phone guard (`a2ed8e3`). Verification passed: tsc app/node, lint, npm test 53 passed, backend 402 passed/8 skipped, build pass with existing warnings. Next: Human SQL 0004, identity plan review/vendor decision, live CI integration task.
 
 - 2026-06-20 `BOHUMFIT-087` - Cowork - 본인확인(휴대폰/PASS) 연동 설계 조사 문서 작성 완료(코드 무변경). docs/identity-verification-plan.md 신규 — 후보비교(포트원/토스/다날/KG)·추천·CI 기반 1인1계정 아키텍처·개인정보·선행조건·다음태스크. 1차출처(포트원 헬프센터/블로그) URL 명기. 단가·토스 세부는 "확인 불가"로 명시(추측 안 함, 견적·브라우저 추가조사 필요). → Codex 커밋·푸시.

@@ -16,6 +16,67 @@
 
 # Handoff
 
+## 2026-06-21 Codex BOHUMFIT-089 [가이드 이미지 12장 연결 검증·커밋]
+### Changed
+- `public/images/guide/`: HIRA 7장, NHIS 5장 PNG 복사 완료.
+  - `hira-1-menu.png`, `hira-2-login.png`, `hira-3-basic.png`, `hira-4-detail.png`, `hira-5-prescription.png`, `hira-6-auto-basic.png`, `hira-7-auto-detail.png`
+  - `nhis-1-search.png`, `nhis-2-keyword.png`, `nhis-3-service.png`, `nhis-4-overview.png`, `nhis-5-result.png`
+- `src/pages/DownloadGuide.tsx`: Cowork 구현분 12개 실제 경로 연결 확인 및 커밋 범위 포함.
+- `.agent-harness/tasks/BOHUMFIT-089-guide-images-attach.md`: 태스크 파일 포함.
+### Verified
+- [x] `DownloadGuide.tsx`의 `/images/guide/` 참조 12개와 실제 파일 12개 일치, missing 0.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files passed, 53 tests passed.
+- [x] `npm run build` -> pass, 기존 Vite chunk size warning만 출력.
+- [x] `npm run dev` + Browser: `/download-guide` HIRA 탭 7장 로드 완료, NHIS 탭 5장 로드 완료. 모든 이미지 `naturalWidth=1500`, broken 0.
+### Notes
+- 실제 repo 루트는 `C:\Users\18_rk\BOHUMFIT`; 사용자 명령의 `C:\Users\18_rk\surit-react`는 `tmp`만 있는 빈 디렉터리라, 커밋 가능한 앱 루트 `BOHUMFIT/public/images/guide`에 복사함.
+- 수동 시각 확인 결과: HIRA/NHIS 탭별 이미지와 단계 텍스트가 Cowork handoff 매핑 순서대로 표시됨. NHIS 이미지는 `loading="lazy"`라 스크롤 후 로드 확인.
+- PII/PDF/brand/unrelated 파일은 stage하지 않음.
+### Next
+- Human -> 브라우저 최종 확인: DownloadGuide 페이지에서 HIRA 7장·NHIS 5장 표시 및 단계 정합 확인.
+
+## 2026-06-21 Cowork BOHUMFIT-089 [가이드 이미지 슬롯 9→12 확장·경로 연결 구현 완료·Codex 검증/복사 대기]
+### Changed
+- `src/pages/DownloadGuide.tsx`: 스크린샷 슬롯 9→12개 확장 + placeholder div → 실제 `<img src alt loading="lazy">` 로 교체(089 이미지 연결). 경로를 guide-images/의 실제 12개 파일명으로 매핑.
+  - HIRA 5→7: hira-1-menu / hira-2-login / hira-3-basic / hira-4-detail / hira-5-prescription + (신규) hira-6-auto-basic / hira-7-auto-detail. 신규 슬롯 텍스트·alt: "자동차보험 기본/세부진료정보 다운로드".
+  - NHIS 4→5: nhis-1-search / nhis-2-keyword / nhis-3-service / nhis-4-overview + (신규) nhis-5-result("조회 결과 확인 후 우측 하단 '프린트/발급' 클릭").
+  - `Shot`에 `alt` 추가, `StepRow`에 `alt?` 추가. 기존 슬롯 alt는 단계 설명(메뉴 진입·로그인·기본/세부/처방 다운로드 등) 사용, 신규 슬롯은 지정 설명을 alt로.
+### Verified
+- [x] 자기검토(Read=원본): `/images/guide/` 경로 12개 전수 확인(HIRA 7·NHIS 5), 잔여 `-step` 경로 0, JSX 균형(StepRow 폐태그·alt 정합).
+- [x] 파일명 정합: 샌드박스 read-only로 `guide-images/` 12개 .png 목록이 코드 12개 경로와 **정확히 일치** 확인(089 중단 원인이던 불일치 해소). `public/images/guide/`는 미존재 → Codex가 생성·복사.
+- [ ] `npx tsc -p tsconfig.app.json/.node.json --noEmit` / `npm run lint` / `npm test` / `npm run build` — ★샌드박스 불가(마운트 truncation·rolldown 네이티브 미설치). Codex/Windows 권위.
+### Notes
+- 이미지 파일 복사·`public/images/guide/` 디렉터리 생성은 **Codex(Windows) 담당**. tsx 코드 수정만 수행(이미지 파일 무수정).
+- 신규 슬롯 위치: HIRA는 hira-5-prescription 바로 뒤(no=7,8), NHIS는 nhis-4-overview 바로 뒤(no=7) — 태스크 지정대로.
+- 단계 본문 텍스트는 재구성하지 않고 **경로·alt 교체 + 신규 슬롯 추가만** 수행(태스크 범위). 이미지가 렌더된 뒤 이미지↔단계 텍스트 시각 정합은 Human 확인 권장(예: 일부 다운로드 이미지가 설정/통합 단계에 배치됨 — 사용자 지정 매핑 따름).
+- 마운트 git 미실행. 전체 tsc/lint/build/test 권위 검증은 Codex/Windows.
+### Next
+- Codex: `guide-images/`의 12개 .png를 `public/images/guide/`로 복사(디렉터리 생성) → tsc·lint·build 검증 → BOHUMFIT-089 범위(DownloadGuide.tsx + 복사 이미지 + handoff/locks) stage·commit(`BOHUMFIT-089: 가이드 이미지 12슬롯 연결`)·push.
+
+## 2026-06-21 Codex BOHUMFIT-089 [가이드 이미지 연결 정합성 점검 — 중단]
+### Changed
+- `.agent-harness/tasks/BOHUMFIT-089-guide-images-attach.md`: 사용자 제공 태스크 파일 생성.
+- `.agent-harness/handoff.md`, `.agent-harness/locks.md`: 정합성 점검 결과 기록 및 잠금 해제.
+### Verified
+- [x] `src/pages/DownloadGuide.tsx` 수정 전 구조 확인.
+- [x] `C:\Users\18_rk\BOHUMFIT\guide-images\` 파일 목록/확장자 확인: 12개 모두 `.png`.
+- [x] 경로 정합성 판단 결과: 불일치 확인으로 STEP 3 파일 복사/경로 연결 미진행.
+### Notes
+- 현재 `DownloadGuide.tsx` 플레이스홀더는 총 9개입니다:
+  - HIRA: `/images/guide/hira-step1.png`, `hira-step2.png`, `hira-step4.png`, `hira-step5.png`, `hira-step6.png`
+  - NHIS: `/images/guide/nhis-step1.png`, `nhis-step2.png`, `nhis-step4.png`, `nhis-step6.png`
+- 준비된 원본 이미지는 총 12개이며 파일명 체계가 다릅니다:
+  - HIRA 7개: `hira-1-menu.png`, `hira-2-login.png`, `hira-3-basic.png`, `hira-4-detail.png`, `hira-5-prescription.png`, `hira-6-auto-basic.png`, `hira-7-auto-detail.png`
+  - NHIS 5개: `nhis-1-search.png`, `nhis-2-keyword.png`, `nhis-3-service.png`, `nhis-4-overview.png`, `nhis-5-result.png`
+- 화면 구조상 HIRA step5/step6은 각각 여러 다운로드 이미지를 품어야 할 가능성이 있고, NHIS는 현재 step6 placeholder가 있으나 원본은 `nhis-5-result.png`까지만 있습니다. 이는 단순 경로 교체가 아니라 단계별 이미지 배치 구조 판단이 필요합니다.
+- 사용자 태스크 STEP 2의 “불일치 또는 플레이스홀더 구조 파악이 필요한 경우 … 작업 중단” 조건에 따라 임의 매핑·복사·코드 수정은 하지 않았습니다.
+### Next
+- Human 확인 필요: 12개 이미지를 현재 단계에 어떻게 배치할지 승인 필요.
+- 권장 매핑안: HIRA step1=`hira-1-menu`, step2=`hira-2-login`, step5 아래 3장=`hira-3-basic`/`hira-4-detail`/`hira-5-prescription`, step6 아래 2장=`hira-6-auto-basic`/`hira-7-auto-detail`; NHIS step1=`nhis-1-search`, step2=`nhis-2-keyword`, step3=`nhis-3-service`, step4=`nhis-4-overview`, step6=`nhis-5-result`.
+
 ## 2026-06-20 Codex BOHUMFIT-086 + BOHUMFIT-087 + BOHUMFIT-088 [Windows 검증·태스크별 커밋·푸시 완료]
 ### Changed
 - BOHUMFIT-086 commit `d694fee`: `src/lib/phoneGate.ts`, `src/lib/usePhoneGate.tsx`, `src/lib/phoneGate.test.ts`, `src/components/ProtectedRoute.tsx`, `src/App.tsx`, `src/pages/Login.tsx`, `src/components/Footer.tsx`, `supabase/migrations/20260620000003_profiles_select_policy.sql`, `.agent-harness/tasks/BOHUMFIT-086-phone-gate-debug-and-fixes.md`.
