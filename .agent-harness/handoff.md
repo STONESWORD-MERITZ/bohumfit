@@ -16,6 +16,59 @@
 
 # Handoff
 
+## 2026-06-21 Codex BOHUMFIT-092 [보험사 전산·약관·팩스 링크모음 페이지 검증·커밋]
+### Changed
+- `src/pages/InsuranceLinks.tsx`: 보험사 39개사 링크모음 페이지 신규 추가(검색, 전체/손해/생명 탭, 전산·약관·팩스 버튼, 확인상태 뱃지, 면책 문구).
+- `src/App.tsx`: `/insurance-links` 공개 라우트 추가.
+- `.agent-harness/tasks/BOHUMFIT-092-insurance-links-page.md`: 태스크 문서 포함.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files passed, 53 tests passed.
+- [x] `npm run build` -> pass, 기존 Vite chunk size warning만 출력.
+- [x] Browser `/insurance-links`: 검색 "삼성"=2건(삼성화재/삼성생명), "메리츠"=1건, "농협"=2건.
+- [x] Browser 탭: 전체 39건, 손해보험 17건, 생명보험 22건.
+- [x] Browser 팩스 분기: fixed 삼성화재 -> 클립보드 `0505-161-1166` 복사, "복사됨 ✓" 표시 후 1.5초 원복. virtual 흥국화재 -> 약관 URL 이동. unknown 서울보증보험 -> "팩스 확인필요" disabled.
+- [x] Browser 뱃지/문구: 공식확인 emerald, 공식+허브 blue, 허브확인 amber, 확인필요 red 클래스 확인. 하단 면책 문구 표시 확인.
+### Notes
+- 전산·약관 버튼은 코드상 `window.open(url, "_blank", "noopener,noreferrer")` 사용. IAB에서는 외부 URL이 선택 탭처럼 표시되지만 삼성화재 전산/약관, 흥국화재 약관 이동은 확인됨.
+- Commit: `cf5f6f3` (`BOHUMFIT-092: 보험사 전산·약관·팩스 링크모음 페이지 (39개사)`).
+### Next
+- Human -> `/insurance-links` 브라우저 최종 확인.
+
+## 2026-06-21 Codex BOHUMFIT-093 [보험사 링크모음 네비게이션 검증·커밋]
+### Changed
+- `src/components/Layout.tsx`: NAV에 `보험사 링크`(`/insurance-links`) 항목 추가.
+- `.agent-harness/tasks/BOHUMFIT-093-insurance-links-nav.md`: 태스크 문서 포함.
+### Verified
+- [x] 위 092와 동일한 tsc app/node, lint, npm test 53 passed, build pass.
+- [x] Browser 모바일 폭: "메뉴 열기" -> "보험사 링크" menuitem 클릭 -> `/insurance-links` 진입, heading 및 39개 보험사 카운트 확인.
+### Notes
+- 현재 IAB 뷰포트에서는 모바일 메뉴 경로로 확인. Layout의 단일 NAV 배열을 데스크탑/모바일이 공유하므로 데스크탑 NAV도 같은 항목을 사용.
+### Next
+- Human -> 네비게이션 "보험사 링크" 최종 확인.
+
+## 2026-06-21 Cowork BOHUMFIT-092 + BOHUMFIT-093 [보험사 링크모음 페이지 + 네비 연결 구현 완료·Codex 검증 대기]
+### Changed
+- (092) `src/pages/InsuranceLinks.tsx` (신규): 보험사 39개사(손해 17·생명 22) 전산·약관·팩스 바로가기. 데이터 하드코딩(외부 fetch 없음). 검색(즉시·대소문자 무관)·탭(전체/손해/생명) 필터, 카드(회사명+구분/확인상태 뱃지), 버튼 3(전산→system_url 새창·약관→terms_url 새창·팩스). 면책 문구. 082 타이포 적용.
+  - fax 버튼 분기: `fixed`=클립보드 복사+"복사됨 ✓"(1.5s 원복) / `virtual`="가상팩스 발급"→terms_url 새창 / `unknown`="팩스 확인필요" disabled. 카드별 copied 상태(InsurerCard 컴포넌트).
+  - 확인상태 뱃지색: 공식확인=emerald / 공식+허브=blue / 허브확인=amber / 확인필요=red.
+- (092) `src/App.tsx`: `/insurance-links` 라우트(공개·Layout 내, download-guide와 동일 패턴) + import.
+- (093) `src/components/Layout.tsx`: NAV 배열에 `{ kind:"link", to:"/insurance-links", label:"보험사 링크" }` 추가(실손 계산과 요금제 사이). 데스크탑·모바일 동일 NAV 소스 → 자동 반영. 기존 /download-guide "자료 받기"와 동일 link 패턴.
+- `.agent-harness/tasks/BOHUMFIT-092·093-*.md` (신규).
+### Verified
+- [x] 자기검토(샌드박스 bash·grep): INSURANCE_DATA 39개사(손해 17/생명 22) 전수, `status` 4종(공식확인22·공식+허브5·허브확인9·확인필요3)·`fax_type` 3종(fixed25·virtual11·unknown3) 모두 타입 유니온 내(오타 0). App import·라우트 연결, Layout NAV 항목 연결 확인.
+- [x] 정적: 검색·탭 필터(useMemo), fax 분기 로직, 뱃지 매핑 정합. 기본 Tailwind 팔레트(emerald/blue/amber/red)는 기존 페이지(Subscription 등)에서 사용 중 → 가용.
+- [ ] `npx tsc app/node` / `npm run lint` / `npm test` / `npm run build` — ★샌드박스 불가(마운트 truncation·rolldown 네이티브 미설치). Codex/Windows 권위.
+- [ ] 수동: /insurance-links 접근(메뉴 "보험사 링크"), 검색·탭·전산/약관 새창·팩스 복사/가상/비활성 동작 (Codex 또는 Human)
+### Notes
+- 라우트는 **공개**(비로그인 접근 가능) — DownloadGuide와 동일 정책. 로그인 필요로 바꾸려면 ProtectedRoute 래핑(후속).
+- 팩스번호·확인상태는 데이터 제공 시점 기준 — 카드 면책 문구로 "발송 전 최종 확인" 안내.
+- 백엔드·타 페이지 무변경. 마운트 git 미실행. tsc/lint/build 권위 검증 Codex/Windows.
+### Next
+- Codex: tsc(app·node)·lint·build → 통과 시 092(InsuranceLinks.tsx·App.tsx·task) / 093(Layout.tsx·task) 각각 stage·commit(`BOHUMFIT-092: 보험사 전산·약관·팩스 링크모음 페이지`, `BOHUMFIT-093: 링크모음 네비 연결`)·push.
+
 ## 2026-06-21 Codex BOHUMFIT-091 [카카오톡 복사 Q4 5~10년 수술의심 누락 수정]
 ### Changed
 - `backend/main.py`: `_build_kakao_message()`의 카카오 분류에서 `surgery_suspected`를 수술 신호로 인정하도록 수정. `_kakao_item()`이 수술의심명과 등급을 `수술 의심: {명칭} ({등급})` 형태로 표시하도록 보강.

@@ -15,6 +15,11 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-21 `BOHUMFIT-092+093` - Codex - Windows tsc app/node, lint, npm test 53 passed, build pass. Browser `/insurance-links`: 검색/탭/팩스 fixed·virtual·unknown/뱃지/면책/네비 진입 확인. 092 커밋 완료, 093 네비·handoff 기록 커밋 예정.
+
+- 2026-06-21 `BOHUMFIT-092` - Cowork - 보험사 전산·약관·팩스 링크모음 페이지 구현 완료. InsuranceLinks.tsx(신규·39개사 하드코딩·검색/탭 필터·카드 3버튼·fax_type 분기 fixed/virtual/unknown·확인상태 뱃지)·App.tsx(/insurance-links 공개 라우트). 자기검토: 39개사(손해17/생명22)·status 4종·fax_type 3종 유니온 정합. ⚠tsc/lint/build 샌드박스 불가→Codex/Windows. 백엔드·타페이지 무변경·마운트 git 미실행. → Codex 검증·커밋·푸시.
+- 2026-06-21 `BOHUMFIT-093` - Cowork - 링크모음 네비 연결 구현 완료. Layout.tsx NAV에 "보험사 링크"(/insurance-links) 추가(실손계산↔요금제 사이, /download-guide 동일 link 패턴, 데스크탑·모바일 자동 반영). InsuranceLinks·백엔드 무변경. → Codex 검증·커밋·푸시.
+
 - 2026-06-21 `BOHUMFIT-091` - Codex - 카카오톡 복사 Q4 5~10년 수술의심 누락 수정. `_build_kakao_message`가 `surgery_suspected`를 수술 신호로 분류하고 `_kakao_item`이 수술의심명/등급을 표시. 신규 `test_kakao_window.py` 3 passed, 전체 backend 405 passed/8 skipped. Commit/push 완료 예정.
 
 - 2026-06-21 `BOHUMFIT-090` - Cowork - 카카오 복사 5년초과 누락 **진단 완료·프런트 무수정**. 카카오 텍스트는 백엔드 `result.standard_kakao`(main.py `_build_kakao_message`)를 Disclosure.tsx가 `writeText(memo)`로 그대로 복사할 뿐 — 프런트에 창 필터/슬라이스 없음. 카카오·화면 동일 `std_reports` 사용. → 태스크 가설(프런트 슬라이스)·스코프(프런트만·백엔드무변경)로는 해결 불가. 코드 변경 없이 종료, 태스크 문서에 진단·백엔드 후속 권장 기록. → Human 스코프 재정의(백엔드 태스크 발행).

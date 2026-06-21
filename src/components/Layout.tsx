@@ -36,6 +36,8 @@ const NAV: ReadonlyArray<MenuItem> = [
   },
   { kind: "link", to: "/coverage-compare", label: "보장 비교분석" },
   { kind: "link", to: "/insurance", label: "실손 계산" },
+  // BOHUMFIT-093: 보험사 전산·약관·팩스 링크모음(공개)
+  { kind: "link", to: "/insurance-links", label: "보험사 링크" },
   { kind: "link", to: "/subscription", label: "요금제" },
 ];
 
