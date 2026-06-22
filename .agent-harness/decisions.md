@@ -92,6 +92,21 @@ Reason:
 Impact:
 해당 코드가 Q3 통원 등 일반 고지 항목에도 동시에 잡히면 실손 전용 안내를 붙이지 않는다. K63은 Q5 코드풀에서 제외한다.
 
+### 2026-06-22 Phone Verification Level
+
+Decision:
+휴대폰 본인인증은 번호 입력 + /auth/verify-phone upsert 확인 수준으로 운영한다.
+통신사 PASS 등 외부 본인인증 API는 연동하지 않는다.
+
+Reason:
+외부 본인인증 API 미연동 상태에서 번호 중복 hard block(088)이 신규 가입을 막는 버그 발생.
+현 단계에서는 번호 소유 확인 수준으로 충분하다.
+
+Impact:
+phone_verified는 /auth/verify-phone upsert 완료 시 true 처리.
+번호 중복 409 hard block 제거. 1인 1계정 원칙은 이메일 기준으로 유지.
+DB 부분 UNIQUE 인덱스(profiles_phone_verified_unique) 제거 필요(Human SQL).
+
 ## Template
 
 ### YYYY-MM-DD Decision Title
