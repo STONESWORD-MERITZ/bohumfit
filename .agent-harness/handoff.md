@@ -16,6 +16,29 @@
 
 # Handoff
 
+## 2026-06-22 Codex BOHUMFIT-098 [SSO 통합 role/profiles 영향 점검]
+### Changed
+- `backend/tests/test_usage_middleware.py`: non-internal 고객 role fixture를 `"user"`에서 `"customer"`로 정렬.
+- `supabase/migrations/20260620000002_backfill_profiles_phone.sql`: profiles 백필 주석의 role 기본값을 `'customer'`로 정정.
+- `.agent-harness/tasks/BOHUMFIT-098-sso-profile-role-check.md`: SSO role/profiles 점검 태스크 파일 생성.
+### Verified
+- [x] `rg` role-user scan -> `role === 'user'`, `role === "user"`, `role: 'user'`, `role: "user"`, `"role": "user"`, `DEFAULT 'user'`, `기본 'user'` 매치 0.
+- [x] profiles 접근 점검 -> 런타임은 `profiles.role` SELECT, `profiles.phone_verified, role` SELECT, `/auth/verify-phone` upsert만 존재. `Signup.tsx`·`auth-context.ts`의 profiles 직접 INSERT 없음.
+- [x] TypeScript profiles 타입 점검 -> `ProfileRow`는 실제 SELECT 필드(`phone_verified`, `role`)만 표현하므로 `full_name`, `avatar_url`, `updated_at` 추가 불필요.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files passed, 53 tests passed.
+- [x] `npm run build` -> pass, 기존 Vite chunk size warning만 출력.
+- [x] `cd backend && python -m pytest -q` -> 412 passed, 8 skipped.
+### Notes
+- runtime 코드의 권한 분기는 `role == "internal"`/`role === "internal"`만 사용하므로 customer enum 전환으로 인한 로직 수정은 없음.
+- `/auth/verify-phone` upsert는 existing row가 있으면 update, row가 없으면 insert 경로다. SSO 트리거가 profiles row를 생성하는 정상 경로에서는 중복 INSERT 충돌 없음. row 누락 예외 경로에서도 role은 DB default(`customer`)에 맡기므로 internal demotion 위험을 피함.
+- `supabase/migrations/20260620000000_subscription_schema.sql`은 기존 untracked BOHUMFIT-068 잔여 산출물이라 098 커밋에는 stage하지 않음. 구독 스키마 migration을 확정할 때 role enum/customer 기본값 정합을 별도 확인 필요.
+- `backend/__pycache__/main.cpython-312.pyc`는 생성물 dirty로 남아 있으나 stage 금지.
+### Next
+- Human: 카카오 Redirect URI 추가 완료 여부 확인 후 SSO E2E 테스트.
+
 ## 2026-06-22 Codex BOHUMFIT-094 [처방 PDF 오분류 fallback 검증·커밋]
 ### Changed
 - `backend/pipeline/pdf_parser.py`: 섹션 표제어가 OCR 누락된 처방조제 페이지를 `투약일수` 본문 신호로 `pharma` 보정.

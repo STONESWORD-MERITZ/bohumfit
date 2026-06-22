@@ -25,7 +25,7 @@ create trigger on_auth_user_created
   for each row execute function public.handle_new_user();
 
 -- 2) 기존 계정 백필: profiles 행이 없는 auth.users 전체에 행 생성.
---    role(기본 'user')·phone_verified(기본 false)는 컬럼 기본값으로 채워진다. 멱등.
+--    role(기본 'customer')·phone_verified(기본 false)는 컬럼 기본값으로 채워진다. 멱등.
 insert into public.profiles (id)
 select u.id
 from auth.users u

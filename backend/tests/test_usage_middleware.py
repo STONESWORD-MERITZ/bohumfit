@@ -94,7 +94,7 @@ def test_internal_user_unlimited(monkeypatch):
 def test_trial_under_limit_passes(monkeypatch):
     main = _load_main(monkeypatch)
     _patch_admin(monkeypatch, main, _FakeAdmin({
-        "profiles": _Resp({"role": "user"}),
+        "profiles": _Resp({"role": "customer"}),
         "subscriptions": _Resp(None),
         "usage_logs": _Resp([], count=2),
     }))
@@ -106,7 +106,7 @@ def test_trial_under_limit_passes(monkeypatch):
 def test_trial_exhausted_402(monkeypatch):
     main = _load_main(monkeypatch)
     _patch_admin(monkeypatch, main, _FakeAdmin({
-        "profiles": _Resp({"role": "user"}),
+        "profiles": _Resp({"role": "customer"}),
         "subscriptions": _Resp(None),
         "usage_logs": _Resp([], count=5),
     }))
@@ -119,7 +119,7 @@ def test_trial_exhausted_402(monkeypatch):
 def test_inactive_subscription_falls_to_trial(monkeypatch):
     main = _load_main(monkeypatch)
     _patch_admin(monkeypatch, main, _FakeAdmin({
-        "profiles": _Resp({"role": "user"}),
+        "profiles": _Resp({"role": "customer"}),
         "subscriptions": _Resp({"status": "inactive", "plan": "basic", **PERIODS}),
         "usage_logs": _Resp([], count=5),
     }))
@@ -132,7 +132,7 @@ def test_inactive_subscription_falls_to_trial(monkeypatch):
 def test_active_basic_over_limit_429(monkeypatch):
     main = _load_main(monkeypatch)
     _patch_admin(monkeypatch, main, _FakeAdmin({
-        "profiles": _Resp({"role": "user"}),
+        "profiles": _Resp({"role": "customer"}),
         "subscriptions": _Resp({"status": "active", "plan": "basic", **PERIODS}),
         "usage_logs": _Resp([], count=30),
     }))
@@ -145,7 +145,7 @@ def test_active_basic_over_limit_429(monkeypatch):
 def test_active_pro_limit_100(monkeypatch):
     main = _load_main(monkeypatch)
     _patch_admin(monkeypatch, main, _FakeAdmin({
-        "profiles": _Resp({"role": "user"}),
+        "profiles": _Resp({"role": "customer"}),
         "subscriptions": _Resp({"status": "active", "plan": "pro", **PERIODS}),
         "usage_logs": _Resp([], count=30),
     }))
@@ -156,7 +156,7 @@ def test_active_pro_limit_100(monkeypatch):
 def test_active_pro_over_100_429(monkeypatch):
     main = _load_main(monkeypatch)
     _patch_admin(monkeypatch, main, _FakeAdmin({
-        "profiles": _Resp({"role": "user"}),
+        "profiles": _Resp({"role": "customer"}),
         "subscriptions": _Resp({"status": "active", "plan": "pro", **PERIODS}),
         "usage_logs": _Resp([], count=100),
     }))
@@ -169,7 +169,7 @@ def test_active_pro_over_100_429(monkeypatch):
 def test_active_under_limit_passes_and_logs(monkeypatch):
     main = _load_main(monkeypatch)
     admin = _FakeAdmin({
-        "profiles": _Resp({"role": "user"}),
+        "profiles": _Resp({"role": "customer"}),
         "subscriptions": _Resp({"status": "active", "plan": "basic", **PERIODS}),
         "usage_logs": _Resp([], count=5),
     })
