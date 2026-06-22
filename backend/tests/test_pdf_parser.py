@@ -120,6 +120,27 @@ def test_page_text_detection_tolerates_whitespace():
     assert _detect_ftype_by_page_text("일반 안내문") == ""
 
 
+def test_page_text_pharma_signal_by_med_days_when_title_lost():
+    """BOHUMFIT-094: 섹션 표제어까지 OCR 누락돼도 처방 전용 컬럼어 '투약일수'면 pharma."""
+    # 표제어 없이 표 컬럼어만 남은 처방 페이지 본문
+    assert _detect_ftype_by_page_text("약품명 성분명 투약일수 30 조제일자") == "pharma"
+    assert _detect_ftype_by_page_text("투약 일수") == "pharma"  # 공백 끊김 허용
+
+
+def test_section_title_takes_precedence_over_med_days_signal():
+    """표제어가 있으면 표제어가 우선 — '투약일수'가 같이 있어도 기본/세부로 유지."""
+    assert _detect_ftype_by_page_text("세부진료정보 ... 투약일수") == "detail"
+    assert _detect_ftype_by_page_text("기본진료정보 투약일수") == "basic"
+
+
+def test_unknown_header_with_med_days_page_resolves_pharma():
+    """헤더+표제어 모두 누락(unknown)이라도 본문 '투약일수' 신호로 pharma 보정."""
+    headers = ("col_0", "col_1", "col_2")
+    assert detect_file_type(headers) == "unknown"
+    page_ftype = _detect_ftype_by_page_text("약품명 투약일수")
+    assert _resolve_ftype(headers, page_ftype) == "pharma"
+
+
 class _FakePage:
     def __init__(self, text, tables):
         self._text = text

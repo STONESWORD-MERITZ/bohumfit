@@ -78,6 +78,12 @@ def _detect_ftype_by_page_text(text: str) -> str:
         return "detail"
     if "처방조제" in norm:
         return "pharma"
+    # BOHUMFIT-094: 섹션 표제어(처방조제정보)까지 OCR 누락된 처방 페이지 보강.
+    #   '투약일수'는 심평원 처방조제 표 전용 컬럼어로 기본·세부 진료 섹션엔 없다.
+    #   표제어가 사라져도 본문에 남으면 처방 신호로 신뢰한다(최후순위 — 표제어가 있으면 위에서 먼저 결정).
+    #   공단 NHIS는 parse_single_pdf의 is_nhis 분기로 별도 처리되어 이 함수 영향권 밖.
+    if "투약일수" in norm:
+        return "pharma"
     return ""
 
 

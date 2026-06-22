@@ -16,6 +16,19 @@
 
 # Handoff
 
+## 2026-06-22 Codex BOHUMFIT-094 [처방 PDF 오분류 fallback 검증·커밋]
+### Changed
+- `backend/pipeline/pdf_parser.py`: 섹션 표제어가 OCR 누락된 처방조제 페이지를 `투약일수` 본문 신호로 `pharma` 보정.
+- `backend/tests/test_pdf_parser.py`: `투약일수` fallback, 표제어 우선순위, unknown header 보정 회귀 테스트 추가.
+- `.agent-harness/tasks/BOHUMFIT-094-pdf-parser-pharma-fallback.md`: 094 task 파일명 정리.
+### Verified
+- [x] `cd backend && python -m pytest tests/test_pdf_parser.py -q` -> 17 passed.
+- [x] `cd backend && python -m pytest -q` -> 412 passed, 8 skipped.
+### Notes
+- 없음.
+### Next
+- Human.
+
 ## 2026-06-22 Codex BOHUMFIT-097 [인증 루프·로그인 리다이렉트·폰인증 완화 검증]
 ### Changed
 - `src/App.tsx`: 로그인 상태 `/login`·`/signup` 접근 시 `/disclosure?mode=agent`로 보내는 `RedirectIfAuthed` 가드 확인.
