@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="115.2" fill="#15663D"/>
+  <text
+    x="256" y="218"
+    font-family="Pretendard,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif"
+    font-size="148" font-weight="800"
+    fill="#FFFFFF" text-anchor="middle" dominant-baseline="auto"
+    letter-spacing="-3">보험</text>
+  <text
+    x="256" y="370"
+    font-family="Pretendard,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif"
+    font-size="148" font-weight="700"
+    fill="#FFFFFF" text-anchor="middle" dominant-baseline="auto"
+    letter-spacing="2">FIT</text>
+</svg>

@@ -16,6 +16,40 @@
 
 # Handoff
 
+## 2026-06-22 Codex BOHUMFIT-099 [보험핏 아이콘 교체 검증·커밋]
+### Changed
+- `brand/icon.svg`, `public/favicon.svg`, `public/favicon.ico`, `public/favicon-16.png`, `public/favicon-32.png`, `public/apple-touch-icon-180.png`, `public/icon-192.png`, `public/icon-512.png`, `public/og-image.svg`: 보험핏 2단 스택 아이콘 자산 교체분 커밋 예정.
+- `.agent-harness/tasks/BOHUMFIT-099-icon-update.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md`: 099 태스크/검증 기록 및 잠금 해제 기록.
+### Verified
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files passed, 53 tests passed.
+- [x] `npm run build` -> pass, 기존 Vite chunk size warning만 출력.
+### Notes
+- 없음.
+### Next
+- Human: 브라우저에서 favicon·PWA 아이콘·OG 미리보기 육안 확인.
+
+## 2026-06-22 Cowork BOHUMFIT-099 [보험핏 아이콘 2단 스택(보험/FIT) 전체 교체·Codex 검증 대기]
+### Changed
+- `brand/icon.svg` (신규): 마스터 512×512 (배경 #15663D, 보험 ExtraBold 800 / FIT Bold 700, radius 22.5%) — 태스크 지정 SVG 그대로.
+- `public/favicon.svg` (교체): 32×32 2단 스택 — 기존 패스형 방패 로고 → 신규 텍스트 스택.
+- `public/og-image.svg` (교체): 1200×630 (다크 #0F1F17 배경 + 아이콘 + 보험핏 워드마크 + bohumfit.ai) — 태스크 지정 SVG.
+- 라스터 재생성(2단 스택 디자인): `public/favicon.ico`(16/32/48 멀티)·`public/favicon-16.png`·`favicon-32.png`·`apple-touch-icon-180.png`·`icon-192.png`·`icon-512.png` + `brand/favicon-16/32.png`·`apple-touch-icon-180.png`·`favicon.ico`. Pillow로 직접 드로잉(둥근사각 #15663D + 흰색 보험/FIT).
+### Verified
+- [x] SVG 3종 생성/교체 완료(지정 내용 그대로).
+- [x] 라스터 유효성: `file`/Pillow — favicon.ico=ICO 16/32/48 멀티, PNG 전부 정상 크기. **512px 시각 확인(Read): 녹색 둥근사각 + 흰색 보험/FIT 2단, 한글 글리프 정상 렌더(tofu 아님).**
+- [x] index.html 참조 자산 9종 전부 존재(favicon.ico/svg, favicon-16/32, apple-touch-icon-180, og-image.svg, site.webmanifest, icon-192/512) → **index.html·site.webmanifest 링크 변경 불필요**(theme-color·icon 경로 이미 정합).
+- [x] 소스 코드(.ts/.tsx) 무변경 → tsc/build 영향 없음. (자산만 변경)
+- [ ] `npx tsc`/`npm run build` — 자산만 변경이라 영향 없음. Codex가 빌드로 최종 확인.
+### Notes
+- **favicon.ico·apple-touch-icon·전 PNG 생성 가능했음**(샌드박스에 Noto Sans CJK KR + Pillow 존재). Pretendard는 미설치라 **라스터는 Noto Sans CJK KR 폴백**으로 렌더(태스크 비목표 "폰트 파일 설치 안 함·시스템 폰트 fallback" 부합). 브라우저의 SVG favicon은 사이트 CDN Pretendard로 렌더 → SVG(Pretendard)와 PNG 폴백(Noto)의 자형이 미세 차이 가능(둘 다 #15663D·보험/FIT 2단, 디자인 동일). 픽셀 동일성은 비요구.
+- **헤더 로고 변경 불필요**: `src/components/Logo.tsx`는 텍스트/인라인 SVG 워드마크("BohumFit 보험핏")라 favicon 자산과 무관(태스크 §6 "텍스트 방식이면 현행 유지").
+- OG 이미지는 SVG(지정 스펙). 참고: 일부 소셜 스크래퍼(카카오/페북)는 SVG OG 미지원 → 필요 시 og-image.png 추가 검토(기존도 .svg였으므로 신규 회귀 아님 — 별도 결정).
+- `brand/fithere-logo-*`(핏히어 브랜드)·색상 시스템 무변경(비목표).
+- 브라우저 실제 렌더(탭 favicon·PWA 설치·OG 미리보기)는 Human 확인 권장.
+### Next
+- Codex: `npm run build`로 자산 번들 확인 → stage `brand/icon.svg`·`public/favicon.svg`·`public/og-image.svg`·재생성 PNG/ICO(public·brand)·`.agent-harness/tasks/BOHUMFIT-099-icon-update.md` → commit(`BOHUMFIT-099: 보험핏 아이콘 2단 스택(보험/FIT) 교체`)·push. (바이너리 PNG/ICO 다수 — stage 시 PII/무관 파일 혼입 주의)
+
 ## 2026-06-22 Codex BOHUMFIT-068 [subscription schema 마이그레이션 파일 커밋]
 ### Changed
 - `supabase/migrations/20260620000000_subscription_schema.sql`: subscriptions/usage_logs schema migration 파일 커밋. profiles.role은 SSO 정합에 맞춰 `user_role` enum 및 `customer` 기본값 보강 포함.

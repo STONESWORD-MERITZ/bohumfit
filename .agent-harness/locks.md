@@ -15,6 +15,8 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-22 `BOHUMFIT-099` - Cowork - 보험핏 아이콘 2단 스택(보험/FIT) 교체 구현 완료. brand/icon.svg(신규 마스터)·public/favicon.svg·public/og-image.svg(지정 SVG 그대로 교체)·라스터 재생성(public favicon.ico 16/32/48·favicon-16/32·apple-touch-icon-180·icon-192/512 + brand 동명, Pillow+Noto Sans CJK KR 폴백). 512px Read 시각 확인 OK(한글 정상). index.html·site.webmanifest 링크 변경 불필요(자산 경로 기존 정합). Logo.tsx(텍스트)·fithere-*·색상 무변경. 소스 .ts/.tsx 무변경→tsc/build 무영향. ⚠브라우저 실렌더·OG 미리보기는 Human. → Codex build 확인·자산 stage·커밋·푸시.
+
 - 2026-06-22 `BOHUMFIT-097` - Codex - Windows 검증 완료(tsc app/node, lint, npm test 53 passed, build pass, backend pytest 412 passed/8 skipped). Browser smoke는 비로그인 login/signup/disclosure redirect 확인, 로그인 세션·테스트 계정 부재로 logged-in/이메일미확인/phone_verified E2E는 Human 확인으로 이관. Human SQL(`drop index if exists public.profiles_phone_verified_unique`)은 로컬 DB/service-role 접속정보 부재로 직접 확인 불가→대기 중. 097 범위만 커밋 예정, 094 잔여 및 생성물 stage 금지.
 
 - 2026-06-22 `BOHUMFIT-097` (요청 파일명 095·충돌로 재번호) - Cowork - 인증·가입 버그 3건 + 폰인증 스펙 완화 구현 완료. App.tsx(RedirectIfAuthed 가드: 로그인 상태 /login·/signup→/disclosure)·Login.tsx('Email not confirmed' 친절 안내·재가입 루프 차단)·backend/main.py(verify-phone 088 중복 409·role·phone_guard import 제거→번호소유 수준 upsert). 진단: OTP 흐름 미존재(태스크 가설과 차이)·중복 409는 가입화면 아닌 로그인 후 게이트 발생. 검증: test_phone_guard 4 passed·main.py Read 검증·정적 트레이싱. ⚠tsc/build/전체pytest 샌드박스 불가→Codex/Windows. ★★중복 허용엔 `drop index profiles_phone_verified_unique`(088) Human SQL 필수(미적용시 조용히 실패). phone_guard/test_phone_guard 보존(미사용). Signup/PhoneVerify/auth-context 무변경. 마운트 git 미실행. → Codex 검증·커밋·푸시 + Human SQL.
