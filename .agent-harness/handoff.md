@@ -16,6 +16,17 @@
 
 # Handoff
 
+## 2026-06-22 Codex BOHUMFIT-100 [헤더 로고 텍스트 변경]
+### Changed
+- `src/components/Logo.tsx`: 인라인 `[F]` SVG 아이콘 제거, 공용 로고 표기를 `BOHUMFIT 보험핏` 텍스트로 변경.
+- `.agent-harness/tasks/BOHUMFIT-100-header-logo-text.md`: 태스크 파일 생성 및 완료 조건 체크.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm run build` -> pass, 기존 Vite chunk size warning만 출력.
+### Next
+- Human: 브라우저에서 헤더 로고 육안 확인.
+
 ## 2026-06-22 Codex BOHUMFIT-099 [보험핏 아이콘 교체 검증·커밋]
 ### Changed
 - `brand/icon.svg`, `public/favicon.svg`, `public/favicon.ico`, `public/favicon-16.png`, `public/favicon-32.png`, `public/apple-touch-icon-180.png`, `public/icon-192.png`, `public/icon-512.png`, `public/og-image.svg`: 보험핏 2단 스택 아이콘 자산 교체분 커밋 예정.
