@@ -15,6 +15,12 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-22 `BOHUMFIT-097` - Codex - Windows 검증 완료(tsc app/node, lint, npm test 53 passed, build pass, backend pytest 412 passed/8 skipped). Browser smoke는 비로그인 login/signup/disclosure redirect 확인, 로그인 세션·테스트 계정 부재로 logged-in/이메일미확인/phone_verified E2E는 Human 확인으로 이관. Human SQL(`drop index if exists public.profiles_phone_verified_unique`)은 로컬 DB/service-role 접속정보 부재로 직접 확인 불가→대기 중. 097 범위만 커밋 예정, 094 잔여 및 생성물 stage 금지.
+
+- 2026-06-22 `BOHUMFIT-097` (요청 파일명 095·충돌로 재번호) - Cowork - 인증·가입 버그 3건 + 폰인증 스펙 완화 구현 완료. App.tsx(RedirectIfAuthed 가드: 로그인 상태 /login·/signup→/disclosure)·Login.tsx('Email not confirmed' 친절 안내·재가입 루프 차단)·backend/main.py(verify-phone 088 중복 409·role·phone_guard import 제거→번호소유 수준 upsert). 진단: OTP 흐름 미존재(태스크 가설과 차이)·중복 409는 가입화면 아닌 로그인 후 게이트 발생. 검증: test_phone_guard 4 passed·main.py Read 검증·정적 트레이싱. ⚠tsc/build/전체pytest 샌드박스 불가→Codex/Windows. ★★중복 허용엔 `drop index profiles_phone_verified_unique`(088) Human SQL 필수(미적용시 조용히 실패). phone_guard/test_phone_guard 보존(미사용). Signup/PhoneVerify/auth-context 무변경. 마운트 git 미실행. → Codex 검증·커밋·푸시 + Human SQL.
+
+- 2026-06-22 `BOHUMFIT-094` - Cowork - 처방 PDF 오분류 보정. 핵심 보정은 이미 BOHUMFIT-002(_detect_ftype_by_page_text + _resolve_ftype·13 테스트). 잔여 갭(헤더+표제어 동시 OCR누락)에 pdf_parser `_detect_ftype_by_page_text` 말미 '투약일수' 본문 신호 1줄 추가(처방 전용 컬럼·기본/세부엔 없음·NHIS 별도분기), test_pdf_parser 회귀 4종 추가. pytest test_pdf_parser **17 passed**(13+4). 헤더 분류·타 파이프라인·프런트 무변경. ⚠전체 pytest 샌드박스 truncation→Codex/Windows. 마운트 git 미실행. → Codex 전체 pytest·커밋·푸시.
+
 - 2026-06-22 `BOHUMFIT-095+096` - Codex - backend 전체 pytest 409 passed/8 skipped. 095는 윤년 컷오프 회귀 테스트만 커밋(`85dc30c`), 프로덕션 코드 무변경. 096은 requirements.txt 13개 직접 의존성 전부 `==` 고정 확인, requirements 무변경·태스크 기록만 커밋 예정.
 
 - 2026-06-21 `BOHUMFIT-095` - Cowork - 윤년 컷오프: 진단상 이미 BOHUMFIT-004(_subtract_years 달력기준)로 5y/10y 적용 완료, 프로덕션에 3650 없음·1825는 의도적 투약창(032). helpers.py·filters.py **무변경**, test_date_boundary.py에 _cutoffs 레벨 윤년 회귀 4종 보강. pytest: date_boundary+leap 15 passed·med 클러스터 37 passed. ⚠전체 pytest는 마운트 truncation 수집실패→Codex/Windows. → Codex 커밋(test+task).

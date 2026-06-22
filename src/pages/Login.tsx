@@ -21,7 +21,13 @@ export default function Login() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) {
-      setError(error.message);
+      // BOHUMFIT-097(버그3): 이메일 미확인 계정은 세션이 없어 가입화면 재유입 루프로 오인됨.
+      //   'Email not confirmed' 를 감지해 재가입 대신 메일 링크 클릭을 안내한다(루프 차단).
+      if (/email not confirmed|email_not_confirmed|not confirmed/i.test(error.message)) {
+        setError("이메일 인증이 아직 완료되지 않았습니다. 받은 메일의 인증 링크를 먼저 눌러 주세요. (회원가입을 다시 하실 필요는 없습니다)");
+      } else {
+        setError(error.message);
+      }
     } else {
       navigate("/");
     }

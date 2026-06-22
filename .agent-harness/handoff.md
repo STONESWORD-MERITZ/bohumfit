@@ -16,6 +16,77 @@
 
 # Handoff
 
+## 2026-06-22 Codex BOHUMFIT-097 [인증 루프·로그인 리다이렉트·폰인증 완화 검증]
+### Changed
+- `src/App.tsx`: 로그인 상태 `/login`·`/signup` 접근 시 `/disclosure?mode=agent`로 보내는 `RedirectIfAuthed` 가드 확인.
+- `src/pages/Login.tsx`: Supabase `Email not confirmed` 계열 오류를 한국어 안내로 치환하는 분기 확인.
+- `backend/main.py`: `/auth/verify-phone`에서 088 번호 중복 409 hard-block·role 조회·`phone_guard` import 제거, `profiles.upsert(..., on_conflict="id")`만 수행 확인.
+- `.agent-harness/tasks/BOHUMFIT-097-auth-phone-loop-fix.md`: 095 ID 충돌로 097 재번호된 태스크 문서 포함.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files passed, 53 tests passed.
+- [x] `npm run build` -> pass, 기존 Vite chunk size warning만 출력.
+- [x] `cd backend && python -m pytest -q` -> 412 passed, 8 skipped. (워킹트리의 094 미커밋 test_pdf_parser 보강분 포함 수치)
+- [x] Browser local smoke: `http://127.0.0.1:5173/login` 정상 렌더, 비로그인 `/signup`은 가입 화면 유지, 비로그인 `/disclosure?mode=agent`는 `/login`으로 리다이렉트 확인.
+- [ ] Browser logged-in smoke: 로컬 in-app browser에 로그인 세션·테스트 계정·유효 JWT가 없어 “로그인 상태 무료로 시작하기 -> /disclosure”, 이메일 미확인 실계정 안내, `/auth/verify-phone` 실제 갱신 E2E는 미실행.
+### Notes
+- Human SQL 대기 중: 로컬 환경에는 `DATABASE_URL`/`SUPABASE_DB_URL`/`SUPABASE_SERVICE_ROLE_KEY`가 없고 `.env`에도 anon URL/key만 있어 `profiles_phone_verified_unique` 인덱스 제거 여부를 직접 확인할 수 없었음. Supabase SQL Editor에서 아래 SQL 실행 필요.
+  ```sql
+  drop index if exists public.profiles_phone_verified_unique;
+  ```
+- 미실행 시 동일 번호 두 번째 인증은 DB unique 위반으로 upsert가 실패할 수 있고, 백엔드는 예외를 경고 로그만 남긴 뒤 200을 반환하므로 phone_verified 미반영 상태가 될 수 있음.
+- `backend/pipeline/pdf_parser.py`, `backend/tests/test_pdf_parser.py`, `.agent-harness/tasks/BOHUMFIT-094-prescription-pdf-fix.md` 등 094 잔여 변경은 097 범위 밖이라 stage 금지/보존.
+- `backend/__pycache__/main.cpython-312.pyc`는 생성물 dirty로 남아 있으나 stage 금지.
+- OTP/PASS/SMS 실인증 흐름은 현재 코드에 없고, 097은 번호 입력 후 `/auth/verify-phone` upsert 수준의 스펙 완화임.
+### Next
+- Human: Supabase SQL Editor에서 `drop index if exists public.profiles_phone_verified_unique;` 실행 여부 확인.
+- Human: 배포 후 로그인 상태 무료 시작, 이메일 미확인 계정 안내, 번호 입력 인증 게이트 통과를 실계정으로 E2E 확인.
+
+## 2026-06-22 Cowork BOHUMFIT-097 [인증·가입 버그 3건 + 폰인증 스펙 완화·Codex 검증 대기] (요청 파일명 095 — 충돌로 097 재번호)
+### ⚠️ ID 충돌
+- 요청은 `BOHUMFIT-095-auth-phone-loop-fix.md`였으나 **095는 윤년 컷오프(commit 85dc30c)에 이미 사용** → **097**로 재번호(태스크 파일·코드 태그·커밋 모두 097 권장).
+### Changed
+- `src/App.tsx` (버그2): `RedirectIfAuthed` 가드 추가 → 로그인 상태로 `/login`·`/signup` 접근 시 `/disclosure?mode=agent`로 리다이렉트. `useAuth`·`ReactNode` import 추가. (Home "무료로 시작하기"→/signup 이어도 로그인 상태면 분석화면으로.)
+- `src/pages/Login.tsx` (버그3): `signInWithPassword` 에러가 'Email not confirmed' 계열이면 "이메일 인증 링크 먼저 클릭(재가입 불필요)" 한국어 안내로 치환. (원 범위 미명시였으나 버그3 수정 지점 — lock 포함)
+- `backend/main.py` (버그1+스펙): `/auth/verify-phone`에서 **088 번호 중복 hard-block(409)·role 조회 제거** → 번호 소유 확인 수준 upsert만 수행. `from phone_guard import is_phone_duplicate_blocked` 제거(미사용).
+### Verified
+- [x] 백엔드 `pytest tests/test_phone_guard.py` → 4 passed(헬퍼 모듈 무변경·여전히 유효). 엔드포인트 409를 단언하는 테스트는 없음(제거 안전).
+- [x] main.py verify_phone 편집 Read 검증(원본): upsert만·409/role/import 제거 정합.
+- [x] 정적 자기검토: App.tsx(useAuth 경로 ./lib/auth-context·Navigate 기존 import·ReactNode 타입·라우트 2곳 래핑), Login.tsx(정규식 분기) 정합. 분기 트레이싱 — 세션 있음→/disclosure / 세션 없음(이메일 미확인 포함)→로그인 폼 유지 / 로그인 성공→"/".
+- [ ] `npx tsc -p tsconfig.app.json --noEmit` / `npm run build` — ★샌드박스 불가(마운트 truncation·rolldown). Codex/Windows.
+- [ ] 전체 backend `pytest -q` — ★main.py 임포트 truncation 수집 실패 → Codex/Windows.
+### Notes
+- ★★ **Human Supabase SQL 필수(스펙 완전 작동 조건)**: 088 부분 UNIQUE 인덱스를 제거해야 중복 번호 upsert가 성공한다. 미적용 시 동일 번호 2번째 인증이 DB unique 위반→예외(엔드포인트는 200 반환하나 phone_verified 미반영)→게이트 잔류. 
+  ```sql
+  drop index if exists public.profiles_phone_verified_unique;
+  ```
+  → 본 백엔드 변경과 **함께 배포/적용**해야 함.
+- **OTP 흐름 미존재**(태스크 가설과 다름): `/api/phone-request`·OTP 입력창·`phone_verifications` 테이블 없음. 폰 인증은 `/auth/verify-phone` 1개(번호→phone_verified=true)뿐, Signup.tsx 폰 인증은 순수 클라 스텁. 따라서 "OTP 입력창 항상 노출"은 해당 없음 — 단일 번호 입력창은 이미 항상 노출되며 409 제거로 진행 가능. 실제 통신사 PASS/OTP(SMS) 연동은 인프라 필요한 별도 태스크.
+- `backend/phone_guard.py`·`test_phone_guard.py`(088)는 엔드포인트에서 미사용이 됐으나 모듈·테스트는 보존(087 CI 기반 재사용 여지). 삭제는 별도 결정.
+- `src/pages/Signup.tsx`·`PhoneVerify.tsx`·`src/lib/auth-context.ts`: 검토했으나 무변경. PhoneVerify의 409 처리 분기는 이제 도달 불가(무해)라 그대로 둠.
+- 어뷰징 트레이드오프: 중복 번호 허용은 1인1계정 약화 — 진짜 방어는 087(CI 기반)에서. 사용자 스펙 결정에 따라 적용함.
+### Next
+- Codex: tsc·lint·build·전체 pytest → 통과 시 stage `src/App.tsx`·`src/pages/Login.tsx`·`backend/main.py`·`.agent-harness/tasks/BOHUMFIT-097-auth-phone-loop-fix.md` → commit(`BOHUMFIT-097: 인증·가입 버그 3건 + 폰인증 번호중복 완화`)·push.
+- Human: ★ 위 `drop index` SQL을 백엔드 배포와 함께 Supabase에서 실행. (미실행 시 중복 번호 인증이 조용히 실패)
+
+## 2026-06-22 Cowork BOHUMFIT-094 [처방 PDF 오분류 보정 — 핵심은 002 기존, 잔여 갭 최소 보강·Codex 검증 대기]
+### Changed
+- `backend/pipeline/pdf_parser.py`: `_detect_ftype_by_page_text`에 처방조제 표 전용 컬럼어 **'투약일수'** 본문 신호를 최후순위로 추가. 섹션 표제어(기본진료정보/세부진료정보/처방조제)가 OCR 누락된 처방 페이지도 pharma로 분류. 표제어가 있으면 표제어 우선(기존 순서 보존).
+- `backend/tests/test_pdf_parser.py`: 회귀 4종 추가 — 투약일수 본문→pharma(공백 끊김 허용), 표제어 우선(세부/기본이 투약일수보다 우선), unknown 헤더+투약일수 본문→`_resolve_ftype` pharma 보정.
+### Verified (진단 + 자기검토)
+- 진단: 본 증상(헤더 OCR 누락→처방 오분류)의 **핵심 보정은 이미 BOHUMFIT-002에 구현·테스트됨**. `_detect_ftype_by_page_text`(섹션 표제어, 공백 무시) + `_resolve_ftype`(강헤더 신뢰·단 본문=pharma면 detail/basic 강헤더도 pharma 보정 / 약·unknown 헤더→본문 신호 우선). test_pdf_parser.py에 13개 회귀 존재(약헤더→pharma, unknown→본문, 강헤더 pharma 우선, 합본 뒤쪽 처방페이지 등).
+- 잔여 갭: **표 헤더 + 섹션 표제어 둘 다 OCR 누락**된 처방 페이지 → 이번에 '투약일수' 본문 신호로 보강.
+- 자기검토: 기존 헤더 분류(`_strong_header_ftype`/`detect_file_type`/`_resolve_ftype`) **무손상**(추가는 본문 감지 함수 말미 1줄). 섹션 표제어 우선순위 보존. 헤더 누락 케이스 테스트 포함.
+- `pytest tests/test_pdf_parser.py` → **17 passed**(기존 13 + 신규 4). ⚠전체 pytest는 샌드박스 마운트 truncation으로 수집 실패(main 임포트·일부 파일 truncate) → Codex/Windows 권위(기준선 405).
+### Notes
+- 처방 PDF 고유 신호로 **'투약일수'만** 추가(심평원 처방조제 표 전용 컬럼·기본/세부엔 없음·공단 NHIS는 is_nhis 별도 분기라 무영향). 더 넓은 키워드(처방전/조제/의약품 단독)는 세부·기본 본문·상병명에 출현 가능 → false positive 위험으로 **제외**. 실 PDF로 추가 실패 패턴이 확인되면 그때 키워드 검증 후 확장 권장.
+- fallback 위치: `_detect_ftype_by_page_text`(pdf_parser.py) 말미. 우선순위: 강헤더 > (본문 pharma는 detail/basic 강헤더 역전) > 약/unknown 헤더 시 본문 신호 > 컬럼 휴리스틱.
+- 다른 파이프라인·프런트·헤더 분류 무변경. 마운트 git 미실행.
+### Next
+- Codex: `cd backend && python -m pytest -q` 전체 실행(기준선 405 + test_pdf_parser 신규 4) → 통과 시 stage `backend/pipeline/pdf_parser.py`·`backend/tests/test_pdf_parser.py`·`.agent-harness/tasks/BOHUMFIT-094-prescription-pdf-fix.md` → commit(`BOHUMFIT-094: 처방 PDF 오분류 보정(투약일수 본문 신호)`)·push origin main.
+
 ## 2026-06-22 Codex BOHUMFIT-095 [윤년 컷오프 회귀 테스트 검증·커밋]
 ### Changed
 - `backend/tests/test_date_boundary.py`: `_cutoffs` 레벨 윤년 회귀 테스트 4종 추가 확인 및 커밋.

@@ -1,10 +1,12 @@
 /* eslint-disable react-refresh/only-export-components */
 import { useEffect } from "react";
+import type { ReactNode } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import * as Sentry from "@sentry/react";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { PhoneGate } from "./lib/usePhoneGate";
+import { useAuth } from "./lib/auth-context";
 import Home from "./pages/Home";
 import DisclosureHub from "./pages/DisclosureHub";
 import InsuranceCalculator from "./pages/InsuranceCalculator";
@@ -41,6 +43,20 @@ function FallbackUI() {
   );
 }
 
+// BOHUMFIT-097: 이미 로그인한 사용자가 /login·/signup 에 오면 가입화면으로 튕기지 않고
+//   분석 화면으로 보낸다(버그2: 로그인 상태 "무료로 시작하기" → 회원가입 이동 방지).
+//   이메일 미확인 계정은 세션이 없어(user=null) 가드에 걸리지 않으므로 로그인 시도가 가능하다(버그3 무충돌).
+function RedirectIfAuthed({ children }: { children: ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-sm text-gray-400">로딩 중...</div>
+    );
+  }
+  if (user) return <Navigate to="/disclosure?mode=agent" replace />;
+  return <>{children}</>;
+}
+
 function BeforeAfterComingSoon() {
   return (
     <section className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
@@ -69,8 +85,8 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
+        <Route path="/login" element={<RedirectIfAuthed><Login /></RedirectIfAuthed>} />
+        <Route path="/signup" element={<RedirectIfAuthed><Signup /></RedirectIfAuthed>} />
         {/* BOHUMFIT-075: 소셜/이메일 공통 휴대폰 본인인증 게이트(로그인 필요·전체화면) */}
         <Route path="/phone-verify" element={<ProtectedRoute><PhoneVerify /></ProtectedRoute>} />
         <Route element={<Layout />}>
