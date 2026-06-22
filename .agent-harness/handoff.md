@@ -16,6 +16,16 @@
 
 # Handoff
 
+## 2026-06-22 Codex BOHUMFIT-068 [subscription schema 마이그레이션 파일 커밋]
+### Changed
+- `supabase/migrations/20260620000000_subscription_schema.sql`: subscriptions/usage_logs schema migration 파일 커밋. profiles.role은 SSO 정합에 맞춰 `user_role` enum 및 `customer` 기본값 보강 포함.
+### Verified
+- [x] 파일 커밋만, 별도 검증 불필요.
+### Notes
+- PII/PDF/brand/unrelated untracked 파일 및 `backend/__pycache__/main.cpython-312.pyc`는 stage하지 않음.
+### Next
+- Human.
+
 ## 2026-06-22 Codex BOHUMFIT-098 [SSO 통합 role/profiles 영향 점검]
 ### Changed
 - `backend/tests/test_usage_middleware.py`: non-internal 고객 role fixture를 `"user"`에서 `"customer"`로 정렬.
