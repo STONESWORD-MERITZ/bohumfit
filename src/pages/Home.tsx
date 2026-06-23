@@ -158,6 +158,13 @@ export default function Home() {
             >
               기능 둘러보기
             </a>
+            {/* BOHUMFIT-112: 비로그인 리포트 샘플 미리보기 진입 */}
+            <Link
+              to="/disclosure/sample"
+              className="button-text rounded-btn border border-ink-700 bg-transparent px-6 py-3.5 text-sm font-semibold text-ink-100 transition hover:bg-ink-800"
+            >
+              리포트 샘플 미리보기
+            </Link>
           </div>
           <p className="ko-text mt-5 text-caption text-ink-400">
             가입 후 5회 무료 체험 · 신용카드 불필요
