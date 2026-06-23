@@ -16,6 +16,24 @@
 
 # Handoff
 
+## 2026-06-23 Codex BOHUMFIT-107 [Q2 추가검사·재검사 가능성 표시·소견 확인 안내 개선]
+### Changed
+- `src/pages/Disclosure.tsx`: Q1/Q2 임상 확인 배지를 기존 `추가검사·재검사 의심/확인 필요`에서 `가능성 높음`, `가능성 낮음`, `가능성 미확인`으로 구분 표시하도록 정리. `q2_suspicion`의 `[추가검사·재검사 가능성 높음/낮음]` 접두어를 해석해 화면 문구를 `자동 분석: 가능성 ...` 형태로 정돈.
+- `src/pages/Disclosure.tsx`: 자동 근거가 없는 항목은 "실제 검사를 받았는지"가 아니라 "의사가 추가검사·재검사를 권유했거나 필요하다는 소견을 냈는지" 고객에게 확인하라는 안내를 명시.
+- `.agent-harness/tasks/BOHUMFIT-107-q2-clinical-review-likelihood.md`: 단독 태스크 파일 신규 작성.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files passed, 53 tests passed.
+- [x] `npm run build` -> pass, 기존 Vite chunk-size warning만 출력.
+### Notes
+- 백엔드 판정 로직, AI 호출 조건, 분석 결과 구조는 변경하지 않음. 기존 `q2_suspicion`/`additional_test_reason` 표시만 사용자 친화적으로 재가공.
+- `가능성 낮음`은 낮은 강조(회색 계열)로 표시하고, `가능성 높음`만 강조색으로 표시해 위험도 체감이 섞이지 않게 정리.
+- unrelated `backend/__pycache__/main.cpython-312.pyc`, PII/PDF, brand/guide, 과거 untracked task 파일은 stage 제외.
+### Next
+- Human: 실제 브라우저에서 Q2 카드의 `가능성 높음/낮음/미확인` 배지와 소견 확인 안내 문구 최종 확인.
+
 ## 2026-06-23 Codex BOHUMFIT-106 [이학요법·물리치료 수술 오분류 전수보정 검증]
 ### Changed
 - `backend/pipeline/surgery_exclusions.py`: 이학요법/물리치료 계열 비수술 행위 키워드 추가와 함께 `is_non_surgery_excluded()`가 동일 파일의 `is_non_surgery_action()` 판정도 공유하도록 보정. 이로써 detail 경로뿐 아니라 basic `_is_surgery_match()` 경로에서도 `한냉치료(냉동치료)`, `재활저출력레이저치료` 등이 수술로 잡히지 않음.

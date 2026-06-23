@@ -270,6 +270,49 @@ function shouldShowClinicalReview(qNum: string, isEasy: boolean) {
   return qNum === "Q1" || qNum === "Q2";
 }
 
+type ClinicalReviewState = {
+  label: string;
+  tone: string;
+  text: string;
+};
+
+function stripClinicalLikelihoodPrefix(text: string): string {
+  return text.replace(/^\[추가검사·재검사 가능성 (높음|낮음)\]\s*/, "").trim();
+}
+
+function getClinicalReviewState(item: SummaryItem): ClinicalReviewState {
+  const rawText = (item.q2_suspicion || item.additional_test_reason || "").trim();
+  const cleanText = stripClinicalLikelihoodPrefix(rawText);
+  const isLow = rawText.includes("가능성 낮음") || (!item.additional_test_hit && !!item.additional_test_reason);
+  const isHigh = Boolean(item.additional_test_hit) || rawText.includes("가능성 높음") || (!!item.q2_suspicion && !isLow);
+
+  if (isHigh) {
+    return {
+      label: "추가검사·재검사 가능성 높음",
+      tone: "indigo",
+      text: cleanText
+        ? `자동 분석: 가능성 높음 - ${cleanText}`
+        : "자동 분석상 추가검사·재검사 필요 소견 가능성이 높습니다.",
+    };
+  }
+
+  if (isLow) {
+    return {
+      label: "추가검사·재검사 가능성 낮음",
+      tone: "gray-light",
+      text: cleanText
+        ? `자동 분석: 가능성 낮음 - ${cleanText}`
+        : "자동 분석상 추가검사·재검사 필요 소견 가능성은 낮습니다.",
+    };
+  }
+
+  return {
+    label: "추가검사·재검사 가능성 미확인",
+    tone: "gray-light",
+    text: "자동 분석으로는 가능성 판단이 충분하지 않습니다. 실제 검사를 받지 않았더라도 의사가 추가검사·재검사를 권유했거나 필요하다는 소견을 냈는지 고객에게 확인해 주세요.",
+  };
+}
+
 function AllDiseaseSection({ diseases }: { diseases: DiseaseSummary[] }) {
   const [open, setOpen] = useState(false);
 
@@ -370,10 +413,7 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
     : { Q1: "3개월 이내", Q2: "1년 이내", Q3: "5년 이내", Q4: "5년 초과 10년 이내", Q5: "5년 이내" };
   const windowLabel = windowLabels[qNum] || "";
   const windowTip = windowLabel ? `가입예정일 기준 ${windowLabel} 집계입니다.` : undefined;
-  const clinicalReviewText = item.q2_suspicion || item.additional_test_reason || "";
-  const clinicalReviewLabel = item.additional_test_hit || item.q2_suspicion
-    ? "추가검사·재검사 의심"
-    : "추가검사·재검사 확인 필요";
+  const clinicalReview = getClinicalReviewState(item);
   const hasClinicalChips = showClinicalReview;
   const hasBottom = showClinicalReview;
 
@@ -456,7 +496,7 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
         <div className="flex flex-wrap gap-2">
           {procN > 0 && <Chip label={`시술 ${procN}건`} tone="orange" />}
           {suspN > 0 && <Chip label={`수술 의심 ${suspN}건`} tone="gray-light" />}
-          <Chip label={clinicalReviewLabel} tone={item.additional_test_hit || item.q2_suspicion ? "indigo" : "gray-light"} />
+          <Chip label={clinicalReview.label} tone={clinicalReview.tone} />
           {item.treatment_ongoing === true && <Chip label="치료 중" tone="rose" />}
           {item.treatment_ongoing === false && <Chip label="종결" tone="emerald" />}
         </div>
@@ -470,15 +510,15 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
               {item.surgery_suspected!.slice(0, 3).join(", ")}
             </p>
           )}
-          <p className={clinicalReviewText ? "text-accent-600" : "text-gray-500"}>
-            <span className={clinicalReviewText ? "mr-1.5 text-accent-300" : "mr-1.5 text-gray-400"}>
-              추가검사·재검사
+          <p className={clinicalReview.tone === "indigo" ? "text-accent-600" : "text-gray-500"}>
+            <span className={clinicalReview.tone === "indigo" ? "mr-1.5 text-accent-300" : "mr-1.5 text-gray-400"}>
+              소견 확인
             </span>
-            {clinicalReviewText || "자동 의심 소견 없음 - 원자료 기준 추가검사·재검사 여부 확인"}
+            {clinicalReview.text}
           </p>
-          {item.q2_suspicion && (
-            <p className="text-[11px] text-gray-400">※ AI 임상 참고 판단(가능성 추정)이며 확정이 아닙니다. 실제 추가검사·재검사 여부는 고객님 확인이 필요합니다.</p>
-          )}
+          <p className="text-[11px] text-gray-400">
+            ※ 실제 검사 시행 여부와 별개로, 의사의 추가검사·재검사 필요 소견 또는 권유가 있었는지 확인하는 항목입니다.
+          </p>
           {item.treatment_ongoing === true && item.treatment_ongoing_reason && (
             <p className="text-rose-600">
               <span className="mr-1.5 text-rose-300">치료 중</span>

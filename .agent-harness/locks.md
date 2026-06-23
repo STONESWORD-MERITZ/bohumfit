@@ -15,6 +15,7 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-23 `BOHUMFIT-107` - Codex - Q2 추가검사·재검사 확인 안내를 `가능성 높음/낮음/미확인` 배지와 의사 소견·권유 확인 문구로 개선. Windows 검증(tsc app/node, lint, npm test 53, build) 통과 후 커밋·푸시 예정.
 - 2026-06-23 `BOHUMFIT-105` - Cowork - 분석 결과 화면 AI 타임아웃 안내 문구 제거. Disclosure.tsx warnings 렌더에 `.filter(!w.includes("AI 보조 판단"))` — 해당 계열 안내만 미표시, 타 경고 유지, 빈 공간 없음. 백엔드 무변경(원천 analyzer.py retry_warnings 유지). tsc/build 샌드박스 불가→Codex/Windows. git 미실행. → Codex 커밋·푸시.
 - 2026-06-23 `BOHUMFIT-106` - Cowork - 수술 탐지 전수조사·이학요법 오분류 보정. surgery_exclusions `_NON_SURGERY_ACTION_KEYWORDS`에 이학요법 계열+기타 처치 21개 추가(이학요법 카테고리 포괄 1개로 단일-레버 해결, 부집계 변경 없음). 회귀 3종. 검증: /tmp 로직 재구성 이학요법18 비수술·진짜수술9 유지 ALL OK + 영향권 스윕 61/6skip. ⚠샌드박스 마운트 stale(surgery_exclusions 53줄/test 41줄 구버전 제공)으로 in-place pytest 신규 미수집 — 편집물은 Read로 실파일 확인, 권위 pytest는 Codex/Windows. 진짜 수술 누락 0(강수술 override). git 미실행. → Codex 검증·커밋·푸시.
 - 2026-06-23 `BOHUMFIT-101` - Cowork - 상단 여백(진단:이미 통일·무변경) + 구독 카드 버튼 밸런스·오픈이벤트 기간 명시. Subscription.tsx: 베이직·프로 카드 flex-col+버튼 mt-auto 하단고정, 오픈이벤트 배지 "첫 3개월"→"~2026년 9월 30일"+캡션 "2026년 9월 30일까지 적용". 상단 여백은 Layout `<main py-8>`(pt-8 32px)로 전 페이지 이미 통일(히어로 Home/WhyDisclosure 예외)·page-level top override 없음 확인 → 코드 무변경(회귀 위험 회피). 가격·플랜·결제 무변경. ⚠tsc/build 샌드박스 불가→Codex/Windows·육안 Human. Active 락 누락(작업 중 추가 못함, locks 비어있어 충돌 없음). → Codex 커밋·푸시.
