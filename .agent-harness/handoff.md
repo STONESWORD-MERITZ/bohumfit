@@ -16,6 +16,23 @@
 
 # Handoff
 
+## 2026-06-23 Codex BOHUMFIT-104 [부목·캐스트 수술 오분류 수정 검증]
+### Changed
+- `backend/pipeline/surgery_exclusions.py`: 부목/캐스트/깁스/스플린트/STARFIX 계열 비수술 처치 키워드 추가.
+- `backend/tests/test_surgery_exclusions.py`: 부목·캐스트 수술 오분류 회귀 테스트 추가.
+- `.agent-harness/tasks/BOHUMFIT-104-surgery-cast-misclassification.md`, `.agent-harness/handoff.md`: 104 검증/태스크 기록.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files passed, 53 tests passed.
+- [x] `npm run build` -> pass, 기존 Vite chunk size warning만 출력.
+- [x] `cd backend && python -m pytest -q` -> 415 passed, 8 skipped.
+### Notes
+- 실패 항목 없음. 실제 PDF 재분석 확인은 Human 작업으로 남음.
+### Next
+- Human: 부목·캐스트 오분류 수정 확인(실제 PDF 재분석).
+
 ## 2026-06-23 Codex BOHUMFIT-103 [카카오 로그아웃 세션 만료 + 30분 비활성 자동 로그아웃 검증]
 ### Changed
 - `src/lib/AuthContext.tsx`: 카카오 사용자 로그아웃 시 Supabase signOut 이후 카카오 logout URL로 이동, 30분 비활성 자동 로그아웃 처리 반영.
