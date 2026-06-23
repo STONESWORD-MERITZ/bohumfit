@@ -15,6 +15,11 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-22 `BOHUMFIT-103` - Cowork - 카카오 로그아웃 세션 만료 + 30분 비활성 타임아웃 구현. AuthContext.tsx(provider==kakao만 카카오 logout redirect·30분 유휴 자동 signOut)·vite-env.d.ts(VITE_KAKAO_REST_API_KEY/LOGOUT_REDIRECT_URI 타입). Login.tsx 무변경(앱키 하드코딩 없음·Supabase 관리). ⚠Human: 카카오 콘솔 로그아웃 Redirect URI(https://bohumfit.ai/) 등록 + Vercel env 설정 / Supabase 세션 만료값 확인(대시보드). tsc/build 샌드박스 불가→Codex/Windows. → Codex 커밋·푸시.
+- 2026-06-22 `BOHUMFIT-104` - Cowork - 부목/캐스트 수술 오분류 수정. 원인=Case B(disease_aggregator is_surg_by_column이 '처치및수술' 컬럼 비공란만으로 수술 확정). 수정: surgery_exclusions `_NON_SURGERY_ACTION_KEYWORDS`에 부목/캐스트/깁스/석고붕대/스플린트/STARFIX 추가(컬럼·키워드 양 경로가 is_non_surgery_action 공유→1곳 수정). 강수술 신호 시 진짜 정복술 유지. 회귀 3종 추가. pytest test_surgery_exclusions 24 passed + 스윕 63/6skip 무회귀. 전체 pytest→Codex/Windows. 마운트 git 미실행. → Codex 커밋·푸시.
+
+- 2026-06-22 `BOHUMFIT-102` - Cowork - 내부 60명 프로/무제한 수동 부여 조사 완료(코드 무수정). 결론: SQL로 가능(YES). 사용량 체크=backend/main.py `_enforce_subscription`(L497~, usage_logs 월 카운트·TRIAL 5·PLANS pro 100), 플랜 판단=`profiles.role`('internal'→무제한) + `subscriptions`(status='active', plan). 권장 Option A: `profiles.role='internal'` upsert(완전 무제한·폰게이트 우회), Option B: pro 구독행(월 100 상한). handoff Notes에 SQL 초안 2종·전제·확인쿼리 기록. → Human SQL 실행(이메일 확정 후).
+
 - 2026-06-22 `BOHUMFIT-099` - Cowork - 보험핏 아이콘 2단 스택(보험/FIT) 교체 구현 완료. brand/icon.svg(신규 마스터)·public/favicon.svg·public/og-image.svg(지정 SVG 그대로 교체)·라스터 재생성(public favicon.ico 16/32/48·favicon-16/32·apple-touch-icon-180·icon-192/512 + brand 동명, Pillow+Noto Sans CJK KR 폴백). 512px Read 시각 확인 OK(한글 정상). index.html·site.webmanifest 링크 변경 불필요(자산 경로 기존 정합). Logo.tsx(텍스트)·fithere-*·색상 무변경. 소스 .ts/.tsx 무변경→tsc/build 무영향. ⚠브라우저 실렌더·OG 미리보기는 Human. → Codex build 확인·자산 stage·커밋·푸시.
 
 - 2026-06-22 `BOHUMFIT-097` - Codex - Windows 검증 완료(tsc app/node, lint, npm test 53 passed, build pass, backend pytest 412 passed/8 skipped). Browser smoke는 비로그인 login/signup/disclosure redirect 확인, 로그인 세션·테스트 계정 부재로 logged-in/이메일미확인/phone_verified E2E는 Human 확인으로 이관. Human SQL(`drop index if exists public.profiles_phone_verified_unique`)은 로컬 DB/service-role 접속정보 부재로 직접 확인 불가→대기 중. 097 범위만 커밋 예정, 094 잔여 및 생성물 stage 금지.

@@ -16,6 +16,103 @@
 
 # Handoff
 
+## 2026-06-23 Codex BOHUMFIT-103 [카카오 로그아웃 세션 만료 + 30분 비활성 자동 로그아웃 검증]
+### Changed
+- `src/lib/AuthContext.tsx`: 카카오 사용자 로그아웃 시 Supabase signOut 이후 카카오 logout URL로 이동, 30분 비활성 자동 로그아웃 처리 반영.
+- `src/vite-env.d.ts`: `VITE_KAKAO_REST_API_KEY`, `VITE_KAKAO_LOGOUT_REDIRECT_URI` 타입 추가.
+- `.agent-harness/tasks/BOHUMFIT-103-kakao-session-timeout.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md`: 103 검증/태스크 기록.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files passed, 53 tests passed.
+- [x] `npm run build` -> pass, 기존 Vite chunk size warning만 출력.
+- [x] `cd backend && python -m pytest -q` -> 415 passed, 8 skipped.
+### Notes
+- 실패 항목 없음. 카카오 콘솔/환경변수 설정은 Human 작업으로 남음.
+### Next
+- Human: 카카오 콘솔(1446961) -> 로그아웃 Redirect URI 추가 `https://bohumfit.ai/`.
+- Human: Vercel 환경변수 추가 `VITE_KAKAO_REST_API_KEY`, `VITE_KAKAO_LOGOUT_REDIRECT_URI`.
+- Human: 브라우저 E2E 카카오 로그인 -> 로그아웃 -> 재로그인 자동로그인 없는지 확인.
+
+## 2026-06-22 Cowork BOHUMFIT-103 + BOHUMFIT-104 [카카오 로그아웃 세션 만료 + 부목/캐스트 수술 오분류 수정·Codex 검증 대기]
+### Changed
+- (103) `src/lib/AuthContext.tsx`: `signOut`에서 **카카오 로그인 사용자만** Supabase signOut 후 `https://kauth.kakao.com/oauth/logout?client_id={REST키}&logout_redirect_uri={URI}`로 이동(카카오 브라우저 세션 만료 → 재로그인 자동로그인 방지). 이메일·구글은 리다이렉트 없음. + **30분 비활성 자동 로그아웃**(메모리 타이머, 활동 이벤트 리셋, 유휴 만료 시 앱 세션만 종료).
+- (103) `src/vite-env.d.ts`: `VITE_KAKAO_REST_API_KEY?`·`VITE_KAKAO_LOGOUT_REDIRECT_URI?` 타입 추가. (카카오 앱키는 기존 코드에 하드코딩 없음 — Supabase가 OAuth 로그인 키 관리 → Login.tsx 변경 불필요.)
+- (104) `backend/pipeline/surgery_exclusions.py`: `_NON_SURGERY_ACTION_KEYWORDS`에 `부목/캐스트/깁스/석고붕대/스플린트/STARFIX` 추가.
+- (104) `backend/tests/test_surgery_exclusions.py`: 회귀 3종(부목/캐스트/STARFIX 비수술, 진짜 정복술 유지, 캐스트 카테고리 detail 미집계).
+### Verified
+- [x] (104) `pytest tests/test_surgery_exclusions.py` → **24 passed**(신규 3 포함). 광범위 스윕(filters·q2/q3·nhis·bug012 등) **63 passed/6 skipped** — 회귀 없음.
+- [x] (103) 정적 자기검토: AuthContext.tsx 타입·분기(provider==kakao만 리다이렉트, env 키 없으면 생략, 30분 타이머 cleanup) 정합. vite-env 타입 추가.
+- [ ] `npx tsc -p tsconfig.app.json --noEmit`/`npm run build` — ★샌드박스 불가(마운트 truncation·rolldown). Codex/Windows.
+- [ ] 전체 `pytest -q` — main 임포트 truncation으로 샌드박스 수집 실패 → Codex/Windows.
+### Notes
+**103:**
+- ★ **카카오 개발자 콘솔 설정(Human)**: 로그아웃 Redirect URI에 `https://bohumfit.ai/` 등록 필요(카카오 로그인 앱 설정 > 카카오 로그인 > Redirect URI / 로그아웃 리다이렉트).
+- ★ **환경변수 설정(Human, Vercel)**: `VITE_KAKAO_REST_API_KEY`=카카오 앱 REST API 키, `VITE_KAKAO_LOGOUT_REDIRECT_URI`=`https://bohumfit.ai/`(미설정 시 기본값 사용). 키 미설정 시 카카오 세션 만료 단계는 생략되고 앱 세션만 종료(안전).
+- **Supabase 세션 만료 시간**: 코드 아님(대시보드 설정). 정확한 현재 값은 **Supabase Dashboard > Authentication > Sessions/JWT expiry**에서 Human 확인 필요(코드에서 조회 불가). 기본 access token 1h + refresh 회전. 비목표(변경 안 함).
+- 30분 비활성 자동 로그아웃은 구현 완료(설계만 남기지 않음). 분석 결과 화면의 "이전 결과 잔존"은 Disclosure.tsx 영역(범위 밖)이라 미변경 — 필요 시 별도 태스크.
+**104:**
+- 원인 = **Case B(카테고리 컬럼 확정)**. `disease_aggregator.py` L366~369 `is_surg_by_column`이 '처치및수술' 컬럼이 비공란('캐스트')이고 `_non_surg_action`(=`is_non_surgery_action`)이 False면 수술 확정. 부목/캐스트가 비수술 키워드에 없어 오분류됨. 키워드 경로(`_is_detail_surgery_match`)도 동일하게 `is_non_surgery_action`을 호출하므로 **키워드 1곳(`_NON_SURGERY_ACTION_KEYWORDS`) 추가로 컬럼 경로(B)+이름 경로(A) 동시 해결**.
+- 안전: 강수술 신호(정복·관혈·고정술·절제 등)가 있으면 `is_non_surgery_action`이 False → 진짜 정복술/고정술은 그대로 수술 유지(테스트로 확인). 부목/캐스트는 immobilization 처치 전용어라 false-positive 위험 낮음.
+- 마운트 git 미실행. 전체 tsc/build/pytest 권위 검증은 Codex/Windows.
+### Next
+- Codex: tsc(app)·build·전체 pytest → 통과 시 103(AuthContext.tsx·vite-env.d.ts·task) / 104(surgery_exclusions.py·test_surgery_exclusions.py·task) 각각 stage·commit(`BOHUMFIT-103: 카카오 로그아웃 세션 만료 + 30분 비활성 타임아웃`, `BOHUMFIT-104: 부목/캐스트 수술 오분류 수정`)·push.
+- Human: 카카오 콘솔 로그아웃 Redirect URI 등록 + Vercel 카카오 env 설정 / Supabase 세션 만료값 확인.
+
+## 2026-06-22 Cowork BOHUMFIT-102 [내부 60명 프로/무제한 수동 부여 조사 — 코드 무수정·SQL로 가능]
+### Changed
+- `.agent-harness/tasks/BOHUMFIT-102-internal-plan-check.md` (신규)만. **코드 무수정**(읽기 전용 조사).
+### Verified
+- 조사만, 검증 불필요. (tsc/build 미실행)
+### Notes (조사 결과)
+**1) 사용량 체크·플랜 판단 위치 — Supabase 쿼리 기반(백엔드 서비스롤). 프론트는 표시 전용.**
+- `backend/main.py` `_enforce_subscription(user_id)` (L497~544) — `/api/analyze`가 분석 전 호출. 분기:
+  - `profiles.role == 'internal'` → **무제한**(is_internal=True, 카운트·로그 skip). (L516~521)
+  - 활성 구독(`subscriptions` status='active') 있으면 → `PLANS[plan].limit` 한도, `usage_logs` 카운트 ≥ limit이면 **429**. (L524~534) — 카운트 창 = 구독행의 `current_period_start ~ current_period_end`.
+  - 둘 다 아니면(미구독) → 이번 달(`_month_bounds`) `usage_logs` 카운트 ≥ `TRIAL_LIMIT(5)`이면 **402**. (L535~542) → "무료 5회"는 **usage_logs 월 카운트**(백엔드 카운터/프론트 아님).
+- `_log_usage` (L547~565): 분석 성공 후 `usage_logs` 1건 insert. internal·게이트 비활성 시 skip.
+- `PLANS` (L460~463): trial 5 / basic 30 / **pro 100** (월 한도). `TRIAL_LIMIT=5`.
+- `/billing/status` (L692~): 표시용. `is_internal`·plan·used/limit·trial_used 반환. 프론트 `src/pages/Subscription.tsx`는 `/billing/status`만 fetch해 렌더(`status?.is_internal` 분기 L185) — **독자 판단 없음**. 즉 플랜 판단의 권위 소스 = 백엔드(`profiles.role` + `subscriptions`).
+**2) subscriptions 스키마 (`supabase/migrations/20260620000000_subscription_schema.sql`)**
+- `profiles.role` enum `public.user_role('customer','internal')` NOT NULL default 'customer'.
+- `subscriptions`: id, **user_id UNIQUE** (FK auth.users), `status`('active'|'inactive'|'cancelled', default inactive), `plan`(text, default 'basic'), price_krw, current_period_start/end(timestamptz), toss_customer_key/billing_key, created_at/updated_at. RLS: 본인 SELECT만(서비스롤은 우회).
+- `usage_logs`: id, user_id, used_at, period_start, period_end.
+**3) 수동 부여 — 코드 수정 없이 Supabase SQL로 가능(YES). 60명은 email로 선택.**
+- ★ **권장: Option A (role='internal')** — 내부 조직원 전용 메커니즘. **완전 무제한**(횟수 체크·로그 자체 skip)이고 휴대폰 게이트도 우회됨. "프로(월100회)"보다 내부 직원에게 적합.
+  ```sql
+  -- A. 내부 60명 → internal 역할(무제한). profiles 행 없으면 생성까지(upsert).
+  insert into public.profiles (id, role)
+  select u.id, 'internal'::public.user_role
+  from auth.users u
+  where u.email in (
+    'staff1@bohumfit.ai', 'staff2@bohumfit.ai'  -- … 60명 이메일 나열
+  )
+  on conflict (id) do update set role = 'internal';
+  -- 확인:
+  select u.email, p.role from public.profiles p join auth.users u on u.id = p.id where p.role = 'internal';
+  ```
+- Option B (문자 그대로 '프로 플랜' 부여) — `subscriptions`에 pro 활성행. 단 **월 100회 상한**(PLANS.pro=100, 코드 고정)이라 진짜 무제한 아님 + 기간(period) 관리 필요.
+  ```sql
+  -- B. 내부 60명 → pro 구독(월 100회). 기간은 넉넉히(예: 1년) 설정.
+  insert into public.subscriptions (user_id, status, plan, price_krw, current_period_start, current_period_end)
+  select u.id, 'active', 'pro', 24900, date_trunc('month', now()), now() + interval '1 year'
+  from auth.users u
+  where u.email in ( 'staff1@bohumfit.ai' /* …60명 */ )
+  on conflict (user_id) do update
+    set status='active', plan='pro',
+        current_period_start=excluded.current_period_start,
+        current_period_end=excluded.current_period_end;
+  ```
+  ⚠ B의 사용량 카운트 창 = current_period_start~end. end를 1년으로 두면 "100회/1년"이 됨(월 리셋 아님). 월 100회로 두려면 매월 period 갱신 필요 → 운영 번거로움. → **내부 무제한이 목적이면 A 권장.**
+**주의/전제**
+- 두 SQL 모두 **대상 계정이 이미 auth.users에 존재**(가입·최초 로그인 완료)해야 매칭됨. 미가입자는 먼저 계정 생성 필요(A의 upsert도 auth.users에 있어야 함 — FK).
+- profiles에 기본값 없는 추가 NOT NULL 컬럼이 있으면 A의 INSERT가 실패할 수 있음 → 그 경우 행이 이미 있는 사용자만 `update public.profiles set role='internal' ...`(UPDATE form) 사용 권장.
+- SUPABASE_SERVICE_ROLE_KEY 미설정 환경에선 게이트 자체가 비활성(무료 동작)이라 부여 불필요 — 운영(Railway)엔 설정돼 있다고 가정.
+- 결제 로직·코드 변경 없음. 실제 SQL 실행·60명 이메일 확정은 Human.
+### Next
+- Human: 60명 이메일 확정 → 위 **Option A SQL**을 Supabase SQL 에디터에서 실행(권장). 프로 등급 표기가 꼭 필요하면 Option B. 실행 후 확인 쿼리로 검증.
+
 ## 2026-06-22 Codex BOHUMFIT-100 [헤더 로고 텍스트 변경]
 ### Changed
 - `src/components/Logo.tsx`: 인라인 `[F]` SVG 아이콘 제거, 공용 로고 표기를 `BOHUMFIT 보험핏` 텍스트로 변경.
