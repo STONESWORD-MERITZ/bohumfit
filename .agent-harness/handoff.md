@@ -16,6 +16,26 @@
 
 # Handoff
 
+## 2026-06-24 Codex BOHUMFIT-118 [보장분석서 가이드 이미지 모자이크 원복]
+### Changed
+- `public/images/coverage-guide/`: 117에서 적용한 전체 모자이크/예시값 오버레이를 원복하고, 남겨둔 36장 이미지를 117 직전 원본(`a573f74`)과 동일하게 복원.
+- 삭제 유지: 한화 7~9쪽, KB 11~18쪽, DB 21~25쪽.
+- `src/pages/CoverageGuide.tsx`: 변경 없음. 이미지 개수는 한화 6장, KB 10장, DB 20장 그대로 유지.
+- `.agent-harness/tasks/BOHUMFIT-118-coverage-guide-restore-images.md`
+### Verified
+- [x] Retained image diff check -> all 36 retained images match `a573f74`.
+- [x] Count check -> hanwha 6, kb 10, db 20; deleted pages still absent.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files, 53 tests passed.
+- [x] `npm run build` -> pass, existing Vite chunk size warning only.
+### Notes
+- Commit: `39fb2f9` (`BOHUMFIT-118: 가이드 이미지 모자이크 원복(삭제 페이지 유지)`)
+- 이번 보정은 사용자의 의도에 맞춰 "페이지 삭제만 유지"하고, 이미지 자체 수정/비식별 가공은 추후 새 캡처 제공 후 다시 진행하도록 정리.
+- Existing unrelated `backend/__pycache__/main.cpython-312.pyc` and other local untracked files were not staged.
+### Next
+- Human: 추후 각 회사 전산에서 새 캡처 제공 후 필요한 이미지 교체 태스크 진행.
+
 ## 2026-06-24 Codex BOHUMFIT-117 [보장분석서 가이드 이미지 정리·익명화]
 ### Changed
 - `src/pages/CoverageGuide.tsx`: 회사별 이미지 개수를 한화 6장, KB 10장, DB 20장으로 조정.
