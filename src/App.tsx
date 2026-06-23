@@ -109,11 +109,8 @@ function App() {
           <Route path="download-guide" element={<DownloadGuide />} />
           {/* BOHUMFIT-092: 보험사 전산·약관·팩스 링크모음(공개) */}
           <Route path="insurance-links" element={<InsuranceLinks />} />
-          {/* BOHUMFIT-081: 보장 비교분석 페이지 뼈대(로그인 필요) */}
-          <Route
-            path="coverage-compare"
-            element={<ProtectedRoute><CoverageCompare /></ProtectedRoute>}
-          />
+          {/* BOHUMFIT-114: 비로그인도 Step1 열람 가능, 분석 실행은 페이지 내부에서 로그인 유도 */}
+          <Route path="coverage-compare" element={<CoverageCompare />} />
           <Route
             path="insurance"
             element={<ProtectedRoute><InsuranceCalculator /></ProtectedRoute>}

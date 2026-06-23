@@ -27,6 +27,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import httpx
 
 from analyzer import run_analysis, AnalysisError, SERVER_ANALYZE_DEADLINE_SECONDS
+from pipeline.coverage_parser import parse_coverage_pdf  # BOHUMFIT-114
 # BOHUMFIT-097: 번호 중복 hard-block 제거로 phone_guard 미사용(스펙 완화). 모듈은 보존.
 from tosspayments import (
     issue_billing_key,
@@ -784,6 +785,43 @@ async def verify_phone(
                 logger.warning("phone_verified 갱신 실패: %s", e)
         await asyncio.to_thread(_update)
     return {"verified": True, "message": "본인인증이 완료되었습니다."}
+
+
+# ── 보장 비교분석 PDF 파싱 (BOHUMFIT-114) ──────────────────────────────────────
+@app.post("/coverage/parse")
+@limiter.limit("20/minute")
+async def coverage_parse(
+    request: Request,
+    file: UploadFile = File(..., description="보장분석서(current) 또는 가입제안서(proposal) PDF"),
+    doc_type: str = Form(..., description="current | proposal"),
+    user_id: str = Depends(verify_jwt),
+):
+    """BOHUMFIT-114: 보장 비교분석 PDF 파싱.
+    - current = 보장분석서(한화/KB/공통), proposal = 가입제안서(범용).
+    - PDF 열기 실패 400, 그 외 파싱 이상은 결과의 parse_warnings에 기록 후 200.
+    - ★ PII(성명·주민번호 등)는 파서가 저장하지 않으며 서버에도 보관하지 않는다(분석 후 즉시 폐기)."""
+    dt = doc_type if doc_type in ("current", "proposal") else "proposal"
+    fname = file.filename or "upload.pdf"
+    if not fname.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="PDF 파일만 업로드할 수 있어요.")
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="빈 파일입니다.")
+    if len(data) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"개별 PDF 크기는 {MAX_FILE_SIZE // (1024 * 1024)}MB를 넘을 수 없습니다.",
+        )
+    try:
+        result = await asyncio.to_thread(parse_coverage_pdf, data, dt)
+    except ValueError as e:  # PDF 열기 실패(손상·암호 등)
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("coverage_parse failed: %s", e)
+        raise HTTPException(status_code=500, detail="보장분석 파싱에 실패했어요. 잠시 후 다시 시도해 주세요.")
+    finally:
+        del data
+    return result
 
 
 @app.post("/api/analyze")
