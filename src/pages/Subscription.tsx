@@ -208,13 +208,15 @@ export default function Subscription() {
           </div>
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            {/* 베이직 */}
-            <div className="rounded-2xl border border-accent-200 bg-white p-6 shadow-sm">
+            {/* 베이직 — BOHUMFIT-101: flex-col + 버튼 mt-auto 하단 고정(이벤트 배지 있어도 프로 버튼과 동일 높이) */}
+            <div className="flex flex-col rounded-2xl border border-accent-200 bg-white p-6 shadow-sm">
               <p className="card-title text-xs font-bold uppercase tracking-[0.2em] text-accent-600">베이직 플랜</p>
               <div className="mt-2">
-                <span className="inline-block rounded-full bg-accent-50 px-2 py-0.5 text-[11px] font-bold text-accent-700">오픈 이벤트 · 첫 3개월</span>
+                <span className="inline-block rounded-full bg-accent-50 px-2 py-0.5 text-[11px] font-bold text-accent-700">오픈 이벤트 · ~2026년 9월 30일</span>
                 <h2 className="mt-1.5 text-2xl font-extrabold text-gray-950">월 9,900원</h2>
                 <p className="text-[12px] text-gray-400">이벤트 후 월 14,900원 · 매월 30회</p>
+                {/* BOHUMFIT-101: 오픈 이벤트 적용 기간 명시 */}
+                <p className="mt-0.5 text-[11px] font-medium text-accent-600">2026년 9월 30일까지 적용</p>
               </div>
               <ul className="mt-4 space-y-1.5 text-sm text-gray-600">
                 <li className="ko-text">· 건강체·간편심사 고지 검토</li>
@@ -224,14 +226,14 @@ export default function Subscription() {
               <button
                 onClick={() => handleSubscribe("basic")}
                 disabled={busy}
-                className="mt-5 w-full rounded-[8px] bg-accent-600 px-5 py-3 text-sm font-bold text-white disabled:opacity-60"
+                className="mt-auto w-full rounded-[8px] bg-accent-600 px-5 py-3 text-sm font-bold text-white disabled:opacity-60"
               >
                 {busy ? "결제 진행 중…" : "베이직 구독 시작"}
               </button>
             </div>
 
-            {/* 프로 */}
-            <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            {/* 프로 — BOHUMFIT-101: flex-col + 버튼 mt-auto 하단 고정 */}
+            <div className="flex flex-col rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
               <p className="card-title text-xs font-bold uppercase tracking-[0.2em] text-gray-500">프로 플랜</p>
               <div className="mt-2">
                 <h2 className="mt-1.5 text-2xl font-extrabold text-gray-950">월 24,900원</h2>
@@ -245,7 +247,7 @@ export default function Subscription() {
               <button
                 onClick={() => handleSubscribe("pro")}
                 disabled={busy}
-                className="mt-5 w-full rounded-[8px] bg-gray-900 px-5 py-3 text-sm font-bold text-white disabled:opacity-60"
+                className="mt-auto w-full rounded-[8px] bg-gray-900 px-5 py-3 text-sm font-bold text-white disabled:opacity-60"
               >
                 {busy ? "결제 진행 중…" : "프로 구독 시작"}
               </button>

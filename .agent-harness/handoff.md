@@ -16,6 +16,41 @@
 
 # Handoff
 
+## 2026-06-23 Codex BOHUMFIT-101 [구독 카드 버튼 밸런스 + 오픈 이벤트 기간 명시 검증]
+### Changed
+- `src/pages/Subscription.tsx`: 베이직/프로 카드 `flex flex-col` + 버튼 `mt-auto`로 버튼 하단 정렬, 오픈 이벤트 배지/캡션에 `2026년 9월 30일` 기간 명시.
+- `.agent-harness/tasks/BOHUMFIT-101-layout-subscription-fix.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md`: 101 검증/태스크 기록.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files passed, 53 tests passed.
+- [x] `npm run build` -> pass, 기존 Vite chunk size warning만 출력.
+### Notes
+- 미해결 이슈 없음. 브라우저 육안 확인은 Human 작업으로 남음.
+### Next
+- Human: 브라우저에서 구독 카드 버튼 정렬 및 오픈 이벤트 기간 문구 육안 확인.
+
+## 2026-06-23 Cowork BOHUMFIT-101 [상단 여백(이미 통일·문서화) + 구독 카드 버튼 밸런스·오픈이벤트 기간 명시·Codex 검증 대기]
+### Changed
+- `src/pages/Subscription.tsx`:
+  - (2) 베이직·프로 카드 `flex flex-col` + 버튼 `mt-auto`로 **하단 고정** → 베이직 이벤트 배지로 카드 내용 높이가 달라도 두 버튼 동일 높이 정렬.
+  - (3) 오픈 이벤트 배지 `오픈 이벤트 · 첫 3개월` → `오픈 이벤트 · ~2026년 9월 30일`. "이벤트 후 월 14,900원 · 매월 30회" 현행 유지. 그 아래 작은 캡션 `2026년 9월 30일까지 적용` 추가.
+- (1) 상단 여백: **코드 무변경**(아래 진단 참조).
+### Verified
+- [x] 정적 자기검토: Subscription.tsx 변경은 className/텍스트만(import·타입·로직 무변경). flex-col+mt-auto는 표준 Tailwind. 카드 2개 동일 구조·버튼 mt-auto 확인.
+- [ ] `npx tsc -p tsconfig.app.json --noEmit` / `npm run build` — ★샌드박스 불가(마운트 truncation·rolldown 네이티브 미설치). Codex/Windows 권위.
+### Notes
+**(1) 상단 여백 — 이미 통일됨(진단 결과, 무변경):**
+- 모든 Layout 페이지는 공통 `<main className="mx-auto max-w-6xl px-5 py-8">`(`Layout.tsx` L292)로 **상단 pt-8(32px) 이미 통일**. 페이지별 top override 없음 — 확인: Subscription(`section max-w-2xl`)·DisclosureHub(`div`)·InsuranceCalculator(`div space-y-4`)·DownloadGuide/InsuranceLinks/CoverageCompare(`div max-w-4xl`) 모두 상단 margin 무지정 → 32px 동일.
+- **히어로 예외**(배경 꽉 채움, py-8 상쇄): `Home`(`-mx-5 -mt-8`), `WhyDisclosure`(`-mt-8 md:-mx-5`).
+- 즉 상단 "여백(top margin)"은 코드상 이미 동일. 사용자가 느낀 "헤더 바로 아래 vs 안쪽 padding" 차이는 top margin이 아니라 **페이지 첫 요소 구조(탭/세그먼트 컨트롤 vs 헤더 라벨+큰 제목)·콘텐츠 max-width(2xl/4xl/6xl) 차이**로 보임. 근거 없는 일괄 margin 변경은 멀쩡한 레이아웃 회귀 위험 → 미적용. 특정 페이지가 여전히 어긋나 보이면 스크린샷으로 정확 지점 확인 후 후속 처리 권장.
+- 여백 기준값 = **pt-8(32px)**. 히어로 예외 페이지 = Home, WhyDisclosure.
+**(2)(3):** 가격·플랜·결제 로직 무변경(비목표 준수). 카드는 grid `sm:grid-cols-2`(stretch)로 동일 높이 + 버튼 mt-auto → 버튼 라인 정렬.
+- 브라우저 육안 확인(카드 버튼 정렬·이벤트 문구)은 Human.
+### Next
+- Codex: tsc(app)·build → 통과 시 stage `src/pages/Subscription.tsx`·`.agent-harness/tasks/BOHUMFIT-101-layout-subscription-fix.md` → commit(`BOHUMFIT-101: 구독 카드 버튼 정렬·오픈이벤트 기간 명시(상단여백 기존 통일 확인)`)·push.
+
 ## 2026-06-23 Codex BOHUMFIT-104 [부목·캐스트 수술 오분류 수정 검증]
 ### Changed
 - `backend/pipeline/surgery_exclusions.py`: 부목/캐스트/깁스/스플린트/STARFIX 계열 비수술 처치 키워드 추가.
