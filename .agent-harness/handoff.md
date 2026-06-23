@@ -16,6 +16,23 @@
 
 # Handoff
 
+## 2026-06-23 Codex BOHUMFIT-113 [메뉴/라우트 이동 시 스크롤 최상단 초기화]
+### Changed
+- `src/components/ScrollToTop.tsx`: `useLocation().pathname` 변경을 감지해 `window.scrollTo(0, 0)` 실행하는 컴포넌트 신규 추가.
+- `src/App.tsx`: `BrowserRouter` 내부, `Routes` 외부에 `<ScrollToTop />` 삽입.
+- `.agent-harness/tasks/BOHUMFIT-113-scroll-to-top.md`: 태스크 파일 생성.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files, 53 tests passed.
+- [x] `npm run build` -> pass, 기존 Vite chunk size warning만 확인.
+### Notes
+- Commit: `1173cec` (`BOHUMFIT-113: 메뉴 이동 시 스크롤 최상단 초기화`)
+- 쿼리만 바뀌는 동일 pathname 이동은 유지하고, 메뉴/라우트 pathname 변경 시 최상단으로 초기화.
+### Next
+- Human: 브라우저에서 긴 페이지 하단 스크롤 후 다른 메뉴로 이동할 때 최상단에서 시작되는지 확인.
+
 ## 2026-06-23 Codex BOHUMFIT-110 [internal 사용량 pro 동일 월 100회 검증·커밋]
 ### Changed
 - `backend/main.py`: internal 계정도 pro와 동일하게 월 100회 한도 적용, 성공 분석 시 usage_logs 차감, billing_status used/limit 표시.
