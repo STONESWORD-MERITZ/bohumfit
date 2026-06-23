@@ -16,6 +16,52 @@
 
 # Handoff
 
+## 2026-06-23 Codex BOHUMFIT-114 [보장 비교분석 기능 구현 검증·커밋]
+### Changed
+- `backend/pipeline/coverage_parser.py`: 보장분석서·가입제안서 PDF 파서 신규 추가.
+- `backend/main.py`: `POST /coverage/parse` 엔드포인트 추가.
+- `backend/tests/test_coverage_parser.py`: 파서 회귀 테스트 신규 추가.
+- `src/pages/CoverageCompare.tsx`: 업로드·제안서 비교·리포트·인쇄 UI 구현, lint 대응으로 `Stepper`/`Warnings`를 파일 스코프로 분리.
+- `src/App.tsx`: `/coverage-compare` 라우트를 공개로 변경.
+- `.agent-harness/tasks/BOHUMFIT-114-coverage-compare-analysis.md`
+### Verified
+- [x] `cd backend && python -m pytest -q` -> 429 passed, 8 skipped.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files, 53 tests passed.
+- [x] `npm run build` -> pass, 기존 Vite chunk size warning만 확인.
+### Notes
+- Commit: `745fd02` (`BOHUMFIT-114: 보장 비교분석 기능 구현 (파서·API·UI)`)
+- 판단 (1) `/coverage-compare` 공개 여부: 공개로 수정. 태스크 스펙이 “비로그인 시 Step1까지 허용”이고, `CoverageCompare.tsx` 내부에서 실제 PDF 분석 호출 시 `session`이 없으면 `/login`으로 유도하므로 라우트 보호를 제거하는 것이 맞다고 판단.
+- 판단 (2) 담보-계약 정밀 매핑: 현 상태 유지. Cowork 구현처럼 첫 계약 합산 + `parse_warnings` 경고로 표면화하고, 회사별 실제 PDF 확보 후 별도 보정 태스크로 분리하는 쪽이 안전.
+- PII/PDF 원본은 stage하지 않음. 테스트는 합성 텍스트만 사용.
+### Next
+- Human: 브라우저에서 `/coverage-compare` 비로그인 Step1 열람, 로그인 후 PDF 업로드·비교 리포트·인쇄 버튼 동작 확인.
+
+## 2026-06-23 Cowork BOHUMFIT-114 [보장 비교분석 기능 구현]
+### Changed
+- `backend/pipeline/coverage_parser.py`(신규): 보장분석서(current)·가입제안서(proposal) PDF 파서.
+  - 함수: `parse_hanwha_current`/`parse_kb_current`(공통 골격 `_parse_current_generic`에 위임+회사 식별)·`parse_proposal_generic`·`_detect_insurer`·`_extract_premium`·`_extract_coverages`·진입점 `parse_coverage_pdf(pdf_bytes, doc_type)`.
+  - 반환: insurer·doc_type·contracts[]·summary(total_monthly_premium·main_coverages)·parse_warnings. 실패 throw 금지(이미지/미인식 PDF는 warnings).
+  - ★PII 회피: 계약자 성명은 행 정규식에서 분리·미저장. 담보 추출은 (정액/실손) 또는 명시 '만원' 라인만 인정하고 보험사명·날짜(YYYY/MM)·연도형 금액·헤더 라인은 제외.
+- `backend/main.py`: `POST /coverage/parse`(multipart file+doc_type, `verify_jwt`, .pdf·15MB 검증, PDF 열기 실패 400·그외 200) 추가 + `from pipeline.coverage_parser import parse_coverage_pdf` import.
+- `backend/tests/test_coverage_parser.py`(신규): 한화/KB current·proposal 범용·이미지/빈 PDF·parse_warnings + PII 누수(가짜명 '홍길동') 차단 검증. 합성 mock 텍스트만(실 PDF·PII 없음).
+- `src/pages/CoverageCompare.tsx`(전면 재작성): Step1 현재보험 업로드(계약 '해지'·담보 '삭제' 체크) → Step2 제안서 다중 업로드 → Step3 비교 리포트(세부 비교표 취소선/신규강조 + 요약표 증감 + `window.print()` 인쇄, `print:hidden`로 컨트롤 숨김). 비세션 시 업로드/분석 시작 → `/login` 유도.
+### Verified
+- [x] 파서 핵심 로직·PII 안전성: `/tmp` 재구성으로 검증(계약자명 '홍길동' product_name·coverages 어디에도 누수 없음 / 정액·실손 담보 정상 추출 / 보험사·날짜·헤더 라인 제외 / 월보험료·보장기간 추출). 실 업로드 PDF(메리츠/현대 다회사 보장분석)로 구조 확인(insurer·contracts·premium 정상, PII 0).
+- [x] coverage_parser.py 실파일 완전성: Read 도구(Windows 원본 권위)로 끝까지 정상 확인.
+- [x] CoverageCompare.tsx 정적 자기검토: import(useAuth.session·ChangeEvent)·제네릭 toggle·디자인 토큰(ko-heading/button-text)·기존 `print:hidden`(index.css @media print) 정합.
+- [ ] pytest -q / tsc(app·node) / lint / npm test / build → **샌드박스 실행 불가**(마운트 truncation으로 bash·python이 coverage_parser.py·main.py를 잘린 사본으로 읽어 py_compile/ast.parse 실패 = ENV-MOUNT-NOTES 알려진 제약, 실파일은 정상 / rolldown 네이티브 미설치). **Codex/Windows 권위 검증 필요.**
+### Notes
+- ★스펙/한계: 업로드 샘플은 한화/KB가 아닌 메리츠/현대 다회사 보장분석 형식이라, 한화/KB 전용 파서는 현재 공통 파서에 위임하고 회사 전용 보정은 추후 레이어로 명시(태스크 의도대로). 보장내역 표는 셀 줄바꿈이 많아 담보-계약 정밀 매핑은 미구현(첫 계약 합산 + parse_warnings 경고). 실 회사별 PDF 확보 시 보정 권장.
+- App.tsx 미접촉: `/coverage-compare` 라우트는 081에서 이미 존재(현재 `ProtectedRoute`=로그인 필요)하고 App.tsx는 113(Codex)이 잠금 보유 → 충돌 회피. 태스크의 "비로그인 Step1 열람"을 완전히 살리려면 App.tsx에서 해당 라우트를 공개로 푸는 변경이 필요(현재 컴포넌트는 무세션 방어 처리만). **Codex 판단: 라우트 공개 여부.**
+- ★개인정보: 업로드 실 PDF·추출 PII는 커밋/저장하지 않음. 엔드포인트도 분석 후 파일 바이트 즉시 폐기.
+- 커밋 범위: backend/pipeline/coverage_parser.py·backend/main.py·backend/tests/test_coverage_parser.py·src/pages/CoverageCompare.tsx·.agent-harness/tasks/BOHUMFIT-114-*.md(+handoff/locks). main.py는 110(Codex 검증중)과 다른 영역(신규 엔드포인트)이라 충돌 없음.
+### Next
+- Codex: Windows에서 `cd backend && python -m pytest -q`(특히 test_coverage_parser.py) / `npx tsc -p tsconfig.app.json --noEmit` · `tsconfig.node.json` / `npm run lint` / `npm test` / `npm run build` 검증 후 태스크 범위 파일만 stage→commit(`BOHUMFIT-114: 보장 비교분석 기능 구현`)→push. 라우트 공개 여부 판단.
+
+
 ## 2026-06-23 Codex BOHUMFIT-113 [메뉴/라우트 이동 시 스크롤 최상단 초기화]
 ### Changed
 - `src/components/ScrollToTop.tsx`: `useLocation().pathname` 변경을 감지해 `window.scrollTo(0, 0)` 실행하는 컴포넌트 신규 추가.

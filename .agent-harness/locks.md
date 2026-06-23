@@ -15,6 +15,7 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-23 `BOHUMFIT-114` - Codex - Windows 검증 통과(backend pytest 429 passed/8 skipped, tsc app/node, lint, npm test 53, build) 후 `745fd02`로 커밋·푸시. `/coverage-compare`는 비로그인 Step1 허용을 위해 공개 라우트로 전환, 분석 호출은 페이지 내부 로그인 유도.
 - 2026-06-23 `BOHUMFIT-110` - Cowork - internal=pro 동일 월 100회(무제한 폐지). main.py(_enforce internal 100회 카운트·429, _log_usage internal 적재, billing_status internal used/100), Subscription 문구 "월 100회", test_usage_middleware 2개 갱신. /tmp 로직 ALL OK. ★스펙변경. ⚠샌드박스 pytest 불가(마운트 stale)→Codex/Windows. git 미실행. → Codex.
 - 2026-06-23 `BOHUMFIT-111` - Cowork - 요금제 페이지 비로그인 접근. App.tsx /subscription ProtectedRoute 제거(공개), Subscription 비로그인 카드 노출·결제 버튼 "로그인 후 구독하기"→/login·무한로딩 수정·체험배지 로그인 게이트. ⚠tsc/build Codex/Windows. → Codex.
 - 2026-06-23 `BOHUMFIT-112` - Cowork - 리포트 샘플 미리보기(비로그인 구독 유도). ReportSample.tsx(신규·mock·PII0·샘플 배너·구독 CTA), App /disclosure/sample 공개 라우트, Home 진입 버튼. ⚠tsc/build Codex/Windows. → Codex.
