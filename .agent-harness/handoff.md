@@ -16,6 +16,27 @@
 
 # Handoff
 
+## 2026-06-24 Codex BOHUMFIT-117 [보장분석서 가이드 이미지 정리·익명화]
+### Changed
+- `src/pages/CoverageGuide.tsx`: 회사별 이미지 개수를 한화 6장, KB 10장, DB 20장으로 조정.
+- `public/images/coverage-guide/`: 한화 7~9쪽, KB 11~18쪽, DB 21~25쪽 삭제.
+- `public/images/coverage-guide/`: 한화/KB/DB 표지 재작성, MYMANAGER/타사이트 문구와 하단 브랜드 영역 제거, 남은 이미지의 이름·숫자·날짜·보험료 영역을 비식별 처리하고 2026-06-24 기준 예시값으로 오버레이.
+- `.agent-harness/tasks/BOHUMFIT-117-coverage-guide-image-sanitize.md`
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files, 53 tests passed.
+- [x] `npm run build` -> pass, existing Vite chunk size warning only.
+- [x] Count check -> hanwha 6, kb 10, db 20.
+- [x] Browser smoke `/coverage-guide` -> Hanwha 6/6, KB 10/10, DB 20/20 images loaded; page text `MYMANAGER|마이매니저` residue 0.
+### Notes
+- Commit: `38fb8a1` (`BOHUMFIT-117: 보장분석서 가이드 이미지 정리·익명화`)
+- `MYMANAGER|마이매니저` 문자열은 117 태스크 파일의 요청 기록에만 남고, `CoverageGuide.tsx` 및 브라우저 DOM에는 남지 않음.
+- Existing unrelated `backend/__pycache__/main.cpython-312.pyc` and other untracked local assets were not staged.
+### Next
+- Human: 배포 후 `/coverage-guide`에서 회사별 탭 이미지와 비식별 처리 상태 최종 육안 확인.
+
 ## 2026-06-23 Codex BOHUMFIT-116 [보장분석서 가이드 전산 링크·이미지 보강]
 ### Changed
 - `src/pages/CoverageGuide.tsx`: 한화/KB/DB 전산 바로가기 버튼 추가, 보험사 링크 페이지와 동일한 전산 URL 연결.
