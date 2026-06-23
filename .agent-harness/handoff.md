@@ -16,6 +16,26 @@
 
 # Handoff
 
+## 2026-06-23 Codex BOHUMFIT-115 [보장분석서 PDF 다운로드 가이드 페이지]
+### Changed
+- `src/pages/CoverageGuide.tsx`: 한화손보/KB손보/DB손보 보장분석서 PDF 저장 방법을 탭 구조의 공개 가이드 페이지로 신규 추가.
+- `src/App.tsx`: `/coverage-guide` 공개 라우트 추가.
+- `src/pages/CoverageCompare.tsx`: Step1 현재 보험 업로드 영역 상단에 "보험사별 가이드 보기" 링크 추가.
+- `src/pages/DownloadGuide.tsx`: 자료 받기 페이지 상단에 "보장분석서 받기" 섹션과 `/coverage-guide` 링크 추가.
+- `.agent-harness/tasks/BOHUMFIT-115-coverage-guide-page.md`
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files, 53 tests passed.
+- [x] `npm run build` -> pass, 기존 Vite chunk size warning만 확인.
+### Notes
+- Commit: `475db8d` (`BOHUMFIT-115: 보장분석서 PDF 다운로드 가이드 페이지 추가`)
+- 저작권 있는 타사 스크린샷/로고는 사용하지 않고 텍스트 단계와 주의 문구만으로 구현.
+- `backend/__pycache__/main.cpython-312.pyc` 및 기존 untracked 파일들은 115 범위가 아니어서 stage하지 않음.
+### Next
+- Human: 브라우저에서 `/coverage-guide` 탭 전환, `/coverage-compare` Step1 링크, 자료 받기 페이지 링크를 최종 확인.
+
 ## 2026-06-23 Codex BOHUMFIT-114 [보장 비교분석 기능 구현 검증·커밋]
 ### Changed
 - `backend/pipeline/coverage_parser.py`: 보장분석서·가입제안서 PDF 파서 신규 추가.
