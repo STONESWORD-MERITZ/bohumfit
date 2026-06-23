@@ -12,20 +12,25 @@ type Guide = {
   tab: string;
   title: string;
   portal: string;
+  systemUrl: string;
   intro: string;
   steps: GuideStep[];
+  images: string[];
 };
 
 const TAB_KEYS: GuideKey[] = ["hanwha", "kb", "db"];
+const imagePages = (prefix: GuideKey, count: number) =>
+  Array.from({ length: count }, (_, i) => `/images/coverage-guide/${prefix}-${String(i + 1).padStart(2, "0")}.png`);
 
 const GUIDES: Record<GuideKey, Guide> = {
   hanwha: {
     tab: "한화손보",
     title: "한화손보 보장분석서 PDF 받기",
-    portal: "한화 GA 포탈(hanwhaga.com)",
+    portal: "한화손해보험 GA 전산",
+    systemUrl: "https://portal.hwgeneralins.com/",
     intro: "고객등록과 가입설계동의 후 정액담보상세출력으로 저장합니다.",
     steps: [
-      { title: "포탈 로그인", body: "한화 GA 포탈(hanwhaga.com)에 로그인한 뒤 고객등록을 클릭합니다." },
+      { title: "포탈 로그인", body: "한화손해보험 GA 전산에 로그인한 뒤 고객등록을 클릭합니다." },
       { title: "가입설계동의", body: "고객등록 화면에서 가입설계동의를 클릭합니다." },
       {
         title: "문자동의 요청",
@@ -50,14 +55,16 @@ const GUIDES: Record<GuideKey, Guide> = {
         tone: "amber",
       },
     ],
+    images: imagePages("hanwha", 9),
   },
   kb: {
     tab: "KB손보",
     title: "KB손보 보장분석서 PDF 받기",
-    portal: "KB손보 MYMANAGER 영업포탈",
+    portal: "KB손해보험 GA 전산",
+    systemUrl: "https://nsales.kbinsure.co.kr/",
     intro: "고객 동의 등록 후 보장분석의 출력/발송 메뉴에서 PDF저장을 사용합니다.",
     steps: [
-      { title: "포탈 로그인", body: "KB손보 MYMANAGER 영업포탈에 로그인한 뒤 고객등록/수정을 클릭합니다." },
+      { title: "포탈 로그인", body: "KB손해보험 GA 전산에 로그인한 뒤 고객등록/수정을 클릭합니다." },
       { title: "동의서입력", body: "고객등록 화면에서 동의서입력을 클릭합니다." },
       {
         title: "인증요청",
@@ -70,11 +77,13 @@ const GUIDES: Record<GuideKey, Guide> = {
       { title: "출력/발송", body: "출력/발송 아이콘을 클릭합니다." },
       { title: "PDF저장", body: "전체 선택/해제를 클릭해 항목을 선택한 뒤 PDF저장을 클릭합니다." },
     ],
+    images: imagePages("kb", 18),
   },
   db: {
     tab: "DB손보",
     title: "DB손보 보장분석서 PDF 받기",
     portal: "DB손해보험 영업포탈",
+    systemUrl: "https://www.mdbins.com/",
     intro: "스마트보장분석에서 계약분석과 세부가입내용을 함께 체크해 텍스트 방식 PDF로 저장합니다.",
     steps: [
       { title: "포탈 로그인", body: "DB손해보험 영업포탈에 로그인한 뒤 고객등록을 클릭합니다." },
@@ -109,6 +118,7 @@ const GUIDES: Record<GuideKey, Guide> = {
       },
       { title: "PDF 저장", body: "저장을 클릭해 PDF 파일로 저장합니다." },
     ],
+    images: imagePages("db", 25),
   },
 };
 
@@ -179,12 +189,22 @@ export default function CoverageGuide() {
             <h2 className="ko-heading mt-2 text-2xl font-extrabold text-ink-900">{guide.title}</h2>
             <p className="ko-text mt-2 text-[14px] leading-7 text-ink-soft">{guide.intro}</p>
           </div>
-          <Link
-            to="/coverage-compare"
-            className="button-text inline-flex shrink-0 justify-center rounded-btn bg-accent-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-accent-700"
-          >
-            보장 비교분석 바로가기
-          </Link>
+          <div className="flex shrink-0 flex-col gap-2 sm:flex-row md:flex-col">
+            <a
+              href={guide.systemUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="button-text inline-flex justify-center rounded-btn border border-line-strong bg-white px-5 py-3 text-sm font-bold text-ink-800 transition hover:bg-ink-50"
+            >
+              전산 바로가기
+            </a>
+            <Link
+              to="/coverage-compare"
+              className="button-text inline-flex justify-center rounded-btn bg-accent-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-accent-700"
+            >
+              보장 비교분석 바로가기
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -193,6 +213,36 @@ export default function CoverageGuide() {
           <StepCard key={`${active}-${step.title}`} step={step} index={index} />
         ))}
       </ol>
+
+      <section className="mt-6 rounded-card border border-line bg-white p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="ko-heading text-lg font-extrabold text-ink-900">이미지로 확인하기</h2>
+            <p className="ko-text mt-1 text-[13px] leading-6 text-ink-soft">
+              제공된 PDF 가이드를 PNG로 변환했습니다. 실제 화면 흐름은 아래 이미지 순서대로 확인해 주세요.
+            </p>
+          </div>
+          <span className="shrink-0 rounded-full bg-ink-100 px-3 py-1 text-xs font-bold text-ink-600">
+            {guide.images.length}장
+          </span>
+        </div>
+        <div className="mt-4 space-y-4">
+          {guide.images.map((src, index) => (
+            <figure key={src} className="overflow-hidden rounded-[8px] border border-line bg-ink-50">
+              <figcaption className="ko-text border-b border-line bg-white px-3 py-2 text-[12px] font-semibold text-ink-soft">
+                {guide.tab} 가이드 {index + 1} / {guide.images.length}
+              </figcaption>
+              <img
+                src={src}
+                alt={`${guide.tab} 보장분석서 PDF 저장 가이드 ${index + 1}쪽`}
+                loading="lazy"
+                decoding="async"
+                className="block w-full"
+              />
+            </figure>
+          ))}
+        </div>
+      </section>
 
       <section className="mt-6 rounded-card border border-amber-200 bg-amber-50 p-5">
         <h2 className="ko-heading text-base font-bold text-ink-900">저장 전 마지막 확인</h2>
