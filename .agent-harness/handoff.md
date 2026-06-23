@@ -16,6 +16,42 @@
 
 # Handoff
 
+## 2026-06-23 Codex BOHUMFIT-105 [AI 타임아웃 안내 문구 프런트 필터 제거 검증]
+### Changed
+- `src/pages/Disclosure.tsx`: 결과 화면 warnings 렌더 직전 `AI 보조 판단` 계열 안내를 필터링해 타임아웃/스킵 성능 안내가 사용자 화면에 표시되지 않도록 확인.
+- `.agent-harness/tasks/BOHUMFIT-105-remove-ai-timeout-message.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md`: 105 검증/커밋 기록 반영.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files passed, 53 tests passed.
+- [x] `npm run build` -> pass, 기존 Vite chunk-size warning만 출력.
+- [x] `cd backend && python -m pytest tests/test_surgery_exclusions.py -v` -> 10 passed.
+- [x] `cd backend && python -m pytest -q` -> 418 passed, 8 skipped.
+### Notes
+- 실패 항목 없음. 105는 프런트 표시 필터만 변경했고 백엔드 warning 생성 로직은 그대로 유지.
+- unrelated `backend/__pycache__/main.cpython-312.pyc`, PII/PDF, brand/guide, 오래된 untracked task 파일은 stage 제외.
+### Next
+- Human: 브라우저에서 분석 결과 화면의 AI 타임아웃 안내 문구 제거 확인.
+
+## 2026-06-23 Cowork BOHUMFIT-105 + BOHUMFIT-106 [AI 타임아웃 문구 제거 + 수술 오분류(이학요법) 전수 보정·Codex 검증 대기]
+### Changed
+- (105) `src/pages/Disclosure.tsx`: 결과 화면 warnings 렌더에 `.filter((w) => !w.includes("AI 보조 판단"))` 추가 → "⚠️ AI 보조 판단이 …초 안에 끝나지 않아 결정론 결과를 먼저 표시합니다…" 및 동일 계열 안내 미표시. 다른 경고(파싱 오류 등)는 그대로. 빈 배열이면 div 미렌더(레이아웃 빈 공간 없음). **백엔드 무변경**(문구 원천 analyzer.py retry_warnings 유지 — 표시만 숨김).
+- (106) `backend/pipeline/surgery_exclusions.py`: `_NON_SURGERY_ACTION_KEYWORDS`에 이학요법(물리치료) 계열 + 기타 비수술 처치 추가 — `이학요법`(카테고리 포괄)·한냉치료·냉동치료·냉찜질·온찜질·표층열치료·심층열치료·온열치료·초단파치료·적외선치료·간섭파전류·전기자극치료·재활저출력레이저·도수치료·운동치료·견인치료·좌욕·산소흡입·도뇨·창상처치.
+- (106) `backend/tests/test_surgery_exclusions.py`: 회귀 3종(이학요법 18종 비수술·진짜 수술 9종 유지·한냉치료 detail 미집계).
+### Verified
+- [x] (106) **로직 검증**: /tmp 재구성(실제 키워드 리스트)으로 `is_non_surgery_action` 실행 → 이학요법 18종 전부 비수술(True), 진짜 수술 9종(냉동수술·냉동절제술·레이저절제술·관절경하활막절제술·관혈적정복술·도수정복술·골절고정술·비용적출술·창상봉합술) 전부 수술 유지(False) = **ALL OK**(강수술 신호 override로 누락 0).
+- [x] (106) 영향권 스윕(059·easy_q2_066·surgery_threshold_065·filters·q3·nhis·bug012) **61 passed/6 skipped** — 기존 수술 로직 무회귀.
+- [x] 편집물은 Read 툴(Windows 원본)로 surgery_exclusions.py L53~63·Disclosure 필터 확인.
+- [ ] `pytest tests/test_surgery_exclusions.py`(신규 3 포함)·전체 pytest·`tsc`/`build` — ★샌드박스 마운트 **stale/truncation**으로 불가: 마운트가 surgery_exclusions.py(53줄·pre-106)·test_surgery_exclusions.py(41줄·pre-104) 구버전을 제공해 in-place pytest는 신규를 못 봄(Edit는 실파일 반영됨). → Codex/Windows 권위 검증 필수.
+### Notes
+- (106) 전수조사: 추가 키워드 21개. **카테고리 예외는 aggregator 변경 없이 `이학요법` 키워드 1개로 포괄**(104와 동일 단일-레버: 컬럼 경로 `_non_surg_action`·키워드 경로 `_is_detail_surgery_match` 모두 `is_non_surgery_action` 공유). 전부 풀 복합어 substring 매칭 → '냉동수술/도수정복술/창상봉합술' 등 진짜 수술명과 미충돌, 강수술 신호 시 무조건 수술 유지.
+- (106) 추가 조사(낮은 우선): 영문 약어 'ICT' 단독 표기 행은 '간섭파전류'로 커버됨(괄호 표기 ICT). 'ICT' 단독 표기가 실데이터에 있으면 보강 권장.
+- (105) 'AI 보조 판단' 계열 안내 3종 모두 숨김(끝나지 않아/시간 촉박/비활성화 — 전부 비-액션 성능 안내). 특정 1종만 숨기려면 필터 문자열을 좁히면 됨.
+- ★ 마운트 git 미실행. 105 지시의 git 블록은 Cowork 미실행 — Codex가 Windows 검증 후 태스크별 커밋.
+### Next
+- Codex: (105) tsc·build → `src/pages/Disclosure.tsx`+task → commit(`BOHUMFIT-105: AI 타임아웃 안내 문구 제거`)·push. (106) `pytest -q`(전체+신규) → `surgery_exclusions.py`·`test_surgery_exclusions.py`+task → commit(`BOHUMFIT-106: 이학요법 등 수술 오분류 전수 보정`)·push.
+
 ## 2026-06-23 Codex BOHUMFIT-101 [구독 카드 버튼 밸런스 + 오픈 이벤트 기간 명시 검증]
 ### Changed
 - `src/pages/Subscription.tsx`: 베이직/프로 카드 `flex flex-col` + 버튼 `mt-auto`로 버튼 하단 정렬, 오픈 이벤트 배지/캡션에 `2026년 9월 30일` 기간 명시.

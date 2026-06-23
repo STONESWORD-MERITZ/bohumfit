@@ -1096,11 +1096,15 @@ function ResultView({ result, mode, referenceDate }: { result: AnalyzeResult; mo
         </div>
       ))}
 
-      {(result.warnings || []).map((w, i) => (
-        <div key={`warning-${i}`} className="mb-3 rounded-[8px] bg-gray-50 p-3 text-sm text-gray-600">
-          {w}
-        </div>
-      ))}
+      {(result.warnings || [])
+        // BOHUMFIT-105: AI 보조 판단 타임아웃/스킵 안내(비-액션 성능 안내)는 결과 화면에 표시하지 않는다.
+        //   ("AI 보조 판단이 …초 안에 끝나지 않아…" 외 동일 계열 안내 포함. 다른 경고는 그대로 노출.)
+        .filter((w) => !w.includes("AI 보조 판단"))
+        .map((w, i) => (
+          <div key={`warning-${i}`} className="mb-3 rounded-[8px] bg-gray-50 p-3 text-sm text-gray-600">
+            {w}
+          </div>
+        ))}
 
       <div className="mb-5 rounded-[8px] bg-white p-5 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
         <h2 className="text-xs font-bold text-accent-600">{copy.resultTitle}</h2>
