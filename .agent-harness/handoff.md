@@ -16,6 +16,26 @@
 
 # Handoff
 
+## 2026-06-23 Codex BOHUMFIT-106 [이학요법·물리치료 수술 오분류 전수보정 검증]
+### Changed
+- `backend/pipeline/surgery_exclusions.py`: 이학요법/물리치료 계열 비수술 행위 키워드 추가와 함께 `is_non_surgery_excluded()`가 동일 파일의 `is_non_surgery_action()` 판정도 공유하도록 보정. 이로써 detail 경로뿐 아니라 basic `_is_surgery_match()` 경로에서도 `한냉치료(냉동치료)`, `재활저출력레이저치료` 등이 수술로 잡히지 않음.
+- `backend/tests/test_surgery_exclusions.py`: 이학요법 18종 비수술, 냉동수술/절제술 등 진짜 수술 유지, 한냉치료 detail 미집계 회귀 추가.
+- `.agent-harness/tasks/BOHUMFIT-106-surgery-filter-audit.md`, `.agent-harness/handoff.md`: 106 검증/커밋 기록 반영.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files passed, 53 tests passed.
+- [x] `npm run build` -> pass, 기존 Vite chunk-size warning만 출력.
+- [x] `cd backend && python -m pytest tests/test_surgery_exclusions.py -v` -> 최초 1 failed/9 passed (`한냉치료(냉동치료)` basic 매처 누수) 확인 후 106 범위 내 수정, 재실행 10 passed.
+- [x] `cd backend && python -m pytest -q` -> 418 passed, 8 skipped.
+### Notes
+- 실패 항목은 106 범위에서 해결 완료. 확정 원인: `_is_surgery_match()`가 exact 제외 함수만 보며 106의 행위 제외 목록을 공유하지 않아 basic 키워드 `치료`가 양성으로 남음.
+- 진짜 수술 신호(`냉동수술`, `냉동절제술`, `레이저절제술`, `관절경하활막절제술`)는 강수술 신호 우선 규칙으로 계속 수술 유지됨.
+- unrelated `backend/__pycache__/main.cpython-312.pyc`, PII/PDF, brand/guide, 오래된 untracked task 파일은 stage 제외.
+### Next
+- Human: 실제 PDF 재분석으로 한냉치료 오분류 해소 확인.
+
 ## 2026-06-23 Codex BOHUMFIT-105 [AI 타임아웃 안내 문구 프런트 필터 제거 검증]
 ### Changed
 - `src/pages/Disclosure.tsx`: 결과 화면 warnings 렌더 직전 `AI 보조 판단` 계열 안내를 필터링해 타임아웃/스킵 성능 안내가 사용자 화면에 표시되지 않도록 확인.

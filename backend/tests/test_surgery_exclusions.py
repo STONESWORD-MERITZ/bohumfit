@@ -78,3 +78,40 @@ def test_cast_category_detail_not_aggregated_as_surgery():
     ]
     st, *_ = build_disease_stats(recs, datetime(2026, 6, 15))
     assert all(not s.get("surgeries") and not s.get("surgery_dates") for s in st.values())
+
+
+# ── BOHUMFIT-106: 이학요법(물리치료) 계열 수술 오분류 제외 ──────────────────────
+PHYSIO_NON_SURGERY = [
+    "한냉치료(냉동치료)",
+    "이학요법료/이학요법(양방)",
+    "표층열치료", "심층열치료", "온열치료", "초단파치료", "적외선치료",
+    "간섭파전류치료(ICT)", "전기자극치료", "재활저출력레이저치료",
+    "도수치료", "운동치료", "견인치료",
+    "좌욕", "산소흡입", "도뇨", "창상처치", "냉찜질",
+]
+
+
+def test_physiotherapy_not_surgery():
+    """이학요법(한냉/온열/도수/견인 등) 처치는 수술 아님(강수술 신호 없음)."""
+    for n in PHYSIO_NON_SURGERY:
+        assert is_non_surgery_action(n) is True, n
+        assert _is_detail_surgery_match(n) is False, n
+        assert _is_surgery_match(n) is False, n
+
+
+def test_real_surgery_not_masked_by_physio_keywords():
+    """진짜 수술(냉동수술·냉동절제술·레이저절제술)은 강수술 신호로 그대로 유지."""
+    for n in ["냉동수술", "냉동절제술", "레이저절제술", "관절경하활막절제술"]:
+        assert is_non_surgery_action(n) is False, n  # 강수술 신호 → 비수술로 빠지지 않음
+
+
+def test_cryotherapy_category_detail_not_aggregated_as_surgery():
+    """재현: 처치및수술='한냉치료(냉동치료)', 진료내역='이학요법료/이학요법(양방)' → 수술 미집계."""
+    recs = [
+        {"진료개시일": "2024-06-07", "요양기관명": "본정형외과의원", "입내원구분": "외래", "요양일수": "1",
+         "상병코드": "S93", "상병명": "발목의 염좌", "_ftype": "basic"},
+        {"진료개시일": "2024-06-07", "요양기관명": "본정형외과의원", "입내원구분": "외래", "요양일수": "1",
+         "처치및수술": "한냉치료(냉동치료)", "진료내역": "이학요법료/이학요법(양방)", "_ftype": "detail"},
+    ]
+    st, *_ = build_disease_stats(recs, datetime(2026, 6, 15))
+    assert all(not s.get("surgeries") and not s.get("surgery_dates") for s in st.values())
