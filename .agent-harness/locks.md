@@ -15,6 +15,11 @@ Use this file to record active Codex file ownership during a task.
 
 ## Released
 
+- 2026-06-23 `BOHUMFIT-110` - Cowork - internal=pro 동일 월 100회(무제한 폐지). main.py(_enforce internal 100회 카운트·429, _log_usage internal 적재, billing_status internal used/100), Subscription 문구 "월 100회", test_usage_middleware 2개 갱신. /tmp 로직 ALL OK. ★스펙변경. ⚠샌드박스 pytest 불가(마운트 stale)→Codex/Windows. git 미실행. → Codex.
+- 2026-06-23 `BOHUMFIT-111` - Cowork - 요금제 페이지 비로그인 접근. App.tsx /subscription ProtectedRoute 제거(공개), Subscription 비로그인 카드 노출·결제 버튼 "로그인 후 구독하기"→/login·무한로딩 수정·체험배지 로그인 게이트. ⚠tsc/build Codex/Windows. → Codex.
+- 2026-06-23 `BOHUMFIT-112` - Cowork - 리포트 샘플 미리보기(비로그인 구독 유도). ReportSample.tsx(신규·mock·PII0·샘플 배너·구독 CTA), App /disclosure/sample 공개 라우트, Home 진입 버튼. ⚠tsc/build Codex/Windows. → Codex.
+- 2026-06-23 `BOHUMFIT-109` - Codex - 구독 플랜 권한 체크 점검 완료. role=pro/basic/premium 비교 경로 없음, `profiles.role`은 internal 우회 전용, 유료 플랜은 `subscriptions.status=active` + `subscriptions.plan` 기준. Windows 검증 tsc app/node, lint, npm test 53, backend pytest 418 passed/8 skipped.
+- 2026-06-23 `BOHUMFIT-108` - Codex - handle_new_user/profiles.role 점검 완료. repo 트리거는 id-only insert + on conflict do nothing, backend verify-phone upsert도 role 미포함이라 기존 role overwrite 경로 없음. Windows 검증 backend pytest 418 passed/8 skipped, tsc app pass.
 - 2026-06-23 `BOHUMFIT-107` - Codex - Q2 추가검사·재검사 확인 안내를 `가능성 높음/낮음/미확인` 배지와 의사 소견·권유 확인 문구로 개선. Windows 검증(tsc app/node, lint, npm test 53, build) 통과 후 커밋·푸시 예정.
 - 2026-06-23 `BOHUMFIT-105` - Cowork - 분석 결과 화면 AI 타임아웃 안내 문구 제거. Disclosure.tsx warnings 렌더에 `.filter(!w.includes("AI 보조 판단"))` — 해당 계열 안내만 미표시, 타 경고 유지, 빈 공간 없음. 백엔드 무변경(원천 analyzer.py retry_warnings 유지). tsc/build 샌드박스 불가→Codex/Windows. git 미실행. → Codex 커밋·푸시.
 - 2026-06-23 `BOHUMFIT-106` - Cowork - 수술 탐지 전수조사·이학요법 오분류 보정. surgery_exclusions `_NON_SURGERY_ACTION_KEYWORDS`에 이학요법 계열+기타 처치 21개 추가(이학요법 카테고리 포괄 1개로 단일-레버 해결, 부집계 변경 없음). 회귀 3종. 검증: /tmp 로직 재구성 이학요법18 비수술·진짜수술9 유지 ALL OK + 영향권 스윕 61/6skip. ⚠샌드박스 마운트 stale(surgery_exclusions 53줄/test 41줄 구버전 제공)으로 in-place pytest 신규 미수집 — 편집물은 Read로 실파일 확인, 권위 pytest는 Codex/Windows. 진짜 수술 누락 0(강수술 override). git 미실행. → Codex 검증·커밋·푸시.

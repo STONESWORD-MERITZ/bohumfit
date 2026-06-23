@@ -16,6 +16,123 @@
 
 # Handoff
 
+## 2026-06-23 Codex BOHUMFIT-110 [internal 사용량 pro 동일 월 100회 검증·커밋]
+### Changed
+- `backend/main.py`: internal 계정도 pro와 동일하게 월 100회 한도 적용, 성공 분석 시 usage_logs 차감, billing_status used/limit 표시.
+- `backend/tests/test_usage_middleware.py`: internal 100회 미만 통과, 100회 이상 429, internal 사용량 기록 회귀 테스트 갱신.
+- `src/pages/Subscription.tsx`: internal 카드 문구를 월 100회로 변경. 공유 파일 원칙상 BOHUMFIT-111 비로그인 요금제 표시 변경도 이 커밋에 함께 포함.
+- `.agent-harness/tasks/BOHUMFIT-110-internal-usage-limit.md`
+### Verified
+- [x] `cd backend && python -m pytest -q` -> 419 passed, 8 skipped.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files, 53 tests passed.
+- [x] `npm run build` -> pass, 기존 Vite chunk size warning만 확인.
+### Notes
+- Commit: `be414b6` (`BOHUMFIT-110: internal 사용량 pro 동일 월 100회로 변경`)
+- 공유 파일 처리: `Subscription.tsx`는 110/111 변경이 섞여 있어 110 커밋에 전체 포함.
+### Next
+- Human: internal 계정에서 월 100회 표시와 한도 동작 브라우저 육안 확인.
+
+## 2026-06-23 Codex BOHUMFIT-111 [요금제 페이지 비로그인 접근 허용 검증·커밋]
+### Changed
+- `src/App.tsx`: `/subscription` ProtectedRoute 제거로 비로그인 열람 허용. 공유 파일 원칙상 BOHUMFIT-112 `/disclosure/sample` 라우트도 이 커밋에 함께 포함.
+- `.agent-harness/tasks/BOHUMFIT-111-subscription-public-access.md`
+### Verified
+- [x] `cd backend && python -m pytest -q` -> 419 passed, 8 skipped.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files, 53 tests passed.
+- [x] `npm run build` -> pass, 기존 Vite chunk size warning만 확인.
+### Notes
+- Commit: `5a094f6` (`BOHUMFIT-111: 요금제 페이지 비로그인 접근 허용`)
+- 공유 파일 처리: `Subscription.tsx`의 111 변경은 110 커밋에 포함.
+### Next
+- Human: 비로그인 상태에서 `/subscription` 접근 및 구독 버튼 로그인 유도 확인.
+
+## 2026-06-23 Codex BOHUMFIT-112 [고지의무 리포트 샘플 미리보기 검증·커밋]
+### Changed
+- `src/pages/ReportSample.tsx`: 비로그인 공개 샘플 리포트 페이지 신규 추가.
+- `src/pages/Home.tsx`: 히어로 영역에 “리포트 샘플 미리보기” 진입 버튼 추가.
+- `.agent-harness/tasks/BOHUMFIT-112-report-sample-preview.md`
+### Verified
+- [x] `cd backend && python -m pytest -q` -> 419 passed, 8 skipped.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files, 53 tests passed.
+- [x] `npm run build` -> pass, 기존 Vite chunk size warning만 확인.
+### Notes
+- Commit: `7efa6be` (`BOHUMFIT-112: 고지의무 리포트 샘플 미리보기 추가`)
+- 공유 파일 처리: `App.tsx`의 `/disclosure/sample` 라우트는 111 커밋에 포함.
+### Next
+- Human: 브라우저에서 홈 버튼, `/disclosure/sample` 샘플 화면, `/subscription` 공개 접근 육안 확인.
+
+## 2026-06-23 Cowork BOHUMFIT-110 + 111 + 112 [internal 100회·요금제 공개·리포트 샘플·Codex 검증 대기]
+### BOHUMFIT-110 (internal = pro 동일 월 100회)
+- Changed: `backend/main.py` — `_enforce_subscription` internal 분기를 **무제한 → 월 100회(PLANS.pro)** 카운트·429로 변경(period=이번달). `_log_usage` 의 `is_internal` skip 제거 → internal도 차감 적재. `billing_status` internal: used=이번달 카운트·limit=100. `src/pages/Subscription.tsx`: "내부 사용자 — 무제한 이용" → "내부 사용자 — 월 100회"(이번 달 used/100 표시). `backend/tests/test_usage_middleware.py`: 구(舊) internal 무제한/미적재 테스트 2개 → 신(新) 동작으로 갱신(under100 통과·over100 429·internal_logged).
+- ★ 스펙 변경: internal 계정이 더 이상 무제한이 아님(월 100회). 의도된 변경.
+- Verified: /tmp 로직 재구성 — internal 30/99 통과·100→429("100" 포함)·_log_usage enabled면 internal 적재·disabled skip = ALL OK.
+### BOHUMFIT-111 (요금제 페이지 비로그인 접근)
+- Changed: `src/App.tsx` — `/subscription` **ProtectedRoute 제거(공개)**. `src/pages/Subscription.tsx`: 비로그인 시 `loadStatus`가 로딩 종료(무한 로딩 버그 수정)→플랜 카드 노출, 결제 버튼 텍스트 "로그인 후 구독하기"·클릭 시 `navigate("/login")`, 무료체험 배지는 로그인 시만(비로그인은 안내 문구). `isLoggedIn=!!session` 도입.
+### BOHUMFIT-112 (고지의무 리포트 샘플 미리보기)
+- Changed: `src/pages/ReportSample.tsx`(신규) — 하드코딩 mock(가상 질병·투약·수술, PII 0), 상단 "⚠️ 이것은 샘플입니다" 배너 + 구독 CTA, 지표·질문별 고지 항목·하단 구독 유도. `src/App.tsx`: `/disclosure/sample` 공개 라우트(ReportSample import). `src/pages/Home.tsx`: 히어로에 "리포트 샘플 미리보기"(→/disclosure/sample) 버튼.
+- 실데이터 혼동 방지: 배너·"(샘플)" 타이틀·하단 "가상 데이터" 주석.
+### Verified (공통)
+- [x] 정적 자기검토(Read): Subscription(isLoggedIn·navigate·session 정합), App(import·공개 라우트·ProtectedRoute 타 라우트 유지), ReportSample(자기완결·Link·토큰), Home(Link 기존 import).
+- [ ] `npx tsc app/node`/`npm run lint`/`npm test`/`cd backend && pytest -q` — ★샌드박스 불가: 마운트 **stale/truncation**(test_usage_middleware 등 구버전·truncate 제공, main 1015줄이나 테스트 파일 cut, 프런트 rolldown 미설치). → Codex/Windows 권위.
+### Notes
+- 110은 internal 정책 변경(무제한→100회)이라 `test_usage_middleware.py`도 함께 수정함(스코프 외 파일이나 동작 일치 필수).
+- `/disclosure/sample`·`/subscription` 공개 라우트는 Layout 내부(헤더/푸터 유지). PhoneGate는 index(Home)만 적용이라 두 라우트에 영향 없음.
+- 마운트 git 미실행. 태스크별 커밋·푸시는 Codex.
+### Next
+- Codex: tsc·lint·test·build·backend pytest → 통과 시 태스크별 stage·commit·push.
+  - 110: `backend/main.py`·`backend/tests/test_usage_middleware.py`·`src/pages/Subscription.tsx`·task → `BOHUMFIT-110: internal 월 100회`.
+  - 111: `src/App.tsx`·`src/pages/Subscription.tsx`(공유)·task → `BOHUMFIT-111: 요금제 비로그인 접근`. (※ Subscription.tsx는 110·111 공유 — Codex가 한 커밋에 묶거나 순서 조정)
+  - 112: `src/pages/ReportSample.tsx`·`src/App.tsx`(공유)·`src/pages/Home.tsx`·task → `BOHUMFIT-112: 리포트 샘플 미리보기`.
+
+## 2026-06-23 Codex BOHUMFIT-109 [구독 플랜 권한 체크 role 오용 점검]
+### Changed
+- `.agent-harness/tasks/BOHUMFIT-109-subscription-role-check.md`: 구독 플랜 권한 체크 점검 태스크 파일 추가.
+- `.agent-harness/handoff.md`, `.agent-harness/locks.md`: 점검 결과 기록 및 잠금 해제.
+- 프로덕션 코드 변경 없음.
+### Verified
+- [x] `rg -n -e 'role.*pro' -e 'role.*basic' -e 'role.*premium' -e 'pro.*role' -e 'basic.*role' -e 'premium.*role' src backend supabase` -> `profiles.role`은 internal 우회/테스트/스키마 문맥만 확인, `role=pro/basic/premium` 플랜 판정 경로 없음.
+- [x] `rg -n "billing/status|_enforce_subscription|UsageBadge|subscriptions" src/pages/Disclosure.tsx src/components src/lib backend/main.py` -> 분석 접근은 백엔드 `_enforce_subscription`, 프런트 표시는 `/billing/status`/`UsageBadge` 경유로 확인.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files passed, 53 tests passed.
+- [x] `cd backend && python -m pytest -q` -> 418 passed, 8 skipped.
+### Notes
+- `backend/main.py`의 `_enforce_subscription()`은 먼저 `profiles.role == "internal"`만 내부 직원 무제한 우회로 처리하고, 일반 사용자는 `subscriptions.user_id = user_id AND status = "active"` row의 `plan`으로 basic/pro 한도를 결정함.
+- `/billing/status`도 `profiles.role`은 `is_internal` 계산에만 쓰고, 유료 플랜 표시는 `subscriptions.status == "active"`일 때만 `subscriptions.plan`을 반환함.
+- `src/pages/Disclosure.tsx`는 권한을 직접 판정하지 않고 `/api/analyze` 호출 결과/오류를 받으며, 사용량 표시는 `UsageBadge`가 `/billing/status`를 조회함.
+- `src/lib/phoneGate.ts`의 `role === "internal"`은 휴대폰 인증 게이트 우회 전용이며 구독 플랜 판정과 무관함.
+- 이미 `backend/tests/test_usage_middleware.py`가 `role="customer"` + `subscriptions.plan="pro"/status="active"`이면 pro 한도 100을 적용하고, inactive 구독은 trial 경로로 떨어지는 회귀를 검증 중임.
+### Next
+- Human: 운영 Supabase에서 `subscriptions` row의 `status`/`plan` 값이 결제 상태와 맞게 들어오는지 실제 계정으로 E2E 확인.
+
+## 2026-06-23 Codex BOHUMFIT-108 [handle_new_user role 보존 경로 점검]
+### Changed
+- `.agent-harness/tasks/BOHUMFIT-108-handle-new-user-role-audit.md`: handle_new_user/profiles.role 점검 태스크 파일 추가.
+- `.agent-harness/handoff.md`, `.agent-harness/locks.md`: 점검 결과 기록 및 잠금 해제.
+- 프로덕션 코드 변경 없음.
+### Verified
+- [x] `rg -n "handle_new_user|profiles insert|insert.*profiles|profiles.*insert|role.*customer|customer.*role|default.*role|role.*default" .` -> `handle_new_user`는 `supabase/migrations/20260620000002_backfill_profiles_phone.sql` 1곳, `profiles` insert는 id-only 경로로 확인.
+- [x] `rg -n "profiles|role|phone_verified|upsert|insert" backend/main.py supabase -g "*.py" -g "*.sql" -g "*.ts"` -> `backend/main.py`는 `profiles.role` 조회와 `phone_verified` upsert만 존재, role upsert/overwrite 없음.
+- [x] `cd backend && python -m pytest -q` -> 418 passed, 8 skipped.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+### Notes
+- repo 기준 `public.handle_new_user()`는 `insert into public.profiles (id) values (new.id) on conflict (id) do nothing;` 형태라 신규 가입 시 `role='customer'`를 명시하지 않고 기존 row/role도 덮지 않음.
+- `20260620000002_backfill_profiles_phone.sql`의 기존 계정 백필도 `insert into public.profiles (id) ... where not exists ... on conflict do nothing`이라 이미 있는 `internal` role을 변경하지 않음. 단, profiles row가 아예 없는 계정은 DB 기본값 때문에 신규 row의 role이 `customer`가 됨.
+- `backend/main.py`의 `/auth/verify-phone` upsert payload는 `{id, phone_verified, phone?}`뿐이라 role을 보존함.
+- `20260620000000_subscription_schema.sql`은 role 기본값을 `customer`로 두고 과거 `user` 값을 `customer`로 매핑하는 스키마 마이그레이션임. 신규 가입 트리거에서 role을 overwrite하는 경로는 아님.
+### Next
+- Human: Supabase 대시보드/SQL Editor에서 운영 DB의 live `public.handle_new_user()` 함수 본문이 repo 마이그레이션과 같은지 확인. 권장 쿼리: `select pg_get_functiondef('public.handle_new_user()'::regprocedure);`
+
 ## 2026-06-23 Codex BOHUMFIT-107 [Q2 추가검사·재검사 가능성 표시·소견 확인 안내 개선]
 ### Changed
 - `src/pages/Disclosure.tsx`: Q1/Q2 임상 확인 배지를 기존 `추가검사·재검사 의심/확인 필요`에서 `가능성 높음`, `가능성 낮음`, `가능성 미확인`으로 구분 표시하도록 정리. `q2_suspicion`의 `[추가검사·재검사 가능성 높음/낮음]` 접두어를 해석해 화면 문구를 `자동 분석: 가능성 ...` 형태로 정돈.
