@@ -71,7 +71,10 @@ export default function Subscription() {
 
   const loadStatus = useCallback(async () => {
     const token = session?.access_token;
-    if (!token) return;
+    if (!token) {
+      setLoading(false);   // BOHUMFIT-111: 비로그인 → 로딩 종료(요금제 카드 공개 노출)
+      return;
+    }
     setLoading(true);
     try {
       const r = await fetch(`${API_BASE}/billing/status`, { headers: { Authorization: `Bearer ${token}` } });
@@ -130,12 +133,13 @@ export default function Subscription() {
   }, [params, session, user, loadStatus, setParams]);
 
   const handleSubscribe = async (plan: PlanKey) => {
-    if (!TOSS_CLIENT_KEY) {
-      setToast({ kind: "err", msg: "결제 설정이 준비되지 않았습니다(VITE_TOSS_CLIENT_KEY)." });
+    // BOHUMFIT-111: 비로그인 → 결제 버튼 클릭 시 로그인 페이지로 유도.
+    if (!session || !user?.id) {
+      navigate("/login");
       return;
     }
-    if (!user?.id) {
-      setToast({ kind: "err", msg: "로그인이 필요합니다." });
+    if (!TOSS_CLIENT_KEY) {
+      setToast({ kind: "err", msg: "결제 설정이 준비되지 않았습니다(VITE_TOSS_CLIENT_KEY)." });
       return;
     }
     setBusy(true);
@@ -162,6 +166,7 @@ export default function Subscription() {
   const trialLimit = status?.trial_limit ?? 5;
   const trialLeft = Math.max(0, trialLimit - trialUsed);
   const planLabel = (status?.plan && PLAN_LABEL[status.plan as PlanKey]) || "베이직";
+  const isLoggedIn = !!session;   // BOHUMFIT-111: 비로그인 접근 허용
 
   return (
     <section className="mx-auto max-w-2xl">
@@ -184,8 +189,12 @@ export default function Subscription() {
         <div className="mt-6 text-sm text-gray-400">불러오는 중…</div>
       ) : status?.is_internal ? (
         <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
-          <p className="text-sm font-bold text-emerald-800">내부 사용자 — 무제한 이용</p>
-          <p className="mt-1 text-sm text-emerald-700">별도 구독 없이 분석을 제한 없이 이용할 수 있습니다.</p>
+          {/* BOHUMFIT-110: internal = pro 동일 월 100회 */}
+          <p className="text-sm font-bold text-emerald-800">내부 사용자 — 월 100회</p>
+          <p className="mt-1 text-sm text-emerald-700">
+            내부 계정은 별도 구독 없이 매월 100회 분석을 이용할 수 있습니다.
+            (이번 달 {status?.used ?? 0} / {status?.limit ?? 100}회)
+          </p>
         </div>
       ) : isActive ? (
         <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
@@ -200,12 +209,18 @@ export default function Subscription() {
         </div>
       ) : (
         <>
-          {/* BOHUMFIT-072: 무료 체험 상태(미구독) */}
-          <div className={`mt-6 rounded-[8px] px-4 py-3 text-sm ${trialLeft > 0 ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-            {trialLeft > 0
-              ? <>무료 체험 <b>{trialLeft}회</b> 남음 (이번 달 {trialUsed}/{trialLimit}회 사용). 더 분석하려면 구독해 주세요.</>
-              : <>이번 달 무료 체험 횟수를 모두 사용했습니다. 구독하고 계속 이용하세요.</>}
-          </div>
+          {/* BOHUMFIT-072: 무료 체험 상태(미구독·로그인 시). BOHUMFIT-111: 비로그인은 안내만. */}
+          {isLoggedIn ? (
+            <div className={`mt-6 rounded-[8px] px-4 py-3 text-sm ${trialLeft > 0 ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+              {trialLeft > 0
+                ? <>무료 체험 <b>{trialLeft}회</b> 남음 (이번 달 {trialUsed}/{trialLimit}회 사용). 더 분석하려면 구독해 주세요.</>
+                : <>이번 달 무료 체험 횟수를 모두 사용했습니다. 구독하고 계속 이용하세요.</>}
+            </div>
+          ) : (
+            <div className="mt-6 rounded-[8px] bg-gray-50 px-4 py-3 text-sm text-gray-600">
+              가입 후 매월 무료 체험 {trialLimit}회를 제공합니다. 아래 플랜을 둘러보고 구독을 시작해 보세요.
+            </div>
+          )}
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             {/* 베이직 — BOHUMFIT-101: flex-col + 버튼 mt-auto 하단 고정(이벤트 배지 있어도 프로 버튼과 동일 높이) */}
@@ -228,7 +243,7 @@ export default function Subscription() {
                 disabled={busy}
                 className="mt-auto w-full rounded-[8px] bg-accent-600 px-5 py-3 text-sm font-bold text-white disabled:opacity-60"
               >
-                {busy ? "결제 진행 중…" : "베이직 구독 시작"}
+                {busy ? "결제 진행 중…" : isLoggedIn ? "베이직 구독 시작" : "로그인 후 구독하기"}
               </button>
             </div>
 
@@ -249,7 +264,7 @@ export default function Subscription() {
                 disabled={busy}
                 className="mt-auto w-full rounded-[8px] bg-gray-900 px-5 py-3 text-sm font-bold text-white disabled:opacity-60"
               >
-                {busy ? "결제 진행 중…" : "프로 구독 시작"}
+                {busy ? "결제 진행 중…" : isLoggedIn ? "프로 구독 시작" : "로그인 후 구독하기"}
               </button>
             </div>
           </div>

@@ -1,6 +1,6 @@
 # BOHUMFIT-069/072 구독·사용량·무료체험 게이트 회귀 — Supabase admin을 가짜로 주입.
 #
-# /api/analyze: internal 무제한, 활성 구독은 플랜 한도(basic 30·pro 100), 미구독은 이번 달 무료
+# /api/analyze: internal=pro 동일(월 100회·BOHUMFIT-110), 활성 구독은 플랜 한도(basic 30·pro 100), 미구독은 이번 달 무료
 #   체험 5회까지 통과·초과 시 402. Supabase 미설정 → 게이트 비활성(무료 동작). main 의존
 #   (slowapi/fastapi/supabase) → 미설치 시 자동 skip(Codex/Windows 권위).
 import asyncio
@@ -82,12 +82,27 @@ from fastapi import HTTPException  # noqa: E402
 PERIODS = {"current_period_start": "2026-06-01T00:00:00Z", "current_period_end": "2026-06-30T23:59:59Z"}
 
 
-# ── ① internal → 무제한 ──────────────────────────────────────────────────────
-def test_internal_user_unlimited(monkeypatch):
+# ── ① internal → pro 동일 월 100회(한도 내 통과) ─────────────────────────────
+def test_internal_under_100_passes(monkeypatch):
     main = _load_main(monkeypatch)
-    _patch_admin(monkeypatch, main, _FakeAdmin({"profiles": _Resp({"role": "internal"})}))
+    _patch_admin(monkeypatch, main, _FakeAdmin({
+        "profiles": _Resp({"role": "internal"}),
+        "usage_logs": _Resp([], count=30),
+    }))
     ctx = asyncio.run(main._enforce_subscription("u1"))
-    assert ctx["is_internal"] is True and ctx["enabled"] is True
+    assert ctx["is_internal"] is True and ctx["enabled"] is True and ctx["plan"] == "internal"
+
+
+# ── ①' internal 100회 초과 → 429(BOHUMFIT-110) ──────────────────────────────
+def test_internal_over_100_429(monkeypatch):
+    main = _load_main(monkeypatch)
+    _patch_admin(monkeypatch, main, _FakeAdmin({
+        "profiles": _Resp({"role": "internal"}),
+        "usage_logs": _Resp([], count=100),
+    }))
+    with pytest.raises(HTTPException) as ei:
+        asyncio.run(main._enforce_subscription("u1b"))
+    assert ei.value.status_code == 429 and "100" in ei.value.detail
 
 
 # ── ② 미구독 + 무료체험 한도 내 → 통과(plan=trial) ───────────────────────────
@@ -190,13 +205,15 @@ def test_disabled_when_no_supabase(monkeypatch):
     asyncio.run(main._log_usage("u6", ctx))
 
 
-# ── ⑦ internal ctx는 차감 안 함 ─────────────────────────────────────────────
-def test_internal_not_logged(monkeypatch):
+# ── ⑦ internal ctx도 차감 적재(BOHUMFIT-110: pro 동일 월 100회 → 사용량 기록) ──
+def test_internal_logged(monkeypatch):
     main = _load_main(monkeypatch)
     admin = _FakeAdmin({})
     _patch_admin(monkeypatch, main, admin)
-    asyncio.run(main._log_usage("u7", {"is_internal": True, "enabled": True}))
-    assert admin.inserted == []
+    asyncio.run(main._log_usage("u7", {"is_internal": True, "enabled": True,
+                                       "period_start": "2026-06-01T00:00:00+00:00",
+                                       "period_end": "2026-07-01T00:00:00+00:00"}))
+    assert admin.inserted and admin.inserted[0][0] == "usage_logs"
 
 
 # ── ⑧ trial ctx 차감 적재(미구독 무료체험도 사용량 기록) ─────────────────────
