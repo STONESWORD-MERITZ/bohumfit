@@ -16,6 +16,28 @@
 
 # Handoff
 
+## 2026-06-23 Codex BOHUMFIT-116 [보장분석서 가이드 전산 링크·이미지 보강]
+### Changed
+- `src/pages/CoverageGuide.tsx`: 한화/KB/DB 전산 바로가기 버튼 추가, 보험사 링크 페이지와 동일한 전산 URL 연결.
+- `src/pages/CoverageGuide.tsx`: KB손보 텍스트에서 `MYMANAGER` 문구 제거, `KB손해보험 GA 전산`으로 정리.
+- `public/images/coverage-guide/`: 제공 PDF 3개를 PNG로 변환해 한화 9장, KB 18장, DB 25장(총 52장, 약 20.36MB) 추가.
+- `.agent-harness/tasks/BOHUMFIT-116-coverage-guide-links-images.md`
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files, 53 tests passed.
+- [x] `npm run build` -> pass, 기존 Vite chunk size warning만 확인.
+- [x] PDF PNG 렌더링 대표 육안 확인 -> 한화/KB/DB 대표 페이지 선명하게 표시.
+- [x] 로컬 `/coverage-guide` HTTP 200 확인.
+### Notes
+- Commit: `a573f74` (`BOHUMFIT-116: 보장분석서 가이드 전산 링크 연결 + PDF 이미지 첨부`)
+- 전산 URL은 `InsuranceLinks.tsx`의 한화 `https://portal.hwgeneralins.com/`, KB `https://nsales.kbinsure.co.kr/`, DB `https://www.mdbins.com/`와 동일하게 연결.
+- KB 원본 PDF 이미지 안에는 `MYMANAGER` 표기가 포함되어 있으나, 페이지 텍스트에서는 보험사명처럼 노출하지 않도록 제거.
+- `backend/__pycache__/main.cpython-312.pyc` 및 기존 untracked 파일들은 116 범위가 아니어서 stage하지 않음.
+### Next
+- Human: 배포 후 `/coverage-guide`에서 전산 바로가기, 탭 전환, 이미지 표시를 브라우저에서 최종 확인.
+
 ## 2026-06-23 Codex BOHUMFIT-115 [보장분석서 PDF 다운로드 가이드 페이지]
 ### Changed
 - `src/pages/CoverageGuide.tsx`: 한화손보/KB손보/DB손보 보장분석서 PDF 저장 방법을 탭 구조의 공개 가이드 페이지로 신규 추가.
