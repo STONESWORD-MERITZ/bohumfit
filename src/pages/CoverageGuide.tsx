@@ -55,7 +55,7 @@ const GUIDES: Record<GuideKey, Guide> = {
         tone: "amber",
       },
     ],
-    images: imagePages("hanwha", 9),
+    images: imagePages("hanwha", 6),
   },
   kb: {
     tab: "KB손보",
@@ -77,7 +77,7 @@ const GUIDES: Record<GuideKey, Guide> = {
       { title: "출력/발송", body: "출력/발송 아이콘을 클릭합니다." },
       { title: "PDF저장", body: "전체 선택/해제를 클릭해 항목을 선택한 뒤 PDF저장을 클릭합니다." },
     ],
-    images: imagePages("kb", 18),
+    images: imagePages("kb", 10),
   },
   db: {
     tab: "DB손보",
@@ -118,7 +118,7 @@ const GUIDES: Record<GuideKey, Guide> = {
       },
       { title: "PDF 저장", body: "저장을 클릭해 PDF 파일로 저장합니다." },
     ],
-    images: imagePages("db", 25),
+    images: imagePages("db", 20),
   },
 };
 
