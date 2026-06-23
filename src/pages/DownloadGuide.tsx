@@ -137,6 +137,20 @@ export default function DownloadGuide() {
         </a>
       </header>
 
+      <section className="mb-6 rounded-card border border-accent-200 bg-accent-50 p-5">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent-700">Coverage Compare</p>
+        <h2 className="ko-heading mt-2 text-lg font-extrabold text-ink-900">보장분석서 받기</h2>
+        <p className="ko-text mt-2 text-[14px] leading-7 text-ink-soft">
+          한화손보, KB손보, DB손보 보장분석서 PDF 저장 방법은 별도 가이드에서 확인할 수 있습니다.
+        </p>
+        <Link
+          to="/coverage-guide"
+          className="button-text mt-4 inline-flex rounded-btn bg-accent-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-accent-700"
+        >
+          보험사별 보장분석서 가이드 보기
+        </Link>
+      </section>
+
       {/* 탭 */}
       <div role="tablist" aria-label="기관 선택" className="mb-5 flex gap-2 rounded-btn border border-line bg-white p-1">
         {([["hira", "① 심평원(HIRA)"], ["nhis", "② 건강보험공단(NHIS)"]] as const).map(([key, label]) => (

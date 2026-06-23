@@ -20,6 +20,7 @@ import WhyDisclosure from "./pages/WhyDisclosure";
 import Subscription from "./pages/Subscription";
 import PhoneVerify from "./pages/PhoneVerify";
 import DownloadGuide from "./pages/DownloadGuide";
+import CoverageGuide from "./pages/CoverageGuide";
 import CoverageCompare from "./pages/CoverageCompare";
 import InsuranceLinks from "./pages/InsuranceLinks";
 import ReportSample from "./pages/ReportSample";
@@ -107,6 +108,7 @@ function App() {
           <Route path="disclosure/sample" element={<ReportSample />} />
           {/* BOHUMFIT-077: 심평원 자료 다운로드 가이드(공개) */}
           <Route path="download-guide" element={<DownloadGuide />} />
+          <Route path="coverage-guide" element={<CoverageGuide />} />
           {/* BOHUMFIT-092: 보험사 전산·약관·팩스 링크모음(공개) */}
           <Route path="insurance-links" element={<InsuranceLinks />} />
           {/* BOHUMFIT-114: 비로그인도 Step1 열람 가능, 분석 실행은 페이지 내부에서 로그인 유도 */}

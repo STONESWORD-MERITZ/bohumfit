@@ -1,7 +1,7 @@
 // BOHUMFIT-114: 보장 비교분석 — Step1 현재보험 → Step2 가입제안서 → Step3 비교 리포트.
 //   /coverage/parse(백엔드) 결과로 비교표 생성. PII(성명·주민번호)는 서버가 미저장·미반환.
 import { useMemo, useState, type ChangeEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth-context";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
@@ -151,7 +151,13 @@ export default function CoverageCompare() {
         <section className="rounded-card border border-line bg-white p-6">
           <h2 className="ko-heading text-lg font-bold text-ink-900">① 현재 보험 업로드</h2>
           <p className="ko-text mt-1 text-[13px] text-ink-soft">보장분석서(PDF)를 올리면 계약·담보를 자동 인식합니다.</p>
-          <label className="mt-4 flex h-32 cursor-pointer flex-col items-center justify-center rounded-card border-2 border-dashed border-accent-200 bg-accent-50 text-center hover:border-accent-400">
+          <Link
+            to="/coverage-guide"
+            className="ko-text mt-4 inline-flex text-[13px] font-semibold text-accent-700 hover:text-accent-800"
+          >
+            PDF 받는 방법을 모르신다면 → 보험사별 가이드 보기
+          </Link>
+          <label className="mt-3 flex h-32 cursor-pointer flex-col items-center justify-center rounded-card border-2 border-dashed border-accent-200 bg-accent-50 text-center hover:border-accent-400">
             <span className="text-2xl" aria-hidden>📄</span>
             <span className="mt-2 text-sm font-semibold text-accent-700">{busy ? "분석 중…" : "보장분석서 PDF 선택"}</span>
             <input type="file" accept="application/pdf" className="hidden" onChange={onUploadCurrent} disabled={busy} />
