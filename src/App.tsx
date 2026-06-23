@@ -21,6 +21,7 @@ import PhoneVerify from "./pages/PhoneVerify";
 import DownloadGuide from "./pages/DownloadGuide";
 import CoverageCompare from "./pages/CoverageCompare";
 import InsuranceLinks from "./pages/InsuranceLinks";
+import ReportSample from "./pages/ReportSample";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -100,6 +101,8 @@ function App() {
           />
           {/* 구 고객용 경로 — 북마크·기존 링크 보존용 redirect */}
           <Route path="check" element={<Navigate to="/disclosure?mode=customer" replace />} />
+          {/* BOHUMFIT-112: 고지의무 리포트 샘플 미리보기(공개·비로그인 구독 유도) */}
+          <Route path="disclosure/sample" element={<ReportSample />} />
           {/* BOHUMFIT-077: 심평원 자료 다운로드 가이드(공개) */}
           <Route path="download-guide" element={<DownloadGuide />} />
           {/* BOHUMFIT-092: 보험사 전산·약관·팩스 링크모음(공개) */}
@@ -121,11 +124,8 @@ function App() {
             path="before-after"
             element={<ProtectedRoute><BeforeAfterComingSoon /></ProtectedRoute>}
           />
-          {/* BOHUMFIT-071: 구독 관리 */}
-          <Route
-            path="subscription"
-            element={<ProtectedRoute><Subscription /></ProtectedRoute>}
-          />
+          {/* BOHUMFIT-071: 구독 관리. BOHUMFIT-111: 비로그인도 요금제 열람 가능(결제 버튼만 로그인 유도) */}
+          <Route path="subscription" element={<Subscription />} />
           <Route path="why" element={<WhyDisclosure />} />
           <Route path="privacy" element={<PrivacyPolicy />} />
           <Route path="terms" element={<Terms />} />
