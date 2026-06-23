@@ -16,6 +16,25 @@
 
 # Handoff
 
+## 2026-06-24 Codex BOHUMFIT-119 [KB·DB 가이드 1페이지 MYMANAGER 표기 제거]
+### Changed
+- `public/images/coverage-guide/kb-01.png`: 상단 `MYMANAGER` 및 밑줄만 배경 처리로 제거, `KB 간편등록 방법` 제목은 유지.
+- `public/images/coverage-guide/db-01.png`: 상단 `MYMANAGER` 및 밑줄만 배경 처리로 제거, `DB 간편등록 방법` 제목은 유지.
+- `.agent-harness/tasks/BOHUMFIT-119-coverage-guide-cover-mymanager-remove.md`
+### Verified
+- [x] Visual check -> KB/DB 1페이지 상단 MYMANAGER 제거 확인.
+- [x] Count check -> hanwha 6, kb 10, db 20; deleted pages still absent.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files, 53 tests passed.
+- [x] `npm run build` -> pass, existing Vite chunk size warning only.
+### Notes
+- Commit: `5687a6e` (`BOHUMFIT-119: KB·DB 가이드 1페이지 MYMANAGER 표기 제거`)
+- 1페이지 상단 표기만 제거했고, 다른 페이지 및 전체 모자이크/예시값 처리는 하지 않음.
+- Existing unrelated `backend/__pycache__/main.cpython-312.pyc` and local untracked files were not staged.
+### Next
+- Human: 배포 후 `/coverage-guide` KB/DB 탭 1페이지 표지 최종 육안 확인.
+
 ## 2026-06-24 Codex BOHUMFIT-118 [보장분석서 가이드 이미지 모자이크 원복]
 ### Changed
 - `public/images/coverage-guide/`: 117에서 적용한 전체 모자이크/예시값 오버레이를 원복하고, 남겨둔 36장 이미지를 117 직전 원본(`a573f74`)과 동일하게 복원.
