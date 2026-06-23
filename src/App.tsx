@@ -5,6 +5,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import * as Sentry from "@sentry/react";
 import Layout from "./components/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ScrollToTop from "./components/ScrollToTop";
 import { PhoneGate } from "./lib/usePhoneGate";
 import { useAuth } from "./lib/auth-context";
 import Home from "./pages/Home";
@@ -85,6 +86,7 @@ function App() {
 
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <Routes>
         <Route path="/login" element={<RedirectIfAuthed><Login /></RedirectIfAuthed>} />
         <Route path="/signup" element={<RedirectIfAuthed><Signup /></RedirectIfAuthed>} />
