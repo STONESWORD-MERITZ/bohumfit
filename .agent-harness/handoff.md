@@ -16,6 +16,54 @@
 
 # Handoff
 
+## 2026-06-25 Codex BOHUMFIT-126/127/128 [Windows verification + split commits]
+### Changed
+- BOHUMFIT-126: `backend/pipeline/disease_aggregator.py`, `backend/pipeline/pdf_parser.py`, `backend/tests/test_injury_episode_split_126.py`, `.agent-harness/tasks/BOHUMFIT-126-injury-first-visit-split.md`
+- BOHUMFIT-127: `backend/pipeline/helpers.py`, `backend/tests/test_disease_name_spacing_127.py`, `.agent-harness/tasks/BOHUMFIT-127-disease-name-spacing.md`
+- BOHUMFIT-128: `backend/pipeline/result_builder.py`, `backend/main.py`, `src/pages/Disclosure.tsx`, `backend/tests/test_exam_check_only_128.py`, `.agent-harness/tasks/BOHUMFIT-128-additional-exam-ui-refactor.md`
+### Verified
+- [x] `cd backend && python -m pytest -q` -> 446 passed, 8 skipped.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run build` -> pass, existing Vite chunk size warning only.
+### Notes
+- Commits:
+  - BOHUMFIT-126: `0e5b4e7` (`fix(BOHUMFIT-126): 상해 S코드 초진/재진 기반 에피소드 분리`)
+  - BOHUMFIT-127: `260c2a6` (`fix(BOHUMFIT-127): 질병명 한국어 띄어쓰기 정규화`)
+  - BOHUMFIT-128: `d4efe6c` (`fix(BOHUMFIT-128): 추가검사/재검사 UI 개편 및 고지복사 제외`)
+- Unrelated existing local files were not staged: prior harness-doc edits, local PDF/brand/guide/tmp files, and `backend/__pycache__/main.cpython-312.pyc`.
+### Next
+- Human.
+
+## 2026-06-25 Cowork BOHUMFIT-126/127/128 [상해 그룹분리 · 질병명 정규화 · 추가검사 UI]
+### BOHUMFIT-126 — S코드 초진/재진 에피소드 그룹 분리
+- 분석: 초진/재진은 세부진료 진료내역(_detail_action_name)에 있고, S코드 그룹키는 disclosure_group_code(예 S63). 초진마다 별개 상해이나 현재 코드 누적 → 통원/입원 과집계.
+- 변경 `backend/pipeline/disease_aggregator.py`: ① S코드 초진 발생일 사전수집 pre-pass(detail 초진→날짜+기관으로 basic S코드에 연결) ② group_key를 `S63|초진일`로 분리(재진/이후는 직전 초진 에피소드 귀속) ③ 초진정보 없는 S코드·비S코드는 기존 키 유지(하위호환). `_pick_episode_start` 헬퍼·`_S_CODE_RE`.
+- 변경 `backend/pipeline/pdf_parser.py`: 세부진료 record에 `is_first_visit`(초진=True/재진=False/없음=None) 추가.
+- 테스트 `backend/tests/test_injury_episode_split_126.py`: (a)초진2→그룹2 (b)초진1+재진3→그룹1·통원4 (c)비S코드 초진2→그룹1 (+초진정보 없는 S코드 단일그룹).
+- ★한계: disease_stats 키가 `S63|날짜`로 분리되면 result_builder의 `disease_stats.get("S63")`가 미스→else 분기(병합 항목값 사용, 카운트는 에피소드별 max로 과집계 해소). 입원 '기간' 상세 표시만 일부 약화될 수 있음(카운트·일수는 유지). result_builder는 미수정(스코프).
+### BOHUMFIT-127 — 질병명 한국어 띄어쓰기 정규화
+- 분석: keywords.json에 KCD 명칭 사전 없음(코드 리스트만). 모든 공백 제거는 정상명까지 붙여버림 → 보수적 적용.
+- 변경 `backend/pipeline/helpers.py`: `normalize_disease_name()` 추가(공백 제거→표준 사전 매칭→미등록은 공백 제거본, 임의 재삽입 없음). `_STANDARD_DISEASE_NAMES`(최소 시드 2개 — 기존 스냅샷/픽스처 명칭 불변 보장). `_clean_disease_name` 말미에 등록명만 정규명으로 교정(미등록 무손상).
+- 테스트 `backend/tests/test_disease_name_spacing_127.py`: (a)깨진 등록명→정규명 (b)미등록→공백제거본 (c)정상 등록명→불변 (+빈값·_clean_disease_name 경로).
+### BOHUMFIT-128 — 추가검사/재검사 UI 개편
+- 변경 `backend/pipeline/result_builder.py`: Q2 추가검사·재검사 의심 행에 `exam_check_only: true`(additional_test_hit/reason 또는 q2_suspicion 보유 시).
+- 변경 `backend/main.py` `_build_kakao_message`: `exam_check_only` 항목을 고지 복사(카카오) 텍스트에서 제외, 섹션 전부 제외 시 헤더도 생략.
+- 변경 `src/pages/Disclosure.tsx`: SummaryItem에 `exam_check_only` 추가, Q2 섹션을 [A]일반 고지 + [B]'설계사 확인 필요 항목'(연한 amber 박스·복사버튼 없음·신규 부제)으로 분리, 미확인 문구를 "검사 시행 여부와 관계없이, 의사로부터 추가검사나 재검사가 필요하다는 소견 또는 권유를 받으셨는지 고객에게 직접 확인해 주세요."로 교체.
+- 테스트 `backend/tests/test_exam_check_only_128.py`: (a)(b) exam_check_only 복사 제외·일반 포함, 섹션 전부 exam→헤더 생략. (Q1/Q3/Q4·filters.py 미수정.)
+### Verified
+- [x] 126/127/128 핵심 로직 /tmp 재구성 검증 전부 통과(126 a/b/c, 127 a/b/c+와이어링, 128 카카오 제외).
+- [x] 회귀 영향 점검: 127 사전을 시드 2개로 축소해 기존 스냅샷/픽스처(무릎관절증·본태성 고혈압·경추 염좌 등) 출력 불변. 126 분리는 detail 초진이 연결된 S코드에서만 발동→기존 S코드 테스트 영향 낮음.
+- [ ] `pytest -q` 전체 / tsc(app) / npm run build: **샌드박스 마운트 truncation으로 helpers.py·aggregator·result_builder가 잘린 사본으로 컴파일돼 실행 불가**(ENV-MOUNT-NOTES, 실파일은 Read로 정상 확인). rolldown 미설치로 build 불가. **Codex/Windows 권위 재검 필수**(신규 테스트 3개 + 전체 회귀 + tsc + build).
+### Notes
+- 수정 금지 준수: filters.py(고지 판정) 미수정, Q1/Q3/Q4 미변경, 창 경계값 불변. 실 PDF·PII 미커밋.
+### Next
+- Codex: Windows에서 `cd backend && python -m pytest -q`(특히 test_injury_episode_split_126·test_disease_name_spacing_127·test_exam_check_only_128) + `npx tsc -p tsconfig.app.json --noEmit`·`tsconfig.node.json` + `npm run build` 재검 후 태스크별로 커밋·푸시.
+  - 126: pipeline/disease_aggregator.py·pipeline/pdf_parser.py·tests/test_injury_episode_split_126.py
+  - 127: pipeline/helpers.py·tests/test_disease_name_spacing_127.py
+  - 128: pipeline/result_builder.py·main.py·src/pages/Disclosure.tsx·tests/test_exam_check_only_128.py
+  (+ tasks/BOHUMFIT-126·127·128·handoff·locks). 커밋 메시지: `BOHUMFIT-126/127/128: {요지}`.
+
 ## 2026-06-25 Codex BOHUMFIT-125 [진료기간 종료일 창 클리핑 제거 검증]
 ### Changed
 - `backend/pipeline/result_builder.py`: `latest_date`를 창 필터 결과가 아닌 실제 최종진료일 기준으로 표시하도록 변경 확인.

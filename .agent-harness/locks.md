@@ -7,6 +7,9 @@ Use this file to record active Codex file ownership during a task.
 - (없음)
 
 ### Released
+- 2026-06-25 `BOHUMFIT-126/127/128` - Cowork - 완료. 126(aggregator·pdf_parser S코드 에피소드 분리)·127(helpers normalize_disease_name)·128(result_builder exam_check_only·main 카카오 제외·Disclosure.tsx Q2 [A]/[B] 분리). keywords.json 미수정(사전은 helpers에 시드). /tmp 검증 OK, 전체 pytest·tsc·build는 마운트 truncation/rolldown 미설치로 Codex/Windows 권위.
+
+### Released
 - 2026-06-25 `BOHUMFIT-125` - Cowork - 진료기간 종료일 창 무관 실제 최종진료일 통일 완료. 변경: pipeline/result_builder.py·tests/test_date_window_period_125.py(filters.py는 미수정—스펙3 플래깅 변경은 사용자 결정으로 미적용). /tmp 검증 OK, 전체 pytest는 마운트 truncation으로 Codex/Windows 권위.
 
 ### Released
