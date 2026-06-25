@@ -81,6 +81,30 @@ def get_val(row, possible_keys):
     return ""
 
 
+# BOHUMFIT-127: 표준 KCD 질병명 사전(compact=공백 제거 키 → 정규 띄어쓰기 명). 점진 확장.
+#   keywords.json에 명칭 사전이 없어 자주 깨지는 명칭을 코드 사전으로 시드한다.
+#   ※ 기존 스냅샷/픽스처가 단언하는 명칭(무릎관절증 등)을 바꾸지 않도록 최소 시드만 둔다.
+#     실제 표준 KCD 명칭 사전이 확보되면 그때 확장한다(점진 확장).
+_STANDARD_DISEASE_NAMES: dict[str, str] = {
+    "손목및손의기타부분의열린상처": "손목 및 손의 기타 부분의 열린 상처",
+    "급성위염": "급성 위염",
+}
+
+
+def normalize_disease_name(name: str | None) -> str:
+    """BOHUMFIT-127: 질병명의 잘못된 공백을 제거하고, 표준 KCD 질병명 사전에 있으면 정규명 반환.
+
+    1) 공백 전부 제거 → 2) 표준 사전 매칭 시 정규명 → 3) 미등록 시 공백 제거본 그대로.
+    임의 재삽입(추측 띄어쓰기)은 하지 않는다 — 오히려 더 틀릴 수 있어서.
+    """
+    if not name:
+        return ""
+    compact = re.sub(r"\s+", "", str(name)).strip()
+    if not compact:
+        return ""
+    return _STANDARD_DISEASE_NAMES.get(compact, compact)
+
+
 def _clean_disease_name(name: str | None) -> str:
     if not name:
         return ""
@@ -101,6 +125,10 @@ def _clean_disease_name(name: str | None) -> str:
     cleaned = cleaned.replace("의염좌", "의 염좌")
     cleaned = cleaned.replace("및긴장", "및 긴장")
     cleaned = cleaned.replace("부위 의표재성", "부위의 표재성")
+    # BOHUMFIT-127: 표준 KCD 질병명 사전 등록명은 정규 띄어쓰기로 교정(미등록은 기존 결과 무손상 유지).
+    _compact = re.sub(r"\s+", "", cleaned)
+    if _compact in _STANDARD_DISEASE_NAMES:
+        return _STANDARD_DISEASE_NAMES[_compact]
     if cleaned in ("$", "해당없음"):
         return ""
     return cleaned
