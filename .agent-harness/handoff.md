@@ -16,6 +16,41 @@
 
 # Handoff
 
+## 2026-06-25 Codex BOHUMFIT-132 [UI polish stage 2 verification]
+### Changed
+- `src/hooks/useCountUp.ts`: rAF 기반 카운트업 훅 추가, IntersectionObserver 진입 시 시작 및 fallback 확인.
+- `src/components/AnimatedNumber.tsx`: 카운트업 숫자 표시 컴포넌트 추가.
+- `src/pages/InsuranceLinks.tsx`: 카드 hover 효과, 보험사 수 카운트업 적용.
+- `src/pages/Disclosure.tsx`: `Chip` label `ReactNode` 허용, 질병 카드 hover, 통원/입원/수술/투약 숫자 카운트업 적용.
+- `.agent-harness/tasks/BOHUMFIT-132-ui-polish-stage2.md`
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run build` -> pass, existing Vite chunk size warning only.
+- [x] `cd backend && python -m pytest -q` -> 451 passed, 8 skipped.
+### Notes
+- Windows 권위 검증 통과. Codex 수정 추가 없음.
+- 확인 항목: `Chip` label `ReactNode` 타입 충돌 없음, `AnimatedNumber` import 경로 정상, `useCountUp` IntersectionObserver fallback 존재, InsuranceLinks hover 클래스 적용 확인.
+- Commit: `af31ff8` (`feat(BOHUMFIT-132): UI 폴리시 2단계 (카드 hover 효과 + 숫자 카운트업 애니메이션)`)
+- Existing unrelated dirty/untracked files were not staged.
+### Next
+- Human.
+
+## 2026-06-25 Cowork BOHUMFIT-132 [UI 폴리시 2단계 — 카드 hover + 숫자 카운트업]
+### Step1 분석 결과
+- Disclosure 결과 숫자는 `DiseaseCard`의 `Chip`(label:string)에 템플릿문자열로 렌더(통원 N회/입원 N일·N회/수술 N건/투약 N일). 질병 카드 = `<article className="border-l-4 ...">`(섹션 내 divide-y 리스트 항목, 자체 그림자 없음). InsuranceLinks 카드 = `<div className="rounded-card border ...">`, 카운트 = `{filtered.length}개 보험사`. `src/hooks/` 폴더 없음 → 신규 생성.
+### 변경
+- 신규 `src/hooks/useCountUp.ts`(rAF·easeOutCubic·기본 800ms·IntersectionObserver 진입 시 시작·target 0이면 0)·`src/components/AnimatedNumber.tsx`(value/duration?/className?, toLocaleString).
+- `src/pages/InsuranceLinks.tsx`: 카드에 `transition-all duration-200 hover:-translate-y-0.5 hover:border-green-200 hover:shadow-lg`, "N개 보험사" → `<AnimatedNumber>`.
+- `src/pages/Disclosure.tsx`: `Chip` label 타입 string→ReactNode(렌더는 `{label}`만 — 안전), 5개 지표 칩 숫자를 `<AnimatedNumber>`로 래핑(통원/입원일/입원회/수술/투약), 질병 카드 `<article>`에 `transition-colors duration-200 hover:bg-green-50/40`(★스펙대로 translate 제외=안정감). 분석 로직/상태 무변경.
+### Verified
+- [x] 정적 자기검토: 신규 훅/컴포넌트 타입(RefObject<HTMLSpanElement|null>·rAF cleanup·IO 폴백), Chip ReactNode 하위호환(string·JSX 모두 허용·문자열 연산 없음), import 경로, hover는 클래스만 추가(기존 동작 보존). 0이면 카운트업 없이 0.
+- [ ] tsc(app·node)/`npm run build`: 샌드박스 rolldown 미설치로 실행 불가 → **Codex/Windows 권위**. backend 미접촉.
+### Notes
+- 수정 금지 준수: backend·고지 분석 로직/상태·외부 라이브러리 미추가(Tailwind+CSS+rAF만). Disclosure는 숫자 표시 클래스/컴포넌트만 교체.
+### Next
+- Codex: `npx tsc -p tsconfig.app.json --noEmit`·`tsconfig.node.json` + `npm run build` 통과 확인 후 신규 useCountUp.ts·AnimatedNumber.tsx + InsuranceLinks.tsx·Disclosure.tsx(+tasks/BOHUMFIT-132·handoff·locks) commit(`BOHUMFIT-132: UI 폴리시 2단계(카드 hover + 숫자 카운트업)`)→push.
+
 ## 2026-06-25 Codex BOHUMFIT-131 [UI polish stage 1 verification]
 ### Changed
 - `src/components/Toast.tsx`, `src/components/ToastContext.tsx`, `src/components/Spinner.tsx` 신규 추가.
