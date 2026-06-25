@@ -16,6 +16,48 @@
 
 # Handoff
 
+## 2026-06-25 Codex BOHUMFIT-131 [UI polish stage 1 verification]
+### Changed
+- `src/components/Toast.tsx`, `src/components/ToastContext.tsx`, `src/components/Spinner.tsx` 신규 추가.
+- `src/App.tsx`: `ToastProvider` 래핑.
+- `src/components/ui/Badge.tsx`: `variant` prop 추가, 기존 `tone` API 유지.
+- `src/components/AnalysisProgress.tsx`: 브랜드 Spinner 적용.
+- `src/pages/InsuranceLinks.tsx`: Badge variant, 탭 애니메이션, 복사/팩스 토스트 적용.
+- `src/pages/Disclosure.tsx`: 복사 성공, 분석 완료, 분석 오류 토스트 적용.
+- `.agent-harness/tasks/BOHUMFIT-131-ui-polish-stage1.md`
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run build` -> pass, existing Vite chunk size warning only.
+- [x] `cd backend && python -m pytest -q` -> 451 passed, 8 skipped.
+### Notes
+- Windows 권위 검증 통과. Codex 수정 추가 없음.
+- 확인 항목: `useToast` import 경로 정상, `Badge variant` 타입 충돌 없음, `ToastProvider` App 래핑 정상, InsuranceLinks 기존 `STATUS_BADGE`/`CATEGORY_BADGE` 미사용 const 없음.
+- Commit: `3b77a4b` (`feat(BOHUMFIT-131): UI 폴리시 1단계 (Toast/Spinner/Badge variant/Tabs 애니메이션)`)
+- Existing unrelated dirty/untracked files were not staged.
+### Next
+- Human.
+
+## 2026-06-25 Cowork BOHUMFIT-131 [UI 폴리시 1단계 — Toast/Spinner/Badge/Tabs]
+### Step1 분석 결과
+- 기존: Toast/alert 컴포넌트 없음(인라인 setError/복사 state만). 로딩=`components/AnalysisProgress.tsx`(단계형, animate-pulse 점). 배지=`components/ui/Badge.tsx`(tone 기반 navy/gold/success/warning/danger/neutral) + 페이지별 인라인 span 배지. 탭=InsuranceLinks(pill bg), Disclosure(productTab standard/easy/insurance). 카카오 복사는 백엔드 생성 텍스트를 frontend handleCopy로 복사.
+### 변경
+- 신규 `src/components/Toast.tsx`(4종 시각·3초 fade·닫기)·`ToastContext.tsx`(ToastProvider·useToast·우하단·최대3)·`Spinner.tsx`(브랜드 그린 #2d6a4f 원형 animate-spin·48px·문구).
+- `src/App.tsx`: `<ToastProvider>`로 앱 래핑.
+- `src/components/ui/Badge.tsx`: `variant`(default/success/warning/danger/info/outline) 추가(기존 tone API 불변·하위호환).
+- `src/components/AnalysisProgress.tsx`: 상단 점 대신 `<Spinner label="분석 중입니다...">`.
+- `src/pages/InsuranceLinks.tsx`: 카테고리/상태 배지를 `<Badge variant>`로 교체(손해=info·생명=success·공제=outline / 공식확인=success·공식+허브=info·허브확인=warning·확인필요=danger), 탭을 underline 슬라이드(scale-x)·hover bg-green-50·transition-all duration-200·브랜드 그린, 복사·팩스 복사 시 success 토스트.
+- `src/pages/Disclosure.tsx`: 카카오 복사 success 토스트, 분석 완료 success 토스트, 분석 오류 error 토스트("파일을 확인해 주세요").
+### Verified
+- [x] 정적 자기검토: 신규 컴포넌트 타입/JSX, Badge variant 하위호환, useToast 폴백(Provider 미장착 시 no-op), import 경로, InsuranceLinks 미사용 const 제거(STATUS_BADGE/CATEGORY_BADGE→VARIANT 맵). 기존 동작 보존(스타일/토스트만 추가).
+- [ ] tsc(app·node)/`npm run build`: 샌드박스 rolldown 미설치로 실행 불가 → **Codex/Windows 권위**. backend 미접촉(pytest 무관).
+### Notes (stage-1 범위 조정)
+- 완료: Toast 4종·Spinner·Badge variant·InsuranceLinks(배지/탭/토스트)·Disclosure 토스트(복사/완료/오류).
+- 후속(stage-1b 권장): Disclosure 인라인 Q배지/손해·생명 배지를 Badge 컴포넌트로 일괄 교체, Disclosure productTab underline 애니메이션 — 1300줄 파일 대규모 교체라 빌드 안전을 위해 분리(현재 동작/스타일 유지).
+- 수정 금지 준수: backend·고지 판정 로직·외부 라이브러리 미추가(Tailwind+인라인만).
+### Next
+- Codex: `npx tsc -p tsconfig.app.json --noEmit`·`tsconfig.node.json` + `npm run build` 통과 확인 후 신규 3개 컴포넌트 + App.tsx·ui/Badge.tsx·AnalysisProgress.tsx·InsuranceLinks.tsx·Disclosure.tsx(+tasks/BOHUMFIT-131·handoff·locks) commit(`BOHUMFIT-131: UI 폴리시 1단계(Toast/Spinner/Badge/Tabs)`)→push.
+
 ## 2026-06-25 Codex BOHUMFIT-clean-verify-124-130 [Full clean verification + local cleanup]
 ### Changed
 - Deleted Python cache artifacts under `backend/`: 4 `__pycache__` directories / 78 `.pyc` files before verification, then post-pytest regenerated caches removed again.
