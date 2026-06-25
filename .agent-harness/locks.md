@@ -7,6 +7,7 @@ Use this file to record active Codex file ownership during a task.
 - (없음)
 
 ### Released
+- 2026-06-25 `BOHUMFIT-clean-verify-124-130` - Codex - 캐시 삭제 후 Windows 전체 재검증 완료(backend pytest 451 passed/8 skipped, tsc app/node, build). Python cache 4 dirs/78 pyc 정리, PDF 17개는 목록만 handoff 기록·삭제 보류. dist tracked 없음, OS temp/backup/root generated 없음.
 - 2026-06-25 `BOHUMFIT-130` - Cowork - 수술 감지 강화 완료. surgery_exclusions.py(소작·신경차단·도포 제외, 유치카테터·유치도뇨 강신호)·disease_aggregator.py(_DETAIL_CONFIRMED 유치카테터·유치도뇨·냉각응고술 + _is_detail_support_only '유치' 예외)·tests/test_surgery_detection_130.py. /tmp 검증 OK(수술X 6·수술O 4·회귀), 전체 pytest는 마운트 truncation으로 Codex/Windows 권위.
 
 ### Released

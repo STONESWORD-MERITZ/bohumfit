@@ -16,6 +16,53 @@
 
 # Handoff
 
+## 2026-06-25 Codex BOHUMFIT-clean-verify-124-130 [Full clean verification + local cleanup]
+### Changed
+- Deleted Python cache artifacts under `backend/`: 4 `__pycache__` directories / 78 `.pyc` files before verification, then post-pytest regenerated caches removed again.
+- `.agent-harness/locks.md`: lock acquired/released for this cleanup verification.
+- `.agent-harness/handoff.md`: this result entry.
+### Verified
+- [x] `cd backend && python -m pytest -q --tb=short` -> 451 passed, 8 skipped.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run build` -> pass, existing Vite chunk size warning only.
+### Feature Checks
+- [x] BOHUMFIT-124: `disease_aggregator.py` m_days extraction includes `진료일수`.
+- [x] BOHUMFIT-125: `result_builder.py` `latest_date` is not clipped to `_in_range[-1]`; actual latest date logic remains.
+- [x] BOHUMFIT-126: `disease_aggregator.py` S-code episode pre-pass and `pdf_parser.py` `is_first_visit` field present.
+- [x] BOHUMFIT-127: `helpers.py` has `normalize_disease_name()`.
+- [x] BOHUMFIT-128: `result_builder.py` sets `exam_check_only`; `main.py` excludes `exam_check_only` from Kakao copy; `Disclosure.tsx` has Q2 additional-exam / suspicion split rendering.
+- [x] BOHUMFIT-129: `InsuranceLinks.tsx` has 4 tabs(전체/손해보험/생명보험/공제회사), detail toggle, Meritz `displayOrder: 1`, and 45 data entries.
+- [x] BOHUMFIT-130: `surgery_exclusions.py` includes 소작/신경차단 exclusions and 유치카테터/유치도뇨 strong signals; `disease_aggregator.py` includes 유치카테터/유치도뇨/냉각응고술 detail confirmed keywords and support-only 유치 exception.
+### Cleanup Notes
+- Deleted: Python cache only (`backend/**/__pycache__`, `backend/**/*.pyc`).
+- Preserved: empty-file candidates under `.agent-harness/`, `node_modules/`, and `src/App.css` because they fall under explicit no-delete areas or source/dependency safety.
+- No tracked `dist/` files found.
+- No `.DS_Store`, `Thumbs.db`, `*.swp`, backup/bak files, or root `InsuranceLinks_generated*.ts` found.
+- PDF files found and **not deleted** (Human confirmation required):
+  - `건강보험 병력 조회.pdf`
+  - `보험핏_팜플렛_1단접기_4패널.pdf`
+  - `보험핏_팜플렛_2단접기_6패널.pdf`
+  - `심평원 자료 다운로드.pdf`
+  - `최유미_기본진료내역.pdf`
+  - `최유미_세부진료정보.pdf`
+  - `최유미_처방조제정보.pdf`
+  - `병력/이민규 병력 16-17.pdf`
+  - `병력/이민규 병력 17-18.pdf`
+  - `병력/이민규 병력 18-19.pdf`
+  - `병력/이민규 병력 19-20.pdf`
+  - `병력/이민규 병력 20-21.pdf`
+  - `병력/이민규_기본진료정보.pdf`
+  - `병력/이민규_기본진료정보_자동차.pdf`
+  - `병력/이민규_세부진료정보.pdf`
+  - `병력/이민규_세부진료정보_자동차.pdf`
+  - `병력/이민규_처방진료정보.pdf`
+### Notes
+- Existing unrelated dirty/untracked files remain intentionally untouched (AGENTS/tasks/decisions edits, local brand/guide/tmp assets, PDF/PPTX files, older untracked task/test files).
+- Cleanup commit: `63a8b6f` (`chore: 불필요 파일 정리 및 캐시 제거`).
+### Next
+- Human.
+
 ## 2026-06-25 Codex BOHUMFIT-129b/130 [Real insurance data + surgery detection verification]
 ### Changed
 - BOHUMFIT-129b: `src/pages/InsuranceLinks.tsx`의 `INSURANCE_DATA` 배열을 `C:\Users\18_rk\Desktop\InsuranceLinks.generated.ts` 기반 45개 실데이터로 교체. UI 코드/타입/컴포넌트 함수는 변경하지 않음. `확인 필요` 문자열 유지.
