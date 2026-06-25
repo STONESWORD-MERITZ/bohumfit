@@ -16,6 +16,40 @@
 
 # Handoff
 
+## 2026-06-26 Codex BOHUMFIT-133 [UI polish 1b + stage 3 verification]
+### Changed
+- `src/pages/Disclosure.tsx`: `Badge`/`BadgeVariant` import, `Q_VARIANT` 매핑, DiseaseCard/섹션 헤더 Q배지 `<Badge variant>` 교체.
+- `src/pages/Home.tsx`: 히어로 dot pattern 배경 레이어, mounted fade-in-up, Features 3카드 hover 효과 적용.
+- `.agent-harness/tasks/BOHUMFIT-133-ui-polish-stage1b-3.md`
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run build` -> pass, existing Vite chunk size warning only.
+- [x] `cd backend && python -m pytest -q` -> 451 passed, 8 skipped.
+### Notes
+- Windows 권위 검증 통과. Codex 수정 추가 없음.
+- 확인 항목: `Q_VARIANT` Badge variant 타입 충돌 없음, `Home.tsx` hero div 구조 빌드 통과, `mounted` 초기값 false/useEffect 정상, radial-gradient 문법 빌드 통과, Features hover 클래스 적용 확인.
+- Commit: `0f5dbad` (`feat(BOHUMFIT-133): UI 폴리시 1단계-b + 3단계 (Disclosure Q배지 통일 + 메인 배경/텍스트/Features 효과)`)
+- Existing unrelated dirty/untracked files were not staged.
+### Next
+- Human.
+
+## 2026-06-25 Cowork BOHUMFIT-133 [UI 폴리시 1b(Disclosure 배지) + 3단계(메인 효과)]
+### 133a — Disclosure Q배지 → Badge 컴포넌트
+- 분석: Disclosure 인라인 배지는 Q번호 배지 2곳(DiseaseCard·섹션 헤더, `bg-accent-600` 사각)뿐. 손해/생명·고지권고/불필요 배지는 Disclosure에 없음(InsuranceLinks 등 타 영역). RISK[risk]는 좌측 border 색(배지 아님).
+- 변경 `src/pages/Disclosure.tsx`: `Badge`(+`BadgeVariant`) import, `Q_VARIANT`(Q1=danger·Q2=warning·Q3=info·Q4=outline·Q5=danger) 추가, 두 Q배지를 `<Badge variant={Q_VARIANT[qNum] ?? "default"}>`로 교체. 로직/상태/분석 무변경(클래스 교체만).
+### 133b — 메인(Home.tsx) 3단계 효과
+- 분석: `/`=Home.tsx. 다크 히어로(bg-ink-900) + 기존 FadeIn/StatCard/useCountUp 보유. FEATURES(3종: 고지의무/보장 비교/리포트) 카드 이미 렌더(emoji 아이콘).
+- 변경 `src/pages/Home.tsx`: ① 히어로에 dot pattern 배경(radial-gradient·연한 점, relative/overflow-hidden + 절대 레이어 + 콘텐츠 z-10) ② 히어로 콘텐츠 fade-in-up(mounted state·translate-y+opacity transition 700ms) ③ Features 카드에 hover 효과(hover:-translate-y-0.5·hover:border-green-200·hover:shadow-lg·transition-all 200). 기존 레이아웃/콘텐츠 유지.
+- 참고: Features 아이콘은 기존 emoji 유지(lucide-react 교체는 데이터 구조 변경이라 보류 — 시각 효과는 hover로 충족). 헤드라인 텍스트 효과는 fade-in-up으로 충족(다크 히어로라 그라디언트 텍스트 대신 fade-in-up 선택).
+### Verified
+- [x] 정적 자기검토: Disclosure Badge variant 타입(Q_VARIANT Record<string,BadgeVariant>·?? default)·className 전달, Home 히어로 div 균형(dot self-closed+콘텐츠 div 1:1 치환)·mounted state(useState/useEffect 기존 import)·hover 클래스만. 분석 로직/상태 무변경.
+- [ ] tsc(app·node)/`npm run build`: 샌드박스 rolldown 미설치로 실행 불가 → **Codex/Windows 권위**. backend 미접촉(pytest 회귀 무관).
+### Notes
+- 수정 금지 준수: 분석 로직·backend·메인 외 페이지 레이아웃 미변경, 외부 라이브러리 미추가.
+### Next
+- Codex: `npx tsc -p tsconfig.app.json --noEmit`·`tsconfig.node.json` + `npm run build` 통과 확인 후 `src/pages/Disclosure.tsx`·`src/pages/Home.tsx`(+tasks/BOHUMFIT-133·handoff·locks) commit(`BOHUMFIT-133: UI 폴리시 1b(Disclosure 배지 통일)+3단계(메인 배경/fade-in/Features hover)`)→push.
+
 ## 2026-06-25 Codex BOHUMFIT-132 [UI polish stage 2 verification]
 ### Changed
 - `src/hooks/useCountUp.ts`: rAF 기반 카운트업 훅 추가, IntersectionObserver 진입 시 시작 및 fallback 확인.

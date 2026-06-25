@@ -7,6 +7,10 @@ Use this file to record active Codex file ownership during a task.
 - (없음)
 
 ### Released
+- 2026-06-26 `BOHUMFIT-133` - Codex - Windows 검증 통과(tsc app/node, build, backend pytest 451 passed/8 skipped) 후 `0f5dbad` 커밋·푸시 예정. Disclosure Q배지 통일 + Home dot/fade/Features hover, Codex 수정 추가 없음.
+- 2026-06-25 `BOHUMFIT-133` - Cowork - UI 폴리시 1b+3단계 완료. 133a: Disclosure Q배지 2곳 → Badge variant(Q_VARIANT). 133b: Home 히어로 dot 배경+fade-in-up, Features 카드 hover. 분석 로직·backend 무변경. tsc/build는 Codex/Windows 권위.
+
+### Released
 - 2026-06-25 `BOHUMFIT-132` - Codex - Windows 검증 통과(tsc app/node, build, backend pytest 451 passed/8 skipped) 후 `af31ff8` 커밋·푸시 예정. 카드 hover + 숫자 카운트업, Codex 수정 추가 없음.
 - 2026-06-25 `BOHUMFIT-132` - Cowork - UI 폴리시 2단계 완료. 신규 useCountUp.ts·AnimatedNumber.tsx, InsuranceLinks(카드 hover+'N개' 카운트업), Disclosure(질병카드 hover[translate 제외]+지표칩 5종 카운트업, Chip label→ReactNode). 고지 로직 무변경. tsc/build는 Codex/Windows 권위.
 
