@@ -57,7 +57,9 @@ function Setting({ label, value, mark }: { label: string; value: string; mark?: 
 const CHECKLIST: ReadonlyArray<{ group: string; items: ReadonlyArray<string> }> = [
   { group: "심평원 · 건강보험", items: ["기본진료내역", "세부진료정보", "처방조제정보"] },
   { group: "심평원 · 자동차보험", items: ["기본진료내역", "세부진료정보"] },
-  { group: "건강보험공단 · 요양급여내역", items: ["1년차", "2년차", "3년차", "4년차", "5년차"] },
+  // BOHUMFIT-134: 공단 요양급여내역은 심평원 5년 이후(5~10년 전) 구간. 심평원 자료(최근 1~5년)와
+  //   혼동을 막기 위해 표시 라벨을 'N년차' → '5~6년 전' 식으로 변경(체크박스 key는 인덱스라 불변).
+  { group: "건강보험공단 · 요양급여내역", items: ["5~6년 전", "6~7년 전", "7~8년 전", "8~9년 전", "9~10년 전"] },
 ];
 
 function FinalChecklist() {
