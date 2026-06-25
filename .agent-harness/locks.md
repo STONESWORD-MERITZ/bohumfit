@@ -7,6 +7,9 @@ Use this file to record active Codex file ownership during a task.
 - (없음)
 
 ### Released
+- 2026-06-25 `BOHUMFIT-130` - Cowork - 수술 감지 강화 완료. surgery_exclusions.py(소작·신경차단·도포 제외, 유치카테터·유치도뇨 강신호)·disease_aggregator.py(_DETAIL_CONFIRMED 유치카테터·유치도뇨·냉각응고술 + _is_detail_support_only '유치' 예외)·tests/test_surgery_detection_130.py. /tmp 검증 OK(수술X 6·수술O 4·회귀), 전체 pytest는 마운트 truncation으로 Codex/Windows 권위.
+
+### Released
 - 2026-06-25 `BOHUMFIT-129` - Cowork - 보험사 링크 페이지 확장 완료(공제회사 탭·청구양식 버튼·상세보기 토글·고객 안내문 복사·메리츠 상단 고정). InsuranceLinks.tsx만 변경, 기존 39개 값 불변. 정적 자기검토 OK, tsc/build는 Codex/Windows 권위.
 
 ### Released

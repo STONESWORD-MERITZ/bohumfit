@@ -16,6 +16,47 @@
 
 # Handoff
 
+## 2026-06-25 Codex BOHUMFIT-129b/130 [Real insurance data + surgery detection verification]
+### Changed
+- BOHUMFIT-129b: `src/pages/InsuranceLinks.tsx`의 `INSURANCE_DATA` 배열을 `C:\Users\18_rk\Desktop\InsuranceLinks.generated.ts` 기반 45개 실데이터로 교체. UI 코드/타입/컴포넌트 함수는 변경하지 않음. `확인 필요` 문자열 유지.
+- BOHUMFIT-130: `backend/pipeline/surgery_exclusions.py`, `backend/pipeline/disease_aggregator.py`, `backend/tests/test_surgery_detection_130.py`, `.agent-harness/tasks/BOHUMFIT-130-surgery-detection-enhance.md`
+### Verified
+- [x] 129b source search: repo-root `InsuranceLinks_generated*.ts` not found; user-provided desktop file `C:\Users\18_rk\Desktop\InsuranceLinks.generated.ts` used.
+- [x] 129b data count: 45 entries.
+- [x] 129b `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] 129b `npm run build` -> pass, existing Vite chunk size warning only.
+- [x] 130 implementation scan: 소작/약물소작/신경차단/도포 exclusion, 유치카테터/유치도뇨 strong signal, detail confirmed keywords, support-only 유치 예외, 신규 테스트 confirmed.
+- [x] `cd backend && python -m pytest -q` -> 451 passed, 8 skipped.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run build` -> pass, existing Vite chunk size warning only.
+### Notes
+- Commits:
+  - BOHUMFIT-129b: `b5c0302` (`data(BOHUMFIT-129b): 보험사 실데이터 45개 교체`)
+  - BOHUMFIT-130: `d9c9cc0` (`fix(BOHUMFIT-130): 수술 감지 로직 강화 (소작술 제외, 유치카테터/도뇨관 수술O, 신경차단술 제외)`)
+- Unrelated existing local files were not staged: prior harness-doc edits, local PDF/brand/guide/tmp files, and `backend/__pycache__/main.cpython-312.pyc`.
+### Next
+- Human.
+
+## 2026-06-25 Cowork BOHUMFIT-130 [수술 감지 로직 강화]
+### Step1 분석 결과
+- 제외(비수술): `surgery_exclusions.py` — `_STRONG_SURGERY_KEYWORDS`(강수술·부분일치, 있으면 수술 유지)·`_NON_SURGERY_ACTION_KEYWORDS`(비수술·부분일치)·`NON_SURGERY_NAMES`(완전일치). `is_non_surgery_excluded`가 `helpers._is_surgery_match`·`aggregator._is_detail_surgery_match`를 공통 가드.
+- 양성(수술) 감지: keywords.json `surg_keywords`(_is_surgery_match) + `aggregator._DETAIL_CONFIRMED_SURGERY_KEYWORDS` + `nhis_surg_keywords`. detail은 `_is_detail_support_only`(카테터·스텐트 등 보조재 제외) → `_is_detail_surgery_match`. 컬럼 경로 `is_surg_by_column`은 처치및수술 비공란 & not `is_non_surgery_action`.
+- 답: 1)'소작'이 surg_keywords에 있어 소작술이 **현재 수술O(오분류)**. 2)신경차단술은 키워드 미감지지만 처치및수술 컬럼이면 수술로 굳음(오분류 소지). 3)유치도뇨관은 '도뇨'로 **현재 비수술 제외(오분류·수술X)**, 유치카테터는 '카테터' support-only 가드+미감지, 냉각응고술 미감지, 성형술은 _DETAIL_CONFIRMED('성형술')로 detail 감지됨. 4)매칭: action·strong=부분일치(substring), NON_SURGERY_NAMES=완전일치.
+### Step2 확장 후보
+- 수술X 추가: '소작'(전기/약물/레이저소작 포괄)·'약물소작'·'신경차단'·'도포'(약물 도포). 수술O 추가: '유치카테터'·'유치도뇨'·'냉각응고술'(_DETAIL_CONFIRMED). 절제/봉합/성형술 등은 _DETAIL_CONFIRMED로 이미 감지(누락 없음 — 신규 추가 불필요).
+### 변경
+- `backend/pipeline/surgery_exclusions.py`: `_NON_SURGERY_ACTION_KEYWORDS` += 소작·약물소작·신경차단·도포 / `_STRONG_SURGERY_KEYWORDS` += 유치카테터·유치도뇨('도뇨' 비수술 제외를 강신호로 override).
+- `backend/pipeline/disease_aggregator.py`: `_DETAIL_CONFIRMED_SURGERY_KEYWORDS` += 유치카테터·유치도뇨·냉각응고술 / `_is_detail_support_only`에 '유치' 포함 시 support-only 예외(유치카테터의 '카테터' 가드 해제).
+- `backend/tests/test_surgery_detection_130.py`(신규): (a)소작·신경차단 수술 미집계 (b)유치카테터·유치도뇨관·냉각응고술·성형술 수술 감지 (c)기존 수술(정복·봉합·절제·백내장) 유지 (d)기존 비수술(도뇨·한냉·부목·물리치료·관절강내주사) 제외 유지 + 강신호 override.
+### Verified
+- [x] /tmp 재구성(키워드 전량+가드 경로 충실 복제): 수술X 6항목 excluded·미감지, 수술O 4항목 감지·미제외, 기존 수술 4종 감지·기존 비수술 3종 제외 — ALL OK.
+- [ ] `pytest -q` 전체 + test_surgery_detection_130: 샌드박스 마운트 truncation으로 surgery_exclusions.py·disease_aggregator.py가 잘린 사본으로 컴파일돼 실행 불가(실파일 정상). **Codex/Windows 권위 재검**.
+### Notes
+- 수정 금지 준수: filters.py 임계값·프런트 미접촉, keywords.json 미변경('소작'은 제외 가드가 양성 우선). 강수술 신호가 함께 있으면 소작이라도 수술 유지(누락 0).
+### Next
+- Codex: `cd backend && python -m pytest -q`(특히 test_surgery_detection_130) 재검 후 surgery_exclusions.py·disease_aggregator.py·tests/test_surgery_detection_130.py(+tasks/BOHUMFIT-130·handoff·locks) commit(`BOHUMFIT-130: 수술 감지 강화(소작·신경차단 제외 / 유치카테터·냉각응고 포함)`)→push.
+
 ## 2026-06-25 Codex BOHUMFIT-129 [Insurance links page enhancement verification]
 ### Changed
 - `src/pages/InsuranceLinks.tsx`: `Category`/`Browser` 타입 및 선택 필드 9종 확장, 전체/손해보험/생명보험/공제회사 4탭, 청구양식 버튼, 상세보기 토글, 고객 안내문 복사, 메리츠화재 상단 고정, 공제회사 더미 2개 추가.
