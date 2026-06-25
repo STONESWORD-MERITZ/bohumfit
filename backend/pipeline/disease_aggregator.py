@@ -177,6 +177,20 @@ def _is_detail_surgery_match(text: str) -> bool:
     )
 
 
+_S_CODE_RE = re.compile(r"^S\d")  # BOHUMFIT-126: 상해 S코드(S00~S99) 판별(그룹코드 기준)
+
+
+def _pick_episode_start(starts: list[str], clean_date: str) -> str:
+    """BOHUMFIT-126: clean_date 이하의 가장 최근 초진일(없으면 가장 이른 초진일)."""
+    chosen = starts[0]
+    for s in starts:
+        if s <= clean_date:
+            chosen = s
+        else:
+            break
+    return chosen
+
+
 def build_disease_stats(
     records: list[dict],
     today: datetime,
@@ -238,6 +252,28 @@ def build_disease_stats(
             "name": get_diagnosis_name(row),
         })
 
+    # ── BOHUMFIT-126: S코드(상해) 초진 발생일 수집 ────────────────────────────
+    #   세부진료 '진료내역'에 초진이 있으면(또는 record가 is_first_visit=True) 새 상해 에피소드 시작.
+    #   날짜+기관으로 기본진료 S코드에 연결해 코드별 초진일 목록을 만든다(재진은 새 그룹 미생성).
+    _injury_starts: dict[str, list[str]] = defaultdict(list)
+    for _, row in df.iterrows():
+        if str(row.get("_ftype", "")) != "detail":
+            continue
+        _act = _detail_action_name(row)
+        _is_first = bool(row.get("is_first_visit")) or ("초진" in (_act or ""))
+        if not _is_first:
+            continue
+        _ddate = parse_date(get_val(row, ["진료개시일", "진료시작일", "진료일"]))
+        _dprov = _norm_provider_name(get_val(row, ["병·의원", "기관명", "요양기관명", "병·의원&약국"]))
+        if not _ddate:
+            continue
+        _linked = basic_by_day_provider.get((_ddate, _dprov), [])
+        _gcode = _linked[0].get("grouped_code", "") if _linked else ""
+        if _gcode and _S_CODE_RE.match(_gcode):
+            _injury_starts[_gcode].append(_ddate)
+    for _g in list(_injury_starts):
+        _injury_starts[_g] = sorted(set(_injury_starts[_g]))
+
     # ── disease_stats 구축 루프 ───────────────────────────────────
     for _, row in df.iterrows():
         if row_is_junk(row):
@@ -293,6 +329,11 @@ def build_disease_stats(
             continue
 
         clean_date = parse_date(date_str)
+        # BOHUMFIT-126: S코드(상해) 에피소드 분리 — 초진일이 있는 S코드는 group_key에 해당 에피소드
+        #   초진일을 붙여 초진마다 별개 그룹을 만든다(재진/이후 진료는 직전 초진 에피소드에 귀속).
+        #   초진 정보가 없는 S코드·비S코드는 기존 group_key 유지(하위호환).
+        if grouped_code_str and clean_date and grouped_code_str in _injury_starts:
+            group_key = f"{grouped_code_str}|{_pick_episode_start(_injury_starts[grouped_code_str], clean_date)}"
         if not clean_date:
             if (date_str or "").strip():
                 # 값은 있으나 날짜로 인식 불가

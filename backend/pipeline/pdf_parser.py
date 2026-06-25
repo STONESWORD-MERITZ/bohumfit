@@ -335,6 +335,14 @@ def parse_single_pdf(uploaded_file, birthdate_pw) -> dict:
                             rec = {h: str(v).replace("\n", " ").strip() if v else "" for h, v in zip(headers, row)}
                             rec["_ftype"] = ftype
                             rec["_fname"] = fname
+                            # BOHUMFIT-126: 세부진료 진료내역의 초진/재진을 is_first_visit로 추출
+                            #   (초진=새 상해 에피소드, 재진=직전 에피소드 연속). S코드 그룹 분리에 사용.
+                            if ftype == "detail":
+                                _rowtxt = " ".join(str(v) for v in rec.values())
+                                rec["is_first_visit"] = (
+                                    True if "초진" in _rowtxt
+                                    else (False if "재진" in _rowtxt else None)
+                                )
                             file_recs.append(rec)
                     del page_text
                     del tables
