@@ -7,6 +7,9 @@ Use this file to record active Codex file ownership during a task.
 - (없음)
 
 ### Released
+- 2026-06-25 `BOHUMFIT-129` - Cowork - 보험사 링크 페이지 확장 완료(공제회사 탭·청구양식 버튼·상세보기 토글·고객 안내문 복사·메리츠 상단 고정). InsuranceLinks.tsx만 변경, 기존 39개 값 불변. 정적 자기검토 OK, tsc/build는 Codex/Windows 권위.
+
+### Released
 - 2026-06-25 `BOHUMFIT-126/127/128` - Cowork - 완료. 126(aggregator·pdf_parser S코드 에피소드 분리)·127(helpers normalize_disease_name)·128(result_builder exam_check_only·main 카카오 제외·Disclosure.tsx Q2 [A]/[B] 분리). keywords.json 미수정(사전은 helpers에 시드). /tmp 검증 OK, 전체 pytest·tsc·build는 마운트 truncation/rolldown 미설치로 Codex/Windows 권위.
 
 ### Released

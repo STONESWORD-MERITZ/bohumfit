@@ -16,6 +16,42 @@
 
 # Handoff
 
+## 2026-06-25 Codex BOHUMFIT-129 [Insurance links page enhancement verification]
+### Changed
+- `src/pages/InsuranceLinks.tsx`: `Category`/`Browser` 타입 및 선택 필드 9종 확장, 전체/손해보험/생명보험/공제회사 4탭, 청구양식 버튼, 상세보기 토글, 고객 안내문 복사, 메리츠화재 상단 고정, 공제회사 더미 2개 추가.
+- `.agent-harness/tasks/BOHUMFIT-129-insurance-link-page-enhance.md`
+### Verified
+- [x] Implementation scan: type extension, 4 tabs, claim form button, details toggle, Meritz `displayOrder: 1`, mutual-aid dummy 2 entries confirmed.
+- [x] Existing 39 insurer data check: original core fields unchanged; Samsung/Meritz only received additive optional fields.
+- [x] Total data count: 41 entries (39 insurers + 2 mutual-aid dummy entries).
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run build` -> pass, existing Vite chunk size warning only.
+- [x] `cd backend && python -m pytest -q` -> 446 passed, 8 skipped.
+### Notes
+- Commit: `c5493c1` (`feat(BOHUMFIT-129): 보험사 링크 페이지 정보 확장 (공제회사탭·청구양식·상세보기·메리츠상단고정)`)
+- Unrelated existing local files were not staged: prior harness-doc edits, local PDF/brand/guide/tmp files, and `backend/__pycache__/main.cpython-312.pyc`.
+### Next
+- Human.
+
+## 2026-06-25 Cowork BOHUMFIT-129 [보험사 링크 페이지 정보 확장]
+### Step1 분석 결과
+- 페이지 = `src/pages/InsuranceLinks.tsx` 단일 파일 자기완결형(외부 fetch 없음). 정적 배열 `INSURANCE_DATA`(39개사) + `Insurer` 타입 + `InsurerCard` + 탭(전체/손해/생명) + 검색. Supabase 아님 → 타입+데이터 모두 정적.
+- 카드 버튼: 전산/약관/팩스(가상=약관열기, unknown=비활성, 그 외=복사). 복사는 navigator.clipboard.
+### 변경 (프런트 전용 — InsuranceLinks.tsx만)
+- 타입 확장: `Category`(손해/생명/공제회사)·`Browser`(Edge/Chrome/무관) 추가, `Insurer`에 선택 필드 9종(category·displayOrder·customerCenter·incallNumber·helpdeskNumber·claimFormUrl·browser·lastVerifiedDate·claimFaxSub). 기존 필드/값 불변.
+- 데이터: 메리츠화재(displayOrder 1 + 확장 필드 시드)·삼성화재(일부) 필드 추가, 공제회사 더미 2개(교직원공제회·새마을금고 공제, category=공제회사·displayOrder 1/2) 추가. 기존 38개 값 변경 없음.
+- 탭: 전체/손해/생명/**공제회사** 4개. 필터·배지 기준을 `catOf`(category ?? type)로 전환, `CATEGORY_BADGE` 추가.
+- 정렬: 필터 결과를 `displayOrder` 오름차순(미지정 999) → 메리츠화재 상단 고정.
+- 카드: 버튼에 **청구양식**(claimFormUrl 없으면 회색 비활성) 추가, 하단 권장 브라우저 배지(있을 때)+최종확인일(우측 연회색). **상세보기 토글** 신설 → 업무 연락처(고객센터·인콜·헬프데스크, 각 복사·없으면 "확인 필요")/청구 정보(대표·보조(있을 때) 팩스 복사·청구안내=fax_note)/사용 환경(권장 브라우저) + **[고객 안내문 복사]**(지정 형식). `CopyButton`·`ContactRow` 헬퍼 추가.
+### Verified
+- [x] 정적 자기검토(전체 파일 재독): JSX 균형·타입 정합(catOf/CATEGORY_BADGE/Category·Browser, 선택 필드 옵셔널, displayOrder sort는 filter 결과 새 배열에만 적용→원본 불변), 기존 39개 데이터 값 불변 확인.
+- [ ] tsc(app·node)/`npm run build`: 샌드박스 rolldown 네이티브 미설치로 실행 불가 → **Codex/Windows 권위**. 백엔드 무관(미접촉).
+### Notes
+- 수정 금지 준수: 고지의무 분석 파일·타 페이지 미접촉, 기존 보험사 값(전산/약관/팩스) 불변(필드 추가만). 공제 데이터는 [샘플] 더미(실값은 Human 입력 예정).
+### Next
+- Codex: `npx tsc -p tsconfig.app.json --noEmit`·`tsconfig.node.json` + `npm run build`(+백엔드 pytest 참고) 통과 확인 후 `src/pages/InsuranceLinks.tsx`(+tasks/BOHUMFIT-129·handoff·locks) commit(`BOHUMFIT-129: 보험사 링크 페이지 정보 확장(공제 탭·청구양식·상세보기)`)→push.
+
 ## 2026-06-25 Codex BOHUMFIT-126/127/128 [Windows verification + split commits]
 ### Changed
 - BOHUMFIT-126: `backend/pipeline/disease_aggregator.py`, `backend/pipeline/pdf_parser.py`, `backend/tests/test_injury_episode_split_126.py`, `.agent-harness/tasks/BOHUMFIT-126-injury-first-visit-split.md`
