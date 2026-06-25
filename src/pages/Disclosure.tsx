@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import AnalysisProgress from "../components/AnalysisProgress";
 import UsageBadge from "../components/UsageBadge";
 import { useToast } from "../components/ToastContext"; // BOHUMFIT-131
+import AnimatedNumber from "../components/AnimatedNumber"; // BOHUMFIT-132
 import { useAuth } from "../lib/auth-context";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
@@ -176,7 +177,7 @@ const RISK: Record<Risk, { border: string }> = {
   green: { border: "border-emerald-400" },
 };
 
-function Chip({ label, tone = "gray", title }: { label: string; tone?: string; title?: string }) {
+function Chip({ label, tone = "gray", title }: { label: ReactNode; tone?: string; title?: string }) {
   const tones: Record<string, string> = {
     gray: "bg-gray-100 text-gray-600",
     "gray-light": "border border-gray-200 bg-gray-50 text-gray-500",
@@ -420,7 +421,7 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
   const hasBottom = showClinicalReview;
 
   return (
-    <article className={`border-l-4 px-5 py-4 ${RISK[risk].border}`}>
+    <article className={`border-l-4 px-5 py-4 transition-colors duration-200 hover:bg-green-50/40 ${RISK[risk].border}`}>
       <div className="mb-1 flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="text-[15px] font-bold text-gray-900">{item.name || "질병명 없음"}</span>
@@ -466,13 +467,13 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
 
       {hasMetricChips && (
         <div className="mb-2 flex flex-wrap gap-2">
-          {metric.visit && <Chip label={`통원 ${item.visit ?? 0}회`} title={windowTip} tone={(item.visit ?? 0) >= 7 ? "amber" : "gray"} />}
-          {metric.inpatient && <Chip label={`입원 ${item.inpatient ?? 0}일`} title={windowTip} tone="red" />}
-          {metric.inpatientCount && <Chip label={`입원 ${item.inpatient_count ?? 0}회`} title={windowTip} tone="red-light" />}
-          {metric.surgery && <Chip label={`수술 ${surgN}건`} title={windowTip} tone="red" />}
+          {metric.visit && <Chip label={<>통원 <AnimatedNumber value={item.visit ?? 0} />회</>} title={windowTip} tone={(item.visit ?? 0) >= 7 ? "amber" : "gray"} />}
+          {metric.inpatient && <Chip label={<>입원 <AnimatedNumber value={item.inpatient ?? 0} />일</>} title={windowTip} tone="red" />}
+          {metric.inpatientCount && <Chip label={<>입원 <AnimatedNumber value={item.inpatient_count ?? 0} />회</>} title={windowTip} tone="red-light" />}
+          {metric.surgery && <Chip label={<>수술 <AnimatedNumber value={surgN} />건</>} title={windowTip} tone="red" />}
           {metric.med && (
             <Chip
-              label={`투약 ${item.med_days ?? 0}일`}
+              label={<>투약 <AnimatedNumber value={item.med_days ?? 0} />일</>}
               title={windowTip}
               tone={(item.med_days ?? 0) >= 30 ? "amber" : (item.med_days ?? 0) > 0 ? "emerald" : "gray"}
             />

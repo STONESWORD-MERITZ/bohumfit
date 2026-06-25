@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Badge, { type BadgeVariant } from "../components/ui/Badge"; // BOHUMFIT-131
 import { useToast } from "../components/ToastContext"; // BOHUMFIT-131
+import AnimatedNumber from "../components/AnimatedNumber"; // BOHUMFIT-132
 
 type Status = "공식확인" | "공식+허브" | "허브확인" | "확인필요";
 type FaxType = "fixed" | "virtual" | "unknown";
@@ -164,7 +165,7 @@ function InsurerCard({ ins }: { ins: Insurer }) {
     "보험금 청구 전, 보험사별 필요서류와\n청구 가능 기준은 해당 보험사 공식 안내를\n함께 확인해 주세요.";
 
   return (
-    <div className="rounded-card border border-line bg-white p-5">
+    <div className="rounded-card border border-line bg-white p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-green-200 hover:shadow-lg">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="card-title text-base font-bold text-ink-900">{ins.name}</h3>
         <Badge variant={CATEGORY_VARIANT[cat]}>{shortCat(cat)}</Badge>
@@ -335,7 +336,9 @@ export default function InsuranceLinks() {
       </div>
 
       {/* 목록 */}
-      <p className="mt-4 text-[12px] text-ink-400">{filtered.length}개 보험사</p>
+      <p className="mt-4 text-[12px] text-ink-400">
+        <AnimatedNumber value={filtered.length} />개 보험사
+      </p>
       <div className="mt-2 grid gap-4 sm:grid-cols-2">
         {filtered.map((ins) => (
           <InsurerCard key={ins.name} ins={ins} />
