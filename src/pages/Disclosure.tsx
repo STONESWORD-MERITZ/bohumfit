@@ -53,6 +53,7 @@ type SummaryItem = {
   insurance_only?: boolean;          // BOHUMFIT-039: 직장·항문(Q5만)→실손 가입 시에만 고지
   additional_test_hit?: boolean;
   additional_test_reason?: string;
+  exam_check_only?: boolean;         // BOHUMFIT-128: Q2 추가검사·재검사 확인용(고지 대상 아님)
   q2_suspicion?: string;
   treatment_ongoing?: boolean | null;
   treatment_ongoing_reason?: string;
@@ -309,7 +310,7 @@ function getClinicalReviewState(item: SummaryItem): ClinicalReviewState {
   return {
     label: "추가검사·재검사 가능성 미확인",
     tone: "gray-light",
-    text: "자동 분석으로는 가능성 판단이 충분하지 않습니다. 실제 검사를 받지 않았더라도 의사가 추가검사·재검사를 권유했거나 필요하다는 소견을 냈는지 고객에게 확인해 주세요.",
+    text: "검사 시행 여부와 관계없이, 의사로부터 추가검사나 재검사가 필요하다는 소견 또는 권유를 받으셨는지 고객에게 직접 확인해 주세요.",
   };
 }
 
@@ -589,6 +590,15 @@ function DisclosureSection({
         <div data-tour="cards" className="space-y-4">
           {Object.entries(reports).map(([qTitle, items]) => {
             const qNum = extractQNumber(qTitle);
+            const sortByDate = (arr: SummaryItem[]) => [...arr].sort((a, b) => {
+              const al = a.latest_date || a.first_date || "";
+              const bl = b.latest_date || b.first_date || "";
+              if (al !== bl) return bl.localeCompare(al);
+              return (b.first_date || "").localeCompare(a.first_date || "");
+            });
+            // BOHUMFIT-128: Q2 추가검사·재검사 확인용 항목은 [B] 설계사 참고용으로 분리(고지 항목 [A]와 구분)
+            const normalItems = sortByDate(items.filter((it) => !it.exam_check_only));
+            const examItems = sortByDate(items.filter((it) => it.exam_check_only));
             return (
               <section key={qTitle} className="overflow-hidden rounded-[8px] bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
                 <div className="flex items-center gap-2.5 border-b border-gray-100 px-5 py-3.5">
@@ -597,16 +607,26 @@ function DisclosureSection({
                   </span>
                   <h3 className="text-sm font-bold text-gray-800">{cleanQTitle(qTitle)}</h3>
                 </div>
-                <div className="divide-y divide-gray-50">
-                  {[...items].sort((a, b) => {
-                    const al = a.latest_date || a.first_date || "";
-                    const bl = b.latest_date || b.first_date || "";
-                    if (al !== bl) return bl.localeCompare(al);
-                    return (b.first_date || "").localeCompare(a.first_date || "");
-                  }).map((item, idx) => (
-                    <DiseaseCard key={`${item.code}-${idx}`} item={item} qNum={qNum} isEasy={isEasy} />
-                  ))}
-                </div>
+                {normalItems.length > 0 && (
+                  <div className="divide-y divide-gray-50">
+                    {normalItems.map((item, idx) => (
+                      <DiseaseCard key={`${item.code}-${idx}`} item={item} qNum={qNum} isEasy={isEasy} />
+                    ))}
+                  </div>
+                )}
+                {examItems.length > 0 && (
+                  <div className="border-t border-amber-200 bg-amber-50/60 px-5 py-4">
+                    <p className="text-sm font-bold text-amber-800">설계사 확인 필요 항목</p>
+                    <p className="mt-1 text-xs leading-relaxed text-amber-700">
+                      고지 대상은 아니나 아래 질병에 대해 의사의 추가검사·재검사 소견 또는 권유가 있었는지 고객에게 직접 확인해 주세요.
+                    </p>
+                    <div className="mt-3 divide-y divide-amber-100 overflow-hidden rounded-[8px] border border-amber-100 bg-white/70">
+                      {examItems.map((item, idx) => (
+                        <DiseaseCard key={`exam-${item.code}-${idx}`} item={item} qNum={qNum} isEasy={isEasy} />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </section>
             );
           })}

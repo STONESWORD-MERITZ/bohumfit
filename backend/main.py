@@ -354,9 +354,13 @@ def _build_kakao_message(product_type_kr: str, today, summary_reports: dict) -> 
         return int(m.group()) if m else 999
 
     for q_title in sorted(summary_reports.keys(), key=_q_sort_key):
+        # BOHUMFIT-128: Q2 추가검사·재검사 확인용(exam_check_only) 항목은 고지 복사 텍스트에서 제외
+        #   (고지 대상이 아니라 설계사 확인용이므로 고객 안내 메시지에 넣지 않는다).
+        items_q = [i for i in (summary_reports.get(q_title) or []) if not i.get("exam_check_only")]
+        if not items_q:
+            continue
         clean_title = re.sub(r"^\[.*?\]\s*", "", _s(q_title))
         msg += f"> {clean_title}\n"
-        items_q = summary_reports.get(q_title) or []
         inpatient_items = [i for i in items_q if (i.get("inpatient") or 0) > 0]
         surgery_items   = [i for i in items_q if not (i.get("inpatient") or 0) > 0 and _kakao_has_surgery_signal(i)]
         other_items     = [i for i in items_q if not (i.get("inpatient") or 0) > 0 and not _kakao_has_surgery_signal(i)]

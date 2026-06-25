@@ -260,6 +260,9 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
             "additional_tests":        _additional_tests,
             "additional_test_hit":     _add_test_hit,
             "additional_test_reason":  _add_test_reason,
+            # BOHUMFIT-128: Q2 추가검사·재검사 의심(고지 대상 아님·설계사 확인용) 표식.
+            #   고지 복사 텍스트 제외 + 프런트 [B] '설계사 확인 필요 항목' 분리에 사용.
+            "exam_check_only":         (q == "Q2") and bool(_add_test_hit or _add_test_reason or m.get("q2_suspicion", "")),
             "q2_suspicion":            m.get("q2_suspicion", ""),
             "treatment_ongoing":       _tx_ongoing,
             "treatment_ongoing_reason": _tx_ongoing_reason,
