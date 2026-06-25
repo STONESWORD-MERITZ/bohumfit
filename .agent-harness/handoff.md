@@ -16,6 +16,42 @@
 
 # Handoff
 
+## 2026-06-25 Codex BOHUMFIT-122 [KB 가이드 하단 안내 문구 검정색 재작성]
+### Changed
+- `public/images/coverage-guide/kb-02.png` ~ `kb-10.png`: 하단 안내 문구를 검정색 Bold 텍스트로 재작성한 Cowork 이미지 처리분 확인·커밋.
+- `.agent-harness/tasks/BOHUMFIT-122-coverage-guide-kb-text-recolor.md`
+### Verified
+- [x] Visual check `kb-02.png`: 하단 문구 검정색, 파란색 잔존 없음.
+- [x] Visual check `kb-06.png`: 2줄 문구 검정색, 잘림 없음.
+- [x] Visual check `kb-08.png`: 기준 이미지, 검정색·크기 적절.
+- [x] Visual check `kb-10.png`: 2줄 문구 검정색, 잘림 없음.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files, 53 tests passed.
+- [x] `npm run build` -> pass, existing Vite chunk size warning only.
+### Notes
+- Commit: `cc2ae33` (`BOHUMFIT-122: KB 가이드 하단 안내 문구 검정색 재작성`)
+- Existing unrelated `backend/__pycache__/main.cpython-312.pyc` and local untracked files were not staged.
+### Next
+- Human: 배포 후 `/coverage-guide` KB 탭에서 이미지 하단 문구 색상 최종 확인.
+
+## 2026-06-25 Cowork BOHUMFIT-122 [KB 가이드 이미지 하단 텍스트 검정색 재작성]
+### Changed
+- `public/images/coverage-guide/kb-02.png ~ kb-10.png`(9장): 하단 파란 안내 문구를 흰색으로 덮고 동일 크기 검정(#000000) Bold로 재작성.
+  - 방법(Pillow, /tmp/recolor_kb.py): 하단(y≥0.86H) 파란 픽셀(R<100·G<100·B>150) bbox=캡션 감지(스크린샷 내부 파란 UI는 보존) → 밴드 흰색 fill → 이미지별 고정 문자열을 검정 Bold·수평중앙·수직 밴드중앙으로 재작성.
+  - 폰트: NanumGothicBold/NanumGothic 미설치 → **NotoSansCJK-Bold(KR)** 사용. 폰트 크기는 kb-08 캡션 높이(61px)로 캘리브레이션한 **63pt**를 전 이미지 공통 적용(2줄: kb-04/05/06/10).
+### Verified
+- [x] 육안 확인(kb-02·06·08·10 하단 크롭): 파랑→검정, 잘림·위치 이탈·블루 잔존 없음, 스크린샷 영역 보존.
+- [x] 프로그램 검증: 9장 모두 하단 캡션 영역 파랑 잔존 0px, 검정 텍스트 픽셀 정상 존재(2줄 이미지가 더 많음).
+- [ ] tsc(app·node)/lint/npm test/build → 이미지 자산만 변경이라 코드 무영향. **Codex/Windows 권위**(build 시 dist/ 자동 갱신).
+### Notes
+- 원본 백업: /tmp/kb_orig (세션 휘발). 필요 시 Codex가 Windows git으로 복원 가능.
+- dist/images/coverage-guide/ 사본은 build 산출물이라 미수정 — `npm run build`가 갱신.
+- 텍스트 내용은 태스크 지정 문자열을 그대로 사용(곡선 따옴표 ‘ ’). 폰트가 한글 정상 렌더 확인.
+### Next
+- Codex: kb-02~10 육안 최종 확인 후 `public/images/coverage-guide/kb-0*.png`·`kb-10.png`(+tasks/BOHUMFIT-122·handoff/locks) stage→commit(`BOHUMFIT-122: KB 가이드 캡션 검정 재작성`)→push. (코드 변경 없음 — 빌드 통과 자명하나 게이트 실행 권장.)
+
 ## 2026-06-25 Codex BOHUMFIT-121 [가이드 이미지 표지 삭제 + KB MYMANAGER 문구 제거]
 ### Changed
 - `src/pages/CoverageGuide.tsx`: KB 이미지를 `kb-02.png`~`kb-10.png` 9장, DB 이미지를 `db-02.png`~`db-20.png` 19장으로 렌더하도록 이미지 시작 인덱스 조정.
