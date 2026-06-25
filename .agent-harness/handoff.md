@@ -16,6 +16,57 @@
 
 # Handoff
 
+## 2026-06-25 Codex BOHUMFIT-125 [진료기간 종료일 창 클리핑 제거 검증]
+### Changed
+- `backend/pipeline/result_builder.py`: `latest_date`를 창 필터 결과가 아닌 실제 최종진료일 기준으로 표시하도록 변경 확인.
+- `backend/tests/test_date_window_period_125.py`: 건강체 Q4/간편 Q2 진료기간 일치 회귀 2종 추가.
+- `.agent-harness/tasks/BOHUMFIT-125-date-window-logic-fix.md`
+### Verified
+- [x] `backend/pipeline/result_builder.py` 직접 확인: 기존 `_in_range[-1]` 종료일 대신 `visit_dates | inpatient_dates | inpatient_end | surgery_dates` 전체 후보의 최종일을 `latest_date`로 사용.
+- [x] `cd backend && python -m pytest -q` -> 434 passed, 8 skipped.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run build` -> pass, existing Vite chunk size warning only.
+### Notes
+- Code commit: `7e2e6fe` (`fix(BOHUMFIT-125): 진료기간 종료일 창 클리핑 제거, 실제 최종진료일 표시`)
+- Cowork baseline 대비 Windows 현재 전체 수집은 434 passed/8 skipped로 통과. 실패 없음.
+- 플래깅/창 경계 로직은 사용자 결정에 따라 변경하지 않았고, 표시 종료일만 수정.
+- Existing unrelated harness MD edits, `backend/__pycache__/main.cpython-312.pyc`, local PDF/brand/untracked files were not staged in the 125 code commit.
+### Next
+- Human.
+
+## 2026-06-25 Cowork BOHUMFIT-125 [건강체/간편 진료기간 종료일 통일]
+### Step1 분석 결과
+- 창 판정·진료기간 구성은 `result_builder._build_reports_for_product`에 집중. 각 질문창(_q_since/_q_until)으로
+  `_win()`이 날짜를 필터링하고 `first_date=_in_range[0]`, `latest_date=_in_range[-1]`로 표시값을 잡음.
+- 건강체 Q4는 범위창 상한 `until_dt=d5y`([d10y,d5y))가 있어, 실제 최종진료일이 d5y 이후면 `_in_range[-1]`이
+  창 안쪽으로 잘림. 간편 Q2는 상한 없음(>=d10y)이라 실제 최종일까지 표시 → 동일 질병 진료기간 불일치.
+- first_date/창 판정(고지 대상 여부)은 filters.py에서 이벤트 창 멤버십으로 결정(별개).
+### Step2 재현 (합성 — 오수영 PDF는 Desktop 미마운트로 접근 불가)
+- S63(S634) 입원 2018-06-20 + 통원 2021-07-20, ref=2026-06-25 → 건강체 Q4 `2018-06-20~2018-06-21`(잘림),
+  간편 Q2 `2018-06-20~2021-07-20`. aggregator 실제 first/latest=2018-06-20/2021-07-20. 분기점=`latest_date` 창 필터.
+### 변경 (표시 수정만)
+- `backend/pipeline/result_builder.py`: 진료기간 종료일을 창 무관 실제 최종진료일
+  (visit_dates|inpatient_dates|inpatient_end(전체)|surgery_dates 최대)로 표시. 창 판정·first_date 불변.
+- `backend/tests/test_date_window_period_125.py`(신규): (a) first창안·last 범위창밖 → 종료일=실제 최종일,
+  (c) 건강체/간편 동일 진료기간. 둘 다 2018-06-20~2021-07-20.
+### 스펙 3번 — 미적용(사용자 결정)
+- "최초진단일 창 밖이면 창 안 치료 있어도 고지 제외"는 플래깅 변경 필요인데, 고지 질문('최근 N년 이내 …')과
+  충돌해 고지 누락 위험. 사용자가 "표시 수정만 적용, 플래깅 현행 유지"로 확정 → filters.py 미수정·테스트(b) 미추가.
+### Verified
+- [x] 합성 재현/수정 로직: /tmp 재구성으로 건강체 Q4·간편 Q2 모두 종료일 2021-07-20 확인(수정 전 2018-06-21).
+- [x] 회귀 영향: tests에 latest_date 단언 없음(grep) → 기존 테스트 충돌 위험 낮음.
+- [ ] `pytest -q` 전체: 샌드박스 마운트 truncation으로 result_builder.py가 잘린 사본으로 컴파일돼 실행 불가
+  (line 421 `merge` 잘림=ENV-MOUNT-NOTES 알려진 제약. 실파일은 Read로 정상 확인). 수정 전 baseline 429 passed.
+  **Codex/Windows 권위 재검 필요**(신규 test_date_window_period_125 포함).
+### Notes
+- 수정 금지 범위 준수: 프런트 미접촉, 창 경계값(90/365/1825/3650) 불변. filters.py·aggregator 미변경.
+- 실 PDF(오수영) 미접근(Desktop 미마운트) → 합성 재현으로 대체. PII·실 PDF 미커밋.
+### Next
+- Codex: Windows에서 `cd backend && python -m pytest -q`(특히 test_date_window_period_125) 재검 후 범위 파일만
+  stage→commit(`BOHUMFIT-125: 진료기간 종료일을 창 무관 실제 최종진료일로 통일`)→push.
+  (변경: pipeline/result_builder.py·tests/test_date_window_period_125.py·tasks/BOHUMFIT-125·handoff/locks)
+
 ## 2026-06-25 Codex BOHUMFIT-124 [한방 진료일수 컬럼 m_days 누락 수정 검증]
 ### Changed
 - `backend/pipeline/disease_aggregator.py`: `m_days` 추출 후보에 `진료일수` 추가.
