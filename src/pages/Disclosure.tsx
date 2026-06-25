@@ -1245,41 +1245,7 @@ function Metric({ label, value, tone = "text-gray-900" }: { label: string; value
   );
 }
 
-function ModeSwitch({ mode }: { mode: AudienceMode }) {
-  return (
-    <div data-tour="role" className="mb-5 grid gap-3 md:grid-cols-2">
-      <Link
-        to="/check"
-        className={`rounded-[8px] border p-4 transition ${
-          mode === "customer"
-            ? "border-emerald-300 bg-emerald-50"
-            : "border-gray-200 bg-white hover:border-emerald-200"
-        }`}
-      >
-        <p className="text-sm font-extrabold text-gray-900">고객용</p>
-        <p className="mt-1 text-xs leading-5 text-gray-500">기존 가입 보험의 고지 누락 가능성을 점검합니다.</p>
-      </Link>
-      <Link
-        to="/disclosure?mode=agent"
-        className={`rounded-[8px] border p-4 transition ${
-          mode === "agent"
-            ? "border-accent-300 bg-accent-50"
-            : "border-gray-200 bg-white hover:border-accent-200"
-        }`}
-      >
-        <p className="text-sm font-extrabold text-gray-900">설계사용</p>
-        <p className="mt-1 text-xs leading-5 text-gray-500">청약 전 알릴의무 필터와 상담 메시지를 만듭니다.</p>
-      </Link>
-    </div>
-  );
-}
-
 const preTourSteps: TourStep[] = [
-  {
-    target: "role",
-    title: "설계사용 또는 고객용 선택",
-    body: "청약 전 상담은 설계사용, 기존 보험 점검은 고객용에서 시작합니다.",
-  },
   {
     target: "date",
     title: "청약 예정일 입력",
@@ -1563,8 +1529,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
 
   return (
     <div>
-      <ModeSwitch mode={mode} />
-      <div className="-mt-2 mb-5 flex justify-end">
+      <div className="mb-5 flex justify-end">
         <button
           type="button"
           onClick={() => replayTour(result ? "post" : "pre")}

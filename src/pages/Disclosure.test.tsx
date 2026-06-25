@@ -101,15 +101,14 @@ describe("Disclosure guided tour", () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText("1 / 6")).toBeInTheDocument();
-    expect(screen.getByText("설계사용 또는 고객용 선택")).toBeInTheDocument();
+    expect(screen.queryByText("기존 가입 보험의 고지 누락 가능성을 점검합니다.")).not.toBeInTheDocument();
+    expect(screen.queryByText("청약 전 알릴의무 필터와 상담 메시지를 만듭니다.")).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "다음" }));
-    expect(await screen.findByText("2 / 6")).toBeInTheDocument();
+    expect(await screen.findByText("1 / 6")).toBeInTheDocument();
     expect(screen.getByText("청약 예정일 입력")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "다음" }));
-    expect(await screen.findByText("3 / 6")).toBeInTheDocument();
+    expect(await screen.findByText("2 / 6")).toBeInTheDocument();
     expect(screen.getByText("PDF 첨부")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "완료" }));
