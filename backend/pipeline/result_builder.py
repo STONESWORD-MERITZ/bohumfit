@@ -157,7 +157,18 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
             )
             _in_range    = _win(_all_dates)
             first_date   = _in_range[0]  if _in_range else ""
-            latest_date  = _in_range[-1] if _in_range else ""
+            # BOHUMFIT-125: 진료기간 '종료일'은 창과 무관한 실제 최종진료일로 표시한다.
+            #   기존 _in_range[-1]은 창 필터(특히 Q4 범위창 상한 d5y)에 잘려, 같은 질병이라도
+            #   건강체 Q4(상한有)와 간편(상한無)의 진료기간 종료일이 달라지는 버그가 있었다.
+            #   확정 스펙: 창 판정은 그대로(고지 대상 여부), 표시 종료일은 last_date 원본.
+            _all_actual = (
+                _ds.get("visit_dates", set())
+                | _ds.get("inpatient_dates", set())
+                | _inpatient_end_dates_in_range(_ds, datetime.min)
+                | _ds.get("surgery_dates", set())
+            )
+            _actual_sorted = sorted(d for d in _all_actual if d and d != "2099-12-31")
+            latest_date  = _actual_sorted[-1] if _actual_sorted else (_in_range[-1] if _in_range else first_date)
             _fd = _ds.get("first_date", "2099-12-31")
             first_diagnosis_date = _fd if _fd and _fd != "2099-12-31" else first_date
 

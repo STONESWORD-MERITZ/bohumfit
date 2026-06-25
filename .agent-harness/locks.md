@@ -7,6 +7,9 @@ Use this file to record active Codex file ownership during a task.
 - (없음)
 
 ### Released
+- 2026-06-25 `BOHUMFIT-125` - Cowork - 진료기간 종료일 창 무관 실제 최종진료일 통일 완료. 변경: pipeline/result_builder.py·tests/test_date_window_period_125.py(filters.py는 미수정—스펙3 플래깅 변경은 사용자 결정으로 미적용). /tmp 검증 OK, 전체 pytest는 마운트 truncation으로 Codex/Windows 권위.
+
+### Released
 - 2026-06-25 `BOHUMFIT-124` - Cowork - 한방 입원일수(진료일수 컬럼) 집계 수정 완료. 변경: disease_aggregator.py·tests/test_hanbang_inpatient_124.py. 버그2는 오류 아님(사용자 확인)으로 미수정. pytest 429 passed. Codex 재검·커밋·푸시 대기.
 - 2026-06-25 `BOHUMFIT-123` - Cowork - KB 가이드 kb-04/05/09/10 2줄→1줄 완료. 캡션밴드 파랑0·1줄 확인. Codex 육안확인·커밋·푸시 대기.
 
