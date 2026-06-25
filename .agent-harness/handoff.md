@@ -16,6 +16,26 @@
 
 # Handoff
 
+## 2026-06-25 Codex BOHUMFIT-121 [가이드 이미지 표지 삭제 + KB MYMANAGER 문구 제거]
+### Changed
+- `src/pages/CoverageGuide.tsx`: KB 이미지를 `kb-02.png`~`kb-10.png` 9장, DB 이미지를 `db-02.png`~`db-20.png` 19장으로 렌더하도록 이미지 시작 인덱스 조정.
+- `public/images/coverage-guide/kb-01.png`, `public/images/coverage-guide/db-01.png`: 표지 이미지 삭제.
+- `public/images/coverage-guide/kb-02.png`~`kb-10.png`: 하단 `MYMANAGER / sales enablement system` footer 영역을 흰색 처리.
+- `.agent-harness/tasks/BOHUMFIT-121-coverage-guide-image-cleanup.md`
+### Verified
+- [x] Count check -> KB 9 images (`kb-02`~`kb-10`), DB 19 images (`db-02`~`db-20`), `kb-01`/`db-01` absent.
+- [x] Visual check -> `kb-02.png` 하단 MYMANAGER 문구 제거 확인, `db-02.png` 하단 MYMANAGER 문구 없음 확인.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files, 53 tests passed.
+- [x] `npm run build` -> pass, existing Vite chunk size warning only.
+### Notes
+- Commit: `813bfa5` (`BOHUMFIT-121: KB·DB 가이드 표지 삭제 + KB MYMANAGER 문구 제거`)
+- Existing unrelated `backend/__pycache__/main.cpython-312.pyc` and local untracked files were not staged.
+### Next
+- Human: 배포 후 `/coverage-guide`에서 KB/DB 탭 첫 이미지가 각각 2페이지부터 시작하는지, KB 이미지 하단 MYMANAGER 문구가 사라졌는지 최종 육안 확인.
+
 ## 2026-06-25 Codex BOHUMFIT-120 [고지의무 분석 고객용·설계사용 중복 카드 제거]
 ### Changed
 - `src/pages/Disclosure.tsx`: 상단 허브 탭과 중복되던 내부 `ModeSwitch` 고객용/설계사용 카드 블록 제거.
