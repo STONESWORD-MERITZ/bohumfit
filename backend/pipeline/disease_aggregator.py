@@ -82,6 +82,9 @@ def _is_detail_support_only(text: str) -> bool:
     compact = re.sub(r"\s+", "", text or "").upper()
     if not compact:
         return False
+    # BOHUMFIT-130: 유치카테터/유치도뇨(관)는 '카테터' 보조재 가드가 아닌 시술(수술O)로 본다.
+    if "유치" in compact:
+        return False
     support_only_keywords = (
         "SNARE",
         "SMARTINJECTOR",
@@ -159,6 +162,10 @@ _DETAIL_CONFIRMED_SURGERY_KEYWORDS = (
     "인공수정체삽입술",
     "혈관성형술",
     "색전술",
+    # BOHUMFIT-130: 수술O 보강 — 유치카테터(유치도뇨관)·티눈 냉각응고술. 후궁/신경 성형술은 '성형술'로 이미 포함.
+    "유치카테터",
+    "유치도뇨",
+    "냉각응고술",
 )
 
 
