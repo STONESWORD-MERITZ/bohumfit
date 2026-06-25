@@ -127,12 +127,28 @@ const PRICING = [
 ];
 
 export default function Home() {
+  // BOHUMFIT-133b: 히어로 헤드라인 fade-in-up(페이지 로드 시 아래→위 등장).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   return (
     <div className="-mx-5 -mt-8">
 
       {/* ── 1. HERO (다크) ─────────────────────────────────────── */}
-      <section className="bg-ink-900">
-        <div className="mx-auto w-full max-w-6xl px-6 pt-20 pb-24">
+      <section className="relative overflow-hidden bg-ink-900">
+        {/* BOHUMFIT-133b: dot pattern 배경(연한 점) */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{
+            backgroundImage: "radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1px)",
+            backgroundSize: "22px 22px",
+          }}
+        />
+        <div
+          className={`relative z-10 mx-auto w-full max-w-6xl px-6 pt-20 pb-24 transition-all duration-700 ${
+            mounted ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
+          }`}
+        >
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accent-400">
             For Insurance Planners
           </p>
@@ -220,7 +236,7 @@ export default function Home() {
             <div className="grid gap-6 md:grid-cols-3">
               {FEATURES.map((f, i) => (
                 <FadeIn key={f.title} delay={i * 100}>
-                  <div className="h-full rounded-card border border-line bg-white p-7">
+                  <div className="h-full rounded-card border border-line bg-white p-7 transition-all duration-200 hover:-translate-y-0.5 hover:border-green-200 hover:shadow-lg">
                     <span className="text-3xl" aria-hidden>{f.icon}</span>
                     <h3 className="card-title mt-4 text-lg font-bold tracking-tight text-ink-900">{f.title}</h3>
                     <p className="card-desc mt-3 text-[13px] leading-6 text-ink-soft break-keep">{f.body}</p>

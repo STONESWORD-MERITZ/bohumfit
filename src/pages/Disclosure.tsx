@@ -4,12 +4,22 @@ import AnalysisProgress from "../components/AnalysisProgress";
 import UsageBadge from "../components/UsageBadge";
 import { useToast } from "../components/ToastContext"; // BOHUMFIT-131
 import AnimatedNumber from "../components/AnimatedNumber"; // BOHUMFIT-132
+import Badge, { type BadgeVariant } from "../components/ui/Badge"; // BOHUMFIT-133a
 import { useAuth } from "../lib/auth-context";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 const MAX_FILE_COUNT = 10; // BOHUMFIT-053: 10년 고지형 전체 = 발급기간별 분할 파일 최대 10개
 const MAX_FILE_SIZE = 15 * 1024 * 1024;
 const MAX_TOTAL_SIZE = 40 * 1024 * 1024;
+
+// BOHUMFIT-133a: 질문별 Q배지 색상 매핑(Badge variant). Q5(중대질환)는 danger.
+const Q_VARIANT: Record<string, BadgeVariant> = {
+  Q1: "danger",
+  Q2: "warning",
+  Q3: "info",
+  Q4: "outline",
+  Q5: "danger",
+};
 
 type AudienceMode = "customer" | "agent";
 
@@ -431,9 +441,7 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
             </span>
           )}
         </div>
-        <span className="shrink-0 rounded-[8px] bg-accent-600 px-2 py-0.5 text-[11px] font-bold text-white">
-          {qNum}
-        </span>
+        <Badge variant={Q_VARIANT[qNum] ?? "default"} className="shrink-0">{qNum}</Badge>
       </div>
 
       {item.insurance_only && (
@@ -606,9 +614,7 @@ function DisclosureSection({
             return (
               <section key={qTitle} className="overflow-hidden rounded-[8px] bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
                 <div className="flex items-center gap-2.5 border-b border-gray-100 px-5 py-3.5">
-                  <span className="shrink-0 rounded-[8px] bg-accent-600 px-2.5 py-1 text-xs font-bold text-white">
-                    {qNum}
-                  </span>
+                  <Badge variant={Q_VARIANT[qNum] ?? "default"} className="shrink-0">{qNum}</Badge>
                   <h3 className="text-sm font-bold text-gray-800">{cleanQTitle(qTitle)}</h3>
                 </div>
                 {normalItems.length > 0 && (
