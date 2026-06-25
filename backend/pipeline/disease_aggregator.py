@@ -272,7 +272,10 @@ def build_disease_stats(
         in_out   = get_val(row, ["입내원구분", "입원외래구분", "입원", "외래", "구분"])
         hospital = get_val(row, ["병·의원", "기관명", "요양기관명", "병·의원&약국"])
         date_str = get_val(row, ["진료개시일", "진료시작일", "진료일", "조제일자", "처방일"])
-        m_days_raw = get_val(row, ["내원일수", "투약일수", "요양일수"])
+        # BOHUMFIT-124: 자동차보험(한방 포함) 기본진료 PDF는 입원일수를 '진료일수' 컬럼에 둔다.
+        #   기존 키(내원/투약/요양일수)만으로는 m_days=0 → 입원이 0일로 무시됐다(한방 침구과 입원 누락).
+        #   '진료일수'를 마지막 후보로 추가(정상 심평원 '내원일수'·처방 '총투약일수' 매칭에는 영향 없음).
+        m_days_raw = get_val(row, ["내원일수", "투약일수", "요양일수", "진료일수"])
         m_days = int(re.findall(r"\d+", m_days_raw)[0]) if re.findall(r"\d+", m_days_raw) else 0
         cost_raw = get_val(row, ["총진료비", "진료비", "총 진료비", "본인부담총액", "급여비용총액"])
         cost_val = _to_int_cost(cost_raw)
@@ -651,7 +654,7 @@ def build_disease_stats(
             )
         hospital = get_val(row, ["병·의원", "기관명", "요양기관명", "병·의원&약국"])
         in_out   = get_val(row, ["입내원구분", "입원외래구분", "입원", "외래", "구분"])
-        m_days   = get_val(row, ["내원일수", "투약일수", "요양일수"])
+        m_days   = get_val(row, ["내원일수", "투약일수", "요양일수", "진료일수"])  # BOHUMFIT-124: 자동차 PDF '진료일수'
         cost_raw = get_val(row, ["총진료비", "진료비", "총 진료비"])
 
         if not date_str and not name_str: continue
