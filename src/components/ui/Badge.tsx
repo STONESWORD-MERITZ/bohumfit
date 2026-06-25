@@ -3,14 +3,26 @@
 import { type ReactNode } from "react";
 
 export type BadgeTone = "navy" | "gold" | "success" | "warning" | "danger" | "neutral";
+// BOHUMFIT-131: 의미 기반 variant(21st.dev 참고). 제공 시 tone보다 우선.
+export type BadgeVariant = "default" | "success" | "warning" | "danger" | "info" | "outline";
 
 export interface BadgeProps {
   tone?: BadgeTone;
+  variant?: BadgeVariant;
   /** 채움형(진한 배경) — 강조용 */
   solid?: boolean;
   className?: string;
   children: ReactNode;
 }
+
+const VARIANT_CLS: Record<BadgeVariant, string> = {
+  default: "border-ink-200 bg-ink-100 text-ink-700",
+  success: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  warning: "border-amber-200 bg-amber-50 text-amber-700",
+  danger: "border-red-200 bg-red-50 text-red-700",
+  info: "border-sky-200 bg-sky-50 text-sky-700",
+  outline: "border-ink-300 bg-transparent text-ink-500",
+};
 
 const TONE_CLS: Record<BadgeTone, { soft: string; solid: string }> = {
   navy: { soft: "border-ink-200 bg-ink-100 text-ink-800", solid: "border-ink-900 bg-ink-900 text-white" },
@@ -21,12 +33,11 @@ const TONE_CLS: Record<BadgeTone, { soft: string; solid: string }> = {
   neutral: { soft: "border-line bg-ink-50 text-ink-soft", solid: "border-ink-600 bg-ink-600 text-white" },
 };
 
-export default function Badge({ tone = "neutral", solid = false, className = "", children }: BadgeProps) {
+export default function Badge({ tone = "neutral", variant, solid = false, className = "", children }: BadgeProps) {
+  const cls = variant ? VARIANT_CLS[variant] : TONE_CLS[tone][solid ? "solid" : "soft"];
   return (
     <span
-      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-caption font-semibold ${
-        TONE_CLS[tone][solid ? "solid" : "soft"]
-      } ${className}`}
+      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-caption font-semibold ${cls} ${className}`}
     >
       {children}
     </span>

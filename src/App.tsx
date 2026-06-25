@@ -24,6 +24,7 @@ import CoverageGuide from "./pages/CoverageGuide";
 import CoverageCompare from "./pages/CoverageCompare";
 import InsuranceLinks from "./pages/InsuranceLinks";
 import ReportSample from "./pages/ReportSample";
+import { ToastProvider } from "./components/ToastContext"; // BOHUMFIT-131
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -86,6 +87,7 @@ function App() {
   }, []);
 
   return (
+    <ToastProvider>
     <BrowserRouter>
       <ScrollToTop />
       <Routes>
@@ -133,6 +135,7 @@ function App() {
         </Route>
       </Routes>
     </BrowserRouter>
+    </ToastProvider>
   );
 }
 

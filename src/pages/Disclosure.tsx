@@ -2,6 +2,7 @@
 import { Link, useSearchParams } from "react-router-dom";
 import AnalysisProgress from "../components/AnalysisProgress";
 import UsageBadge from "../components/UsageBadge";
+import { useToast } from "../components/ToastContext"; // BOHUMFIT-131
 import { useAuth } from "../lib/auth-context";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
@@ -553,12 +554,14 @@ function DisclosureSection({
 }) {
   const [memoOpen, setMemoOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const { showToast } = useToast(); // BOHUMFIT-131
   const copy = modeCopy[mode];
   const hasItems = Object.keys(reports).length > 0;
 
   const handleCopy = () => {
     void navigator.clipboard.writeText(memo);
     setCopied(true);
+    showToast("복사되었습니다", "success"); // BOHUMFIT-131
     window.setTimeout(() => setCopied(false), 2000);
   };
 
@@ -1452,6 +1455,8 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
     setTourIndex((value) => value + 1);
   };
 
+  const { showToast } = useToast(); // BOHUMFIT-131
+
   const handleTourSkip = () => {
     if (tourPhase) markTourSeen(tourPhase);
     setTourPhase(null);
@@ -1533,6 +1538,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
       }
       const data = await res.json();
       setResult(data);
+      showToast("분석이 완료되었습니다", "success"); // BOHUMFIT-131
       if (!postTourShown) {
         window.setTimeout(showPostTour, 0);
       }
@@ -1542,6 +1548,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
       } else {
         setError(e instanceof Error ? e.message : "알 수 없는 오류가 발생했습니다.");
       }
+      showToast("파일을 확인해 주세요", "error"); // BOHUMFIT-131
     } finally {
       setLoading(false);
     }

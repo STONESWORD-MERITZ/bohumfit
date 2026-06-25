@@ -1,6 +1,8 @@
 // BOHUMFIT-092: 보험사 전산·약관·팩스 바로가기(GA 설계사용). 단일 파일 자기완결형.
 //   외부 fetch 없음 — 39개사 데이터 하드코딩. 082 한국어 타이포(ko-heading/ko-text) 유지.
 import { useMemo, useState } from "react";
+import Badge, { type BadgeVariant } from "../components/ui/Badge"; // BOHUMFIT-131
+import { useToast } from "../components/ToastContext"; // BOHUMFIT-131
 
 type Status = "공식확인" | "공식+허브" | "허브확인" | "확인필요";
 type FaxType = "fixed" | "virtual" | "unknown";
@@ -78,17 +80,17 @@ const INSURANCE_DATA: Insurer[] = [
   { type: "손해보험", category: "공제회사", name: "소방공제회", system_url: "확인 필요", terms_url: "확인 필요", fax: "02-430-7459", fax_note: "공식 서식자료실 기준 급여금 청구서 및 대표 팩스 02-430-7459 확인", status: "공식확인", fax_type: "fixed", displayOrder: 46, customerCenter: "02-407-7119", incallNumber: "확인 필요", helpdeskNumber: "확인 필요", claimFormUrl: "https://www.focu.or.kr/center/archive.do", browser: "확인 필요" as Browser, lastVerifiedDate: "2026-06-25", claimFaxSub: "" },
 ];
 
-const STATUS_BADGE: Record<Status, string> = {
-  공식확인: "bg-emerald-50 text-emerald-700 border border-emerald-200",
-  "공식+허브": "bg-blue-50 text-blue-700 border border-blue-200",
-  허브확인: "bg-amber-50 text-amber-700 border border-amber-200",
-  확인필요: "bg-red-50 text-red-700 border border-red-200",
+// BOHUMFIT-131: 배지 의미 매핑(Badge variant). 손해=info·생명=success·공제=outline / 상태별.
+const CATEGORY_VARIANT: Record<Category, BadgeVariant> = {
+  손해보험: "info",
+  생명보험: "success",
+  공제회사: "outline",
 };
-
-const CATEGORY_BADGE: Record<Category, string> = {
-  손해보험: "bg-ink-100 text-ink-600",
-  생명보험: "bg-accent-50 text-accent-700",
-  공제회사: "bg-violet-50 text-violet-700",
+const STATUS_VARIANT: Record<Status, BadgeVariant> = {
+  공식확인: "success",
+  "공식+허브": "info",
+  허브확인: "warning",
+  확인필요: "danger",
 };
 
 // BOHUMFIT-129: 탭/배지 기준 카테고리(없으면 type로 폴백).
@@ -101,12 +103,14 @@ function openUrl(url: string) {
 
 function CopyButton({ text, label = "복사" }: { text: string; label?: string }) {
   const [done, setDone] = useState(false);
+  const { showToast } = useToast(); // BOHUMFIT-131
   return (
     <button
       type="button"
       onClick={() => {
         void navigator.clipboard.writeText(text);
         setDone(true);
+        showToast("복사되었습니다", "success");
         window.setTimeout(() => setDone(false), 1500);
       }}
       className="shrink-0 rounded-[6px] border border-line-strong bg-white px-2 py-0.5 text-[11px] font-semibold text-ink-700 transition-colors hover:bg-ink-50"
@@ -135,6 +139,7 @@ function ContactRow({ label, value }: { label: string; value?: string }) {
 function InsurerCard({ ins }: { ins: Insurer }) {
   const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
+  const { showToast } = useToast(); // BOHUMFIT-131
   const cat = catOf(ins);
   const hasClaimForm = !!ins.claimFormUrl;
 
@@ -146,6 +151,7 @@ function InsurerCard({ ins }: { ins: Insurer }) {
     if (ins.fax_type === "unknown") return;
     void navigator.clipboard.writeText(ins.fax);
     setCopied(true);
+    showToast("팩스번호가 복사되었습니다", "success");
     window.setTimeout(() => setCopied(false), 1500);
   };
 
@@ -161,12 +167,8 @@ function InsurerCard({ ins }: { ins: Insurer }) {
     <div className="rounded-card border border-line bg-white p-5">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="card-title text-base font-bold text-ink-900">{ins.name}</h3>
-        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${CATEGORY_BADGE[cat]}`}>
-          {shortCat(cat)}
-        </span>
-        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS_BADGE[ins.status]}`}>
-          {ins.status}
-        </span>
+        <Badge variant={CATEGORY_VARIANT[cat]}>{shortCat(cat)}</Badge>
+        <Badge variant={STATUS_VARIANT[ins.status]}>{ins.status}</Badge>
       </div>
 
       {/* 버튼: 전산 · 약관 · 청구양식 · 팩스 */}
@@ -308,7 +310,8 @@ export default function InsuranceLinks() {
       />
 
       {/* 탭 */}
-      <div role="tablist" aria-label="보험 구분" className="mt-3 flex gap-2 rounded-btn border border-line bg-white p-1">
+      {/* BOHUMFIT-131: underline 슬라이드 애니메이션 탭(브랜드 그린·hover 연한 그린) */}
+      <div role="tablist" aria-label="보험 구분" className="mt-3 flex gap-1 border-b border-line">
         {(["전체", "손해보험", "생명보험", "공제회사"] as const).map((t) => (
           <button
             key={t}
@@ -316,11 +319,17 @@ export default function InsuranceLinks() {
             role="tab"
             aria-selected={tab === t}
             onClick={() => setTab(t)}
-            className={`button-text flex-1 rounded-[8px] px-3 py-2 text-sm font-bold transition-colors ${
-              tab === t ? "bg-accent-600 text-white" : "text-ink-soft hover:bg-ink-50"
+            className={`button-text relative flex-1 rounded-t-[8px] px-3 py-2.5 text-sm font-bold transition-all duration-200 hover:bg-green-50 ${
+              tab === t ? "text-[#2d6a4f]" : "text-ink-soft"
             }`}
           >
             {t}
+            <span
+              aria-hidden
+              className={`absolute inset-x-2 -bottom-px h-0.5 origin-center rounded-full bg-[#2d6a4f] transition-all duration-200 ${
+                tab === t ? "scale-x-100 opacity-100" : "scale-x-0 opacity-0"
+              }`}
+            />
           </button>
         ))}
       </div>

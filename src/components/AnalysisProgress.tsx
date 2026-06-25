@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Spinner from "./Spinner"; // BOHUMFIT-131
 
 const STEPS = [
   { key: "parse",  label: "PDF 파싱",     hint: "기본진료·세부진료·처방조제를 읽고 있어요" },
@@ -26,9 +27,9 @@ export default function AnalysisProgress() {
 
   return (
     <div className="rounded-2xl border border-accent-100 bg-accent-50/40 px-5 py-6">
-      <div className="flex items-center gap-2 mb-4">
-        <span className="inline-block h-2 w-2 rounded-full bg-accent-500 animate-pulse" />
-        <p className="text-sm font-bold text-accent-700">분석 중…</p>
+      {/* BOHUMFIT-131: 브랜드 그린 원형 스피너 */}
+      <div className="mb-5 flex justify-center">
+        <Spinner size={48} label="분석 중입니다..." />
       </div>
       <ol className="space-y-3">
         {STEPS.map((s, i) => {
