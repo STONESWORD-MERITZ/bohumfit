@@ -16,6 +16,50 @@
 
 # Handoff
 
+## 2026-06-25 Codex BOHUMFIT-124 [한방 진료일수 컬럼 m_days 누락 수정 검증]
+### Changed
+- `backend/pipeline/disease_aggregator.py`: `m_days` 추출 후보에 `진료일수` 추가.
+- `backend/tests/test_hanbang_inpatient_124.py`: 한방/자동차 기본진료 입원일수 회귀 3케이스 추가.
+- `.agent-harness/tasks/BOHUMFIT-124-prescription-parsing-fix.md`
+### Verified
+- [x] `cd backend && python -m pytest -q` -> 432 passed, 8 skipped.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run build` -> pass, existing Vite chunk size warning only.
+### Notes
+- Code commit: `61c0898` (`fix(BOHUMFIT-124): 한방 진료일수 컬럼 m_days 누락 수정`)
+- Cowork 기준선 429 passed/11 skipped 대비 Windows 현재 전체 수집은 432 passed/8 skipped로 통과. 실패 없음.
+- 처방조제 단독 상병 미연계 건은 사용자 확인에 따라 오류 아님으로 미수정.
+- Existing unrelated docs harness edits, `backend/__pycache__/main.cpython-312.pyc`, local PDF/brand/untracked files were not staged in the 124 code commit.
+### Next
+- Human.
+
+## 2026-06-25 Cowork BOHUMFIT-124 [알릴의무 분석 버그 수정 — 한방 입원 집계]
+### 분석 결과 (수정 전)
+- 실 PDF 2종 로컬 재현(비번 불요로 열림, PII 미커밋):
+  - `report 자동차 기본.pdf`: ftype=basic 2행. 컬럼 `입원/외래`(값 '입원')·`진료일수`(양방 AS134=0, 한방 BS134=3).
+    in_out은 정상 추출되나 입원일수가 **'진료일수'** 컬럼에 있는데 aggregator는 m_days를 `내원/투약/요양일수`
+    에서만 읽어 m_days=0 → `if m_days>0` 게이트에서 입원이 0일로 무시됨. (B코드 제외 문제 아님:
+    normalize_code가 한방 'B' 접두를 떼 S134→그룹 S13으로 정상 분류됨.)
+  - `최인우 처방조제.pdf`: ftype=pharma 692행. `처방/조제`={외래 388, 처방조제 304}, `총투약일수` 채워짐.
+    methylprednisolone 87개 외래일자×7일=609일로 누적은 정상이나, 주상병코드가 없어 PHARMA| 그룹이 되고
+    `_is_valid_disease`가 KCD 코드 없는 그룹을 차단 → MED-30D 미발동.
+### 변경 (버그1만 수정)
+- `backend/pipeline/disease_aggregator.py`: m_days 추출키에 `'진료일수'` 추가(메인 집계 라인 + raw_entries 라인 2곳).
+  → 자동차(한방 포함) 기본진료 PDF의 입원일수가 집계됨. 정상 심평원 '내원일수'·처방 '총투약일수' 매칭에는 무영향(키 마지막 후보).
+- `backend/tests/test_hanbang_inpatient_124.py`(신규): 한방 BS134 침구과 입원 3일 집계·0일 무시 유지·일반 내원일수 무영향 3케이스.
+### 버그2 — 오류 아님(사용자 확인)
+- 처방조제 단독(상병 미연계) 그룹의 투약 합산 노출은 기존 스펙과 충돌(test_filters.py가 PHARMA| 그룹 차단을 명시 검증).
+  사용자에게 확인 → "오류 아님, 넘어가줘" → **미수정**(스펙 변경 아님, decisions.md 불요).
+### Verified
+- [x] 실 PDF 재현: 자동차 기본 → S13 그룹 입원일수 3일 집계 확인(수정 전 0일).
+- [x] `cd backend && python -m pytest -q` → **429 passed, 11 skipped**(샌드박스 실행). 신규 test_hanbang_inpatient_124 3 passed.
+- [ ] 프런트(tsc/lint/build): 백엔드만 변경이라 무관. Codex/Windows 권위 재검.
+### Notes
+- 수정 금지 범위 준수: 프런트 미접촉. filters.py·pdf_parser.py·helpers.py는 분석만(미변경). 실 PDF·PII 미커밋.
+### Next
+- Codex: Windows에서 `cd backend && python -m pytest -q` 재검 후 범위 파일만 stage→commit(`BOHUMFIT-124: 자동차 한방 기본진료 입원일수(진료일수 컬럼) 집계 수정`)→push. (변경: disease_aggregator.py·tests/test_hanbang_inpatient_124.py·tasks/BOHUMFIT-124·handoff/locks)
+
 ## 2026-06-25 Codex BOHUMFIT-123 [KB 가이드 2줄 캡션 1줄 수정 검증]
 ### Changed
 - `public/images/coverage-guide/kb-04.png`, `kb-05.png`, `kb-10.png`: Cowork 이미지 처리분 검증 및 커밋 대상.
