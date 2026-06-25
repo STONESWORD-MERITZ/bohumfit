@@ -16,6 +16,26 @@
 
 # Handoff
 
+## 2026-06-25 Codex BOHUMFIT-120 [고지의무 분석 고객용·설계사용 중복 카드 제거]
+### Changed
+- `src/pages/Disclosure.tsx`: 상단 허브 탭과 중복되던 내부 `ModeSwitch` 고객용/설계사용 카드 블록 제거.
+- `src/pages/Disclosure.tsx`: 가이드 첫 단계에서 제거된 카드 대상(`role`)을 제외하고 청약 예정일 입력부터 시작하도록 조정.
+- `src/pages/Disclosure.test.tsx`: 가이드 단계 기대값 갱신 및 중복 카드 설명 문구 미렌더 회귀 단언 추가.
+- `.agent-harness/tasks/BOHUMFIT-120-disclosure-duplicate-mode-cards.md`
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files, 53 tests passed.
+- [x] `npm run build` -> pass, existing Vite chunk size warning only.
+- [x] Browser smoke attempted -> local `/disclosure?mode=agent` redirects to `/login`; direct visual confirmation requires logged-in browser after deploy. Component regression test confirms duplicate card copy is absent.
+### Notes
+- Commit: `163b1f3` (`BOHUMFIT-120: 고지의무 분석 고객용·설계사용 중복 카드 제거`)
+- 상단 `설계사용 / 고객용` 탭은 유지하고, 화면 중간의 빨간 X 표시 영역에 해당하던 중복 카드만 제거.
+- Existing unrelated `backend/__pycache__/main.cpython-312.pyc` and local untracked files were not staged.
+### Next
+- Human: 배포 후 `/disclosure?mode=agent`에서 중복 카드 제거 상태 최종 육안 확인.
+
 ## 2026-06-24 Codex BOHUMFIT-119 [KB·DB 가이드 1페이지 MYMANAGER 표기 제거]
 ### Changed
 - `public/images/coverage-guide/kb-01.png`: 상단 `MYMANAGER` 및 밑줄만 배경 처리로 제거, `KB 간편등록 방법` 제목은 유지.
