@@ -16,6 +16,37 @@
 
 # Handoff
 
+## 2026-06-26 Codex BOHUMFIT-134 [NHIS year label fix verification]
+### Changed
+- `src/pages/DownloadGuide.tsx`: `건강보험공단 · 요양급여내역` 체크리스트 라벨을 `1년차~5년차`에서 `5~6년 전~9~10년 전`으로 변경 확인. 체크박스 key/state 로직은 `${gi}-${ii}` 인덱스 기반 그대로 유지.
+- `.agent-harness/tasks/BOHUMFIT-134-nhis-year-label-fix.md`: 태스크 기록 정상화.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run build` -> pass, existing Vite chunk size warning only.
+- [x] `cd backend && python -m pytest -q` -> 451 passed, 8 skipped.
+### Notes
+- Codex 수정은 태스크 파일 인코딩 정상화 외 로직 추가 없음.
+- Existing unrelated dirty/untracked files were not staged.
+- Commit: `5c43fbf` (`fix(BOHUMFIT-134): 건강보험공단 년차 라벨 N년차 → N~M년 전으로 수정`)
+### Next
+- Human.
+
+## 2026-06-25 Cowork BOHUMFIT-134 [건강보험공단 년차 라벨 재명명]
+### 분석 결과
+- '1년차~5년차' 라벨은 Disclosure가 아니라 `src/pages/DownloadGuide.tsx`의 `FinalChecklist` → `CHECKLIST` 배열("건강보험공단 · 요양급여내역" 그룹 items)에 있음.
+- 체크박스 key = `${gi}-${ii}`(그룹·아이템 인덱스). 라벨 텍스트는 순수 표시값으로, 상태(checked)·value·key·백엔드 어디에도 사용되지 않음 → 라벨만 안전하게 교체 가능.
+### 변경
+- `src/pages/DownloadGuide.tsx` CHECKLIST 공단 그룹 items: `1년차~5년차` → `5~6년 전 / 6~7년 전 / 7~8년 전 / 8~9년 전 / 9~10년 전`(순서 동일). 인덱스 key·상태 로직·백엔드값 불변.
+### Verified
+- [x] 정적 확인: key가 인덱스 기반이라 라벨 변경이 상태/로직에 무영향. 표시 텍스트 5개만 변경.
+- [ ] tsc(app)/build: 샌드박스 rolldown 미설치 → Codex/Windows 권위. backend 미접촉(pytest 무관).
+### Notes
+- 태스크는 Disclosure.tsx로 안내했으나 실제 라벨은 DownloadGuide.tsx에 존재 → 의도(년차 라벨 재명명) 기준으로 해당 위치 수정. '다른 페이지 수정 금지'는 라벨의 실제 위치가 DownloadGuide라 불가피(Disclosure엔 해당 라벨 없음).
+- 참고(미변경): 같은 섹션 안내문 "공단 요양급여내역은 5년 기준입니다. 장기 병력이 의심되면 최대 10년차까지…"(line 76)는 스코프상 그대로 둠 — 필요 시 후속 문구 정리 검토.
+### Next
+- Codex: `npx tsc -p tsconfig.app.json --noEmit` + `npm run build` 확인 후 `src/pages/DownloadGuide.tsx`(+tasks/BOHUMFIT-134·handoff·locks) commit(`BOHUMFIT-134: 공단 요양급여내역 체크리스트 라벨 5~10년 전으로 재명명`)→push.
+
 ## 2026-06-26 Codex BOHUMFIT-129c [insurance link data patch]
 ### Changed
 - `src/pages/InsuranceLinks.tsx`: `INSURANCE_DATA` 배열에서 기존 값이 `"확인 필요"` 또는 빈 문자열인 항목만 보강 데이터로 교체. UI 코드, 타입 정의, 컴포넌트 함수는 변경하지 않음.

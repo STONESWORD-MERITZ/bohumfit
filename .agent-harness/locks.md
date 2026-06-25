@@ -7,6 +7,10 @@ Use this file to record active Codex file ownership during a task.
 - (없음)
 
 ### Released
+- 2026-06-26 `BOHUMFIT-134` - Codex - 건강보험공단 요양급여내역 체크리스트 라벨 검증 완료(tsc app/node, build, backend pytest 451 passed/8 skipped), `5c43fbf` 커밋. Active 없음.
+- 2026-06-25 `BOHUMFIT-134` - Cowork - 공단 요양급여내역 체크리스트 라벨 1~5년차→5~10년 전 재명명(DownloadGuide.tsx CHECKLIST). key 인덱스 기반이라 상태/value/백엔드 불변. tsc/build는 Codex/Windows 권위.
+
+### Released
 - 2026-06-26 `BOHUMFIT-129c` - Codex - 보험사 링크 누락 데이터 128개 필드 패치, `npx tsc -p tsconfig.app.json --noEmit` 및 `npm run build` 통과, `d7e5586` 커밋. 기존 실제 값 덮어쓰기 없음.
 - 2026-06-26 `BOHUMFIT-133` - Codex - Windows 검증 통과(tsc app/node, build, backend pytest 451 passed/8 skipped) 후 `0f5dbad` 커밋·푸시 예정. Disclosure Q배지 통일 + Home dot/fade/Features hover, Codex 수정 추가 없음.
 - 2026-06-25 `BOHUMFIT-133` - Cowork - UI 폴리시 1b+3단계 완료. 133a: Disclosure Q배지 2곳 → Badge variant(Q_VARIANT). 133b: Home 히어로 dot 배경+fade-in-up, Features 카드 hover. 분석 로직·backend 무변경. tsc/build는 Codex/Windows 권위.
