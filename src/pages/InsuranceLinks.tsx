@@ -5,6 +5,9 @@ import { useMemo, useState } from "react";
 type Status = "공식확인" | "공식+허브" | "허브확인" | "확인필요";
 type FaxType = "fixed" | "virtual" | "unknown";
 type InsType = "손해보험" | "생명보험";
+// BOHUMFIT-129: 공제회사 카테고리 추가. 탭/배지는 category 기준(없으면 type로 폴백).
+type Category = "손해보험" | "생명보험" | "공제회사";
+type Browser = "Edge" | "Chrome" | "무관";
 
 type Insurer = {
   type: InsType;
@@ -15,11 +18,21 @@ type Insurer = {
   fax_note: string;
   status: Status;
   fax_type: FaxType;
+  // BOHUMFIT-129 확장 필드(없으면 생략 — 빈값/확인필요로 표시). 기존 값은 변경하지 않음.
+  category?: Category;
+  displayOrder?: number;       // 동일 탭 내 오름차순(메리츠화재=1 상단 고정)
+  customerCenter?: string;     // 고객센터
+  incallNumber?: string;       // 인콜 모니터링
+  helpdeskNumber?: string;     // 전산 헬프데스크
+  claimFormUrl?: string;       // 보험금 청구양식 URL
+  browser?: Browser;           // 권장 브라우저
+  lastVerifiedDate?: string;   // 최종확인일
+  claimFaxSub?: string;        // 보조 청구팩스
 };
 
 const INSURANCE_DATA: Insurer[] = [
-  { type: "손해보험", name: "삼성화재", system_url: "https://erp.samsungfire.com/", terms_url: "https://www.samsungfire.com/vh/page/VH.HPIF0103.do", fax: "0505-161-1166", fax_note: "장기/상해·질병 서류접수 기준. 일부 물보험/여행 등은 0505-162-0777 등 별도 안내 가능", status: "공식확인", fax_type: "fixed" },
-  { type: "손해보험", name: "메리츠화재", system_url: "https://sales.meritzfire.com/", terms_url: "https://www.meritzfire.com/disclosure/product-announcement/product-list.do?vMode=PC", fax: "0505-021-3400 / 0505-021-3500", fax_note: "100만원 이하 팩스/인터넷/모바일 가능 안내 확인", status: "공식확인", fax_type: "fixed" },
+  { type: "손해보험", name: "삼성화재", system_url: "https://erp.samsungfire.com/", terms_url: "https://www.samsungfire.com/vh/page/VH.HPIF0103.do", fax: "0505-161-1166", fax_note: "장기/상해·질병 서류접수 기준. 일부 물보험/여행 등은 0505-162-0777 등 별도 안내 가능", status: "공식확인", fax_type: "fixed", displayOrder: 2, customerCenter: "1588-5114", browser: "무관", lastVerifiedDate: "2026-06-25", claimFormUrl: "https://www.samsungfire.com/" },
+  { type: "손해보험", name: "메리츠화재", system_url: "https://sales.meritzfire.com/", terms_url: "https://www.meritzfire.com/disclosure/product-announcement/product-list.do?vMode=PC", fax: "0505-021-3400 / 0505-021-3500", fax_note: "100만원 이하 팩스/인터넷/모바일 가능 안내 확인", status: "공식확인", fax_type: "fixed", displayOrder: 1, customerCenter: "1566-7711", incallNumber: "1566-7711", helpdeskNumber: "1588-9802", claimFormUrl: "https://www.meritzfire.com/", browser: "Edge", lastVerifiedDate: "2026-06-25", claimFaxSub: "0505-021-3500" },
   { type: "손해보험", name: "DB손해보험", system_url: "https://www.mdbins.com/", terms_url: "https://www.idbins.com/FWMAIV1534.do", fax: "0505-181-4862", fax_note: "장기보험 보험금청구 대표 팩스번호", status: "공식확인", fax_type: "fixed" },
   { type: "손해보험", name: "KB손해보험", system_url: "https://nsales.kbinsure.co.kr/", terms_url: "https://www.kbinsure.co.kr/CG802030001.ecs", fax: "0505-136-6500", fax_note: "장기 상해/질병 기준. 일반 단체 0505-136-6600, 재물배상 0505-136-6700 별도", status: "공식확인", fax_type: "fixed" },
   { type: "손해보험", name: "현대해상", system_url: "https://sp.hi.co.kr/", terms_url: "https://www.hi.co.kr/bin/CI/ON/CION3200G.jsp", fax: "0507-774-6060", fax_note: "공식 ARS는 문자로 팩스번호 안내. 청구서/GA허브 기준 번호로 발송 전 확인 권장", status: "공식+허브", fax_type: "fixed" },
@@ -57,6 +70,9 @@ const INSURANCE_DATA: Insurer[] = [
   { type: "생명보험", name: "iM라이프생명", system_url: "https://fgs.dgbfnlife.com:8443/", terms_url: "https://www.imlifeins.co.kr/BA/BA_A020.do", fax: "0505-083-5420", fax_note: "GA허브 기준. 일부 공식 페이지는 보험범죄신고 팩스와 별도이므로 청구 전 확인 권장", status: "허브확인", fax_type: "fixed" },
   { type: "생명보험", name: "IBK연금보험", system_url: "https://sf.ibki.co.kr/", terms_url: "https://www.ibki.co.kr/", fax: "02-2270-1577", fax_note: "GA허브 기준. 공식 사이트에서는 민원 FAX로도 동일 번호 확인, 보험금 청구 전 콜센터 확인 권장", status: "허브확인", fax_type: "fixed" },
   { type: "생명보험", name: "교보라이프플래닛생명", system_url: "https://www.lifeplanet.co.kr/", terms_url: "https://www.lifeplanet.co.kr/disclosure/good/HPDA01S0.dev", fax: "고정 청구 팩스 확인불가", fax_note: "디지털 생보사. 홈페이지/모바일 접수 중심 확인 필요", status: "확인필요", fax_type: "unknown" },
+  // BOHUMFIT-129: 공제회사 샘플(더미). 실제 값은 Human이 별도 입력 예정.
+  { type: "손해보험", category: "공제회사", name: "한국교직원공제회(더 The-K)", system_url: "https://www.ktcu.or.kr/", terms_url: "https://www.ktcu.or.kr/", fax: "확인 필요", fax_note: "[샘플] 공제 상품 청구 팩스는 공식 안내 확인 필요", status: "확인필요", fax_type: "unknown", displayOrder: 1, customerCenter: "1577-0050", browser: "무관", lastVerifiedDate: "2026-06-25" },
+  { type: "손해보험", category: "공제회사", name: "새마을금고중앙회 공제(MG)", system_url: "https://www.kfcc.co.kr/", terms_url: "https://www.kfcc.co.kr/", fax: "확인 필요", fax_note: "[샘플] 공제 상품 청구 절차는 가까운 금고/공식 안내 확인 필요", status: "확인필요", fax_type: "unknown", displayOrder: 2, customerCenter: "1599-9000", browser: "무관", lastVerifiedDate: "2026-06-25" },
 ];
 
 const STATUS_BADGE: Record<Status, string> = {
@@ -66,17 +82,58 @@ const STATUS_BADGE: Record<Status, string> = {
   확인필요: "bg-red-50 text-red-700 border border-red-200",
 };
 
-const TYPE_BADGE: Record<InsType, string> = {
+const CATEGORY_BADGE: Record<Category, string> = {
   손해보험: "bg-ink-100 text-ink-600",
   생명보험: "bg-accent-50 text-accent-700",
+  공제회사: "bg-violet-50 text-violet-700",
 };
+
+// BOHUMFIT-129: 탭/배지 기준 카테고리(없으면 type로 폴백).
+const catOf = (ins: Insurer): Category => ins.category ?? ins.type;
+const shortCat = (c: Category): string => (c === "손해보험" ? "손해" : c === "생명보험" ? "생명" : "공제");
 
 function openUrl(url: string) {
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
+function CopyButton({ text, label = "복사" }: { text: string; label?: string }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        void navigator.clipboard.writeText(text);
+        setDone(true);
+        window.setTimeout(() => setDone(false), 1500);
+      }}
+      className="shrink-0 rounded-[6px] border border-line-strong bg-white px-2 py-0.5 text-[11px] font-semibold text-ink-700 transition-colors hover:bg-ink-50"
+    >
+      {done ? "복사됨 ✓" : label}
+    </button>
+  );
+}
+
+function ContactRow({ label, value }: { label: string; value?: string }) {
+  return (
+    <div className="flex items-center justify-between gap-2 py-1.5">
+      <span className="text-[12px] text-ink-500">{label}</span>
+      {value ? (
+        <span className="flex items-center gap-2 text-[12px] font-medium text-ink-800">
+          <span className="break-all text-right">{value}</span>
+          <CopyButton text={value} />
+        </span>
+      ) : (
+        <span className="text-[12px] font-medium text-amber-600">확인 필요</span>
+      )}
+    </div>
+  );
+}
+
 function InsurerCard({ ins }: { ins: Insurer }) {
   const [copied, setCopied] = useState(false);
+  const [open, setOpen] = useState(false);
+  const cat = catOf(ins);
+  const hasClaimForm = !!ins.claimFormUrl;
 
   const handleFax = () => {
     if (ins.fax_type === "virtual") {
@@ -92,18 +149,24 @@ function InsurerCard({ ins }: { ins: Insurer }) {
   const faxLabel =
     ins.fax_type === "virtual" ? "가상팩스 발급" : ins.fax_type === "unknown" ? "팩스 확인필요" : copied ? "복사됨 ✓" : "팩스 복사";
 
+  // BOHUMFIT-129: 고객 안내문 복사 문구.
+  const customerNotice =
+    `[보험금 청구 안내]\n보험사: ${ins.name}\n청구팩스: ${ins.fax}\n` +
+    "보험금 청구 전, 보험사별 필요서류와\n청구 가능 기준은 해당 보험사 공식 안내를\n함께 확인해 주세요.";
+
   return (
     <div className="rounded-card border border-line bg-white p-5">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="card-title text-base font-bold text-ink-900">{ins.name}</h3>
-        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${TYPE_BADGE[ins.type]}`}>
-          {ins.type === "손해보험" ? "손해" : "생명"}
+        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${CATEGORY_BADGE[cat]}`}>
+          {shortCat(cat)}
         </span>
         <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS_BADGE[ins.status]}`}>
           {ins.status}
         </span>
       </div>
 
+      {/* 버튼: 전산 · 약관 · 청구양식 · 팩스 */}
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
@@ -118,6 +181,19 @@ function InsurerCard({ ins }: { ins: Insurer }) {
           className="button-text rounded-btn border border-line-strong bg-white px-3.5 py-2 text-[13px] font-semibold text-ink-800 transition-colors hover:bg-ink-50"
         >
           약관 바로가기
+        </button>
+        <button
+          type="button"
+          onClick={() => hasClaimForm && openUrl(ins.claimFormUrl!)}
+          disabled={!hasClaimForm}
+          aria-disabled={!hasClaimForm}
+          className={`button-text rounded-btn px-3.5 py-2 text-[13px] font-semibold transition-colors ${
+            hasClaimForm
+              ? "border border-line-strong bg-white text-ink-800 hover:bg-ink-50"
+              : "cursor-not-allowed bg-ink-100 text-ink-400"
+          }`}
+        >
+          청구양식
         </button>
         <button
           type="button"
@@ -138,21 +214,74 @@ function InsurerCard({ ins }: { ins: Insurer }) {
         {ins.fax}
       </p>
       <p className="ko-text mt-1 text-[12px] leading-5 text-ink-400">{ins.fax_note}</p>
+
+      {/* 하단: 권장 브라우저 배지 + 최종확인일 */}
+      <div className="mt-3 flex items-end justify-between gap-2">
+        <div className="flex flex-wrap gap-1.5">
+          {ins.browser && (
+            <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700">
+              권장: {ins.browser}
+            </span>
+          )}
+        </div>
+        {ins.lastVerifiedDate && (
+          <span className="text-[11px] text-ink-300">최종확인 {ins.lastVerifiedDate}</span>
+        )}
+      </div>
+
+      {/* 상세보기 토글 */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="button-text mt-3 w-full rounded-btn border border-line bg-ink-50 px-3 py-2 text-[12px] font-semibold text-ink-600 transition-colors hover:bg-ink-100"
+      >
+        {open ? "상세보기 접기 ▲" : "상세보기 ▼"}
+      </button>
+
+      {open && (
+        <div className="mt-3 space-y-3 rounded-[8px] border border-line bg-ink-50/60 p-3">
+          <div>
+            <p className="text-[12px] font-bold text-ink-700">업무 연락처</p>
+            <div className="mt-1 divide-y divide-line/70">
+              <ContactRow label="고객센터" value={ins.customerCenter} />
+              <ContactRow label="인콜 모니터링" value={ins.incallNumber} />
+              <ContactRow label="전산 헬프데스크" value={ins.helpdeskNumber} />
+            </div>
+          </div>
+          <div>
+            <p className="text-[12px] font-bold text-ink-700">청구 정보</p>
+            <div className="mt-1 divide-y divide-line/70">
+              <ContactRow label="대표 청구팩스" value={ins.fax} />
+              {ins.claimFaxSub && <ContactRow label="보조 청구팩스" value={ins.claimFaxSub} />}
+            </div>
+            <p className="mt-1.5 text-[11px] leading-5 text-ink-400">청구 안내: {ins.fax_note}</p>
+          </div>
+          <div>
+            <p className="text-[12px] font-bold text-ink-700">사용 환경</p>
+            <p className="mt-1 text-[12px] text-ink-700">권장 브라우저: {ins.browser ?? "무관"}</p>
+          </div>
+          <CopyButton text={customerNotice} label="고객 안내문 복사" />
+        </div>
+      )}
     </div>
   );
 }
 
 export default function InsuranceLinks() {
   const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<"전체" | InsType>("전체");
+  const [tab, setTab] = useState<"전체" | Category>("전체");
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return INSURANCE_DATA.filter((ins) => {
-      if (tab !== "전체" && ins.type !== tab) return false;
-      if (q && !ins.name.toLowerCase().includes(q)) return false;
-      return true;
-    });
+    return INSURANCE_DATA
+      .filter((ins) => {
+        if (tab !== "전체" && catOf(ins) !== tab) return false;
+        if (q && !ins.name.toLowerCase().includes(q)) return false;
+        return true;
+      })
+      // BOHUMFIT-129: displayOrder 오름차순(메리츠화재=1 상단 고정). 미지정은 뒤로(원래 순서 유지).
+      .sort((a, b) => (a.displayOrder ?? 999) - (b.displayOrder ?? 999));
   }, [query, tab]);
 
   return (
@@ -163,7 +292,7 @@ export default function InsuranceLinks() {
         <h1 className="ko-heading mt-3 text-3xl font-extrabold tracking-tight text-ink-900 md:text-4xl break-keep">
           보험사 전산·약관·팩스 바로가기
         </h1>
-        <p className="ko-text mt-2 text-[14px] text-ink-soft">GA 설계사용 · 손해보험 17개 · 생명보험 22개</p>
+        <p className="ko-text mt-2 text-[14px] text-ink-soft">GA 설계사용 · 손해·생명·공제 전산/약관/청구양식/팩스 + 상세 연락처</p>
       </header>
 
       {/* 검색 */}
@@ -177,7 +306,7 @@ export default function InsuranceLinks() {
 
       {/* 탭 */}
       <div role="tablist" aria-label="보험 구분" className="mt-3 flex gap-2 rounded-btn border border-line bg-white p-1">
-        {(["전체", "손해보험", "생명보험"] as const).map((t) => (
+        {(["전체", "손해보험", "생명보험", "공제회사"] as const).map((t) => (
           <button
             key={t}
             type="button"
