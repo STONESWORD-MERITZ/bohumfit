@@ -19,8 +19,8 @@ type Guide = {
 };
 
 const TAB_KEYS: GuideKey[] = ["hanwha", "kb", "db"];
-const imagePages = (prefix: GuideKey, count: number) =>
-  Array.from({ length: count }, (_, i) => `/images/coverage-guide/${prefix}-${String(i + 1).padStart(2, "0")}.png`);
+const imagePages = (prefix: GuideKey, count: number, start = 1) =>
+  Array.from({ length: count }, (_, i) => `/images/coverage-guide/${prefix}-${String(i + start).padStart(2, "0")}.png`);
 
 const GUIDES: Record<GuideKey, Guide> = {
   hanwha: {
@@ -77,7 +77,7 @@ const GUIDES: Record<GuideKey, Guide> = {
       { title: "출력/발송", body: "출력/발송 아이콘을 클릭합니다." },
       { title: "PDF저장", body: "전체 선택/해제를 클릭해 항목을 선택한 뒤 PDF저장을 클릭합니다." },
     ],
-    images: imagePages("kb", 10),
+    images: imagePages("kb", 9, 2),
   },
   db: {
     tab: "DB손보",
@@ -118,7 +118,7 @@ const GUIDES: Record<GuideKey, Guide> = {
       },
       { title: "PDF 저장", body: "저장을 클릭해 PDF 파일로 저장합니다." },
     ],
-    images: imagePages("db", 20),
+    images: imagePages("db", 19, 2),
   },
 };
 
