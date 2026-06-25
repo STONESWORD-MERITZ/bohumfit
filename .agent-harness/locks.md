@@ -7,6 +7,7 @@ Use this file to record active Codex file ownership during a task.
 - (없음)
 
 ### Released
+- 2026-06-26 `BOHUMFIT-129c` - Codex - 보험사 링크 누락 데이터 128개 필드 패치, `npx tsc -p tsconfig.app.json --noEmit` 및 `npm run build` 통과, `d7e5586` 커밋. 기존 실제 값 덮어쓰기 없음.
 - 2026-06-26 `BOHUMFIT-133` - Codex - Windows 검증 통과(tsc app/node, build, backend pytest 451 passed/8 skipped) 후 `0f5dbad` 커밋·푸시 예정. Disclosure Q배지 통일 + Home dot/fade/Features hover, Codex 수정 추가 없음.
 - 2026-06-25 `BOHUMFIT-133` - Cowork - UI 폴리시 1b+3단계 완료. 133a: Disclosure Q배지 2곳 → Badge variant(Q_VARIANT). 133b: Home 히어로 dot 배경+fade-in-up, Features 카드 hover. 분석 로직·backend 무변경. tsc/build는 Codex/Windows 권위.
 
@@ -306,3 +307,4 @@ Use this file to record active Codex file ownership during a task.
 - 2026-05-30 `BOHUMFIT-PROGRESS-001` - Codex - progress determinism plan updated; locks released.
 - 2026-05-30 `BOHUMFIT-HARNESS-CODEX-ONLY` - Codex - final check/plan/publish completed; locks released.
 - 2026-05-30 `BOHUMFIT-HARNESS-CODEX-ONLY` - Codex - documentation cleanup completed; locks released.
+

@@ -16,6 +16,22 @@
 
 # Handoff
 
+## 2026-06-26 Codex BOHUMFIT-129c [insurance link data patch]
+### Changed
+- `src/pages/InsuranceLinks.tsx`: `INSURANCE_DATA` 배열에서 기존 값이 `"확인 필요"` 또는 빈 문자열인 항목만 보강 데이터로 교체. UI 코드, 타입 정의, 컴포넌트 함수는 변경하지 않음.
+- `.agent-harness/tasks/BOHUMFIT-129c-insurance-data-patch.md`: 태스크 기록 신규 작성.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npm run build` -> pass, existing Vite chunk size warning only.
+### Notes
+- 교체 수: 총 128개 필드.
+- 제공 데이터 중 28개 항목은 기존 실제 값 보존 규칙 또는 새 값도 `"확인 필요"`인 경우라 덮어쓰지 않음.
+- `"미확인"` 값은 신규 삽입하지 않았고, `faxSource` 같은 미정의 필드는 추가하지 않음.
+- 기존 unrelated dirty/untracked 파일은 stage하지 않음.
+- Commit: `d7e5586` (`data(BOHUMFIT-129c): 보험사 누락 데이터 패치 (incallNumber/helpdeskNumber/browser/팩스 등)`)
+### Next
+- Human.
+
 ## 2026-06-26 Codex BOHUMFIT-133 [UI polish 1b + stage 3 verification]
 ### Changed
 - `src/pages/Disclosure.tsx`: `Badge`/`BadgeVariant` import, `Q_VARIANT` 매핑, DiseaseCard/섹션 헤더 Q배지 `<Badge variant>` 교체.
