@@ -7,6 +7,9 @@ Use this file to record active Codex file ownership during a task.
 - (없음)
 
 ### Released
+- 2026-06-25 `BOHUMFIT-123` - Cowork - KB 가이드 kb-04/05/09/10 2줄→1줄 완료. 캡션밴드 파랑0·1줄 확인. Codex 육안확인·커밋·푸시 대기.
+
+### Released
 - 2026-06-25 `BOHUMFIT-122` - Cowork - KB 가이드 캡션 9장 검정 재작성 완료(public/images/coverage-guide/kb-02~10.png). 파랑잔존 0·육안 OK. Codex 육안확인·커밋·푸시 대기.
 
 ## Rules

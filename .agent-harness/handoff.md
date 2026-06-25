@@ -16,6 +16,44 @@
 
 # Handoff
 
+## 2026-06-25 Codex BOHUMFIT-123 [KB 가이드 2줄 캡션 1줄 수정 검증]
+### Changed
+- `public/images/coverage-guide/kb-04.png`, `kb-05.png`, `kb-10.png`: Cowork 이미지 처리분 검증 및 커밋 대상.
+- `.agent-harness/tasks/BOHUMFIT-123-kb-guide-caption-single-line.md`: 태스크 파일 포함.
+### Verified
+- [x] Visual check `kb-04.png`: 1줄, 검정색, 이미지 겹침 없음.
+- [x] Visual check `kb-05.png`: 1줄, 검정색, 이미지 겹침 없음.
+- [x] Visual check `kb-09.png`: 1줄, 검정색, 이미지 겹침 없음. 단, Windows git 기준 파일 diff 없음.
+- [x] Visual check `kb-10.png`: 1줄, 검정색, 이미지 겹침 없음.
+- [x] Visual check `kb-06.png`: 2줄 상태 유지, 하단 여백 내 표시되어 잘림/겹침 없음.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run lint` -> pass.
+- [x] `npm test` -> 5 files, 53 tests passed.
+- [x] `npm run build` -> pass, existing Vite chunk size warning only.
+### Notes
+- `kb-09.png`는 요청 범위에 포함되어 확인했으나 실제 tracked diff가 없어 stage 결과에는 포함되지 않을 수 있음.
+- Existing unrelated `backend/__pycache__/main.cpython-312.pyc` and local untracked files were not staged.
+### Next
+- Human: 배포 후 `/coverage-guide` KB 탭에서 kb-04/05/09/10 캡션 최종 육안 확인.
+
+## 2026-06-25 Cowork BOHUMFIT-123 [KB 가이드 2줄 캡션 → 1줄 수정]
+### Changed
+- `public/images/coverage-guide/kb-04·05·09·10.png`: 122의 2줄 캡션(line1이 위로 퍼져 스크린샷과 겹침)을 1줄로 재작성.
+  - 방법(Pillow, /tmp/fix_captions.py): **122 백업 blue 원본(/tmp/kb_orig)을 소스로** 캡션 밴드 흰색 fill 후 1줄 검정 텍스트 재작성(현 public의 검정 2줄 line1 잔존 위험 제거).
+  - 폰트 NotoSansCJK-Bold, 122와 동일 63pt(전부 너비 W-160=2240 이내라 축소 불필요. kb-04 최대 2041px). 수평중앙·수직 밴드중앙.
+  - 1줄 문구: kb-04(주민번호·고객명·통신사·휴대폰번호 입력 후 인증요청)·kb-05(인증번호 입력·등록 후 닫기)·kb-09(상단 출력/발송 아이콘, 기존 1줄 유지)·kb-10(전체 선택/해제 → PDF저장 → 고객 PDF 저장).
+### Verified
+- [x] 육안(kb-04/05/09/10 하단 크롭): 1줄·검정·스크린샷 미겹침, 2줄/블루 잔존 없음.
+- [x] 프로그램(캡션 밴드 y≥1170 격리): 4장 모두 파랑 0px, 검정 텍스트 높이 58~63px=1줄.
+  - 참고: y≥0.83H 광역 검사 시 kb-10 PDF저장 버튼(보라/파랑 외곽)·kb-04/05 상단 버튼이 잡혔으나 이는 보존 대상 스크린샷 UI(캡션 아님).
+- [ ] tsc/lint/test/build → 이미지 자산만 변경, 코드 무영향. **Codex/Windows 권위**(build가 dist/ 갱신).
+### Notes
+- kb-06은 122에서 2줄이지만 본 태스크 대상 아님(요청 범위 kb-04/05/09/10). 필요 시 후속.
+- 원본(122 처리본) 백업: /tmp/kb_orig(blue, 세션 휘발).
+### Next
+- Codex: kb-04/05/09/10 육안 확인 후 `public/images/coverage-guide/kb-04·05·09·10.png`(+tasks/BOHUMFIT-123·handoff/locks) stage→commit(`BOHUMFIT-123: KB 가이드 2줄 캡션 1줄 수정`)→push.
+
 ## 2026-06-25 Codex BOHUMFIT-122 [KB 가이드 하단 안내 문구 검정색 재작성]
 ### Changed
 - `public/images/coverage-guide/kb-02.png` ~ `kb-10.png`: 하단 안내 문구를 검정색 Bold 텍스트로 재작성한 Cowork 이미지 처리분 확인·커밋.
