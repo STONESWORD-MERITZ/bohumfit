@@ -4,8 +4,11 @@ Use this file to record active Codex file ownership during a task.
 
 ## Active
 
-
 - (없음)
+
+### Released
+- 2026-06-26 `BOHUMFIT-138` - Codex - Windows verification complete (backend pytest 453 passed/8 skipped, tsc app/node, build), commit `c712312`. Active none.
+- 2026-06-26 `BOHUMFIT-138` - Cowork - UX 7종 완료. Disclosure(업로드문구 조건부·bf-beam 제거·PDF 미리보기·10분 재보기)·AnalysisProgress(단계 제거)·helpers(질병명 사전 보강)·disease_aggregator(미래날짜 경고 제거)·tests/test_disease_name_138. analyze/제외 로직 불변. pytest/tsc/build는 Codex/Windows 권위.
 
 ### Released
 - 2026-06-26 `BOHUMFIT-129d` - Codex - InsuranceLinks system_url 32 restore + Meritz Life row removal verified(tsc app, build), `4b9830c` commit. Active none.

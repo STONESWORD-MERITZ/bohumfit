@@ -16,6 +16,42 @@
 
 # Handoff
 
+## 2026-06-26 Codex BOHUMFIT-138 [UX bugfix verification]
+### Changed
+- `src/pages/Disclosure.tsx`: upload helper text now hides after files are selected; local PDF preview uses object URLs; 10-minute sessionStorage restore banner added; result article `bf-beam` removed.
+- `src/components/AnalysisProgress.tsx`: step list removed; spinner plus analysis-in-progress text only.
+- `backend/pipeline/helpers.py`: added dictionary normalization for broken gallstone disease-name spacing/newlines.
+- `backend/pipeline/disease_aggregator.py`: future-date records are still excluded, but the user-facing future-date warning is no longer appended.
+- `backend/tests/test_disease_name_138.py`: regression coverage for disease-name normalization.
+### Verified
+- [x] `cd backend && python -m pytest -q` -> 453 passed, 8 skipped.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run build` -> pass, existing Vite chunk size warning only.
+### Notes
+- No extra Codex code changes beyond the Cowork implementation. New test file parsed cleanly as UTF-8/AST before verification.
+- Commit: `c712312`.
+- Existing unrelated dirty/untracked files were not staged.
+### Next
+- Human.
+
+## 2026-06-26 Cowork BOHUMFIT-138 [UX 버그픽스+기능 7종]
+### 변경 (항목별)
+1. 업로드 문구 숨김 — `Disclosure.tsx` dropzone의 Upload 아이콘+"드래그하거나 클릭" 문구를 `selectedNames.length === 0`일 때만 표시(선택 후 파일명 목록만).
+2. 분석 단계 목록 제거 — `AnalysisProgress.tsx` 단계 `<ol>` 제거, 스피너+"분석 중입니다..."만 유지(미사용 STEPS/state/effect 제거).
+3. 결과 대각선 렌더링 버그 — 원인=결과 카드 `bf-beam`(conic-gradient/mask). `Disclosure.tsx` article에서 `bf-beam` 제거(index.css 키프레임은 잔존·무해).
+4. 질병명 띄어쓰기 강화 — `helpers.py normalize_disease_name`은 이미 `\s+`(=\n\r 포함) 제거 후 사전 매칭. 케이스 사전 추가("폐쇄에대한언급이없는기타담석증"→"폐쇄에대한 언급이없는 기타담석증"). `tests/test_disease_name_138.py` 회귀(공백/개행 정규화). /tmp 검증 통과.
+5. 미래 날짜 경고 제거 — `disease_aggregator.py`에서 date_warnings의 "미래 날짜…" append만 제거(future_date_count 카운트·days_ago<0 continue 제외 로직 불변). 미래일자 제외 테스트는 제외 동작만 검증하므로 무영향.
+6. PDF 미리보기 — `Disclosure.tsx` 결과 상단에 업로드 PDF `<object>` 미리보기(로컬 URL.createObjectURL, 다중=탭, 500px, 접기/펼치기 기본 접힘, 파일 없으면 미표시). onChange/onDrop에서 File[] 캡처(setPreviewFiles, 분석은 fileRef 그대로). URL revoke cleanup.
+7. 10분 재보기 — 분석 성공 시 sessionStorage에 {result,ts} 저장, 마운트 시 10분 이내면 복원+배너("이전 분석 결과입니다 (N분 전)")+"새로 분석하기"(초기화·삭제), 초과 시 자동 삭제. analyze 계산 로직 불변.
+### Verified
+- [x] 항목4 /tmp 검증, 항목5 회귀 안전(미래일자 테스트=제외 동작 검증, 메시지 미검증), 프런트 정적 자기검토(states 타입·useEffect import·objectURL cleanup·JSX 균형·analyze/fileRef 불변).
+- [ ] `pytest -q`/tsc(app·node)/build: 샌드박스 마운트 truncation·rolldown 미설치로 실행 불가 → **Codex/Windows 권위**(test_disease_name_138 포함).
+### Notes
+- 수정 금지 준수: analyze 계산·레코드 제외 로직·외부 라이브러리 미추가. 항목4 일반 자모 재조합은 안전상 사전 기반 유지(범용 휴리스틱 미적용).
+### Next
+- Codex: pytest+tsc+build 확인 후 Disclosure.tsx·AnalysisProgress.tsx·helpers.py·disease_aggregator.py·tests/test_disease_name_138.py(+tasks/BOHUMFIT-138·handoff·locks) commit(`BOHUMFIT-138: UX 버그픽스+PDF미리보기+10분 재보기 7종`)→push.
+
 ## 2026-06-26 Codex BOHUMFIT-129d [System URL restore]
 ### Changed
 - `src/pages/InsuranceLinks.tsx`: BOHUMFIT-129b에서 `확인 필요`로 덮인 설계사 전산 `system_url` 32개를 cf5f6f3(BOHUMFIT-092) 원본 URL 기준으로 복원.
