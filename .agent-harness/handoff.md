@@ -16,6 +16,21 @@
 
 # Handoff
 
+## 2026-06-26 Codex BOHUMFIT-129d [System URL restore]
+### Changed
+- `src/pages/InsuranceLinks.tsx`: BOHUMFIT-129b에서 `확인 필요`로 덮인 설계사 전산 `system_url` 32개를 cf5f6f3(BOHUMFIT-092) 원본 URL 기준으로 복원.
+- `src/pages/InsuranceLinks.tsx`: 존재하지 않는 회사로 확인된 `메리츠생명` 행(`displayOrder: 23`) 삭제. 라이나생명 기존 URL은 유지, 신규/원본 미존재 항목은 `확인 필요` 유지.
+- `.agent-harness/tasks/BOHUMFIT-129d-systemurl-restore.md`: 태스크 기록 생성.
+### Verified
+- [x] 데이터 점검 -> 총 44개 보험사, 실제 `system_url` 33개(복원 32 + 라이나생명 유지), 미확인 11개, `메리츠생명` 삭제 확인.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npm run build` -> pass, existing Vite chunk size warning only.
+### Notes
+- Commit: `4b9830c` (`fix(BOHUMFIT-129d): 설계사 전산 URL 복원 (129b에서 덮어쓰인 원본 URL 32개 재적용)`).
+- Existing unrelated dirty/untracked files were not staged.
+### Next
+- Human.
+
 ## 2026-06-26 Codex BOHUMFIT-136b/137b + InsuranceLinks system URL audit
 ### Changed
 - `src/pages/Disclosure.tsx`: drag/drop 업로드 시각 상태, 선택 파일 표시, 모바일 하단 CTA, 오류 토스트 구체화, 업로드 input `aria-label`, 업로드 보조문구 대비 보강 확인.

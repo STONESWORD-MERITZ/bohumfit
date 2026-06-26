@@ -4,9 +4,11 @@ Use this file to record active Codex file ownership during a task.
 
 ## Active
 
+
 - (없음)
 
 ### Released
+- 2026-06-26 `BOHUMFIT-129d` - Codex - InsuranceLinks system_url 32 restore + Meritz Life row removal verified(tsc app, build), `4b9830c` commit. Active none.
 - 2026-06-26 `BOHUMFIT-136b/137b` - Codex - Disclosure drag/drop + mobile CTA + a11y follow-up 검증 완료(tsc app/node, build, backend pytest 451 passed/8 skipped), `cdcb2e4` 커밋. InsuranceLinks system URL 히스토리 조사만 수행, 코드 수정 없음. Active 없음.
 - 2026-06-25 `BOHUMFIT-136b-137b` - Cowork - 136b(드래그앤드롭 시각+드롭→fileRef 주입+모바일 하단 CTA)·137b(오류 토스트 구체화·업로드 보조문구 대비). Disclosure.tsx만 변경, analyze 로직 불변. 전역 색상대비/aria 스윕은 137c 후속. tsc/build/pytest는 Codex/Windows 권위.
 
