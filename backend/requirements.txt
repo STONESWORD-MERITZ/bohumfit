@@ -6,7 +6,7 @@ pandas==2.3.3
 pydantic==2.13.4
 pillow==12.2.0
 python-multipart==0.0.29
-google-genai==2.6.0
+google-genai==2.10.0
 python-dotenv==1.2.2
 slowapi==0.1.9
 sentry-sdk[fastapi]==2.60.0
