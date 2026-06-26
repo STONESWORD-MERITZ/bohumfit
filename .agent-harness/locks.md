@@ -7,6 +7,10 @@ Use this file to record active Codex file ownership during a task.
 - (없음)
 
 ### Released
+- 2026-06-26 `BOHUMFIT-136b/137b` - Codex - Disclosure drag/drop + mobile CTA + a11y follow-up 검증 완료(tsc app/node, build, backend pytest 451 passed/8 skipped), `cdcb2e4` 커밋. InsuranceLinks system URL 히스토리 조사만 수행, 코드 수정 없음. Active 없음.
+- 2026-06-25 `BOHUMFIT-136b-137b` - Cowork - 136b(드래그앤드롭 시각+드롭→fileRef 주입+모바일 하단 CTA)·137b(오류 토스트 구체화·업로드 보조문구 대비). Disclosure.tsx만 변경, analyze 로직 불변. 전역 색상대비/aria 스윕은 137c 후속. tsc/build/pytest는 Codex/Windows 권위.
+
+### Released
 - 2026-06-26 `BOHUMFIT-135-137` - Codex - UX visual/accessibility 검증 완료(tsc app/node, build, backend pytest 451 passed/8 skipped), `ee30dc2` 커밋. Active 없음.
 - 2026-06-25 `BOHUMFIT-135-137` - Cowork - 135(shimmer/beam/ticker)·137(toast role=alert·focus-visible) 적용, 136은 Step Indicator 기존충족·드래그앤드롭/모바일CTA는 136b 후속. 편집: index.css·Home.tsx·Disclosure.tsx·AnimatedNumber.tsx·Toast.tsx·InsuranceLinks.tsx. tsc/build/pytest는 Codex/Windows 권위.
 

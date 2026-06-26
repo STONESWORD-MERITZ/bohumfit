@@ -16,6 +16,42 @@
 
 # Handoff
 
+## 2026-06-26 Codex BOHUMFIT-136b/137b + InsuranceLinks system URL audit
+### Changed
+- `src/pages/Disclosure.tsx`: drag/drop 업로드 시각 상태, 선택 파일 표시, 모바일 하단 CTA, 오류 토스트 구체화, 업로드 input `aria-label`, 업로드 보조문구 대비 보강 확인.
+- `.agent-harness/tasks/BOHUMFIT-136b-137b-ux-a11y-followup.md`: 태스크 기록 정상화.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run build` -> pass, existing Vite chunk size warning only.
+- [x] `cd backend && python -m pytest -q` -> 451 passed, 8 skipped.
+### Notes
+- A commit: `cdcb2e4` (`feat(BOHUMFIT-136b-137b): 드래그앤드롭 강화 + 모바일 CTA + 접근성 후속`)
+- B audit: `cf5f6f3`(BOHUMFIT-092 원본) 기준 `InsuranceLinks.tsx` 39개 보험사 모두 `system_url` 실제 URL 보유. 현재 45개 중 실제 `system_url` 유지 항목은 `라이나생명` 1개뿐.
+- B audit summary: 원본 계열 중 현재 목록에 남아 있으나 `확인 필요`가 된 항목 32개, 원본에는 있었으나 현재 목록에서 빠진 항목 6개, 092 원본에 없던 현재 신규/추가 항목 12개.
+- `src/pages/InsuranceLinks.tsx`는 조사만 수행했고 수정/커밋하지 않음.
+- Existing unrelated dirty/untracked files were not staged.
+### Next
+- Human.
+
+## 2026-06-25 Cowork BOHUMFIT-136b/137b [UX·접근성 후속]
+### 분석
+- Disclosure 업로드는 `<input type="file" ref={fileRef}>`(uncontrolled, analyze가 fileRef.current.files 읽음). onDrop/onChange 없음. 분석 버튼 line~1656(onClick=analyze, disabled=loading||동의). lucide-react는 기존 의존성(Layout.tsx 사용).
+### 136b — 완료
+- `src/pages/Disclosure.tsx`: 드래그앤드롭 시각 강화 — 래퍼 div에 onDragOver/Enter/Leave/Drop(시각 isDragging→border-green-400·bg-green-50) + Upload 아이콘 + "드래그하거나 클릭" 문구 + 선택 파일 표시(FileText·파일명·CheckCircle2). onDrop은 DataTransfer로 fileRef에 주입(기존 analyze 그대로 사용 — 분석 로직 무변경), onChange는 표시용(selectedNames)만 추가. 입력 `aria-label`.
+- 모바일 하단 고정 CTA: `md:hidden fixed inset-x-0 bottom-0 z-50`(border-t·shadow), 스크롤 240px 후·분석 전(`showSticky && !result`) 표시, 동일 analyze/disabled/라벨. PC 기존 버튼 유지.
+### 137b — 부분(안전 우선)
+- `src/pages/Disclosure.tsx`: 분석 오류 토스트를 구체 메시지(서버 detail/네트워크 안내)로 교체, 업로드 보조문구 `text-gray-400→text-gray-500`(대비 보강). 업로드 input `aria-label` 추가.
+- (기존 135-137에서: Toast error/warning `role=alert`+`aria-live`, InsuranceLinks 탭·복사 `focus-visible`+`aria-label`, 상세보기 토글 `aria-expanded`(button이라 Enter/Space 네이티브).)
+### Verified
+- [x] 정적 자기검토: 신규 UI state(isDragging/selectedNames/showSticky)·스크롤 effect cleanup·DataTransfer drop 주입은 analyze 로직 미변경(fileRef만), lucide import 존재 의존성, JSX 균형(dropzone div·모바일 CTA 블록). 핸들러 추가만(기존 변경 없음).
+- [ ] tsc(app·node)/build/pytest: 샌드박스 rolldown 미설치 → **Codex/Windows 권위**. backend 미접촉.
+### Notes — 후속 권장(137b 잔여)
+- 전역 색상대비 일괄 점검(text-gray-300/400 → 500/600, 단 placeholder·비활성 제외)과 전 페이지 아이콘 버튼 aria-label 스윕은 범위가 넓어(다수 파일) 별도 후속 권장. 본 작업은 업로드/오류 등 영향 큰 곳 우선.
+- 수정 금지 준수: backend·분석 로직/상태·외부 라이브러리 미추가·기존 onChange/onDrop(부재) 변경 없음(신규 추가만).
+### Next
+- Codex: tsc(app·node)+build+pytest 회귀 확인 후 `src/pages/Disclosure.tsx`(+tasks/BOHUMFIT-136b-137b·handoff·locks) commit(`BOHUMFIT-136b/137b: 드래그앤드롭·모바일 CTA + 오류 구체화·대비 보강`)→push. 색상대비/aria 전역 스윕은 137c 후속.
+
 ## 2026-06-26 Codex BOHUMFIT-135/136/137 [UX visual/accessibility verification]
 ### Changed
 - `src/index.css`: `.bf-shimmer`, `.bf-beam` CSS 효과와 `prefers-reduced-motion` 가드 확인.
