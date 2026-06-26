@@ -7,6 +7,10 @@ Use this file to record active Codex file ownership during a task.
 - (없음)
 
 ### Released
+- 2026-06-26 `BOHUMFIT-139/140/141` - Codex - Windows verification passed; commits 139=`dff1ca0`, 140=`8a95828`, 141=`922df40`; active none.
+- 2026-06-26 `BOHUMFIT-139-141` - Cowork - 완료. 139(pdf_parser 본문 신호 다수결 fallback+테스트)·140(pydantic/pillow 고정, 나머지 096 기고정)·141(img/link 클린, 대비 일부; 전역 스윕은 141b 후속). analyze 로직 불변. pytest/tsc/build는 Codex/Windows 권위.
+
+### Released
 - 2026-06-26 `BOHUMFIT-129e` - Codex - system URL button fixed via real anchor href, verified tsc/build, commit `96f2d1b`. Active none.
 - 2026-06-26 `BOHUMFIT-138` - Codex - Windows verification complete (backend pytest 453 passed/8 skipped, tsc app/node, build), commit `c712312`. Active none.
 - 2026-06-26 `BOHUMFIT-138` - Cowork - UX 7종 완료. Disclosure(업로드문구 조건부·bf-beam 제거·PDF 미리보기·10분 재보기)·AnalysisProgress(단계 제거)·helpers(질병명 사전 보강)·disease_aggregator(미래날짜 경고 제거)·tests/test_disease_name_138. analyze/제외 로직 불변. pytest/tsc/build는 Codex/Windows 권위.

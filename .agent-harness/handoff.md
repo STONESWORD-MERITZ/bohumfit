@@ -1,3 +1,25 @@
+## 2026-06-26 Codex BOHUMFIT-139/140/141 verification
+### Changed
+- BOHUMFIT-139: backend/pipeline/pdf_parser.py body-signal majority fallback for headerless PDF type detection; backend/tests/test_pdf_ftype_signal_139.py added 5 regressions.
+- BOHUMFIT-140: backend/requirements.txt pins pydantic==2.13.4 and pillow==12.2.0; existing pins preserved.
+- BOHUMFIT-141: src/components/AnalysisProgress.tsx and src/pages/Disclosure.tsx contrast text-gray-400 -> text-gray-500 in scoped helper text.
+### Verified
+- [x] backend targeted: python -m pytest tests/test_pdf_ftype_signal_139.py -q -> 5 passed.
+- [x] backend full: cd backend && python -m pytest -q -> 458 passed, 8 skipped.
+- [x] pip dry-run: pip install -r backend/requirements.txt --dry-run -> pass; would install pydantic-2.13.4/pydantic_core-2.46.4, no resolver conflict.
+- [x] frontend: npx tsc -p tsconfig.app.json --noEmit -> pass.
+- [x] frontend: npx tsc -p tsconfig.node.json --noEmit -> pass.
+- [x] frontend: npm run build -> pass; existing large chunk warning only.
+### Commits
+- BOHUMFIT-139: dff1ca0
+- BOHUMFIT-140: 8a95828
+- BOHUMFIT-141: 922df40
+### Notes
+- Task file BOHUMFIT-139-141-backend-a11y.md was committed with 139.
+- Existing unrelated dirty/untracked files (old task drafts, PDFs, brand assets, decisions/tasks docs) were not staged.
+### Next
+- Human.
+
 <!--
 표준 포맷 (최신 항목을 위에 쌓기):
 ## YYYY-MM-DD HH:MM [에이전트명] [태스크ID]
@@ -15,6 +37,25 @@
 -->
 
 # Handoff
+
+## 2026-06-26 Cowork BOHUMFIT-139/140/141 [처방PDF 오분류 보정·의존성 고정·a11y 스윕]
+### 139 — 처방 PDF 오분류 보정 (완료)
+- Step1 분석: 타입 판별은 pdf_parser `_resolve_ftype`(강헤더→page_ftype→detect_file_type). 헤더 OCR 누락+섹션 표제어(기본진료정보/세부진료정보/처방조제/투약일수) 부재 시 `_detect_ftype_by_page_text`가 ""을 반환 → unknown(=basic 취급)으로 오분류 가능.
+- 변경 `backend/pipeline/pdf_parser.py` `_detect_ftype_by_page_text`: 표제어·전용 컬럼어 모두 누락 시 **본문 신호 다수결** fallback 추가(pharma: 약품명·성분명·1일투여횟수·1회투약량·조제일자 / basic: 주상병·상병코드·입원외래·진료일수·진료개시일 / detail: 진료내역·코드명·초진·재진·처치및수술. 동점 우선 pharma>basic>detail). 정상 표제어/헤더 판별·_resolve_ftype·is_nhis 분기는 불변(이 fallback은 헤더+표제어 모두 누락 시에만 도달).
+- `backend/tests/test_pdf_ftype_signal_139.py`(신규): 헤더없는 처방/기본/세부 다수결 판별, 표제어 우선 유지, 무신호 빈값. /tmp 재구성 전부 통과.
+### 140 — 의존성 버전 고정 (완료/기확인)
+- `requirements.txt`는 096에서 직접 deps 전부 `==` 고정됨(미고정 0줄 확인). 태스크 목록 중 미명시였던 전이 의존성 **pydantic==2.13.4·pillow==12.2.0**(설치본)만 명시 추가. python-jose는 미사용(추가 안 함). `pip install --dry-run` 충돌 없음(fastapi 0.136+pydantic 2.13, pdfplumber 0.11.9+pillow 12 호환).
+### 141 — 색상대비+ARIA 스윕 (부분/안전)
+- img alt 누락 0건, 애매한 링크("여기를 클릭") 0건 — 수정 불필요 확인. 아이콘 버튼(복사·닫기·토글)은 135~138에서 aria-label/텍스트 보유.
+- 대비: 명확한 본문/안내 텍스트만 보강(AnalysisProgress 안내·Disclosure 입력값 안내 `text-gray-400→500`).
+### Verified
+- [x] 139 /tmp 로직 검증, 140 pip dry-run 충돌 없음, 141 img/link 클린·대비 일부.
+- [ ] `pytest -q`(test_pdf_ftype_signal_139 포함)/tsc/build: 샌드박스 마운트 truncation·rolldown 미설치 → **Codex/Windows 권위**.
+### Notes — 후속(141 잔여)
+- 전역 text-gray-300/400 40여 곳(CoverageAnalysis·BeforeAfter·coverage 컴포넌트 등 다수)의 본문 vs 장식/placeholder 판별 기반 대비 보정은 분량이 커 per-occurrence 판단 필요 → 별도 후속(141b) 권장. 본 작업은 영향 큰 안내 문구 우선.
+- 수정 금지 준수: 분석 로직·placeholder/disabled 색상·외부 라이브러리·requirements 외 백엔드 버전 미변경.
+### Next
+- Codex: pytest+tsc+build 확인 후 pdf_parser.py·requirements.txt·tests/test_pdf_ftype_signal_139.py·AnalysisProgress.tsx·Disclosure.tsx(+tasks/BOHUMFIT-139-141·handoff·locks) commit(`BOHUMFIT-139/140/141: 처방PDF 신호 다수결·pydantic/pillow 고정·a11y 보강`)→push. 141b(전역 대비 스윕) 후속.
 
 ## 2026-06-26 Codex BOHUMFIT-129e [system URL button fix]
 ### Changed
