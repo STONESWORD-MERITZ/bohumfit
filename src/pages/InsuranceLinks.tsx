@@ -97,8 +97,14 @@ const STATUS_VARIANT: Record<Status, BadgeVariant> = {
 const catOf = (ins: Insurer): Category => ins.category ?? ins.type;
 const shortCat = (c: Category): string => (c === "손해보험" ? "손해" : c === "생명보험" ? "생명" : "공제");
 
-function openUrl(url: string) {
+function isExternalUrl(url?: string): url is string {
+  return !!url && /^https?:\/\//i.test(url);
+}
+
+function openUrl(url?: string) {
+  if (!isExternalUrl(url)) return false;
   window.open(url, "_blank", "noopener,noreferrer");
+  return true;
 }
 
 function CopyButton({ text, label = "복사" }: { text: string; label?: string }) {
@@ -142,11 +148,13 @@ function InsurerCard({ ins }: { ins: Insurer }) {
   const [open, setOpen] = useState(false);
   const { showToast } = useToast(); // BOHUMFIT-131
   const cat = catOf(ins);
-  const hasClaimForm = !!ins.claimFormUrl;
+  const hasSystemUrl = isExternalUrl(ins.system_url);
+  const hasTermsUrl = isExternalUrl(ins.terms_url);
+  const hasClaimForm = isExternalUrl(ins.claimFormUrl);
 
   const handleFax = () => {
     if (ins.fax_type === "virtual") {
-      openUrl(ins.terms_url);
+      if (!openUrl(ins.terms_url)) showToast("링크 확인이 필요합니다.", "warning");
       return;
     }
     if (ins.fax_type === "unknown") return;
@@ -176,21 +184,39 @@ function InsurerCard({ ins }: { ins: Insurer }) {
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
-          onClick={() => openUrl(ins.system_url)}
-          className="button-text rounded-btn bg-accent-600 px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-accent-700"
+          onClick={() => {
+            if (!openUrl(ins.system_url)) showToast("전산 링크 확인이 필요합니다.", "warning");
+          }}
+          disabled={!hasSystemUrl}
+          aria-disabled={!hasSystemUrl}
+          className={`button-text rounded-btn px-3.5 py-2 text-[13px] font-semibold transition-colors ${
+            hasSystemUrl
+              ? "bg-accent-600 text-white hover:bg-accent-700"
+              : "cursor-not-allowed bg-ink-100 text-ink-400"
+          }`}
         >
           전산 바로가기
         </button>
         <button
           type="button"
-          onClick={() => openUrl(ins.terms_url)}
-          className="button-text rounded-btn border border-line-strong bg-white px-3.5 py-2 text-[13px] font-semibold text-ink-800 transition-colors hover:bg-ink-50"
+          onClick={() => {
+            if (!openUrl(ins.terms_url)) showToast("약관 링크 확인이 필요합니다.", "warning");
+          }}
+          disabled={!hasTermsUrl}
+          aria-disabled={!hasTermsUrl}
+          className={`button-text rounded-btn px-3.5 py-2 text-[13px] font-semibold transition-colors ${
+            hasTermsUrl
+              ? "border border-line-strong bg-white text-ink-800 hover:bg-ink-50"
+              : "cursor-not-allowed bg-ink-100 text-ink-400"
+          }`}
         >
           약관 바로가기
         </button>
         <button
           type="button"
-          onClick={() => hasClaimForm && openUrl(ins.claimFormUrl!)}
+          onClick={() => {
+            if (!openUrl(ins.claimFormUrl)) showToast("청구양식 링크 확인이 필요합니다.", "warning");
+          }}
           disabled={!hasClaimForm}
           aria-disabled={!hasClaimForm}
           className={`button-text rounded-btn px-3.5 py-2 text-[13px] font-semibold transition-colors ${
