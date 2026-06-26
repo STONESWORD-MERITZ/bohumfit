@@ -84,6 +84,20 @@ def _detect_ftype_by_page_text(text: str) -> str:
     #   공단 NHIS는 parse_single_pdf의 is_nhis 분기로 별도 처리되어 이 함수 영향권 밖.
     if "투약일수" in norm:
         return "pharma"
+    # BOHUMFIT-139: 섹션 표제어·전용 컬럼어까지 모두 OCR 누락된 경우, 본문 신호 다수결로 타입 추정(최후 fallback).
+    #   정상 표제어/헤더 판별은 위에서 먼저 결정되므로 이 분기는 헤더·표제어가 모두 사라진 페이지에만 도달한다.
+    #   norm은 공백 제거본 — '입원/외래' → '입원외래' 처럼 컬럼어가 붙어도 매칭된다.
+    _sig = {
+        "pharma": sum(norm.count(k) for k in ("약품명", "성분명", "1일투여횟수", "1회투약량", "조제일자")),
+        "basic": sum(norm.count(k) for k in ("주상병", "상병코드", "입원외래", "진료일수", "진료개시일")),
+        "detail": sum(norm.count(k) for k in ("진료내역", "코드명", "초진", "재진", "처치및수술")),
+    }
+    _best = max(_sig.values())
+    if _best > 0:
+        # 동점 우선순위: pharma > basic > detail (처방 전용어가 변별력 가장 높음)
+        for _t in ("pharma", "basic", "detail"):
+            if _sig[_t] == _best:
+                return _t
     return ""
 
 
