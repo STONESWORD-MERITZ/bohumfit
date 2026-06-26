@@ -7,6 +7,10 @@ Use this file to record active Codex file ownership during a task.
 - (없음)
 
 ### Released
+- 2026-06-26 `BOHUMFIT-135-137` - Codex - UX visual/accessibility 검증 완료(tsc app/node, build, backend pytest 451 passed/8 skipped), `ee30dc2` 커밋. Active 없음.
+- 2026-06-25 `BOHUMFIT-135-137` - Cowork - 135(shimmer/beam/ticker)·137(toast role=alert·focus-visible) 적용, 136은 Step Indicator 기존충족·드래그앤드롭/모바일CTA는 136b 후속. 편집: index.css·Home.tsx·Disclosure.tsx·AnimatedNumber.tsx·Toast.tsx·InsuranceLinks.tsx. tsc/build/pytest는 Codex/Windows 권위.
+
+### Released
 - 2026-06-26 `BOHUMFIT-134` - Codex - 건강보험공단 요양급여내역 체크리스트 라벨 검증 완료(tsc app/node, build, backend pytest 451 passed/8 skipped), `5c43fbf` 커밋. Active 없음.
 - 2026-06-25 `BOHUMFIT-134` - Cowork - 공단 요양급여내역 체크리스트 라벨 1~5년차→5~10년 전 재명명(DownloadGuide.tsx CHECKLIST). key 인덱스 기반이라 상태/value/백엔드 불변. tsc/build는 Codex/Windows 권위.
 

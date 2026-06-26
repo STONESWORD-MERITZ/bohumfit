@@ -16,6 +16,49 @@
 
 # Handoff
 
+## 2026-06-26 Codex BOHUMFIT-135/136/137 [UX visual/accessibility verification]
+### Changed
+- `src/index.css`: `.bf-shimmer`, `.bf-beam` CSS 효과와 `prefers-reduced-motion` 가드 확인.
+- `src/pages/Home.tsx`: 메인 CTA에 `bf-shimmer` 적용 확인.
+- `src/pages/Disclosure.tsx`: 결과 카드 article에 `bf-beam` 적용 확인.
+- `src/components/AnimatedNumber.tsx`: ticker 스타일(`inline-block tabular-nums`)과 `aria-label` 적용 확인.
+- `src/components/Toast.tsx`: error/warning toast는 `role="alert"` + `aria-live="assertive"`, 나머지는 `status/polite`.
+- `src/pages/InsuranceLinks.tsx`: 탭/복사 버튼 `focus-visible:ring` 및 CopyButton `aria-label` 적용 확인.
+- `.agent-harness/tasks/BOHUMFIT-135-137-ux-visual-enhance.md`: 태스크 기록 정상화.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run build` -> pass, existing Vite chunk size warning only.
+- [x] `cd backend && python -m pytest -q` -> 451 passed, 8 skipped.
+### Notes
+- Codex 수정은 태스크 파일 인코딩 정상화 외 코드 추가 없음.
+- Existing unrelated dirty/untracked files were not staged.
+- Commit: `ee30dc2` (`feat(BOHUMFIT-135-137): Magic UI 효과 + 접근성 강화 (shimmer/beam/ticker/aria/focus)`)
+### Next
+- Human (136b/137b 후속 대기).
+
+## 2026-06-25 Cowork BOHUMFIT-135/136/137 [UX·비주얼·접근성 강화]
+### 135 Magic UI — 완료
+- `src/index.css`: @keyframes/유틸 추가 — `.bf-shimmer`(hover/focus 시 좌→우 빛, overflow-hidden+::after)·`.bf-beam`(hover 시 conic-gradient 마스크 그린 테두리 빛 회전) + `prefers-reduced-motion` 가드.
+- `src/pages/Home.tsx`: 메인 CTA("무료로 시작하기")에 `bf-shimmer`(라우팅/기능 불변).
+- `src/pages/Disclosure.tsx`: 질병 결과 `<article>`에 `bf-beam`(기존 hover 효과와 공존).
+- `src/components/AnimatedNumber.tsx`: ticker 스타일(`inline-block tabular-nums`·자릿수 안정 롤업) + `aria-label`. useCountUp·prop 유지.
+### 137 접근성 — 부분(안전 우선)
+- `src/components/Toast.tsx`: error·warning → `role="alert"`+`aria-live="assertive"`(그 외 status/polite).
+- `src/pages/InsuranceLinks.tsx`: 탭·복사 버튼 `focus-visible:ring-2 ring-green-500 outline-none`, CopyButton `aria-label`. (상세보기 토글 `aria-expanded`는 129에서 적용됨.)
+### 136 UX 플로우 — 일부/기존충족
+- Step Indicator: `AnalysisProgress.tsx`가 이미 단계 시각화(완료 ✓/현재 pulse/대기 회색) 보유 → 스펙 충족(추가 변경 없음). 131에서 상단 스피너도 추가됨.
+### Verified
+- [x] 정적 자기검토: index.css 키프레임 추가(기존 규칙 무영향)·클래스 적용만, Toast role 분기, focus-visible/aria 추가. 분석 로직/상태·backend 미접촉.
+- [ ] tsc(app·node)/`npm run build`: 샌드박스 rolldown 미설치 → **Codex/Windows 권위**. backend 미접촉(pytest 무관).
+### Notes — 후속(stage 연장) 권장
+- 135 Number Ticker: 자릿수별 슬롯머신(translateY per-digit) 풀 구현은 보류(현재 useCountUp 롤업+tabular-nums로 ticker 느낌 충족). 풀 슬롯은 후속.
+- 136: PDF 드래그앤드롭 dragover 상태 강화(연한 그린 배경/테두리·파일명+체크 아이콘, lucide) + 모바일 하단 고정 CTA(스크롤 show/hide)는 Disclosure 업로드 영역 구조 변경이 커 빌드 안전 위해 **후속(136b)**으로 분리(기존 onChange/onDrop 로직 보존 전제).
+- 137: 전역 색상대비 일괄 점검(text-gray-300/400→500/600)·모든 버튼 aria 스윕은 범위가 넓어 후속(137b)로 분리. 본 작업은 가장 영향 큰 토스트/탭/복사 버튼 우선 적용.
+- 수정 금지 준수: 외부 라이브러리 미추가(CSS만), 분석 로직/상태·backend·기존 기능 동작 불변.
+### Next
+- Codex: tsc(app·node)+build+pytest 회귀 확인 후 index.css·Home.tsx·Disclosure.tsx·AnimatedNumber.tsx·Toast.tsx·InsuranceLinks.tsx(+tasks/BOHUMFIT-135-137·handoff·locks) commit(`BOHUMFIT-135/137: Magic UI(shimmer/beam/ticker)+접근성(role=alert/focus-visible)`)→push. 136b/137b/Number Ticker 풀구현은 후속 태스크 권장.
+
 ## 2026-06-26 Codex BOHUMFIT-134 [NHIS year label fix verification]
 ### Changed
 - `src/pages/DownloadGuide.tsx`: `건강보험공단 · 요양급여내역` 체크리스트 라벨을 `1년차~5년차`에서 `5~6년 전~9~10년 전`으로 변경 확인. 체크박스 key/state 로직은 `${gi}-${ii}` 인덱스 기반 그대로 유지.
