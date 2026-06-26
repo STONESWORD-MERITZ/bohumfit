@@ -16,6 +16,23 @@
 
 # Handoff
 
+## 2026-06-26 Codex BOHUMFIT-129e [system URL button fix]
+### Changed
+- `src/pages/InsuranceLinks.tsx`: changed the `system shortcut` control from a JS `window.open` button to a real external `<a href={ins.system_url} target="_blank">` when `system_url` is an `http(s)` URL.
+- `src/pages/InsuranceLinks.tsx`: kept the same disabled gray button for insurers whose `system_url` is not an external URL or otherwise not an external URL.
+- `.agent-harness/tasks/BOHUMFIT-129e-systemurl-button-fix.md`: task packet added.
+### Verified
+- [x] Cause check: system URLs were present (33 external `system_url` values, Meritz URL present), but navigation depended on `window.open` from a button.
+- [x] Code check: `href={ins.system_url}` is now present for enabled system buttons; disabled fallback remains for missing URLs.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npm run build` -> pass, existing Vite chunk size warning only.
+### Notes
+- Commit: `96f2d1b`.
+- `system_url` data values were not changed. Other buttons (terms/claim/fax) were not changed.
+- Existing unrelated dirty/untracked files were not staged.
+### Next
+- Human: deploy/browser check on `/insurance-links`, click Meritz system shortcut and confirm new tab opens `https://sales.meritzfire.com/`.
+
 ## 2026-06-26 Codex BOHUMFIT-138 [UX bugfix verification]
 ### Changed
 - `src/pages/Disclosure.tsx`: upload helper text now hides after files are selected; local PDF preview uses object URLs; 10-minute sessionStorage restore banner added; result article `bf-beam` removed.
