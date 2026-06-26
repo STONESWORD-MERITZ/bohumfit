@@ -131,6 +131,46 @@ html, body {
   }
 }
 
+/* ===== BOHUMFIT-135: Magic UI 효과 (외부 라이브러리 없이 CSS만) ===== */
+/* Shimmer — 버튼 위로 빛이 좌→우로 흐름(hover/focus 시 1회) */
+@keyframes bf-shimmer {
+  100% { transform: translateX(180%); }
+}
+.bf-shimmer { position: relative; overflow: hidden; }
+.bf-shimmer::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 55%;
+  transform: translateX(-180%);
+  background: linear-gradient(100deg, transparent 0%, rgba(255, 255, 255, 0.45) 50%, transparent 100%);
+  pointer-events: none;
+}
+.bf-shimmer:hover::after,
+.bf-shimmer:focus-visible::after { animation: bf-shimmer 1.1s ease-in-out; }
+
+/* Border Beam — 카드 테두리를 따라 그린 빛이 회전(hover 시) */
+@keyframes bf-border-beam { to { transform: rotate(360deg); } }
+.bf-beam { position: relative; }
+.bf-beam::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(from 0deg, transparent 0deg, transparent 280deg, #95d5b2 320deg, #2d6a4f 350deg, transparent 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+.bf-beam:hover::before { opacity: 1; animation: bf-border-beam 2.4s linear infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .bf-shimmer::after, .bf-beam::before { animation: none !important; }
+}
+
 * {
   box-sizing: border-box;
 }

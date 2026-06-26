@@ -431,7 +431,7 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
   const hasBottom = showClinicalReview;
 
   return (
-    <article className={`border-l-4 px-5 py-4 transition-colors duration-200 hover:bg-green-50/40 ${RISK[risk].border}`}>
+    <article className={`bf-beam border-l-4 px-5 py-4 transition-colors duration-200 hover:bg-green-50/40 ${RISK[risk].border}`}>
       <div className="mb-1 flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="text-[15px] font-bold text-gray-900">{item.name || "질병명 없음"}</span>

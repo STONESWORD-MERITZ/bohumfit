@@ -164,7 +164,7 @@ export default function Home() {
           <div className="mt-9 flex flex-wrap gap-3">
             <Link
               to="/signup"
-              className="button-text rounded-btn bg-accent-600 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-accent-700"
+              className="button-text bf-shimmer rounded-btn bg-accent-600 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-accent-700"
             >
               무료로 시작하기 →
             </Link>

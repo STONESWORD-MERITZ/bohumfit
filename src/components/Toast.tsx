@@ -30,9 +30,12 @@ export function ToastItem({
   }, [toast.id, onClose]);
 
   const s = STYLE[toast.type];
+  // BOHUMFIT-137: 오류·경고는 role="alert"(스크린리더 즉시), 그 외 정보성은 status.
+  const isUrgent = toast.type === "error" || toast.type === "warning";
   return (
     <div
-      role="status"
+      role={isUrgent ? "alert" : "status"}
+      aria-live={isUrgent ? "assertive" : "polite"}
       className={`pointer-events-auto flex items-start gap-3 rounded-[10px] border border-gray-100 border-l-4 ${s.bar} bg-white px-4 py-3 shadow-[0_6px_24px_rgba(0,0,0,0.12)] transition-all duration-300 ${
         leaving ? "translate-y-2 opacity-0" : "translate-y-0 opacity-100"
       }`}

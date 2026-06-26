@@ -114,7 +114,8 @@ function CopyButton({ text, label = "복사" }: { text: string; label?: string }
         showToast("복사되었습니다", "success");
         window.setTimeout(() => setDone(false), 1500);
       }}
-      className="shrink-0 rounded-[6px] border border-line-strong bg-white px-2 py-0.5 text-[11px] font-semibold text-ink-700 transition-colors hover:bg-ink-50"
+      className="shrink-0 rounded-[6px] border border-line-strong bg-white px-2 py-0.5 text-[11px] font-semibold text-ink-700 transition-colors hover:bg-ink-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
+      aria-label={`${label} 복사`}
     >
       {done ? "복사됨 ✓" : label}
     </button>
@@ -320,7 +321,7 @@ export default function InsuranceLinks() {
             role="tab"
             aria-selected={tab === t}
             onClick={() => setTab(t)}
-            className={`button-text relative flex-1 rounded-t-[8px] px-3 py-2.5 text-sm font-bold transition-all duration-200 hover:bg-green-50 ${
+            className={`button-text relative flex-1 rounded-t-[8px] px-3 py-2.5 text-sm font-bold transition-all duration-200 hover:bg-green-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 ${
               tab === t ? "text-[#2d6a4f]" : "text-ink-soft"
             }`}
           >
