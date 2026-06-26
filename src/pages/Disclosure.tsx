@@ -5,6 +5,7 @@ import UsageBadge from "../components/UsageBadge";
 import { useToast } from "../components/ToastContext"; // BOHUMFIT-131
 import AnimatedNumber from "../components/AnimatedNumber"; // BOHUMFIT-132
 import Badge, { type BadgeVariant } from "../components/ui/Badge"; // BOHUMFIT-133a
+import { Upload, FileText, CheckCircle2 } from "lucide-react"; // BOHUMFIT-136b
 import { useAuth } from "../lib/auth-context";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
@@ -1446,6 +1447,15 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
   const [tourIndex, setTourIndex] = useState(0);
   const [postTourShown, setPostTourShown] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  // BOHUMFIT-136b: 드래그앤드롭 시각 상태 + 선택 파일 표시 + 모바일 하단 CTA 노출(분석 로직 무관).
+  const [isDragging, setIsDragging] = useState(false);
+  const [selectedNames, setSelectedNames] = useState<string[]>([]);
+  const [showSticky, setShowSticky] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setShowSticky(window.scrollY > 240);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/health`).catch(() => {});
@@ -1555,7 +1565,8 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
       } else {
         setError(e instanceof Error ? e.message : "알 수 없는 오류가 발생했습니다.");
       }
-      showToast("파일을 확인해 주세요", "error"); // BOHUMFIT-131
+      // BOHUMFIT-137b: 토스트 오류 메시지를 구체화(서버 detail/네트워크 안내 그대로 노출).
+      showToast(e instanceof Error ? e.message : "분석 중 문제가 발생했어요. 잠시 후 다시 시도해 주세요.", "error");
     } finally {
       setLoading(false);
     }
@@ -1607,18 +1618,55 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
               onChange={(e) => setBirthdate(e.target.value)}
               className="w-full rounded-[8px] bg-gray-50 px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-accent-600/30"
             />
-            <p className="mt-2 text-xs leading-5 text-gray-400">암호화 PDF라면 생년월일 8자리를 입력해 주세요.</p>
+            <p className="mt-2 text-xs leading-5 text-gray-500">암호화 PDF라면 생년월일 8자리를 입력해 주세요.</p>
           </div>
         </div>
 
-        <div data-tour="upload" className="mt-5 rounded-[8px] border-2 border-dashed border-accent-200 bg-accent-50 p-6 text-center transition hover:border-accent-400">
+        {/* BOHUMFIT-136b: 드래그앤드롭 시각 강화(dragover 그린) + 선택 파일 표시. 분석은 fileRef 그대로 사용. */}
+        <div
+          data-tour="upload"
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+          onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
+          onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragging(false);
+            const dropped = Array.from(e.dataTransfer?.files ?? []).filter(
+              (f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"),
+            );
+            if (dropped.length && fileRef.current) {
+              const dt = new DataTransfer();
+              dropped.forEach((f) => dt.items.add(f));
+              fileRef.current.files = dt.files; // 기존 analyze가 읽는 fileRef에 그대로 주입
+              setSelectedNames(dropped.map((f) => f.name));
+            }
+          }}
+          className={`mt-5 rounded-[8px] border-2 border-dashed p-6 text-center transition-colors ${
+            isDragging ? "border-green-400 bg-green-50" : "border-accent-200 bg-accent-50 hover:border-accent-400"
+          }`}
+        >
+          <Upload aria-hidden className="mx-auto mb-2 h-7 w-7 text-accent-600" />
+          <p className="mb-3 text-sm font-semibold text-gray-700">PDF 파일을 여기에 드래그하거나 클릭하세요</p>
           <input
             ref={fileRef}
             type="file"
             accept=".pdf"
             multiple
+            aria-label="진료자료 PDF 업로드"
+            onChange={() => setSelectedNames(fileRef.current?.files ? Array.from(fileRef.current.files).map((f) => f.name) : [])}
             className="block w-full cursor-pointer text-sm text-gray-600 file:mr-4 file:rounded-[8px] file:border-0 file:bg-accent-600 file:px-5 file:py-2.5 file:text-sm file:font-bold file:text-white hover:file:bg-accent-700"
           />
+          {selectedNames.length > 0 && (
+            <ul className="mt-3 space-y-1 text-left">
+              {selectedNames.map((n, i) => (
+                <li key={i} className="flex items-center gap-1.5 text-[12px] text-gray-700">
+                  <FileText aria-hidden className="h-3.5 w-3.5 shrink-0 text-accent-600" />
+                  <span className="truncate">{n}</span>
+                  <CheckCircle2 aria-hidden className="ml-auto h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                </li>
+              ))}
+            </ul>
+          )}
           <p className="mt-3 text-xs text-gray-500">
             {copy.uploadHelp} 파일은 최대 {MAX_FILE_COUNT}개, 개별 {MAX_FILE_SIZE / 1024 / 1024}MB, 총합 {MAX_TOTAL_SIZE / 1024 / 1024}MB까지 업로드할 수 있습니다.
           </p>
@@ -1661,6 +1709,20 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
           {loading ? "분석 중..." : copy.button}
         </button>
       </section>
+
+      {/* BOHUMFIT-136b: 모바일(md 미만) 하단 고정 분석 CTA — 스크롤 후 표시, 분석 전까지만. PC는 기존 버튼 유지. */}
+      {showSticky && !result && (
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white px-4 py-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] md:hidden">
+          <button
+            type="button"
+            onClick={analyze}
+            disabled={loading || !consent || (mode === "agent" && !subjectConsent)}
+            className="w-full rounded-[8px] bg-accent-600 py-3 text-sm font-bold text-white disabled:opacity-50"
+          >
+            {loading ? "분석 중..." : copy.button}
+          </button>
+        </div>
+      )}
 
       {mode === "customer" && !result && (
         <section className="mb-5 rounded-[8px] border border-emerald-100 bg-emerald-50 p-5">
