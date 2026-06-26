@@ -182,21 +182,25 @@ function InsurerCard({ ins }: { ins: Insurer }) {
 
       {/* 버튼: 전산 · 약관 · 청구양식 · 팩스 */}
       <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => {
-            if (!openUrl(ins.system_url)) showToast("전산 링크 확인이 필요합니다.", "warning");
-          }}
-          disabled={!hasSystemUrl}
-          aria-disabled={!hasSystemUrl}
-          className={`button-text rounded-btn px-3.5 py-2 text-[13px] font-semibold transition-colors ${
-            hasSystemUrl
-              ? "bg-accent-600 text-white hover:bg-accent-700"
-              : "cursor-not-allowed bg-ink-100 text-ink-400"
-          }`}
-        >
-          전산 바로가기
-        </button>
+        {hasSystemUrl ? (
+          <a
+            href={ins.system_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="button-text rounded-btn bg-accent-600 px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-accent-700"
+          >
+            전산 바로가기
+          </a>
+        ) : (
+          <button
+            type="button"
+            disabled
+            aria-disabled="true"
+            className="button-text cursor-not-allowed rounded-btn bg-ink-100 px-3.5 py-2 text-[13px] font-semibold text-ink-400 transition-colors"
+          >
+            전산 바로가기
+          </button>
+        )}
         <button
           type="button"
           onClick={() => {
