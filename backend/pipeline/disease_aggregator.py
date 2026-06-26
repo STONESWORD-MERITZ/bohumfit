@@ -667,10 +667,9 @@ def build_disease_stats(
             f"⚠️ 날짜 인식 실패 {date_parse_fail_count}건 (예: {sample_text}) — "
             f"해당 레코드의 기간 판정이 누락될 수 있습니다."
         )
-    if future_date_count > 0:
-        date_warnings.append(
-            f"⚠️ 미래 날짜 {future_date_count}건 감지 (OCR 오류 가능) — 해당 레코드를 제외했습니다."
-        )
+    # BOHUMFIT-138(항목5): 미래 날짜 레코드는 그대로 제외(로직 유지)하되, 사용자 경고 메시지는 표시하지 않는다.
+    #   (future_date_count 카운트·days_ago<0 continue 제외 로직은 불변. 안내 문구만 생성 생략.)
+    _ = future_date_count
     if empty_date_count > 0:
         date_warnings.append(
             f"⚠️ 진료일자 없는 레코드 {empty_date_count}건 — 날짜 칸이 비어 있어 "

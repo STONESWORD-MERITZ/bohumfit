@@ -1,65 +1,14 @@
-import { useEffect, useState } from "react";
-import Spinner from "./Spinner"; // BOHUMFIT-131
-
-const STEPS = [
-  { key: "parse",  label: "PDF 파싱",     hint: "기본진료·세부진료·처방조제를 읽고 있어요" },
-  { key: "rule",   label: "고지 룰 적용", hint: "KCD-9 코드 기준으로 알릴의무 문항을 분류해요" },
-  { key: "ai",     label: "AI 의학 판단", hint: "추가검사 여부·치료 종결 여부를 확인해요" },
-  { key: "merge",  label: "결과 정리",    hint: "질환별로 묶어 카드로 보여드릴 준비 중이에요" },
-] as const;
-
-// 평균 분석 시간 약 12~25초 가정. 단계별 누적 milliseconds.
-const STEP_TIMING_MS = [3000, 6000, 14000, 18000];
+// BOHUMFIT-138(항목2): 분석 중 단계 목록 제거 — 스피너 + 안내 문구만 유지.
+import Spinner from "./Spinner";
 
 export default function AnalysisProgress() {
-  const [activeIdx, setActiveIdx] = useState(0);
-  const [start] = useState(() => Date.now());
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      const elapsed = Date.now() - start;
-      let next = STEP_TIMING_MS.findIndex((t) => elapsed < t);
-      if (next === -1) next = STEPS.length - 1;
-      setActiveIdx(next);
-    }, 300);
-    return () => clearInterval(id);
-  }, [start]);
-
   return (
     <div className="rounded-2xl border border-accent-100 bg-accent-50/40 px-5 py-6">
       {/* BOHUMFIT-131: 브랜드 그린 원형 스피너 */}
-      <div className="mb-5 flex justify-center">
+      <div className="flex justify-center">
         <Spinner size={48} label="분석 중입니다..." />
       </div>
-      <ol className="space-y-3">
-        {STEPS.map((s, i) => {
-          const state =
-            i < activeIdx ? "done" : i === activeIdx ? "active" : "pending";
-          return (
-            <li key={s.key} className="flex items-start gap-3">
-              <span
-                className={`mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold shrink-0
-                  ${state === "done"    ? "bg-accent-600 text-white" : ""}
-                  ${state === "active"  ? "bg-white text-accent-600 border-2 border-accent-600 animate-pulse" : ""}
-                  ${state === "pending" ? "bg-white text-gray-400 border border-gray-200" : ""}`}
-              >
-                {state === "done" ? "✓" : i + 1}
-              </span>
-              <div className="min-w-0">
-                <p className={`text-sm font-semibold ${
-                  state === "pending" ? "text-gray-400" : "text-gray-900"
-                }`}>
-                  {s.label}
-                </p>
-                {state === "active" && (
-                  <p className="text-xs text-gray-500 mt-0.5">{s.hint}</p>
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ol>
-      <p className="mt-5 text-[11px] text-gray-400">
+      <p className="mt-4 text-center text-[11px] text-gray-400">
         PDF 페이지가 많을수록 시간이 더 걸릴 수 있어요. 페이지를 닫지 말고 잠시만 기다려주세요.
       </p>
     </div>

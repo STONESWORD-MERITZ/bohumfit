@@ -432,7 +432,7 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
   const hasBottom = showClinicalReview;
 
   return (
-    <article className={`bf-beam border-l-4 px-5 py-4 transition-colors duration-200 hover:bg-green-50/40 ${RISK[risk].border}`}>
+    <article className={`border-l-4 px-5 py-4 transition-colors duration-200 hover:bg-green-50/40 ${RISK[risk].border}`}>
       <div className="mb-1 flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="text-[15px] font-bold text-gray-900">{item.name || "질병명 없음"}</span>
@@ -1456,6 +1456,32 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+  // BOHUMFIT-138(항목6): 업로드 PDF 미리보기(로컬 objectURL, 외부 라이브러리 없음).
+  const [previewFiles, setPreviewFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewTab, setPreviewTab] = useState(0);
+  useEffect(() => {
+    const urls = previewFiles.map((f) => URL.createObjectURL(f));
+    setPreviewUrls(urls);
+    return () => urls.forEach((u) => URL.revokeObjectURL(u));
+  }, [previewFiles]);
+  // BOHUMFIT-138(항목7): 10분 재보기 — 마운트 시 저장 결과 복원(10분 이내).
+  const [restoredAt, setRestoredAt] = useState<number | null>(null);
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("bohumfit_result");
+      if (!raw) return;
+      const saved = JSON.parse(raw) as { result: AnalyzeResult; ts: number };
+      if (saved?.ts && Date.now() - saved.ts < 10 * 60 * 1000) {
+        setResult(saved.result);
+        setRestoredAt(saved.ts);
+      } else {
+        sessionStorage.removeItem("bohumfit_result");
+      }
+    } catch { /* sessionStorage 비활성/파싱 실패 무시 */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/health`).catch(() => {});
@@ -1555,6 +1581,9 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
       }
       const data = await res.json();
       setResult(data);
+      // BOHUMFIT-138(항목7): 10분 재보기용 저장(분석 직후, 복원 배너 비표시).
+      try { sessionStorage.setItem("bohumfit_result", JSON.stringify({ result: data, ts: Date.now() })); } catch { /* 무시 */ }
+      setRestoredAt(null);
       showToast("분석이 완료되었습니다", "success"); // BOHUMFIT-131
       if (!postTourShown) {
         window.setTimeout(showPostTour, 0);
@@ -1639,21 +1668,31 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
               dropped.forEach((f) => dt.items.add(f));
               fileRef.current.files = dt.files; // 기존 analyze가 읽는 fileRef에 그대로 주입
               setSelectedNames(dropped.map((f) => f.name));
+              setPreviewFiles(dropped); // BOHUMFIT-138(항목6)
             }
           }}
           className={`mt-5 rounded-[8px] border-2 border-dashed p-6 text-center transition-colors ${
             isDragging ? "border-green-400 bg-green-50" : "border-accent-200 bg-accent-50 hover:border-accent-400"
           }`}
         >
-          <Upload aria-hidden className="mx-auto mb-2 h-7 w-7 text-accent-600" />
-          <p className="mb-3 text-sm font-semibold text-gray-700">PDF 파일을 여기에 드래그하거나 클릭하세요</p>
+          {/* BOHUMFIT-138(항목1): 파일 선택 전에만 안내 문구·아이콘 표시 */}
+          {selectedNames.length === 0 && (
+            <>
+              <Upload aria-hidden className="mx-auto mb-2 h-7 w-7 text-accent-600" />
+              <p className="mb-3 text-sm font-semibold text-gray-700">PDF 파일을 여기에 드래그하거나 클릭하세요</p>
+            </>
+          )}
           <input
             ref={fileRef}
             type="file"
             accept=".pdf"
             multiple
             aria-label="진료자료 PDF 업로드"
-            onChange={() => setSelectedNames(fileRef.current?.files ? Array.from(fileRef.current.files).map((f) => f.name) : [])}
+            onChange={() => {
+              const fs = fileRef.current?.files ? Array.from(fileRef.current.files) : [];
+              setSelectedNames(fs.map((f) => f.name));
+              setPreviewFiles(fs); // BOHUMFIT-138(항목6)
+            }}
             className="block w-full cursor-pointer text-sm text-gray-600 file:mr-4 file:rounded-[8px] file:border-0 file:bg-accent-600 file:px-5 file:py-2.5 file:text-sm file:font-bold file:text-white hover:file:bg-accent-700"
           />
           {selectedNames.length > 0 && (
@@ -1742,6 +1781,76 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
         <div aria-live="polite" className="mb-5">
           <AnalysisProgress />
         </div>
+      )}
+
+      {/* BOHUMFIT-138(항목7): 10분 재보기 복원 배너 */}
+      {result && restoredAt && (
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-[8px] border border-amber-200 bg-amber-50 px-4 py-2.5">
+          <p className="text-[13px] font-semibold text-amber-800">
+            이전 분석 결과입니다 ({Math.max(1, Math.round((Date.now() - restoredAt) / 60000))}분 전)
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setResult(null);
+              setRestoredAt(null);
+              try { sessionStorage.removeItem("bohumfit_result"); } catch { /* 무시 */ }
+            }}
+            className="shrink-0 rounded-[6px] bg-amber-600 px-3 py-1.5 text-[12px] font-bold text-white hover:bg-amber-700"
+          >
+            새로 분석하기
+          </button>
+        </div>
+      )}
+
+      {/* BOHUMFIT-138(항목6): 업로드 PDF 미리보기(결과 상단, 기본 접힘, 다중=탭) */}
+      {result && previewUrls.length > 0 && (
+        <section className="mb-5 overflow-hidden rounded-[8px] border border-gray-200 bg-white">
+          <button
+            type="button"
+            onClick={() => setPreviewOpen((o) => !o)}
+            aria-expanded={previewOpen}
+            className="flex w-full items-center justify-between px-5 py-3 text-sm font-bold text-gray-800"
+          >
+            <span>업로드한 PDF 미리보기 ({previewUrls.length})</span>
+            <span className="text-xs text-gray-400">{previewOpen ? "접기 ▲" : "펼치기 ▼"}</span>
+          </button>
+          {previewOpen && (
+            <div className="border-t border-gray-100 p-4">
+              {previewFiles.length > 1 && (
+                <div role="tablist" aria-label="PDF 파일" className="mb-3 flex flex-wrap gap-1.5">
+                  {previewFiles.map((f, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      role="tab"
+                      aria-selected={previewTab === i}
+                      onClick={() => setPreviewTab(i)}
+                      className={`rounded-[6px] px-2.5 py-1 text-[11px] font-semibold ${
+                        previewTab === i ? "bg-accent-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      }`}
+                    >
+                      {f.name.length > 18 ? `${f.name.slice(0, 16)}…` : f.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <object
+                data={previewUrls[Math.min(previewTab, previewUrls.length - 1)]}
+                type="application/pdf"
+                className="h-[500px] w-full rounded-[6px] border border-gray-200"
+                aria-label="업로드 PDF 미리보기"
+              >
+                <p className="p-4 text-sm text-gray-500">
+                  미리보기를 표시할 수 없습니다.{" "}
+                  <a href={previewUrls[Math.min(previewTab, previewUrls.length - 1)]} target="_blank" rel="noreferrer" className="underline">
+                    새 탭에서 열기
+                  </a>
+                </p>
+              </object>
+            </div>
+          )}
+        </section>
       )}
 
       {result && <ResultView result={result} mode={mode} referenceDate={refDate} />}

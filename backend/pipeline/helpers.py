@@ -88,6 +88,8 @@ def get_val(row, possible_keys):
 _STANDARD_DISEASE_NAMES: dict[str, str] = {
     "손목및손의기타부분의열린상처": "손목 및 손의 기타 부분의 열린 상처",
     "급성위염": "급성 위염",
+    # BOHUMFIT-138(항목4): PDF 줄바꿈/공백 오삽입 케이스 보정.
+    "폐쇄에대한언급이없는기타담석증": "폐쇄에대한 언급이없는 기타담석증",
 }
 
 
