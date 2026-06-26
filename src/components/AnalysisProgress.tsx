@@ -8,7 +8,7 @@ export default function AnalysisProgress() {
       <div className="flex justify-center">
         <Spinner size={48} label="분석 중입니다..." />
       </div>
-      <p className="mt-4 text-center text-[11px] text-gray-400">
+      <p className="mt-4 text-center text-[11px] text-gray-500">
         PDF 페이지가 많을수록 시간이 더 걸릴 수 있어요. 페이지를 닫지 말고 잠시만 기다려주세요.
       </p>
     </div>

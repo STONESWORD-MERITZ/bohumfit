@@ -938,7 +938,7 @@ function InsuranceSection({ coveredByYear, captured }: { coveredByYear: Record<s
             )}
           </label>
         </div>
-        <p className="mt-3 text-[11px] text-gray-400">입력값(세대·분위·비급여)은 저장하지 않으며 이 화면에서만 사용됩니다.</p>
+        <p className="mt-3 text-[11px] text-gray-500">입력값(세대·분위·비급여)은 저장하지 않으며 이 화면에서만 사용됩니다.</p>
       </div>
 
       {!captured && (
