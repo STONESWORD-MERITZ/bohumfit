@@ -16,6 +16,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Terms from "./pages/Terms";
+import TermsOfService from "./pages/TermsOfService";
 import WhyDisclosure from "./pages/WhyDisclosure";
 import Subscription from "./pages/Subscription";
 import PhoneVerify from "./pages/PhoneVerify";
@@ -130,6 +131,8 @@ function App() {
           {/* BOHUMFIT-071: 구독 관리. BOHUMFIT-111: 비로그인도 요금제 열람 가능(결제 버튼만 로그인 유도) */}
           <Route path="subscription" element={<Subscription />} />
           <Route path="why" element={<WhyDisclosure />} />
+          <Route path="privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="terms-of-service" element={<TermsOfService />} />
           <Route path="privacy" element={<PrivacyPolicy />} />
           <Route path="terms" element={<Terms />} />
         </Route>

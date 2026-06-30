@@ -1,3 +1,24 @@
+## 2026-06-30 Codex BOHUMFIT-143 legal footer/privacy/terms
+### Changed
+- Footer state check: existing Footer had service name/contact only and linked legacy `/terms` and `/privacy`; business registration/address/representative were not displayed.
+- `src/components/Footer.tsx`: replaced placeholder business area with FIT COMPANY business information and linked `/privacy-policy` + `/terms-of-service`.
+- `src/pages/PrivacyPolicy.tsx`: rewrote privacy policy with collection items, purpose, sensitive health information notice, retention/deletion, third-party provision, processors, data-subject rights, security measures, privacy officer, business info, effective date.
+- `src/pages/TermsOfService.tsx`: added formal terms page with service scope, user duties, company duties, disclaimer, copyright, dispute resolution, business info, effective date.
+- `src/pages/Terms.tsx`: kept legacy `/terms` route by re-exporting TermsOfService.
+- `src/App.tsx`: added public routes `/privacy-policy` and `/terms-of-service`; legacy `/privacy` and `/terms` remain.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run build` -> pass; existing large chunk warning only.
+- [x] Vite preview route smoke -> `/privacy-policy` 200, `/terms-of-service` 200.
+### Notes
+- Legal/privacy structure followed the official PIPC privacy policy guideline shape at a high level; final legal review is still recommended before Health Information Highway submission.
+- Contact/customer-center and privacy officer email are intentionally left as "email TBD" because no confirmed contact was provided in the task.
+- Backend and analysis logic were not changed.
+- Existing unrelated dirty/untracked files were not staged.
+### Next
+- Human: confirm official customer-center/privacy contact email and perform legal/privacy final review before production submission.
+
 ## 2026-06-30 Codex BOHUMFIT-142 verification
 ### Changed
 - `src/pages/Disclosure.tsx`: DiseaseCard additional exam/recheck clinical review detail now starts collapsed via `examOpen`; main card keeps the clinical-review badge, disease name, and dates while the detailed review text and notice move behind the detail toggle button.

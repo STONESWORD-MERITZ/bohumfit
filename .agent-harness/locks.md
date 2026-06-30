@@ -4,9 +4,10 @@ Use this file to record active Codex file ownership during a task.
 
 ## Active
 
-- (없음)
+- (none)
 
 ### Released
+- 2026-06-30 `BOHUMFIT-143` - Codex - Footer business info + privacy/terms pages/routes verified and committed; active none.
 - 2026-06-30 `BOHUMFIT-142` - Codex - Windows verification passed; Disclosure exam detail toggle committed; active none.
 - 2026-06-26 `BOHUMFIT-142` - Cowork - 추가검사·재검사 소견 상세를 DiseaseCard 접기/펼치기 부록(기본 접힘)으로 분리. 메인은 미확인 배지·질병명·진료기간만. Disclosure.tsx만 변경, backend/[A]/플래그 불변. tsc/build는 Codex/Windows 권위.
 
