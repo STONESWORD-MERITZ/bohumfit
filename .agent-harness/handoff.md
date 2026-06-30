@@ -1,3 +1,19 @@
+## 2026-06-30 Codex BOHUMFIT-142 verification
+### Changed
+- `src/pages/Disclosure.tsx`: DiseaseCard additional exam/recheck clinical review detail now starts collapsed via `examOpen`; main card keeps the clinical-review badge, disease name, and dates while the detailed review text and notice move behind the detail toggle button.
+- `.agent-harness/tasks/BOHUMFIT-142-exam-check-refactor.md`: task packet committed.
+### Verified
+- [x] Code check: `examOpen` default false, `aria-expanded`, `focus-visible`, detail toggle, and unchanged `exam_check_only` split logic confirmed.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run build` -> pass; existing large chunk warning and plugin timing warning only.
+- [x] `cd backend && python -m pytest -q` -> 458 passed, 8 skipped.
+### Notes
+- Backend analysis logic and Q2 [A]/[B] `exam_check_only` flag logic were not changed.
+- Existing unrelated dirty/untracked files were not staged.
+### Next
+- Human.
+
 ## 2026-06-26 Codex BOHUMFIT-139/140/141 verification
 ### Changed
 - BOHUMFIT-139: backend/pipeline/pdf_parser.py body-signal majority fallback for headerless PDF type detection; backend/tests/test_pdf_ftype_signal_139.py added 5 regressions.
@@ -37,6 +53,20 @@
 -->
 
 # Handoff
+
+## 2026-06-26 Cowork BOHUMFIT-142 [추가검사/재검사 소견 분리]
+### 분석
+- `Disclosure.tsx` DiseaseCard: 추가검사·재검사 '사실' 배지 = `hasClinicalChips`의 `clinicalReview.label` 칩(메인). 소견 '상세' = `hasBottom`의 '소견 확인'(`clinicalReview.text`) + ※ 안내 문구(이게 메인에 같이 노출돼 있었음). exam_check_only [B] 섹션 amber 래퍼는 128에서 적용됨.
+### 변경 (Disclosure.tsx만)
+- DiseaseCard에 `examOpen` 토글 상태(기본 false) 추가.
+- 소견 상세(소견 확인 text + ※ 안내)를 `[상세 소견 확인 ▼]` 버튼(aria-expanded·focus-visible) 뒤 접기/펼치기로 분리(기본 접힘). 메인엔 `clinicalReview.label` 배지·질병명·진료기간·최초진단만 유지(불변). 의심 행위·치료중/종결 라인은 종전대로.
+### Verified
+- [x] 정적 자기검토: examOpen useState(기존 import), JSX 균형(`{examOpen && <>…</>}` 프래그먼트), 배지/질병명/진료기간 메인 유지, [A] 핵심 고지 표시·exam_check_only 플래그·backend 불변.
+- [ ] tsc(app·node)/build: 샌드박스 rolldown 미설치 → **Codex/Windows 권위**. backend 미접촉(pytest 무관).
+### Notes
+- 수정 금지 준수: backend 분석 로직·[A] 일반 고지 항목 핵심 표시·exam_check_only 플래그 로직 미변경. [B] amber 배경(섹션 래퍼) 유지.
+### Next
+- Codex: tsc(app·node)+build 확인 후 `src/pages/Disclosure.tsx`(+tasks/BOHUMFIT-142·handoff·locks) commit(`BOHUMFIT-142: 추가검사·재검사 소견 상세를 접기/펼치기 부록으로 분리`)→push.
 
 ## 2026-06-26 Cowork BOHUMFIT-139/140/141 [처방PDF 오분류 보정·의존성 고정·a11y 스윕]
 ### 139 — 처방 PDF 오분류 보정 (완료)

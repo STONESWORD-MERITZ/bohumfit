@@ -7,6 +7,10 @@ Use this file to record active Codex file ownership during a task.
 - (없음)
 
 ### Released
+- 2026-06-30 `BOHUMFIT-142` - Codex - Windows verification passed; Disclosure exam detail toggle committed; active none.
+- 2026-06-26 `BOHUMFIT-142` - Cowork - 추가검사·재검사 소견 상세를 DiseaseCard 접기/펼치기 부록(기본 접힘)으로 분리. 메인은 미확인 배지·질병명·진료기간만. Disclosure.tsx만 변경, backend/[A]/플래그 불변. tsc/build는 Codex/Windows 권위.
+
+### Released
 - 2026-06-26 `BOHUMFIT-139/140/141` - Codex - Windows verification passed; commits 139=`dff1ca0`, 140=`8a95828`, 141=`922df40`; active none.
 - 2026-06-26 `BOHUMFIT-139-141` - Cowork - 완료. 139(pdf_parser 본문 신호 다수결 fallback+테스트)·140(pydantic/pillow 고정, 나머지 096 기고정)·141(img/link 클린, 대비 일부; 전역 스윕은 141b 후속). analyze 로직 불변. pytest/tsc/build는 Codex/Windows 권위.
 

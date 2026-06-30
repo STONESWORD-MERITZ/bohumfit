@@ -412,6 +412,7 @@ function AllDiseaseSection({ diseases }: { diseases: DiseaseSummary[] }) {
 
 function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: string; isEasy?: boolean }) {
   const risk = riskOf(item);
+  const [examOpen, setExamOpen] = useState(false); // BOHUMFIT-142: 추가검사·재검사 소견 상세 접기/펼치기(기본 접힘)
   const surgN = item.surgery_count ?? item.surgeries?.length ?? 0;
   const procN = item.procedures?.length ?? 0;
   const suspN = item.surgery_suspected?.length ?? 0;
@@ -522,15 +523,28 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
               {item.surgery_suspected!.slice(0, 3).join(", ")}
             </p>
           )}
-          <p className={clinicalReview.tone === "indigo" ? "text-accent-600" : "text-gray-500"}>
-            <span className={clinicalReview.tone === "indigo" ? "mr-1.5 text-accent-300" : "mr-1.5 text-gray-400"}>
-              소견 확인
-            </span>
-            {clinicalReview.text}
-          </p>
-          <p className="text-[11px] text-gray-400">
-            ※ 실제 검사 시행 여부와 별개로, 의사의 추가검사·재검사 필요 소견 또는 권유가 있었는지 확인하는 항목입니다.
-          </p>
+          {/* BOHUMFIT-142: 메인엔 '미확인' 배지(사실)만 두고, 소견 상세는 접기/펼치기 부록으로 분리(기본 접힘) */}
+          <button
+            type="button"
+            onClick={() => setExamOpen((o) => !o)}
+            aria-expanded={examOpen}
+            className="inline-flex w-fit items-center gap-1 rounded-[6px] px-1.5 py-0.5 text-[11px] font-semibold text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
+          >
+            상세 소견 확인 {examOpen ? "▲" : "▼"}
+          </button>
+          {examOpen && (
+            <>
+              <p className={clinicalReview.tone === "indigo" ? "text-accent-600" : "text-gray-500"}>
+                <span className={clinicalReview.tone === "indigo" ? "mr-1.5 text-accent-300" : "mr-1.5 text-gray-400"}>
+                  소견 확인
+                </span>
+                {clinicalReview.text}
+              </p>
+              <p className="text-[11px] text-gray-400">
+                ※ 실제 검사 시행 여부와 별개로, 의사의 추가검사·재검사 필요 소견 또는 권유가 있었는지 확인하는 항목입니다.
+              </p>
+            </>
+          )}
           {item.treatment_ongoing === true && item.treatment_ongoing_reason && (
             <p className="text-rose-600">
               <span className="mr-1.5 text-rose-300">치료 중</span>
