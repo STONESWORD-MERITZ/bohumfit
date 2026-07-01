@@ -10,6 +10,7 @@
 - [x] `npm run build` -> pass; existing large chunk warning only.
 - [x] `cd backend && python -m pytest -q` -> 458 passed, 8 skipped.
 ### Notes
+- Commit: `c73d1ac`.
 - Existing unrelated dirty/untracked files were not staged.
 ### Next
 - Human: deploy/browser visual check for header/footer/login logo text.
