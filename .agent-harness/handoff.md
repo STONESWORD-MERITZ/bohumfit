@@ -13,6 +13,7 @@
 - [x] `npm run build` -> pass; existing large chunk warning only.
 - [x] `cd backend && python -m pytest -q` -> 458 passed, 8 skipped.
 ### Notes
+- Commit: `00410d7`.
 - `favicon.ico` replacement: yes, regenerated from the new 32px PNG.
 - Existing unrelated dirty/untracked files were not staged.
 ### Next
