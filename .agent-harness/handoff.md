@@ -1,3 +1,21 @@
+## 2026-07-01 Codex BOHUMFIT-146 bilingual logo verification
+### Changed
+- `src/components/Logo.tsx`: visible logo renders bilingual `BohumFit ???`.
+- `variant="light"`: `BohumFit` uses `#15663D`, `???` uses `#64748B`.
+- `variant="default"`: `BohumFit` uses white, `???` uses `text-white/55`; `npm run build` confirmed Tailwind support.
+- `variant="symbol"`: F.I.T SVG remains unchanged; text branch uses `inline-flex items-baseline whitespace-nowrap` with size mapping by `size` prop.
+### Verified
+- [x] Code check: bilingual text, light/default/symbol variants, baseline alignment, size mapping.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run build` -> pass; existing large chunk warning only.
+- [x] `cd backend && python -m pytest -q` -> 458 passed, 8 skipped.
+### Notes
+- Commit: `c644d61`.
+- Existing unrelated dirty/untracked files were not staged.
+### Next
+- Human: header visual check after deploy.
+
 ## 2026-07-01 Codex BOHUMFIT-145 logo Korean text verification
 ### Changed
 - `src/components/Logo.tsx`: visible logo now renders only Korean `???`; English `BOHUMFIT` wordmark removed from the rendered logo.
@@ -112,6 +130,21 @@
 -->
 
 # Handoff
+
+## 2026-06-26 Cowork BOHUMFIT-146 [로고 영한 병기 BohumFit 보험핏]
+### 변경
+- `src/components/Logo.tsx`: "보험핏" 단독 → **영한 병기 "BohumFit 보험핏"**.
+  - 영어 "BohumFit" font-bold(light=#15663D / default=white) + 한국어 "보험핏" font-medium·ml-1.5(light=#64748B / default=text-white/55). inline-flex items-baseline 정렬.
+  - size: >=24 → 영 text-2xl/한 text-lg / >=20 → 영 text-xl/한 text-base / 기본 → 영 text-lg/한 text-sm.
+  - variant symbol: F·I·T 모노그램 SVG 유지(변경 없음). showText=false → null. 래퍼 role="img"·aria-label="BohumFit 보험핏".
+- 사용처 4곳(Layout 20·Footer 24·HomeMission 28·Login 34)은 variant="light" 그대로 → 그린 "BohumFit" + slate "보험핏". 추가 변경 불필요.
+### Verified
+- [x] 정적 자기검토: LogoProps 타입, Tailwind 클래스(text-white/55·text-[#64748B]·text-[#15663D]) 유효, symbol/text/null 분기, 사용처 variant=light.
+- [ ] tsc(app)/build: 샌드박스 rolldown 미설치 → Codex/Windows 권위. PWA 아이콘·backend 미접촉.
+### Notes
+- ★커밋/푸시는 Codex 담당(Cowork 마운트 git 미실행). 태스크 Next=Human(최종 육안 확인).
+### Next
+- Codex: `npx tsc -p tsconfig.app.json --noEmit` + `npm run build` 통과 후 `src/components/Logo.tsx`(+tasks/BOHUMFIT-146·handoff·locks) commit(`fix(BOHUMFIT-146): 로고 영한 병기 (BohumFit 보험핏)`)→push. 이후 Human 헤더 육안 확인.
 
 ## 2026-06-26 Cowork BOHUMFIT-145 [Logo 한글 텍스트만으로 단순화]
 ### 변경

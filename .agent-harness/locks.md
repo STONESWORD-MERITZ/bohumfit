@@ -7,6 +7,10 @@ Use this file to record active Codex file ownership during a task.
 - (none)
 
 ### Released
+- 2026-07-01 `BOHUMFIT-146` - Codex - Windows verification passed; bilingual Logo.tsx committed; active none.
+- 2026-06-26 `BOHUMFIT-146` - Cowork - 완료. Logo.tsx 영한 병기 "BohumFit 보험핏"(영 bold + 한 muted, size별 크기). symbol variant·사용처(variant=light) 불변. tsc/build·커밋은 Codex, Next=Human.
+
+### Released
 - 2026-07-01 `BOHUMFIT-145` - Codex - Windows verification passed; Korean-only Logo.tsx committed; active none.
 - 2026-06-26 `BOHUMFIT-145` - Cowork - 완료. Logo.tsx를 "보험핏" 한글 텍스트만으로 단순화(symbol variant는 SVG 유지). 사용처는 144b variant=light 그대로. tsc/build·커밋/푸시는 Codex/Windows 권위.
 
