@@ -7,6 +7,10 @@ Use this file to record active Codex file ownership during a task.
 - (none)
 
 ### Released
+- 2026-07-01 `BOHUMFIT-145` - Codex - Windows verification passed; Korean-only Logo.tsx committed; active none.
+- 2026-06-26 `BOHUMFIT-145` - Cowork - 완료. Logo.tsx를 "보험핏" 한글 텍스트만으로 단순화(symbol variant는 SVG 유지). 사용처는 144b variant=light 그대로. tsc/build·커밋/푸시는 Codex/Windows 권위.
+
+### Released
 - 2026-07-01 `BOHUMFIT-144` - Codex - Windows verification passed; favicon.ico regenerated; logo/favicon/app icon/OG/site.webmanifest committed; active none.
 - 2026-06-26 `BOHUMFIT-144` - Cowork - 완료. 144a(favicon/og/icons SVG·webmanifest·PNG5종 Pillow 렌더)·144b(Logo.tsx symbol+variant, 사용처 4곳 variant=light). index.html 경로·backend 불변. tsc/build는 Codex/Windows 권위.
 

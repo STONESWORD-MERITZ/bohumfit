@@ -1,3 +1,19 @@
+## 2026-07-01 Codex BOHUMFIT-145 logo Korean text verification
+### Changed
+- `src/components/Logo.tsx`: visible logo now renders only Korean `???`; English `BOHUMFIT` wordmark removed from the rendered logo.
+- `variant="light"` uses `text-[#15663D]`; `variant="default"` uses `text-white`; `variant="symbol"` keeps the F.I.T SVG only.
+- Added `role="img"` and `aria-label="???"` to the visible text logo as well as the symbol SVG.
+### Verified
+- [x] Code check: Korean-only text logo, light/default/symbol variants, no rendered English wordmark.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run build` -> pass; existing large chunk warning only.
+- [x] `cd backend && python -m pytest -q` -> 458 passed, 8 skipped.
+### Notes
+- Existing unrelated dirty/untracked files were not staged.
+### Next
+- Human: deploy/browser visual check for header/footer/login logo text.
+
 ## 2026-07-01 Codex BOHUMFIT-144 logo brand verification
 ### Changed
 - `public/favicon.svg`, `public/icons.svg`, `public/og-image.svg`, `public/site.webmanifest`, and PNG app icons verified for the F.I.T monogram brand set.
@@ -95,6 +111,21 @@
 -->
 
 # Handoff
+
+## 2026-06-26 Cowork BOHUMFIT-145 [Logo 한글 텍스트만으로 단순화]
+### 변경
+- `src/components/Logo.tsx` 전면 교체: 심볼+영문 "BOHUMFIT" 제거 → "보험핏" 한글 텍스트만.
+  - variant: default(text-white·다크) / light(text-[#15663D]·라이트, 기본) / symbol(F·I·T 모노그램 SVG 유지 — PWA/파비콘 단독용).
+  - showText: false → null 렌더. size: 18→text-lg, 20→text-xl, 24+→text-2xl. symbol에 role="img"/aria-label.
+- 사용처 4곳(Layout size=20·Footer 24·HomeMission 28·Login 34)은 144b에서 이미 `variant="light"` → 모두 그린 "보험핏" 표시. 추가 변경 불필요.
+### Verified
+- [x] 정적 자기검토: LogoProps 타입, symbol/text 분기, null 렌더, className 병합(.trim), 사용처 variant=light로 그린 텍스트 렌더.
+- [ ] tsc(app)/build: 샌드박스 rolldown 미설치 → **Codex/Windows 권위**. PWA 아이콘·backend 미접촉(pytest 무관).
+### Notes
+- ★커밋/푸시는 Codex 담당(Cowork는 마운트 git 미실행 — 하네스 규칙). 태스크의 "커밋+push"는 검증 통과 후 Codex가 수행.
+- 수정 금지 준수: PWA 아이콘(public/*.png)·분석 로직·backend 미변경.
+### Next
+- Codex: `npx tsc -p tsconfig.app.json --noEmit` + `npm run build` 통과 확인 후 `src/components/Logo.tsx`(+tasks/BOHUMFIT-145·handoff·locks) commit(`fix(BOHUMFIT-145): Logo 심볼 제거, 보험핏 한글 텍스트만으로 단순화`)→push.
 
 ## 2026-06-26 Cowork BOHUMFIT-144 [로고 브랜드 전체 적용]
 ### 144a — 파비콘/앱아이콘/OG/매니페스트
