@@ -19,7 +19,7 @@ export default function Footer() {
       <div className="mx-auto max-w-5xl px-5">
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div className="max-w-3xl space-y-3">
-            <Logo size={24} />
+            <Logo size={24} variant="light" />
             <dl className="grid gap-x-4 gap-y-1 text-[12px] leading-5 sm:grid-cols-[auto_1fr]">
               <dt className="font-semibold text-ink-700">서비스명</dt>
               <dd>{BUSINESS.serviceName}</dd>

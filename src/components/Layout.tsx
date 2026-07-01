@@ -49,7 +49,7 @@ const LINK_IDLE = "font-medium text-ink-soft hover:text-ink-900 after:bg-transpa
 function BrandLogo({ onClick }: { onClick?: () => void }) {
   return (
     <Link to="/" onClick={onClick} className="shrink-0" aria-label="보험핏 홈">
-      <Logo size={18} />
+      <Logo size={20} variant="light" />
     </Link>
   );
 }

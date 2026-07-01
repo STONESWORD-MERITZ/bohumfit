@@ -1,3 +1,23 @@
+## 2026-07-01 Codex BOHUMFIT-144 logo brand verification
+### Changed
+- `public/favicon.svg`, `public/icons.svg`, `public/og-image.svg`, `public/site.webmanifest`, and PNG app icons verified for the F.I.T monogram brand set.
+- `public/favicon.ico` regenerated from `public/favicon-32.png` via Pillow so the ICO matches the new monogram.
+- `src/components/Logo.tsx`: verified `variant` (`default`/`light`/`symbol`), `showText`, inline SVG monogram, and no remaining `inverted` prop references; adjusted logo letter spacing to `0`.
+- `src/components/Layout.tsx`, `src/components/Footer.tsx`, `src/pages/HomeMission.tsx`, `src/pages/Login.tsx`: verified `variant="light"` usage on light backgrounds.
+### Verified
+- [x] Manifest JSON parse -> pass (`name`, `short_name`, `theme_color` verified).
+- [x] PNG/ICO integrity -> pass (`favicon-16`, `favicon-32`, `apple-touch-icon-180`, `icon-192`, `icon-512`, `favicon.ico`).
+- [x] `inverted` grep in `src/**/*.tsx` -> 0 matches.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run build` -> pass; existing large chunk warning only.
+- [x] `cd backend && python -m pytest -q` -> 458 passed, 8 skipped.
+### Notes
+- `favicon.ico` replacement: yes, regenerated from the new 32px PNG.
+- Existing unrelated dirty/untracked files were not staged.
+### Next
+- Human: deploy/browser visual check for header/footer/login logo, favicon, PWA icon, and OG preview.
+
 ## 2026-06-30 Codex BOHUMFIT-143 legal footer/privacy/terms
 ### Changed
 - Footer state check: existing Footer had service name/contact only and linked legacy `/terms` and `/privacy`; business registration/address/representative were not displayed.
@@ -74,6 +94,24 @@
 -->
 
 # Handoff
+
+## 2026-06-26 Cowork BOHUMFIT-144 [로고 브랜드 전체 적용]
+### 144a — 파비콘/앱아이콘/OG/매니페스트
+- `public/favicon.svg`·`og-image.svg`·`icons.svg`·`site.webmanifest`를 태스크 스펙대로 F·I·T 모노그램(#15663D/#0E4A2C·흰 심볼)으로 교체.
+  ※ `icons.svg`는 기존에 소셜 아이콘 세트였으나 코드 참조 0건(grep 확인) → 안전하게 fit-favicon/fit-icon 심볼셋으로 교체.
+- PNG 5종(favicon-16/32·apple-touch-icon-180·icon-192/512): 샌드박스에 rsvg-convert·cairosvg 미설치 → **Pillow로 직접 렌더**(라운드 사각 #15663D + 모노그램 3획, 4x 슈퍼샘플링·라운드캡). icon-192 육안 확인 OK(그린 사각+흰 F·I·T).
+- index.html 파비콘 경로 불변(파일명 유지 교체).
+### 144b — Logo.tsx
+- `src/components/Logo.tsx` 전면 교체: 심볼(SVG 모노그램)+워드마크 "BOHUMFIT"(BOHUM/FIT 2톤). props `size?(24)·variant?("default"흰/"light"그린/"symbol"심볼만)·showText?(true)·className`. 기존 `inverted` prop 제거(다른 사용처가 의존 안 함 — grep 확인).
+- 사용처 4곳(Layout·Footer·HomeMission·Login) 모두 라이트 배경 → `variant="light"` 지정(그린, 기존 그린 표시 유지). Layout size 18→20.
+### Verified
+- [x] PNG 육안(icon-192), 4개 사용처 배경 라이트 확인(bg-canvas/ink-900텍스트/화이트카드), Logo 신 API 타입·inverted 제거 무참조.
+- [ ] tsc(app·node)/build: 샌드박스 rolldown 미설치 → **Codex/Windows 권위**. backend 미접촉(pytest 무관).
+### Notes
+- PNG는 스펙의 rsvg/cairosvg 스크립트 대신 Pillow 직접 렌더(도구 부재). favicon.ico(레거시)는 태스크 PNG 목록 밖 → 미변경.
+- 수정 금지 준수: 분석 로직·backend·index.html 파비콘 경로 미변경.
+### Next
+- Codex: tsc+build 확인 후 public/(favicon.svg·og-image.svg·icons.svg·site.webmanifest·favicon-16/32·apple-touch-icon-180·icon-192/512.png)·src/components/Logo.tsx·Layout.tsx·Footer.tsx·pages/HomeMission.tsx·pages/Login.tsx(+tasks/BOHUMFIT-144·handoff·locks) commit(`BOHUMFIT-144: F·I·T 모노그램 브랜드 적용(파비콘/OG/매니페스트 + Logo variant)`)→push.
 
 ## 2026-06-26 Cowork BOHUMFIT-142 [추가검사/재검사 소견 분리]
 ### 분석

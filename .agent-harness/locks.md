@@ -7,6 +7,10 @@ Use this file to record active Codex file ownership during a task.
 - (none)
 
 ### Released
+- 2026-07-01 `BOHUMFIT-144` - Codex - Windows verification passed; favicon.ico regenerated; logo/favicon/app icon/OG/site.webmanifest committed; active none.
+- 2026-06-26 `BOHUMFIT-144` - Cowork - 완료. 144a(favicon/og/icons SVG·webmanifest·PNG5종 Pillow 렌더)·144b(Logo.tsx symbol+variant, 사용처 4곳 variant=light). index.html 경로·backend 불변. tsc/build는 Codex/Windows 권위.
+
+### Released
 - 2026-06-30 `BOHUMFIT-143` - Codex - Footer business info + privacy/terms pages/routes verified and committed; active none.
 - 2026-06-30 `BOHUMFIT-142` - Codex - Windows verification passed; Disclosure exam detail toggle committed; active none.
 - 2026-06-26 `BOHUMFIT-142` - Cowork - 추가검사·재검사 소견 상세를 DiseaseCard 접기/펼치기 부록(기본 접힘)으로 분리. 메인은 미확인 배지·질병명·진료기간만. Disclosure.tsx만 변경, backend/[A]/플래그 불변. tsc/build는 Codex/Windows 권위.

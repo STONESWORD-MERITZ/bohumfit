@@ -1,11 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
-  <rect width="32" height="32" rx="7.2" fill="#15663D"/>
-  <text x="16" y="13.5"
-    font-family="Pretendard,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif"
-    font-size="9.2" font-weight="800" fill="#FFFFFF"
-    text-anchor="middle" dominant-baseline="auto" letter-spacing="-.2">보험</text>
-  <text x="16" y="23"
-    font-family="Pretendard,-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif"
-    font-size="9.2" font-weight="700" fill="#FFFFFF"
-    text-anchor="middle" dominant-baseline="auto" letter-spacing=".1">FIT</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="4" fill="#15663D"/>
+  <path d="M9 9 H23 M16 9 V23 M16 16 H22"
+    fill="none" stroke="#FFFFFF"
+    stroke-width="3.2" stroke-linecap="round"
+    stroke-linejoin="round"/>
 </svg>

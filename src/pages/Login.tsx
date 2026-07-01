@@ -52,7 +52,7 @@ export default function Login() {
       <div className="w-full max-w-sm min-w-0">
         <div className="mb-8 text-center">
           <h1 className="flex w-full min-w-0 justify-center overflow-visible">
-            <Logo size={34} className="mx-auto max-w-full" />
+            <Logo size={34} variant="light" className="mx-auto max-w-full" />
           </h1>
           <p className="mt-3 text-body text-ink-soft">보험 고지 리스크 점검을 시작하세요</p>
         </div>
