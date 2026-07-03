@@ -1,3 +1,21 @@
+## 2026-07-03 Codex BOHUMFIT-147 insurance claim document links verification
+### Changed
+- `src/pages/InsuranceLinks.tsx`: added `claimDocUrl`/`claimDocNote` optional fields and the `????` button beside existing claim form/fax controls.
+- Added claim-document guide links to 33 existing insurer records; disabled state remains for missing links.
+- `.agent-harness/tasks/BOHUMFIT-147-insurance-claim-doc-links.md`: restored missing task packet from Cowork handoff/user scope.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass.
+- [x] `npm run build` -> pass; existing large chunk warning only.
+- [x] `cd backend && python -m pytest -q` -> 458 passed, 8 skipped.
+- [x] `claimDocUrl` grep count -> 36 (data 33 + type 1 + button references 2).
+### Notes
+- Commit: `f60950b`.
+- 7??(SGI??????????/Chubb???EZ???????????????????????IBK??) ??? ? ??? ??, ?? ??? ??.
+- Existing unrelated dirty/untracked files were not staged.
+### Next
+- Human: 7?? ?? ??? ?? ?? ??.
+
 ## 2026-07-01 Codex BOHUMFIT-146 bilingual logo verification
 ### Changed
 - `src/components/Logo.tsx`: visible logo renders bilingual `BohumFit ???`.
@@ -130,6 +148,27 @@
 -->
 
 # Handoff
+
+## 2026-07-03 Cowork BOHUMFIT-147 [보험사 청구 필요서류 안내 링크 추가]
+### 변경 (src/pages/InsuranceLinks.tsx 단독)
+- Insurer 타입에 `claimDocUrl?`, `claimDocNote?` 선택 필드 2개 추가(추가만, 기존 필드 불변).
+- InsurerCard: 청구양식 버튼 우측에 **필요서류** 버튼 신설 — claimDocUrl 있으면 openUrl(새 탭), 없으면 회색 disabled. 기존 청구양식 버튼과 동일 스타일/동일 로직(openUrl·isExternalUrl). `title`=claimDocNote 툴팁 + 버튼행 아래 "필요서류 안내: {note}" 캡션(claimDocNote 있을 때만).
+- INSURANCE_DATA: **기존 레코드 중 명세 대상과 일치하는 33개사**에 claimDocUrl(+note) 추가. name 부분일치/리브랜드·중복 엔트리 intent 반영:
+  - 리브랜드/별칭: MG손해보험=예별손해(yebyeol URL), 농협손해보험=NH농협손해(nhfire).
+  - 동일사 중복 엔트리에 동일 URL: 삼성화재+삼성화재해상(samsungfire), 카디프생명+BNP파리바카디프생명(cardif).
+  - note "PDF": 한화손해·KB라이프생명 / note "모바일 페이지": 하나손해·AIG손해·NH농협생명·라이나생명.
+### ★스펙-데이터 불일치(중요)
+- 명세는 "38개사"이나 현 INSURANCE_DATA에 **미존재한 7개 대상은 추가 불가**(레코드 없음, 신규 회사 fabricate 금지·add-only 범위): SGI서울보증, 라이나손해(Chubb 손보), 신한EZ, 미쓰이스미토모, 카카오페이손해, 메트라이프, IBK연금.
+- 따라서 실제 추가 = **33개 레코드**. 파일 내 `claimDocUrl` 문자열 등장 = **36회**(데이터 33 + 타입 정의 1 + 버튼 참조 2). 체크리스트의 "≥38"은 현 데이터로는 도달 불가 → 33/36이 최대치. 미존재 7개사 반영이 필요하면 Human이 신규 레코드(공식 system_url/terms_url/fax 등 검증값 포함) 추가를 별도 태스크로 지시 요망.
+### Verified (정적)
+- [x] grep claimDocUrl = 36회. 악사다이렉트(대상 아님) 미추가 확인, 삼성/카디프 중복쌍 각 1회·동일 URL 확인.
+- [x] 필요서류 버튼 = 청구양식 버튼과 동일 패턴(openUrl(ins.claimDocUrl)/isExternalUrl) → 타입 안전(claimFormUrl 기존 사용과 동형).
+- [ ] tsc(app/node)/build: 샌드박스 rolldown 미설치 → Codex/Windows 권위.
+- [ ] pytest 458/8: 백엔드 무변경 확인용 → Codex/Windows.
+### Notes
+- 백엔드·타 페이지·고지의무 분석 파이프라인 무접촉. 커밋/푸시는 Codex(마운트 git 미실행).
+### Next
+- Codex: tsc/build/pytest 통과 후 `src/pages/InsuranceLinks.tsx`(+tasks/BOHUMFIT-147·handoff·locks) commit(`feat(BOHUMFIT-147): 보험사 청구 필요서류 안내 링크 추가 (38개사)`)→push. 그 뒤 Human: 미존재 7개사 신규 레코드 추가 여부 결정.
 
 ## 2026-06-26 Cowork BOHUMFIT-146 [로고 영한 병기 BohumFit 보험핏]
 ### 변경

@@ -7,6 +7,8 @@ Use this file to record active Codex file ownership during a task.
 - (none)
 
 ### Released
+- 2026-07-03 `BOHUMFIT-147` - Codex - Windows verification passed; 33 insurer claim document links committed; active none.
+- 2026-07-03 `BOHUMFIT-147` - Cowork - 완료. InsuranceLinks.tsx: claimDocUrl/claimDocNote 타입 + 필요서류 버튼 + 33개사 데이터. 명세 38개 중 미존재 7개사(SGI서울보증·라이나손해(Chubb)·신한EZ·미쓰이스미토모·카카오페이손해·메트라이프·IBK연금) 추가 불가(레코드 없음). tsc/build/pytest·커밋은 Codex, 이후 Human(7개사 신규 여부 결정).
 - 2026-07-01 `BOHUMFIT-146` - Codex - Windows verification passed; bilingual Logo.tsx committed; active none.
 - 2026-06-26 `BOHUMFIT-146` - Cowork - 완료. Logo.tsx 영한 병기 "BohumFit 보험핏"(영 bold + 한 muted, size별 크기). symbol variant·사용처(variant=light) 불변. tsc/build·커밋은 Codex, Next=Human.
 
