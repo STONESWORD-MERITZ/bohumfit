@@ -15,7 +15,6 @@ import CoverageAnalysis from "./pages/CoverageAnalysis";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
-import Terms from "./pages/Terms";
 import TermsOfService from "./pages/TermsOfService";
 import WhyDisclosure from "./pages/WhyDisclosure";
 import Subscription from "./pages/Subscription";
@@ -25,6 +24,7 @@ import CoverageGuide from "./pages/CoverageGuide";
 import CoverageCompare from "./pages/CoverageCompare";
 import InsuranceLinks from "./pages/InsuranceLinks";
 import ReportSample from "./pages/ReportSample";
+import NotFound from "./pages/NotFound"; // BOHUMFIT-165
 import { ToastProvider } from "./components/ToastContext"; // BOHUMFIT-131
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -60,21 +60,6 @@ function RedirectIfAuthed({ children }: { children: ReactNode }) {
   }
   if (user) return <Navigate to="/disclosure?mode=agent" replace />;
   return <>{children}</>;
-}
-
-function BeforeAfterComingSoon() {
-  return (
-    <section className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
-      <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent-600">
-        Coming Soon
-      </p>
-      <h1 className="mt-3 text-2xl font-extrabold text-gray-950">보장분석은 준비 중입니다</h1>
-      <p className="mt-3 max-w-2xl text-sm leading-7 text-gray-600 break-keep">
-        현재 정식 오픈 범위는 건강보험심평원 PDF 기반 고지 리스크 점검입니다.
-        기존 보장과 신규 제안서를 비교하는 보장분석 기능은 검증이 끝난 뒤 공개됩니다.
-      </p>
-    </section>
-  );
 }
 
 function App() {
@@ -124,17 +109,16 @@ function App() {
             path="coverage"
             element={<ProtectedRoute><CoverageAnalysis /></ProtectedRoute>}
           />
-          <Route
-            path="before-after"
-            element={<ProtectedRoute><BeforeAfterComingSoon /></ProtectedRoute>}
-          />
           {/* BOHUMFIT-071: 구독 관리. BOHUMFIT-111: 비로그인도 요금제 열람 가능(결제 버튼만 로그인 유도) */}
           <Route path="subscription" element={<Subscription />} />
           <Route path="why" element={<WhyDisclosure />} />
           <Route path="privacy-policy" element={<PrivacyPolicy />} />
           <Route path="terms-of-service" element={<TermsOfService />} />
-          <Route path="privacy" element={<PrivacyPolicy />} />
-          <Route path="terms" element={<Terms />} />
+          {/* BOHUMFIT-165: 구 별칭 경로는 정본으로 영구 리다이렉트(외부 북마크 호환) */}
+          <Route path="privacy" element={<Navigate to="/privacy-policy" replace />} />
+          <Route path="terms" element={<Navigate to="/terms-of-service" replace />} />
+          {/* BOHUMFIT-165: 정의되지 않은 모든 경로 → 404 */}
+          <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
     </BrowserRouter>

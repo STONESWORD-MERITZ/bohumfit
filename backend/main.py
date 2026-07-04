@@ -234,7 +234,7 @@ def _rate_limit_handler(request: Request, exc: RateLimitExceeded):
 app.add_exception_handler(RateLimitExceeded, _rate_limit_handler)
 
 # ── CORS ─────────────────────────────────────────────────────────────────────
-_default_origins = "https://bohumfit.ai,https://www.bohumfit.ai,https://surit-react.vercel.app,http://localhost:5173,http://localhost:3000"
+_default_origins = "https://bohumfit.ai,https://www.bohumfit.ai,http://localhost:5173,http://localhost:3000"
 ALLOWED_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", _default_origins).split(",") if o.strip()]
 if SERVICE_ENV == "production":
     # 운영 환경에서는 localhost 출처를 허용하지 않는다.

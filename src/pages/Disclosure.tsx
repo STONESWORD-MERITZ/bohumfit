@@ -1735,7 +1735,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
           <span className="break-keep">
             업로드하는 진료자료에는 <b className="font-bold text-gray-700">민감정보(건강에 관한 정보)</b>가 포함됩니다.
             고지 리스크 점검 목적의 처리에 동의하며, 자료는 분석 직후 보험핏 서버에서 폐기되고 서비스 데이터베이스에 저장되지 않습니다.
-            <Link to="/privacy" className="ml-1 underline hover:text-gray-800">개인정보처리방침</Link>
+            <Link to="/privacy-policy" className="ml-1 underline hover:text-gray-800">개인정보처리방침</Link>
           </span>
         </label>
 

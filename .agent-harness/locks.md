@@ -7,6 +7,9 @@ Use this file to record active Codex file ownership during a task.
 - (none)
 
 ### Released
+- 2026-07-04 `BOHUMFIT-165` - Codex - Windows verification passed; route smoke and grep checks passed; legal routes/SURIT cleanup ready for scoped commit/push.
+- 2026-07-03 `BOHUMFIT-165` - Cowork - 완료. Part A 법무 연락처(PrivacyPolicy·Footer mailto=qqqwe6701@gmail.com) / Part B 404(NotFound 신규)+catch-all+privacy·terms 리다이렉트+Terms.tsx 삭제+별칭링크 정본화(Signup·ConsentGate·Disclosure) / Part C before-after 제거 / Part D main.py CORS surit 제거(.env·vercel·AGENTS 이미 정리됨). grep 검증 통과. tsc/build/pytest·커밋·Terms.tsx git rm은 Codex.
+- 2026-07-03 `BOHUMFIT-148` - Cowork - 완료(조사·제안 전용, 코드 무변경). 산출: tasks/BOHUMFIT-148-site-audit-upgrade-plan.md + tasks/BOHUMFIT-148-audit-report.md. 라우트 20 전수·페이지 17 판정·SURIT 1건·후속 16개(149~164). 삭제/통합·법무·인증은 Human 승인. Codex는 문서 2개만 commit.
 - 2026-07-03 `BOHUMFIT-147` - Codex - Windows verification passed; 33 insurer claim document links committed; active none.
 - 2026-07-03 `BOHUMFIT-147` - Cowork - 완료. InsuranceLinks.tsx: claimDocUrl/claimDocNote 타입 + 필요서류 버튼 + 33개사 데이터. 명세 38개 중 미존재 7개사(SGI서울보증·라이나손해(Chubb)·신한EZ·미쓰이스미토모·카카오페이손해·메트라이프·IBK연금) 추가 불가(레코드 없음). tsc/build/pytest·커밋은 Codex, 이후 Human(7개사 신규 여부 결정).
 - 2026-07-01 `BOHUMFIT-146` - Codex - Windows verification passed; bilingual Logo.tsx committed; active none.

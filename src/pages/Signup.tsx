@@ -125,7 +125,7 @@ export default function Signup() {
                 className="mt-0.5 shrink-0"
               />
               <span>
-                <a href="/terms" target="_blank" className="font-semibold underline">이용약관</a>에 동의합니다 (필수)
+                <a href="/terms-of-service" target="_blank" className="font-semibold underline">이용약관</a>에 동의합니다 (필수)
               </span>
             </label>
             <label className="flex items-start gap-2">
@@ -137,7 +137,7 @@ export default function Signup() {
                 className="mt-0.5 shrink-0"
               />
               <span>
-                <a href="/privacy" target="_blank" className="font-semibold underline">개인정보처리방침</a>에 동의합니다 (필수)
+                <a href="/privacy-policy" target="_blank" className="font-semibold underline">개인정보처리방침</a>에 동의합니다 (필수)
               </span>
             </label>
             <label className="flex items-start gap-2">

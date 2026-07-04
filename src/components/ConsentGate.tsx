@@ -28,7 +28,7 @@ export default function ConsentGate({ agreed, onChange, note, className = "" }: 
           설계사가 <b className="font-bold text-ink-900">고객 본인의 자료</b>를 대신 업로드합니다. 고객에게 분석 목적,
           민감정보 처리, AI 보조 분석 내용을 안내했고{" "}
           <b className="font-bold text-ink-900">업로드와 분석에 필요한 동의를 받았습니다.</b>
-          <Link to="/privacy" className="ml-1 underline hover:text-ink-900">
+          <Link to="/privacy-policy" className="ml-1 underline hover:text-ink-900">
             개인정보처리방침
           </Link>
           {note && <span className="mt-1 block text-ink-400">{note}</span>}

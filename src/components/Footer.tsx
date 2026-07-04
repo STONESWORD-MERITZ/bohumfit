@@ -10,7 +10,7 @@ const BUSINESS = {
   businessType: "정보통신업",
   businessItem: "응용 소프트웨어 개발 및 공급업, 포털 및 기타 인터넷 정보 매개 서비스업",
   openedAt: "2026년 6월 15일",
-  contact: "이메일 추가 예정",
+  contact: "qqqwe6701@gmail.com",
 };
 
 export default function Footer() {
@@ -38,7 +38,11 @@ export default function Footer() {
               <dt className="font-semibold text-ink-700">개업일</dt>
               <dd>{BUSINESS.openedAt}</dd>
               <dt className="font-semibold text-ink-700">고객센터</dt>
-              <dd>{BUSINESS.contact}</dd>
+              <dd>
+                <a href={`mailto:${BUSINESS.contact}`} className="text-ink-700 transition-colors hover:text-ink-900 hover:underline">
+                  {BUSINESS.contact}
+                </a>
+              </dd>
             </dl>
           </div>
           <nav aria-label="푸터 메뉴" className="flex flex-wrap gap-4 font-semibold">
