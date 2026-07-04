@@ -18,14 +18,14 @@ const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").repla
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="text-xs font-semibold text-gray-600">
+    <label className="text-xs font-semibold text-ink-soft">
       {label}
       {children}
     </label>
   );
 }
 
-const SELECT_CLS = "mt-1 w-full rounded-[6px] border border-gray-200 p-2 text-sm";
+const SELECT_CLS = "mt-1 w-full rounded-[6px] border border-line p-2 text-sm";
 
 function formatWonInput(value: string): string {
   const digits = (value || "").replace(/[^\d]/g, "");
@@ -215,8 +215,8 @@ export default function InsuranceCalculator() {
       `}</style>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-extrabold text-gray-950">실손 예상 보험금 계산</h1>
-          <p className="mt-1 text-sm text-gray-600 break-keep">
+          <h1 className="text-xl font-extrabold text-ink-900">실손 예상 보험금 계산</h1>
+          <p className="mt-1 text-sm text-ink-soft break-keep">
             알릴의무 분석 없이 실손 청구 실익만 빠르게 추정합니다. 확정 금액이 아니며, 정확한 금액·보장 여부는
             보험사·공단 확인이 필요합니다. 본 계산은 보험 모집·상품추천·가입권유가 아닙니다.
           </p>
@@ -226,14 +226,14 @@ export default function InsuranceCalculator() {
             type="button"
             onClick={downloadReportPdf}
             disabled={reportLoading}
-            className="inline-flex h-10 w-full items-center justify-center gap-2 whitespace-nowrap rounded-[8px] bg-gray-950 px-4 text-sm font-bold text-white transition-colors hover:bg-gray-800 disabled:cursor-wait disabled:opacity-60 sm:w-[150px]"
+            className="inline-flex h-10 w-full items-center justify-center gap-2 whitespace-nowrap rounded-[8px] bg-ink-900 px-4 text-sm font-bold text-white transition-colors hover:bg-ink disabled:cursor-wait disabled:opacity-60 sm:w-[150px]"
           >
             {reportLoading && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/35 border-t-white" aria-hidden="true" />}
             <span>{reportLoading ? "PDF 생성 중..." : "PDF로 저장"}</span>
           </button>
           <div className="min-h-[34px] w-full sm:text-right">
             {reportLoading && (
-              <p className="pdf-status-text text-xs font-semibold text-gray-500 break-keep">
+              <p className="pdf-status-text text-xs font-semibold text-ink-soft break-keep">
                 리포트를 생성하고 있습니다. 잠시만 기다려 주세요.
               </p>
             )}
@@ -247,13 +247,13 @@ export default function InsuranceCalculator() {
       </div>
 
       {/* 모드 토글 */}
-      <div className="no-print inline-flex rounded-[8px] border border-gray-200 bg-white p-1 text-sm font-bold">
+      <div className="no-print inline-flex rounded-[8px] border border-line bg-white p-1 text-sm font-bold">
         {(["manual", "pdf"] as const).map((m) => (
           <button
             key={m}
             type="button"
             onClick={() => setMode(m)}
-            className={`rounded-[6px] px-4 py-1.5 transition-colors ${mode === m ? "bg-accent-600 text-white" : "text-gray-500 hover:text-gray-800"}`}
+            className={`rounded-[6px] px-4 py-1.5 transition-colors ${mode === m ? "bg-accent-600 text-white" : "text-ink-soft hover:text-ink"}`}
           >
             {m === "manual" ? "수기 입력" : "PDF 자동 채움"}
           </button>
@@ -262,8 +262,8 @@ export default function InsuranceCalculator() {
 
       {/* PDF 모드 입력 */}
       {mode === "pdf" && (
-        <div className="no-print rounded-[8px] border border-gray-100 bg-white p-4">
-          <p className="mb-2 text-xs text-gray-500 break-keep">
+        <div className="no-print rounded-[8px] border border-line bg-white p-4">
+          <p className="mb-2 text-xs text-ink-soft break-keep">
             심평원 PDF에서 <b>급여 진료비(내가 낸 의료비)</b>만 추출해 자동 채웁니다. 알릴의무 Q&amp;A 결과는 이 화면에 표시하지 않습니다.
             업로드한 PDF는 진료기록 민감정보를 포함하며 저장하지 않습니다.
           </p>
@@ -278,7 +278,7 @@ export default function InsuranceCalculator() {
               <input type="file" accept="application/pdf" multiple
                 disabled={!pdfConsent}
                 onChange={(e) => setFiles(e.target.files)}
-                className="mt-1 w-full text-xs text-gray-500 disabled:cursor-not-allowed disabled:opacity-50 file:min-h-[44px]" />
+                className="mt-1 w-full text-xs text-ink-soft disabled:cursor-not-allowed disabled:opacity-50 file:min-h-[44px]" />
             </Field>
             <Field label="기준일(청약/조회일)">
               <input type="date" value={refDate} onChange={(e) => setRefDate(e.target.value)} className={SELECT_CLS} />
@@ -304,8 +304,8 @@ export default function InsuranceCalculator() {
       )}
 
       {/* 공통 입력 */}
-      <div className="no-print rounded-[8px] border border-gray-100 bg-white p-4">
-        <h2 className="mb-3 text-sm font-bold text-gray-800">실손 정보</h2>
+      <div className="no-print rounded-[8px] border border-line bg-white p-4">
+        <h2 className="mb-3 text-sm font-bold text-ink">실손 정보</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="실손 세대">
             <select value={gen === "" ? "" : String(gen)}
@@ -343,17 +343,17 @@ export default function InsuranceCalculator() {
             <input inputMode="numeric" value={nonCovered} onChange={(e) => setNonCovered(formatWonInput(e.target.value))} placeholder="예: 500,000" className={SELECT_CLS} />
           </Field>
         </div>
-        <p className="mt-3 text-[11px] text-gray-400">입력값은 저장하지 않으며 이 화면에서만 사용됩니다.</p>
+        <p className="mt-3 text-[11px] text-ink-soft">입력값은 저장하지 않으며 이 화면에서만 사용됩니다.</p>
       </div>
 
       <div id="insurance-print-area" className="space-y-4">
         <div className="print-only">
-          <h2 className="text-lg font-extrabold text-gray-950">실손 청구 안내 리포트</h2>
-          <p className="mt-1 text-[11px] text-gray-500">생성일: {printedAt}</p>
-          <p className="mt-1 text-[11px] text-gray-500">본 문서는 진료기록 기반 민감정보를 포함할 수 있습니다. 고객 안내 및 보관 시 취급에 주의하세요.</p>
+          <h2 className="text-lg font-extrabold text-ink-900">실손 청구 안내 리포트</h2>
+          <p className="mt-1 text-[11px] text-ink-soft">생성일: {printedAt}</p>
+          <p className="mt-1 text-[11px] text-ink-soft">본 문서는 진료기록 기반 민감정보를 포함할 수 있습니다. 고객 안내 및 보관 시 취급에 주의하세요.</p>
         </div>
 
-        <div className="print-only rounded-[8px] border border-gray-200 bg-white p-3 text-xs text-gray-700">
+        <div className="print-only rounded-[8px] border border-line bg-white p-3 text-xs text-ink">
           <b>입력 요약</b> — 실손 세대: {genLabel} · 소득분위: {bracketLabel} · 급여 본인부담: {wonToMan(coveredSelfPay)} · 실손 급여 반영액: {wonToMan(coveredForInsurance)} · 비급여: {wonToMan(ncAmount)}
         </div>
 
@@ -361,13 +361,13 @@ export default function InsuranceCalculator() {
       <ResultCard n="①" title="실손 청구 가능성">
         {claim ? (
           <>
-            <p className="font-semibold text-gray-800">{claim.possibility}</p>
+            <p className="font-semibold text-ink">{claim.possibility}</p>
             {claim.has && (
               <p className="mt-1 text-base font-extrabold text-emerald-700 print:text-lg">
                 청구 추정 {claim.low === claim.high ? wonToMan(claim.low) : `${wonToMan(claim.low)}~${wonToMan(claim.high)}`} 수준
               </p>
             )}
-            <p className="text-[11px] text-gray-400">
+            <p className="text-[11px] text-ink-soft">
               실손 급여 반영액 {wonToMan(coveredForInsurance)}{coveredForInsurance !== coveredSelfPay ? ` (입력 ${wonToMan(coveredSelfPay)} 중 건보 상한 ${wonToMan(coveredForInsurance)}까지만 반영)` : ""}{ncAmount > 0 ? ` · 비급여 ${wonToMan(ncAmount)}` : ""} 기준 추정.
             </p>
             {coveredForInsurance !== coveredSelfPay && (
@@ -376,37 +376,37 @@ export default function InsuranceCalculator() {
               </p>
             )}
           </>
-        ) : <p className="text-gray-500">실손 세대를 선택하면 청구 추정 범위를 안내합니다.</p>}
+        ) : <p className="text-ink-soft">실손 세대를 선택하면 청구 추정 범위를 안내합니다.</p>}
       </ResultCard>
 
       {/* 결과 ② */}
       <ResultCard n="②" title="실손 자기부담금 상한제">
         {selfPayCap ? (
           <>
-            <p className="font-semibold text-gray-800">{selfPayCap.exceeded ? "초과분 추가 보장 가능성 있음" : "상한 초과 아닐 수 있음"}</p>
-            <p className="text-gray-600">연 자기부담금 합산 {wonToMan(selfPayCap.eligible)} / 세대 상한 {wonToMan(selfPayCap.cap)}{selfPayCap.exceeded ? ` · 초과 ${wonToMan(selfPayCap.excess)} 수준` : ""}.</p>
-            {selfPayCap.nonCoveredExcluded && <p className="text-[11px] text-gray-400">4~5세대는 비급여 자기부담이 상한 대상이 아니라 급여 자기부담만 합산합니다.</p>}
+            <p className="font-semibold text-ink">{selfPayCap.exceeded ? "초과분 추가 보장 가능성 있음" : "상한 초과 아닐 수 있음"}</p>
+            <p className="text-ink-soft">연 자기부담금 합산 {wonToMan(selfPayCap.eligible)} / 세대 상한 {wonToMan(selfPayCap.cap)}{selfPayCap.exceeded ? ` · 초과 ${wonToMan(selfPayCap.excess)} 수준` : ""}.</p>
+            {selfPayCap.nonCoveredExcluded && <p className="text-[11px] text-ink-soft">4~5세대는 비급여 자기부담이 상한 대상이 아니라 급여 자기부담만 합산합니다.</p>}
           </>
-        ) : <p className="text-gray-500">실손 세대를 선택해 주세요.</p>}
+        ) : <p className="text-ink-soft">실손 세대를 선택해 주세요.</p>}
       </ResultCard>
 
       {/* 결과 ③ */}
       <ResultCard n="③" title="건강보험 본인부담상한제 (2026 기준)">
         {nhisCap ? (
           <>
-            <p className="font-semibold text-gray-800">{nhisCap.exceeded ? "공단 환급 가능성 있음" : "환급 대상 아닐 수 있음"}</p>
-            <p className="text-gray-600">연 급여 본인부담 {wonToMan(coveredSelfPay)} / {bracket}분위 상한 {wonToMan(nhisCap.cap)}.</p>
+            <p className="font-semibold text-ink">{nhisCap.exceeded ? "공단 환급 가능성 있음" : "환급 대상 아닐 수 있음"}</p>
+            <p className="text-ink-soft">연 급여 본인부담 {wonToMan(coveredSelfPay)} / {bracket}분위 상한 {wonToMan(nhisCap.cap)}.</p>
             {nhisCap.exceeded && (
               <p className="mt-1 text-base font-extrabold text-emerald-700 print:text-lg">
                 예상 환급 {wonToMan(nhisCap.refund)} 수준
               </p>
             )}
-            <p className="text-[11px] text-gray-400">급여 본인부담만 대상(비급여 제외). 요양병원 120일 초과 시 상한이 달라질 수 있습니다.</p>
+            <p className="text-[11px] text-ink-soft">급여 본인부담만 대상(비급여 제외). 요양병원 120일 초과 시 상한이 달라질 수 있습니다.</p>
           </>
-        ) : <p className="text-gray-500">소득분위를 선택하면 환급 가능성을 안내합니다.</p>}
+        ) : <p className="text-ink-soft">소득분위를 선택하면 환급 가능성을 안내합니다.</p>}
       </ResultCard>
 
-      <p className="text-[11px] leading-relaxed text-gray-400">{INS_DISCLAIMER}</p>
+      <p className="text-[11px] leading-relaxed text-ink-soft">{INS_DISCLAIMER}</p>
       </div>
     </div>
   );

@@ -1,3 +1,41 @@
+## 2026-07-04 Codex BOHUMFIT-167a remaining pages rebrand verification
+### Changed
+- `src/pages/InsuranceCalculator.tsx`: raw gray classes replaced with FIT v1.0 tokens (`text-ink-*`, `border-line`, `bg-ink-*`); logic and copy unchanged.
+- `src/pages/CoverageAnalysis.tsx`: raw gray classes replaced with FIT v1.0 tokens; upload/select accessibility labels kept; parsing/mapping logic unchanged.
+- `.agent-harness/tasks/BOHUMFIT-167a-rebrand-pages.md`: task file included.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` PASS.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` PASS.
+- [x] `npm run build` PASS (existing Vite chunk-size warning only).
+- [x] `cd backend && python -m pytest -q` PASS: 458 passed, 8 skipped.
+- [x] Grep: `InsuranceCalculator.tsx`/`CoverageAnalysis.tsx` `text-gray-|bg-gray-|border-gray-|divide-gray-|ring-gray-|#15663D` = 0.
+- [x] Isolation: `src/pages/Disclosure.tsx` diff = none; 167b remains isolated.
+- [x] Browser smoke via Vite preview + Chrome headless: `/insurance` and `/coverage` are protected routes and correctly redirected anonymous session to login; login/brand shell rendered with ? logo. Authenticated inner-page visual check remains Human browser E2E.
+- [x] Logic check: `git diff --word-diff` shows styling/aria token changes only, no calculation/parsing expressions changed. `npm test -- src/lib/insuranceCalc.test.ts` PASS: 6 passed. Sample from unchanged calculator: 3?? + ?? 800,000? + ??? 500,000? + 10?? => ?? ?? ? 99?~112??, ?? ?? ??.
+### Notes
+- ?? 10??? ? 8?? 166 ?? ??? ?? ?? ????, ??? 2? ??.
+- `git diff --name-only` still shows unrelated pre-existing harness/doc edits (`AGENTS.md`, decisions/tasks README/TEMPLATE). They were not staged for 167a.
+### Commit
+- pending
+### Next
+- Human ? ?? ? /insurance?/coverage ?? ??. ?? 167b(Disclosure 143?)
+
+## 2026-07-04 Cowork BOHUMFIT-167a [잔여 페이지 FIT v1.0 리브랜딩 (Disclosure 제외)]
+### 변경 (스타일·토큰·접근성만 — 로직/카피/데이터 무변경)
+- 대상 10페이지 중 **실제 raw gray 잔존 2개만 변환**: `InsuranceCalculator.tsx`(gray 30건)·`CoverageAnalysis.tsx`(gray 21건) → 166 토큰(text-ink-900/ink/ink-soft·bg-ink-50/100·border-line 등). 서브에이전트 결정적 매핑(166 Part C와 동일).
+- 나머지 8 대상(Home·HomeMission·DisclosureHub·CoverageCompare·CoverageGuide·DownloadGuide·ReportSample·WhyDisclosure·InsuranceLinks)은 **이미 신세대 토큰(raw gray 0)** → 무변경.
+- 접근성: CoverageAnalysis에 aria-label 2(파일 업로드 input·행별 카테고리 select). InsuranceCalculator는 Field 라벨 연결·텍스트 버튼이라 추가 aria 불필요. text-gray-400(AA 미달)→text-ink-soft로 해소.
+### Verified (grep)
+- [x] 대상 10페이지 raw gray = 0(남은 raw gray는 Disclosure 143=167b, BeforeAfter 22=고아, 둘 다 무접촉).
+- [x] src #15663D/#0E4A2C/#0F4E2F = 0 유지 · 라임/그린티 text·border = 0.
+- [x] **Disclosure.tsx 무접촉**(편집 2파일 외 미접촉).
+- [ ] tsc(app/node)/build = Codex/Windows 권위.
+### Notes
+- 사소: CoverageAnalysis `hover:bg-gray-200`(base `bg-gray-100`)가 매핑상 hover=base(ink-100)로 수렴 → 호버 명도차 미미(중립 스케일). 기능 무관, 필요 시 167b 이후 미세조정.
+- BeforeAfter.tsx(고아)는 165부터 미사용·미import — 삭제/정리 별도 태스크 권장(범위 밖).
+### Next
+- Codex: `npx tsc`/`npm run build` 통과 후 InsuranceCalculator.tsx·CoverageAnalysis.tsx(+task·handoff·locks) commit(`feat(BOHUMFIT-167a): 잔여 페이지 FIT v1.0 리브랜딩 (Disclosure 제외 10페이지)`)→push. 이후 167b(Disclosure.tsx 리브랜딩)·BeforeAfter 정리.
+
 ## 2026-07-04 Codex BOHUMFIT-166 FIT brand rebrand verification
 ### Changed
 - `src/index.css`, `index.html`, `public/` brand assets: FIT emerald pine token and favicon/PWA/OG assets verified; `public/icons.svg` was additionally aligned to the new `?` bridge symbol during Windows verification.

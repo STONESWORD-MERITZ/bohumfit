@@ -146,16 +146,16 @@ export default function CoverageAnalysis() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-extrabold text-gray-950">보장분석 — 비교분석표(전)</h1>
-        <p className="mt-1 text-sm text-gray-600 break-keep">
+        <h1 className="text-xl font-extrabold text-ink-900">보장분석 — 비교분석표(전)</h1>
+        <p className="mt-1 text-sm text-ink-soft break-keep">
           원천자료 엑셀을 올리면 계약·담보를 표준 비교분석표 36행으로 정리합니다. 업로드한 파일은{" "}
           <b>서버로 전송하지 않으며 브라우저 안에서만 처리</b>되고, 화면을 벗어나면 사라집니다(저장 없음).
         </p>
       </div>
 
       {/* ── 1단계: 업로드 ── */}
-      <section className="rounded-[8px] border border-gray-100 bg-white p-4">
-        <h2 className="mb-2 text-sm font-bold text-gray-800">1단계 — 원천자료 업로드</h2>
+      <section className="rounded-[8px] border border-line bg-white p-4">
+        <h2 className="mb-2 text-sm font-bold text-ink">1단계 — 원천자료 업로드</h2>
         <ConsentGate
           agreed={consent}
           onChange={setConsent}
@@ -169,19 +169,20 @@ export default function CoverageAnalysis() {
             accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             disabled={!consent}
             onChange={(e) => void handleFile(e.target.files?.[0] ?? null)}
-            className="min-h-[44px] text-xs text-gray-500 disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="원천자료 엑셀 파일 업로드"
+            className="min-h-[44px] text-xs text-ink-soft disabled:cursor-not-allowed disabled:opacity-50"
           />
           {fileName && (
             <button
               type="button"
               onClick={reset}
-              className="rounded-[8px] bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-600 hover:bg-gray-200"
+              className="rounded-[8px] bg-ink-100 px-3 py-1.5 text-xs font-bold text-ink-soft hover:bg-ink-100"
             >
               다시 업로드
             </button>
           )}
         </div>
-        <p className="mt-2 text-[11px] text-gray-400">
+        <p className="mt-2 text-[11px] text-ink-soft">
           헤더 2행(계약정보/담보정보) 양식의 .xlsx — 회사명·상품명 병합셀은 자동으로 계약 단위로 묶습니다.
           고객 계약정보는 민감정보이므로 이 화면에서만 사용하고 저장하지 않습니다.
         </p>
@@ -212,8 +213,8 @@ export default function CoverageAnalysis() {
 
       {/* ── 2단계: 매핑 확인 ── */}
       {result && (
-        <section className="rounded-[8px] border border-gray-100 bg-white p-4">
-          <h2 className="mb-1 text-sm font-bold text-gray-800">
+        <section className="rounded-[8px] border border-line bg-white p-4">
+          <h2 className="mb-1 text-sm font-bold text-ink">
             2단계 — 보장명 매핑 확인
             {unmappedCount > 0 && (
               <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">
@@ -221,26 +222,26 @@ export default function CoverageAnalysis() {
               </span>
             )}
           </h2>
-          <p className="mb-3 text-[11px] text-gray-400">
+          <p className="mb-3 text-[11px] text-ink-soft">
             자동 매핑되지 않은 보장명은 드롭다운으로 카테고리에 배정하거나 제외할 수 있습니다. 배정 결과는
             저장되지 않고 이 화면에서만 사용됩니다.
           </p>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] text-xs">
               <thead>
-                <tr className="bg-gray-50 text-gray-500">
+                <tr className="bg-ink-50 text-ink-soft">
                   <th className="px-3 py-2 text-left">보장명</th>
                   <th className="px-3 py-2 text-center">건수</th>
                   <th className="px-3 py-2 text-right">가입금액 합(만원)</th>
                   <th className="px-3 py-2 text-left">카테고리</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-line">
                 {mappingRows.map((r) => (
                   <tr key={r.key} className={r.categoryId === null && !assignments[r.key] ? "bg-amber-50/60" : ""}>
-                    <td className="px-3 py-1.5 font-semibold text-gray-800">{r.name}</td>
-                    <td className="px-3 py-1.5 text-center text-gray-500">{r.count}</td>
-                    <td className="px-3 py-1.5 text-right text-gray-500">{r.totalManwon.toLocaleString()}</td>
+                    <td className="px-3 py-1.5 font-semibold text-ink">{r.name}</td>
+                    <td className="px-3 py-1.5 text-center text-ink-soft">{r.count}</td>
+                    <td className="px-3 py-1.5 text-right text-ink-soft">{r.totalManwon.toLocaleString()}</td>
                     <td className="px-3 py-1.5">
                       {r.categoryId !== null ? (
                         <span className="font-semibold text-emerald-700">
@@ -259,6 +260,7 @@ export default function CoverageAnalysis() {
                               return next;
                             })
                           }
+                          aria-label={`${r.name} 카테고리 배정`}
                           className="w-full max-w-[240px] rounded-[6px] border border-amber-300 bg-white p-1 text-xs"
                         >
                           <option value="">미배정 (unmapped 유지)</option>
@@ -280,10 +282,10 @@ export default function CoverageAnalysis() {
 
       {/* ── 3단계: 전 비분표 ── */}
       {result && displayColumns.length > 0 && (
-        <section className="overflow-hidden rounded-[8px] border border-gray-100 bg-white">
-          <div className="border-b border-gray-100 px-4 py-3">
-            <h2 className="text-sm font-bold text-gray-800">3단계 — 비교분석 전 보장 (비분표)</h2>
-            <p className="mt-0.5 text-[11px] text-gray-400">
+        <section className="overflow-hidden rounded-[8px] border border-line bg-white">
+          <div className="border-b border-line px-4 py-3">
+            <h2 className="text-sm font-bold text-ink">3단계 — 비교분석 전 보장 (비분표)</h2>
+            <p className="mt-0.5 text-[11px] text-ink-soft">
               사망 분해·일반종수술 1~4종 제안(✎ 표시 셀)은 자동 산출값입니다. 제안 셀은 수정할 수 있으며
               합계에 즉시 반영됩니다. 금액 단위: 만원(보험료 합계만 원).
             </p>
@@ -295,7 +297,7 @@ export default function CoverageAnalysis() {
             onCellEdit={setCellEdit}
           />
           {table.unmapped.length > 0 && (
-            <p className="border-t border-gray-100 px-4 py-2 text-[11px] text-amber-700">
+            <p className="border-t border-line px-4 py-2 text-[11px] text-amber-700">
               미배정 담보 {table.unmapped.length}건은 비분표에 반영되지 않았습니다 — 2단계에서 배정하거나 제외를
               선택해 주세요.
             </p>
@@ -312,7 +314,7 @@ export default function CoverageAnalysis() {
         />
       )}
 
-      <p className="text-[11px] leading-relaxed text-gray-400 break-keep">{DISCLAIMER}</p>
+      <p className="text-[11px] leading-relaxed text-ink-soft break-keep">{DISCLAIMER}</p>
     </div>
   );
 }
