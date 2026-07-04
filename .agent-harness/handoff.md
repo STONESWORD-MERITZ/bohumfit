@@ -16,7 +16,7 @@
 - Literal whole-repo grep still finds old brand hex in historical `.agent-harness` records, old root brochure HTMLs, `brand/` legacy assets, and backend PDF report templates/tests. These are outside the 166 frontend rebrand commit scope; production frontend `src/public/index` surface is clean.
 - `Signup.tsx` and `PhoneVerify.tsx` had real tail truncation/UTF-8 display corruption in Windows source; both were repaired before verification.
 ### Commit
-- `53cc719`
+- `1aba27d`
 ### Next
 - Human ? ?? ? ??/???/OG ???????/??/?? ??? ?? ??
 
