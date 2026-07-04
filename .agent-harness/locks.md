@@ -4,9 +4,11 @@ Use this file to record active Codex file ownership during a task.
 
 ## Active
 
-- (none)
 
 ### Released
+- 2026-07-04 `BOHUMFIT-166` - Codex - Windows verification passed; Logo ? symbol/header-footer smoke fixed; commit `53cc719`; active none.
+- 2026-07-04 `BOHUMFIT-166-verify` - Cowork - 실 가이드 PDF 대조 완료: 컬러·ㅍ 심볼(B 브릿지 픽셀 실측 일치)·보험핏 앱아이콘(에메랄드+흰 ㅍ, 라임 ㅍ는 형제앱 FC WORKS)·버튼·타이포 전부 일치. 보정 1건: og-image.svg 라임 언더바 제거(원형 면만). tsc/build·커밋 Codex.
+- 2026-07-04 `BOHUMFIT-166` - Cowork - 완료. FIT 브랜드 v1.0: index.css 토큰 에메랄드(#084734)+lime/greentea·ink #0A0A0A / Logo ㅍ 심볼 / public 자산·og·manifest·index.html 재생성 / 인증·구독·법무 9파일 raw gray→토큰+접근성(aria·대비)·Signup 로고 컴포넌트화. grep 검증(#15663D 0·raw gray 0·라임 text 0). tsc/build/pytest·커밋은 Codex. ★Disclosure 그림자·BeforeAfter.tsx(고아)는 범위 밖 후속.
 - 2026-07-04 `BOHUMFIT-165` - Codex - Windows verification passed; route smoke and grep checks passed; legal routes/SURIT cleanup ready for scoped commit/push.
 - 2026-07-03 `BOHUMFIT-165` - Cowork - 완료. Part A 법무 연락처(PrivacyPolicy·Footer mailto=qqqwe6701@gmail.com) / Part B 404(NotFound 신규)+catch-all+privacy·terms 리다이렉트+Terms.tsx 삭제+별칭링크 정본화(Signup·ConsentGate·Disclosure) / Part C before-after 제거 / Part D main.py CORS surit 제거(.env·vercel·AGENTS 이미 정리됨). grep 검증 통과. tsc/build/pytest·커밋·Terms.tsx git rm은 Codex.
 - 2026-07-03 `BOHUMFIT-148` - Cowork - 완료(조사·제안 전용, 코드 무변경). 산출: tasks/BOHUMFIT-148-site-audit-upgrade-plan.md + tasks/BOHUMFIT-148-audit-report.md. 라우트 20 전수·페이지 17 판정·SURIT 1건·후속 16개(149~164). 삭제/통합·법무·인증은 Human 승인. Codex는 문서 2개만 commit.

@@ -106,18 +106,18 @@ export default function TermsOfService() {
   return (
     <main className="mx-auto max-w-3xl px-5 py-10">
       <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent-600">BOHUMFIT</p>
-      <h1 className="mt-2 text-2xl font-extrabold text-gray-950">이용약관</h1>
-      <p className="mt-3 text-sm leading-6 text-gray-600">
+      <h1 className="mt-2 text-2xl font-extrabold text-ink-900">이용약관</h1>
+      <p className="mt-3 text-sm leading-6 text-ink-soft">
         보험핏 서비스의 이용 조건과 책임 범위를 안내합니다. 분석 결과는 보험 고지 검토를 돕는 참고 자료이며,
         최종 판단은 실제 청약서 질문과 보험회사 심사 기준에 따라 확인해야 합니다.
       </p>
-      <p className="mt-2 text-xs text-gray-500">시행일자: {EFFECTIVE_DATE}</p>
+      <p className="mt-2 text-xs text-ink-soft">시행일자: {EFFECTIVE_DATE}</p>
 
       <div className="mt-8 space-y-7">
         {sections.map((section) => (
-          <section key={section.title} className="rounded-[8px] border border-gray-200 bg-white p-5">
-            <h2 className="text-sm font-extrabold text-gray-950">{section.title}</h2>
-            <div className="mt-3 space-y-2 text-[13px] leading-6 text-gray-600">
+          <section key={section.title} className="rounded-[8px] border border-line bg-white p-5">
+            <h2 className="text-sm font-extrabold text-ink-900">{section.title}</h2>
+            <div className="mt-3 space-y-2 text-[13px] leading-6 text-ink-soft">
               {section.body.map((line) => (
                 <p key={line}>{line}</p>
               ))}
@@ -127,10 +127,10 @@ export default function TermsOfService() {
       </div>
 
       <div className="mt-10 flex flex-wrap gap-3 text-xs font-semibold">
-        <Link to="/privacy-policy" className="rounded-[8px] border border-gray-200 px-3 py-2 text-gray-700 hover:border-accent-600 hover:text-accent-700">
+        <Link to="/privacy-policy" className="rounded-[8px] border border-line px-3 py-2 text-ink hover:border-accent-600 hover:text-accent-700">
           개인정보처리방침 보기
         </Link>
-        <Link to="/" className="rounded-[8px] border border-gray-200 px-3 py-2 text-gray-700 hover:border-accent-600 hover:text-accent-700">
+        <Link to="/" className="rounded-[8px] border border-line px-3 py-2 text-ink hover:border-accent-600 hover:text-accent-700">
           홈으로 돌아가기
         </Link>
       </div>

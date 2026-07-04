@@ -20,26 +20,29 @@
   --color-ink-600: #5F5F66;
   --color-ink-700: #3A3A40;
   --color-ink-800: #2A2A30;
-  --color-ink-900: #1A1A1E;
+  --color-ink-900: #0A0A0A;
 
-  /* 포인트 1색 — 포레스트 그린 (CTA·활성·링크·브랜드 전용, 아껴 사용) — BOHUMFIT-049 보라 대체.
-     ★차분한 포레스트 톤만(라임·네온 금지). 어두운 #0F4E2F ~ 기본 #15663D ~ 옅은 #E3F0E8. */
-  --color-accent-50: #F0F7F3;
-  --color-accent-100: #E3F0E8;
-  --color-accent-200: #C7E1D2;
-  --color-accent-300: #9FCBB1;
-  --color-accent-400: #5FA47E;
-  --color-accent-500: #2E8056;
-  --color-accent-600: #15663D;
-  --color-accent-700: #0F4E2F;
-  --color-accent-800: #0C3F26;
-  --color-accent-900: #09301D;
+  /* BOHUMFIT-166 FIT 브랜드 v1.0 — 에메랄드 파인(#084734) 메인. 흰 텍스트 대비 10.7:1(AA).
+     accent-600 = 에메랄드 파인(로고·헤더·CTA·주요 면·다크 서피스). */
+  --color-accent-50: #EEF6F1;
+  --color-accent-100: #D7E9DF;
+  --color-accent-200: #AFD3C0;
+  --color-accent-300: #7FB79E;
+  --color-accent-400: #479170;
+  --color-accent-500: #0E6647;
+  --color-accent-600: #084734;
+  --color-accent-700: #063A2A;
+  --color-accent-800: #042C20;
+  --color-accent-900: #031F16;
 
   /* ── BOHUMFIT-049 통합 3색: 짙은회색·검정·그린(포레스트) (골드·보라 미사용) ──
      로고 색 미확정 → 변수로 분리(값 교체 쉽게). primary = accent-600(그린). */
-  --color-primary: #15663D;        /* 브랜드·CTA·링크 (= accent-600) */
-  --color-primary-strong: #0F4E2F; /* hover·pressed (= accent-700) */
-  --color-primary-soft: #E3F0E8;   /* 배경·배지 (= accent-100) */
+  --color-primary: #084734;        /* 브랜드·CTA·링크 (= accent-600 에메랄드 파인) */
+  --color-primary-strong: #063A2A; /* hover·pressed (= accent-700) */
+  --color-primary-soft: #D7E9DF;   /* 배경·배지 (= accent-100) */
+  /* BOHUMFIT-166 포인트 — ★면·배지 전용. 흰 바탕 위 텍스트·선 금지(1.3:1). */
+  --color-lime: #CEF17B;           /* 라임 글로우 — 에메랄드/다크 위 CTA 면 */
+  --color-greentea: #CDEDB3;       /* 그린 티 — 섹션 배경·카드 틴트 면 */
   --color-text: #1E293B;           /* 본문 기본 글자(짙은 회색) */
   --color-text-strong: #0A0A0A;    /* 고유명사 강조 전용(검정) */
   --color-text-muted: #475569;     /* 보조·설명 */

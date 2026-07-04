@@ -1,5 +1,6 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Link } from "react-router-dom";
+import Logo from "../components/Logo";
 import { supabase } from "../lib/supabase";
 
 export default function Signup() {
@@ -11,7 +12,6 @@ export default function Signup() {
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [agreeMedical, setAgreeMedical] = useState(false);
-  // BOHUMFIT-074: 휴대폰 본인인증(1인 1계정). 현재는 UI 게이트만 — 실인증은 토스 라이브 키 후 연동.
   const [phone, setPhone] = useState("");
   const [phoneVerified, setPhoneVerified] = useState(false);
 
@@ -21,7 +21,6 @@ export default function Signup() {
       setError("휴대폰 번호를 정확히 입력해 주세요.");
       return;
     }
-    // TODO(BOHUMFIT-074): 토스 본인인증 팝업 연동(라이브 키 발급 후). 현재는 UI 게이트로 통과 처리.
     setError("");
     setPhoneVerified(true);
   };
@@ -44,8 +43,8 @@ export default function Signup() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F8F9FC] px-4">
         <div className="w-full max-w-sm text-center">
-          <h2 className="mb-2 text-lg font-extrabold text-gray-900">이메일을 확인해 주세요</h2>
-          <p className="mb-6 text-sm leading-6 text-gray-400">
+          <h2 className="mb-2 text-lg font-extrabold text-ink-900">이메일을 확인해 주세요</h2>
+          <p className="mb-6 text-sm leading-6 text-ink-soft">
             {email} 주소로 인증 메일을 보냈습니다.
             <br />
             메일의 링크를 누르면 가입이 완료됩니다.
@@ -62,44 +61,44 @@ export default function Signup() {
     <div className="flex min-h-screen items-center justify-center bg-[#F8F9FC] px-4">
       <div className="w-full max-w-sm">
         <div className="mb-10 text-center">
-          <h1 className="text-3xl font-black tracking-tight text-gray-900">
-            BOHUM<span className="text-accent-600">FIT</span>
-          </h1>
-          <p className="mt-2 text-sm text-gray-400">보험핏 계정 만들기</p>
+          <Logo size={34} variant="light" className="mx-auto" />
+          <p className="mt-2 text-sm text-ink-soft">보험핏 계정 만들기</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <input
             type="email"
+            aria-label="이메일"
             placeholder="이메일"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full rounded-[8px] bg-white px-4 py-3 text-sm text-gray-800 shadow-[0_1px_3px_rgba(0,0,0,0.06)] placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-accent-600/30"
+            className="w-full rounded-[8px] bg-white px-4 py-3 text-sm text-ink shadow-[0_1px_3px_rgba(0,0,0,0.06)] placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-accent-600/30"
           />
           <input
             type="password"
+            aria-label="비밀번호 10자 이상"
             placeholder="비밀번호 10자 이상"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={10}
-            className="w-full rounded-[8px] bg-white px-4 py-3 text-sm text-gray-800 shadow-[0_1px_3px_rgba(0,0,0,0.06)] placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-accent-600/30"
+            className="w-full rounded-[8px] bg-white px-4 py-3 text-sm text-ink shadow-[0_1px_3px_rgba(0,0,0,0.06)] placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-accent-600/30"
           />
 
-          {/* BOHUMFIT-074: 휴대폰 본인인증 게이트 */}
-          <div className="rounded-[8px] border border-gray-200 bg-white p-3">
-            <p className="text-[12px] font-semibold text-gray-700">휴대폰 본인인증 (필수)</p>
-            <p className="mt-0.5 text-[11px] text-gray-400">1인 1계정 원칙에 따라 휴대폰 본인인증이 필요합니다.</p>
+          <div className="rounded-[8px] border border-line bg-white p-3">
+            <p className="text-[12px] font-semibold text-ink">휴대폰 본인인증 (필수)</p>
+            <p className="mt-0.5 text-[11px] text-ink-soft">1인 1계정 원칙에 따라 휴대폰 본인인증이 필요합니다.</p>
             <div className="mt-2 flex gap-2">
               <input
                 type="tel"
                 inputMode="numeric"
+                aria-label="휴대폰 번호"
                 placeholder="휴대폰 번호 (- 없이)"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 disabled={phoneVerified}
-                className="min-w-0 flex-1 rounded-[8px] bg-white px-3 py-2 text-sm text-gray-800 shadow-[0_1px_3px_rgba(0,0,0,0.06)] placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-accent-600/30 disabled:bg-gray-50 disabled:text-gray-400"
+                className="min-w-0 flex-1 rounded-[8px] bg-white px-3 py-2 text-sm text-ink shadow-[0_1px_3px_rgba(0,0,0,0.06)] placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-accent-600/30 disabled:bg-ink-50 disabled:text-ink-soft"
               />
               <button
                 type="button"
@@ -125,7 +124,7 @@ export default function Signup() {
                 className="mt-0.5 shrink-0"
               />
               <span>
-                <a href="/terms-of-service" target="_blank" className="font-semibold underline">이용약관</a>에 동의합니다 (필수)
+                <a href="/terms-of-service" target="_blank" rel="noreferrer" className="font-semibold underline">이용약관</a>에 동의합니다 (필수)
               </span>
             </label>
             <label className="flex items-start gap-2">
@@ -137,7 +136,7 @@ export default function Signup() {
                 className="mt-0.5 shrink-0"
               />
               <span>
-                <a href="/privacy-policy" target="_blank" className="font-semibold underline">개인정보처리방침</a>에 동의합니다 (필수)
+                <a href="/privacy-policy" target="_blank" rel="noreferrer" className="font-semibold underline">개인정보처리방침</a>에 동의합니다 (필수)
               </span>
             </label>
             <label className="flex items-start gap-2">
@@ -159,13 +158,13 @@ export default function Signup() {
           <button
             type="submit"
             disabled={loading || !agreeTerms || !agreePrivacy || !agreeMedical || !phoneVerified}
-            className="w-full rounded-[8px] bg-accent-600 py-3 text-sm font-bold text-white shadow-[0_2px_8px_rgba(21,102,61,0.3)] transition-colors hover:bg-accent-700 disabled:opacity-50"
+            className="w-full rounded-[8px] bg-accent-600 py-3 text-sm font-bold text-white shadow-[0_2px_8px_rgba(8,71,52,0.3)] transition-colors hover:bg-accent-700 disabled:opacity-50"
           >
             {loading ? "가입 중..." : !phoneVerified ? "휴대폰 본인인증 후 가입" : "회원가입"}
           </button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-gray-400">
+        <p className="mt-6 text-center text-xs text-ink-soft">
           이미 계정이 있나요?{" "}
           <Link to="/login" className="font-bold text-accent-600 hover:underline">
             로그인

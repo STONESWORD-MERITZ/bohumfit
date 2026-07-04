@@ -170,8 +170,8 @@ export default function Subscription() {
 
   return (
     <section className="mx-auto max-w-2xl">
-      <h1 className="text-2xl font-extrabold text-gray-950">구독 관리</h1>
-      <p className="mt-2 text-sm text-gray-600 break-keep">
+      <h1 className="text-2xl font-extrabold text-ink-900">구독 관리</h1>
+      <p className="mt-2 text-sm text-ink-soft break-keep">
         보험핏 고지 분석은 구독제로 운영됩니다. 가입 후 매월 무료 체험 {trialLimit}회, 구독 시 플랜별 분석을 제공합니다.
       </p>
 
@@ -186,7 +186,7 @@ export default function Subscription() {
       )}
 
       {loading ? (
-        <div className="mt-6 text-sm text-gray-400">불러오는 중…</div>
+        <div className="mt-6 text-sm text-ink-soft">불러오는 중…</div>
       ) : status?.is_internal ? (
         <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
           {/* BOHUMFIT-110: internal = pro 동일 월 100회 */}
@@ -197,14 +197,14 @@ export default function Subscription() {
           </p>
         </div>
       ) : isActive ? (
-        <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="mt-6 rounded-2xl border border-line bg-white p-6 shadow-sm">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent-600">구독 중</p>
-          <h2 className="mt-2 text-xl font-extrabold text-gray-950">{planLabel} 플랜</h2>
+          <h2 className="mt-2 text-xl font-extrabold text-ink-900">{planLabel} 플랜</h2>
           <dl className="mt-4 grid gap-2 text-sm">
-            <div className="flex justify-between"><dt className="text-gray-500">다음 결제일</dt><dd className="font-medium text-gray-900">{fmtDate(status?.period_end ?? null)}</dd></div>
-            <div className="flex justify-between"><dt className="text-gray-500">이번 달 사용량</dt><dd className="font-medium text-gray-900">{status?.used ?? 0} / {status?.limit ?? 30}회</dd></div>
+            <div className="flex justify-between"><dt className="text-ink-soft">다음 결제일</dt><dd className="font-medium text-ink-900">{fmtDate(status?.period_end ?? null)}</dd></div>
+            <div className="flex justify-between"><dt className="text-ink-soft">이번 달 사용량</dt><dd className="font-medium text-ink-900">{status?.used ?? 0} / {status?.limit ?? 30}회</dd></div>
           </dl>
-          <p className="mt-4 text-[12px] text-gray-400">해지를 원하시면 고객센터로 문의해 주세요.</p>
+          <p className="mt-4 text-[12px] text-ink-soft">해지를 원하시면 고객센터로 문의해 주세요.</p>
           <button onClick={() => navigate("/disclosure?mode=customer")} className="mt-4 rounded-[8px] bg-accent-600 px-4 py-2 text-sm font-bold text-white">분석하러 가기</button>
         </div>
       ) : (
@@ -217,7 +217,7 @@ export default function Subscription() {
                 : <>이번 달 무료 체험 횟수를 모두 사용했습니다. 구독하고 계속 이용하세요.</>}
             </div>
           ) : (
-            <div className="mt-6 rounded-[8px] bg-gray-50 px-4 py-3 text-sm text-gray-600">
+            <div className="mt-6 rounded-[8px] bg-ink-50 px-4 py-3 text-sm text-ink-soft">
               가입 후 매월 무료 체험 {trialLimit}회를 제공합니다. 아래 플랜을 둘러보고 구독을 시작해 보세요.
             </div>
           )}
@@ -228,12 +228,12 @@ export default function Subscription() {
               <p className="card-title text-xs font-bold uppercase tracking-[0.2em] text-accent-600">베이직 플랜</p>
               <div className="mt-2">
                 <span className="inline-block rounded-full bg-accent-50 px-2 py-0.5 text-[11px] font-bold text-accent-700">오픈 이벤트 · ~2026년 9월 30일</span>
-                <h2 className="mt-1.5 text-2xl font-extrabold text-gray-950">월 9,900원</h2>
-                <p className="text-[12px] text-gray-400">이벤트 후 월 14,900원 · 매월 30회</p>
+                <h2 className="mt-1.5 text-2xl font-extrabold text-ink-900">월 9,900원</h2>
+                <p className="text-[12px] text-ink-soft">이벤트 후 월 14,900원 · 매월 30회</p>
                 {/* BOHUMFIT-101: 오픈 이벤트 적용 기간 명시 */}
                 <p className="mt-0.5 text-[11px] font-medium text-accent-600">2026년 9월 30일까지 적용</p>
               </div>
-              <ul className="mt-4 space-y-1.5 text-sm text-gray-600">
+              <ul className="mt-4 space-y-1.5 text-sm text-ink-soft">
                 <li className="ko-text">· 건강체·간편심사 고지 검토</li>
                 <li className="ko-text">· 고객용 PDF 저장</li>
                 <li className="ko-text">· 매월 30회 분석</li>
@@ -248,13 +248,13 @@ export default function Subscription() {
             </div>
 
             {/* 프로 — BOHUMFIT-101: flex-col + 버튼 mt-auto 하단 고정 */}
-            <div className="flex flex-col rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-              <p className="card-title text-xs font-bold uppercase tracking-[0.2em] text-gray-500">프로 플랜</p>
+            <div className="flex flex-col rounded-2xl border border-line bg-white p-6 shadow-sm">
+              <p className="card-title text-xs font-bold uppercase tracking-[0.2em] text-ink-soft">프로 플랜</p>
               <div className="mt-2">
-                <h2 className="mt-1.5 text-2xl font-extrabold text-gray-950">월 24,900원</h2>
-                <p className="text-[12px] text-gray-400">매월 100회</p>
+                <h2 className="mt-1.5 text-2xl font-extrabold text-ink-900">월 24,900원</h2>
+                <p className="text-[12px] text-ink-soft">매월 100회</p>
               </div>
-              <ul className="mt-4 space-y-1.5 text-sm text-gray-600">
+              <ul className="mt-4 space-y-1.5 text-sm text-ink-soft">
                 <li className="ko-text">· 베이직 모든 기능</li>
                 <li className="ko-text">· 매월 100회 분석</li>
                 <li className="ko-text">· 보장분석 기능 포함</li>
@@ -262,13 +262,13 @@ export default function Subscription() {
               <button
                 onClick={() => handleSubscribe("pro")}
                 disabled={busy}
-                className="mt-auto w-full rounded-[8px] bg-gray-900 px-5 py-3 text-sm font-bold text-white disabled:opacity-60"
+                className="mt-auto w-full rounded-[8px] bg-ink-900 px-5 py-3 text-sm font-bold text-white disabled:opacity-60"
               >
                 {busy ? "결제 진행 중…" : isLoggedIn ? "프로 구독 시작" : "로그인 후 구독하기"}
               </button>
             </div>
           </div>
-          <p className="mt-3 text-[11px] text-gray-400">결제는 토스페이먼츠로 안전하게 처리되며, 카드 등록 후 매월 자동 결제됩니다.</p>
+          <p className="mt-3 text-[11px] text-ink-soft">결제는 토스페이먼츠로 안전하게 처리되며, 카드 등록 후 매월 자동 결제됩니다.</p>
         </>
       )}
     </section>

@@ -1730,7 +1730,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
             type="checkbox"
             checked={consent}
             onChange={(e) => setConsent(e.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 accent-[#15663D]"
+            className="mt-0.5 h-4 w-4 shrink-0 accent-accent-600"
           />
           <span className="break-keep">
             업로드하는 진료자료에는 <b className="font-bold text-gray-700">민감정보(건강에 관한 정보)</b>가 포함됩니다.
@@ -1745,7 +1745,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
               type="checkbox"
               checked={subjectConsent}
               onChange={(e) => setSubjectConsent(e.target.checked)}
-              className="mt-0.5 h-4 w-4 shrink-0 accent-[#15663D]"
+              className="mt-0.5 h-4 w-4 shrink-0 accent-accent-600"
             />
             <span className="break-keep">
               고객 등 제3자의 진료자료를 업로드하는 경우, 정보주체에게 보험핏 분석 목적·민감정보 처리·AI 위탁 처리 내용을 안내했고

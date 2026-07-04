@@ -4,8 +4,8 @@
   "description": "보험 고지의무 분석 플랫폼 — 설계사용",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0E4A2C",
-  "theme_color": "#15663D",
+  "background_color": "#084734",
+  "theme_color": "#084734",
   "icons": [
     {
       "src": "/icon-192.png",

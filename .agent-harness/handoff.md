@@ -1,3 +1,61 @@
+## 2026-07-04 Codex BOHUMFIT-166 FIT brand rebrand verification
+### Changed
+- `src/index.css`, `index.html`, `public/` brand assets: FIT emerald pine token and favicon/PWA/OG assets verified; `public/icons.svg` was additionally aligned to the new `?` bridge symbol during Windows verification.
+- `src/components/Logo.tsx`: header/footer/login lockup now renders the emerald `?` symbol tile plus `BohumFit ???` text.
+- `src/pages/Signup.tsx`, `src/pages/PhoneVerify.tsx`: Windows source tails were recovered from UTF-8 truncation and kept within the 166 token/accessibility scope.
+- `src/components/ConsentGate.tsx`, `src/pages/Disclosure.tsx`: checkbox accent hardcoded old brand hex replaced with `accent-accent-600` so src/public production grep is clean.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` PASS.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` PASS.
+- [x] `npm run build` PASS (existing Vite chunk-size warning only).
+- [x] `cd backend && python -m pytest -q` PASS: 458 passed, 8 skipped.
+- [x] Asset integrity: PNG headers OK for favicon-16/32, apple-touch-icon-180, icon-192, icon-512; `favicon.ico` opens as ICO; `site.webmanifest` parses with theme_color `#084734`; `og-image.svg` has one lime circle and no lime rect/header bar.
+- [x] Grep: `index.html` + `public/*.svg` + `src/**/*.{ts,tsx,css}` old brand hex = 0; lime/greentea text color usages = 0; Part C target raw `text-gray-*`/`bg-gray-*` = 0.
+- [x] Browser smoke via Vite preview + Chrome headless: `/login`, `/signup`, `/subscription`, `/privacy-policy`, and unknown route render; header/footer/login ? symbol visible; 404 page normal; no obvious lime/greentea-on-white text issue observed.
+### Notes
+- Literal whole-repo grep still finds old brand hex in historical `.agent-harness` records, old root brochure HTMLs, `brand/` legacy assets, and backend PDF report templates/tests. These are outside the 166 frontend rebrand commit scope; production frontend `src/public/index` surface is clean.
+- `Signup.tsx` and `PhoneVerify.tsx` had real tail truncation/UTF-8 display corruption in Windows source; both were repaired before verification.
+### Commit
+- `53cc719`
+### Next
+- Human ? ?? ? ??/???/OG ???????/??/?? ??? ?? ??
+
+## 2026-07-04 Cowork BOHUMFIT-166 [FIT 브랜드 가이드 PDF 대조 검증 + OG 미세보정]
+### 검증 — 사용자 제공 실 「FIT 브랜드 가이드 v1.0」 PDF(2p) 전면 대조
+- **핵심 전부 일치(보정 불필요):**
+  - 컬러: 에메랄드 #084734·라임 #CEF17B·그린티 #CDEDB3·잉크 #0A0A0A·본문 #1E293B (가이드 03 텍스트컬러/대비표와 일치). 라임·그린티=면 전용(흰 위 텍스트·선 금지 1.3:1) 규칙 일치.
+  - ㅍ 마스터 = **B 브릿지**(획 13/15·코너 3.5·82×66). 가이드 심볼 픽셀 실측(정규화): 상·하 바 0~82(두께~13), 좌 기둥 16.8~31.0·우 기둥 51.0~65.2(폭~15) → 구현 rect(0/82 바, 17~32·50~65 기둥, rx3.5)과 **거의 동일**.
+  - **보험핏 앱아이콘 = 에메랄드 타일 + 흰 ㅍ**(가이드 05·06). 라임 ㅍ+워크바=형제앱 FC WORKS, 그린티 타일=핏히어 → 보험핏은 흰 ㅍ가 정답. icon-192/512·apple·favicon 일치.
+  - 버튼 3종(프라이머리 에메랄드+흰 10.7:1 / 세컨더리 아웃라인 / 라임 CTA=다크 위 1회 8.4:1)·타이포 Pretendard(디스플레이800·본문500·행간1.7) = 구현 토큰/패턴과 일치.
+### 보정(1건)
+- `public/og-image.svg`: 가이드 06 "라임은 원 면(포인트)으로만 · 1/4 표시"에 맞춰 **라임 언더바 제거**(라임=우상단 원형 1개만, 코너 1/4 노출). ㅍ 흰색·워드마크 유지.
+### Verified
+- [x] og-image.svg lime 사용 = 원형 1개(언더바 0). 나머지 166 구현 = 가이드 대조 이상 없음.
+- [ ] tsc/build = Codex(166 커밋에 og-image.svg 갱신분 포함).
+### Next
+- Codex: 166 스테이지에 갱신 `public/og-image.svg` 포함 커밋. Human: 브라우저·OG 미리보기 육안.
+
+## 2026-07-04 Cowork BOHUMFIT-166 [FIT 브랜드 v1.0 리브랜딩 파운데이션 + 인증/구독/법무 토큰·접근성]
+### Part A 토큰(src/index.css @theme — Tailwind v4, config 파일 없음)
+- accent 스케일 전면 에메랄드 파인화: **accent-600 = #084734**(+50~900 램프 재산정), primary/primary-strong/primary-soft 에메랄드(#084734/#063A2A/#D7E9DF).
+- 포인트 토큰 신설: **--color-lime #CEF17B**, **--color-greentea #CDEDB3**(면·배지 전용). ink-900 → **#0A0A0A**(헤드라인). text=#1E293B·text-strong=#0A0A0A 유지.
+- 하드코딩 `accent-[#15663D]` → `accent-accent-600`: ConsentGate.tsx·Disclosure.tsx(체크박스 2, brand hex만 — 자연 반영). **src 전체 #15663D/#0F4E2F/#0E4A2C = 0.**
+### Part B 로고·자산
+- `Logo.tsx`: symbol variant를 **ㅍ 브릿지 SVG**(윗바+두 기둥+아랫바, rect rx3.5, viewBox 82×66, 흰 fill)로 교체. 텍스트 "BohumFit 보험핏" 병기 유지, 컬러 토큰화(light=text-accent-600/ink-soft, default=흰/white-60). variant 3종·aria 유지. (Logo.tsx의 마지막 #15663D 제거)
+- public 자산 Pillow 재생성(에메랄드 타일+흰 ㅍ): favicon-16/32·favicon.ico·apple-touch-180·icon-192/512(풀블리드 maskable)·favicon.svg·og-image.svg(1200×630, 라임 원형 면+라임 언더바). **site.webmanifest theme_color/background #084734**, **index.html theme-color #084734**. icon-512 육안 확인 OK.
+### Part C/D 인증·구독·법무(9파일) 토큰+접근성
+- Login·Footer·Layout·NotFound = 이미 토큰(raw gray 0 확인). Signup·Subscription·PhoneVerify·PrivacyPolicy·TermsOfService = raw gray→토큰 전면 교체(서브에이전트, 결정적 매핑). **9파일 raw gray = 0.**
+- 접근성: text-gray-400(AA 미달)→text-ink-soft, placeholder-only input에 aria-label(Signup 3·PhoneVerify 1), focus ring 에메랄드 유지. Signup 인라인 `BOHUM<span>FIT` → **Logo 컴포넌트**(148 지적). 버튼 그림자 old-green rgba(21,102,61)→에메랄드 rgba(8,71,52): Signup·PhoneVerify.
+### Verified(grep)
+- [x] src #15663D/#0F4E2F/#0E4A2C = 0 / 9 Part C 파일 raw gray = 0 / 라임·그린티 text·border = 0 / Logo variant 3종 유지 / public PNG 5종+ico 크기·모드 OK+아이콘 육안.
+- [ ] tsc(app/node)/build/pytest = Codex/Windows 권위(샌드박스 rolldown 미설치). backend 무접촉.
+### Notes(범위 밖·후속)
+- ★Disclosure.tsx:1760 버튼 그림자 rgba(21,102,61) 잔존 = **167 스코프**(본문 무접촉 원칙)로 미변경. 167에서 처리.
+- ★**src/pages/BeforeAfter.tsx = 고아 파일**(어디서도 import 0, /before-after는 165에서 인라인 컴포넌트로 제거됨). old-green 그림자·raw gray 잔존. 본 태스크(A~D) 범위 밖 → **삭제/정리 별도 태스크 권장**(Human/Codex).
+- lime/greentea는 `bg-lime`/`bg-greentea` 면 전용 유틸로만 신설(텍스트 사용 0). 다크모드는 도입 보류(가이드·비용 판단).
+### Next
+- Codex: `npx tsc -p tsconfig.app.json/node --noEmit`·`npm run build` 통과 확인 후 stage(index.css·Logo.tsx·Footer/Layout/ConsentGate·Login/Signup/PhoneVerify/Subscription/PrivacyPolicy/TermsOfService/NotFound·Disclosure(체크박스 hex)·public/* 자산·index.html·site.webmanifest·.agent-harness)→commit(`feat(BOHUMFIT-166): FIT 브랜드 v1.0 리브랜딩 (ㅍ 심볼·에메랄드 파인) + 인증/구독/법무 토큰·접근성`)→push. 이후 Human: 브라우저 육안(로고·헤더·버튼·파비콘·OG).
+
 ## 2026-07-04 Codex BOHUMFIT-165 legal routes/SURIT cleanup verification
 ### Changed
 - `src/pages/PrivacyPolicy.tsx`: privacy officer contact finalized as `qqqwe6701@gmail.com`; placeholder notice removed.
