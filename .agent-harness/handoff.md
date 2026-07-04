@@ -1,3 +1,51 @@
+## 2026-07-04 Codex BOHUMFIT-168 Windows verification
+### Changed
+- `backend/pipeline/result_builder.py`: Q2 추가검사/재검사 소견 전용 항목을 summary_reports 반환 직전에 제거하고, 실제 고지 근거가 함께 있는 항목은 유지하되 소견 필드만 비움.
+- `backend/tests/test_recheck_removal_168.py`: 소견만 제거, 투약/수술 병존 유지, 무소견 불변 4개 회귀 추가.
+- `backend/tests/test_ai_q2_only.py`: AI Q2 소견 전용 항목은 결과에서 제거되는 새 스펙으로 반전.
+- `backend/tests/test_build_pool_qraw_guard.py`, `backend/tests/test_q_restructure.py`: BOHUMFIT-168 스펙에 맞게 남아 있던 기존 Q2 소견 유지 기대값을 갱신.
+- `src/pages/Disclosure.tsx`, `src/pages/Disclosure.test.tsx`: 추가검사/재검사 소견 표시 UI와 fixture 잔여 제거.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` PASS.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` PASS.
+- [x] `npm run build` PASS (기존 Vite chunk-size warning만).
+- [x] `npm test` PASS: 53 passed.
+- [x] `cd backend && python -m pytest -q` PASS: 462 passed, 8 skipped.
+- [x] `cd backend && python -m pytest -q tests/test_recheck_removal_168.py -vv` PASS: 4 passed.
+- [x] `cd backend && python -m pytest -q tests/test_ai_q2_only.py -vv` PASS: 5 passed.
+- [x] `cd backend && python -m pytest -q tests/test_build_pool_qraw_guard.py tests/test_q_restructure.py -vv` PASS: 22 passed.
+- [x] `src/pages/Disclosure.tsx` grep: `examOpen`, `shouldShowClinicalReview`, `getClinicalReviewState`, `additional_test_hit`, `q2_suspicion`, `additional_tests`, `additional_test_reason`, `exam_check_only` = 0.
+### Notes
+- Q2 소견은 Gemini API로 생성됨 — 현재 호출 유지·출력만 차단. 호출 비활성화 여부는 Human 결정 대기 (비용 이슈).
+- 확정 신규 backend pytest 기준선: 462 passed, 8 skipped.
+- 실 PDF 자동 분석/PDF 생성 smoke는 PII·인증 흐름 때문에 Windows 자동화에서는 생략. 결과 생성 경로는 result_builder 회귀와 전체 pytest로 확인했으며, 배포 후 실제 PDF E2E에서 최종 육안 확인 필요.
+### Commit
+- pending
+### Next
+- Human — 배포 후 실 PDF로 소견 미표시 확인 + Gemini 호출 중단 여부 결정. 이후 167b(Disclosure 리브랜딩).
+
+## 2026-07-04 Cowork BOHUMFIT-168 [추가검사/재검사 소견 항목 결과에서 완전 제거]
+### Step 0 진단
+- 소견 경로: disease_aggregator 감지(`_additional_test_result`·`q2_suspicion`) → result_builder `_build_reports_for_product`가 항목마다 `exam_check_only=(q=="Q2") and (add_test_hit|reason|q2_suspicion)` 부여 → 출력. 현행: main.py `_build_kakao_message`가 exam_check_only를 카카오에서만 제외, 프런트는 [B]'설계사 확인 필요'+142 '상세 소견 확인' 접기로 노출.
+- ★외부 API: **Q2 추가검사·재검사 소견은 Gemini(ai_judgment.py `_call_q2_health_findings`)에서 생성**. 감지(API)는 무접촉, 출력만 차단(되돌림 용이).
+- 최소 절개점: `_build_reports_for_product` return 직전(build_summary_reports가 health/easy 양쪽에 사용) → 전 채널(화면·카카오·PDF) 일괄 반영. Q5 insurance_only 판정 이후 실행해 부수효과 차단.
+### Step 1 백엔드 (backend/pipeline/result_builder.py)
+- 신규 헬퍼 `_strip_exam_check_only_reports(summary_reports)` + return 직전 호출. 소견만=제외 / 실근거(입원·수술·수술의심·투약·치료지속) 병존=항목 유지 + 소견필드 비움.
+- 신규 `backend/tests/test_recheck_removal_168.py` 4케이스(a 소견만 제외·b 소견+투약 유지·b2 소견+수술 유지·c 무소견 불변) — **샌드박스 pytest 4 passed**.
+- main.py 카카오 필터는 방어적으로 유지(test_exam_check_only_128 무영향).
+### Step 2 프런트 (src/pages/Disclosure.tsx)
+- 142 소견 UI 전면 제거: examOpen state·'상세 소견 확인' 접기·clinicalReview 칩·[B]'설계사 확인 필요 항목' 섹션·helper 3종+ClinicalReviewState 타입·SummaryItem 소견필드 4개·투어 문구. hasClinicalChips/hasBottom는 실제 내용(시술·수술의심·치료) 기준 재정의(빈 박스 방지). ★스타일 토큰 무변경(167b 별도).
+- grep: Disclosure.tsx 소견 식별자 잔여 0(168 주석 3개 제외). src 전체 소견 식별자 0.
+### 수정된 기존 테스트
+- `tests/test_ai_q2_only.py`: `test_ai_q2_kept`(AI Q2 소견 유지 전제) → `test_ai_q2_suspicion_only_removed`(소견만 제거로 스펙 반전). 나머지 4는 'AI 드롭' 전제라 무영향.
+- `src/pages/Disclosure.test.tsx`: mock fixture의 `additional_test_hit: false` 제거(타입 삭제 정합). 투어 테스트라 소견 assert 없음.
+### Verified / 기준선
+- [x] 샌드박스: test_recheck_removal_168 4 passed · Disclosure/src 소견 grep 0.
+- [ ] 전체 pytest: 샌드박스 마운트 truncation(build_summary_reports 441줄 이후 절단→None) 탓 analyzer 경로 7건 실패는 **환경 artifact**(실파일 485줄 정상 확인, 헬퍼는 _build_reports_for_product/94~330에 위치). tsc/build 포함 Codex/Windows 권위.
+- ★신규 기준선(Codex 확인 요망): backend +4(신규)·test_ai_q2_only 1건 스펙 반전 → 458→**462 passed/8 skipped** 예상. npm test는 Disclosure.test 통과 유지.
+### Next
+- Codex: pytest -q / tsc app·node / build 통과 후 stage(result_builder.py·test_recheck_removal_168·test_ai_q2_only.py·Disclosure.tsx·Disclosure.test.tsx·task·handoff·locks)→commit(`feat(BOHUMFIT-168): 추가검사/재검사 소견 항목 분석 결과에서 완전 제거`)→push. 실 PDF 육안(설계사 확인 섹션·상세 소견 버튼 소거)은 Human.
+
 ## 2026-07-04 Codex BOHUMFIT-167a remaining pages rebrand verification
 ### Changed
 - `src/pages/InsuranceCalculator.tsx`: raw gray classes replaced with FIT v1.0 tokens (`text-ink-*`, `border-line`, `bg-ink-*`); logic and copy unchanged.

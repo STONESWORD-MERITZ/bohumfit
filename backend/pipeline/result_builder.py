@@ -285,7 +285,47 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
                     and _r["code"] not in _non_q5_codes:
                 _r["insurance_only"] = True
 
+    # BOHUMFIT-168: 추가검사/재검사 소견(exam_check_only) 항목을 결과에서 제거한다.
+    #   Q5 insurance_only 판정(위) 이후에 호출해 부수효과(코드 재판정)를 막는다.
+    _strip_exam_check_only_reports(summary_reports)
     return summary_reports, flagged_codes
+
+
+def _strip_exam_check_only_reports(summary_reports):
+    """BOHUMFIT-168: exam_check_only(추가검사/재검사 소견) 항목을 분석 결과에서 제거.
+
+    - 소견 근거만 있는 항목  → 결과에서 완전 제외(무조건 미출력).
+    - 실제 근거(입원·수술·수술의심·투약·치료지속) 병존 항목
+                              → 병력은 유지하되 소견 관련 필드만 비운다.
+    소견과 무관하게 잡힌(exam_check_only=False) 항목은 그대로 둔다.
+    summary_reports 를 제자리(in-place) 수정하고 동일 객체를 반환한다.
+    """
+    for _qt in list(summary_reports.keys()):
+        _kept = []
+        for _it in summary_reports[_qt]:
+            if not _it.get("exam_check_only"):
+                _kept.append(_it)
+                continue
+            _has_hard_basis = (
+                (_it.get("inpatient") or 0) > 0
+                or (_it.get("inpatient_count") or 0) > 0
+                or bool(_it.get("surgeries"))
+                or (_it.get("surgery_count") or 0) > 0
+                or bool(_it.get("surgery_suspected"))
+                or (_it.get("med_days") or 0) > 0
+                or _it.get("treatment_ongoing") is True
+            )
+            if _has_hard_basis:
+                # 실제 근거 병존 → 항목 유지, 소견 관련 필드 제거
+                _it["exam_check_only"] = False
+                _it["q2_suspicion"] = ""
+                _it["additional_test_hit"] = False
+                _it["additional_test_reason"] = ""
+                _it["additional_tests"] = []
+                _kept.append(_it)
+            # else: 소견만 있는 항목 → 결과에서 제외(미추가)
+        summary_reports[_qt] = _kept
+    return summary_reports
 
 
 def _build_all_disease_summary(disease_stats):

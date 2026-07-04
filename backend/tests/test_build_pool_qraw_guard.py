@@ -51,7 +51,7 @@ def test_ai_item_with_none_q_does_not_crash():
 
 
 # ── ② 정상 q="Q2" AI 항목은 그대로 유지(방어가 정상 항목을 버리지 않음) ──────
-def test_valid_ai_q2_item_preserved():
+def test_valid_ai_q2_item_removed_from_output():
     ds = _stats_with_visit("J32", "부비동염", ["2026-03-01"])  # Q2 1년 창 이내
     ai_result = {"flagged_items": [
         {"code": "J32", "disease": "부비동염", "duty_question": "Q2", "_source": "ai",
@@ -59,7 +59,8 @@ def test_valid_ai_q2_item_preserved():
         {"code": "J33", "disease": "비용종", "duty_question": None, "_source": "ai", "date": "2026-03-01"},
     ]}
     std, _e, _f, _m = build_summary_reports(ds, [], [], ai_result, PRODUCT, TODAY)
-    assert Q2 in std and any(r["code"] == "J32" for r in std[Q2])
+    assert all(r["code"] != "J32" for rows in std.values() for r in rows)
+    assert std.get(Q2, []) == []
 
 
 # ── ③ 결정론 항목 q=None 이면 skip(경고)하되 전체는 살아있음 ───────────────

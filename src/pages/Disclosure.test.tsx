@@ -34,7 +34,6 @@ const mockAnalyzeResult = {
         surgeries: [],
         procedures: [],
         surgery_suspected: [],
-        additional_test_hit: false,
         treatment_ongoing: null,
         hospitals: ["가보자한의원"],
         first_hospital: "명제한의원",

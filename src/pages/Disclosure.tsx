@@ -64,10 +64,6 @@ type SummaryItem = {
   surgery_suspected?: string[];
   surgery_suspected_grade?: string;  // BOHUMFIT-033: 공단 수술의심 등급(강/약/"")
   insurance_only?: boolean;          // BOHUMFIT-039: 직장·항문(Q5만)→실손 가입 시에만 고지
-  additional_test_hit?: boolean;
-  additional_test_reason?: string;
-  exam_check_only?: boolean;         // BOHUMFIT-128: Q2 추가검사·재검사 확인용(고지 대상 아님)
-  q2_suspicion?: string;
   treatment_ongoing?: boolean | null;
   treatment_ongoing_reason?: string;
   hospitals: string[];
@@ -279,53 +275,7 @@ function getMetricVisibility(item: SummaryItem, qNum: string, isEasy: boolean) {
   };
 }
 
-function shouldShowClinicalReview(qNum: string, isEasy: boolean) {
-  if (isEasy) return qNum === "Q1";
-  return qNum === "Q1" || qNum === "Q2";
-}
-
-type ClinicalReviewState = {
-  label: string;
-  tone: string;
-  text: string;
-};
-
-function stripClinicalLikelihoodPrefix(text: string): string {
-  return text.replace(/^\[추가검사·재검사 가능성 (높음|낮음)\]\s*/, "").trim();
-}
-
-function getClinicalReviewState(item: SummaryItem): ClinicalReviewState {
-  const rawText = (item.q2_suspicion || item.additional_test_reason || "").trim();
-  const cleanText = stripClinicalLikelihoodPrefix(rawText);
-  const isLow = rawText.includes("가능성 낮음") || (!item.additional_test_hit && !!item.additional_test_reason);
-  const isHigh = Boolean(item.additional_test_hit) || rawText.includes("가능성 높음") || (!!item.q2_suspicion && !isLow);
-
-  if (isHigh) {
-    return {
-      label: "추가검사·재검사 가능성 높음",
-      tone: "indigo",
-      text: cleanText
-        ? `자동 분석: 가능성 높음 - ${cleanText}`
-        : "자동 분석상 추가검사·재검사 필요 소견 가능성이 높습니다.",
-    };
-  }
-
-  if (isLow) {
-    return {
-      label: "추가검사·재검사 가능성 낮음",
-      tone: "gray-light",
-      text: cleanText
-        ? `자동 분석: 가능성 낮음 - ${cleanText}`
-        : "자동 분석상 추가검사·재검사 필요 소견 가능성은 낮습니다.",
-    };
-  }
-
-  return {
-    label: "추가검사·재검사 가능성 미확인",
-    tone: "gray-light",
-    text: "검사 시행 여부와 관계없이, 의사로부터 추가검사나 재검사가 필요하다는 소견 또는 권유를 받으셨는지 고객에게 직접 확인해 주세요.",
-  };
-}
+// BOHUMFIT-168: Q2 소견 표시 제거.
 
 function AllDiseaseSection({ diseases }: { diseases: DiseaseSummary[] }) {
   const [open, setOpen] = useState(false);
@@ -412,12 +362,10 @@ function AllDiseaseSection({ diseases }: { diseases: DiseaseSummary[] }) {
 
 function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: string; isEasy?: boolean }) {
   const risk = riskOf(item);
-  const [examOpen, setExamOpen] = useState(false); // BOHUMFIT-142: 추가검사·재검사 소견 상세 접기/펼치기(기본 접힘)
   const surgN = item.surgery_count ?? item.surgeries?.length ?? 0;
   const procN = item.procedures?.length ?? 0;
   const suspN = item.surgery_suspected?.length ?? 0;
   const metric = getMetricVisibility(item, qNum, isEasy);
-  const showClinicalReview = shouldShowClinicalReview(qNum, isEasy);
   const period = item.first_date && item.latest_date && item.first_date !== item.latest_date
     ? `${item.first_date} ~ ${item.latest_date}`
     : (item.first_date || "");
@@ -428,9 +376,10 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
     : { Q1: "3개월 이내", Q2: "1년 이내", Q3: "5년 이내", Q4: "5년 초과 10년 이내", Q5: "5년 이내" };
   const windowLabel = windowLabels[qNum] || "";
   const windowTip = windowLabel ? `가입예정일 기준 ${windowLabel} 집계입니다.` : undefined;
-  const clinicalReview = getClinicalReviewState(item);
-  const hasClinicalChips = showClinicalReview;
-  const hasBottom = showClinicalReview;
+  // BOHUMFIT-168: 추가검사·재검사 소견 표시 제거 — 칩/하단 블록은 실제 내용(시술·수술의심·치료) 유무로만 노출.
+  const hasTreatment = item.treatment_ongoing === true || item.treatment_ongoing === false;
+  const hasClinicalChips = procN > 0 || suspN > 0 || hasTreatment;
+  const hasBottom = suspN > 0 || (hasTreatment && !!item.treatment_ongoing_reason);
 
   return (
     <article className={`border-l-4 px-5 py-4 transition-colors duration-200 hover:bg-green-50/40 ${RISK[risk].border}`}>
@@ -509,7 +458,6 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
         <div className="flex flex-wrap gap-2">
           {procN > 0 && <Chip label={`시술 ${procN}건`} tone="orange" />}
           {suspN > 0 && <Chip label={`수술 의심 ${suspN}건`} tone="gray-light" />}
-          <Chip label={clinicalReview.label} tone={clinicalReview.tone} />
           {item.treatment_ongoing === true && <Chip label="치료 중" tone="rose" />}
           {item.treatment_ongoing === false && <Chip label="종결" tone="emerald" />}
         </div>
@@ -522,28 +470,6 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
               <span className="mr-1.5 text-gray-400">의심 행위</span>
               {item.surgery_suspected!.slice(0, 3).join(", ")}
             </p>
-          )}
-          {/* BOHUMFIT-142: 메인엔 '미확인' 배지(사실)만 두고, 소견 상세는 접기/펼치기 부록으로 분리(기본 접힘) */}
-          <button
-            type="button"
-            onClick={() => setExamOpen((o) => !o)}
-            aria-expanded={examOpen}
-            className="inline-flex w-fit items-center gap-1 rounded-[6px] px-1.5 py-0.5 text-[11px] font-semibold text-gray-600 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
-          >
-            상세 소견 확인 {examOpen ? "▲" : "▼"}
-          </button>
-          {examOpen && (
-            <>
-              <p className={clinicalReview.tone === "indigo" ? "text-accent-600" : "text-gray-500"}>
-                <span className={clinicalReview.tone === "indigo" ? "mr-1.5 text-accent-300" : "mr-1.5 text-gray-400"}>
-                  소견 확인
-                </span>
-                {clinicalReview.text}
-              </p>
-              <p className="text-[11px] text-gray-400">
-                ※ 실제 검사 시행 여부와 별개로, 의사의 추가검사·재검사 필요 소견 또는 권유가 있었는지 확인하는 항목입니다.
-              </p>
-            </>
           )}
           {item.treatment_ongoing === true && item.treatment_ongoing_reason && (
             <p className="text-rose-600">
@@ -623,9 +549,8 @@ function DisclosureSection({
               if (al !== bl) return bl.localeCompare(al);
               return (b.first_date || "").localeCompare(a.first_date || "");
             });
-            // BOHUMFIT-128: Q2 추가검사·재검사 확인용 항목은 [B] 설계사 참고용으로 분리(고지 항목 [A]와 구분)
-            const normalItems = sortByDate(items.filter((it) => !it.exam_check_only));
-            const examItems = sortByDate(items.filter((it) => it.exam_check_only));
+            // BOHUMFIT-168: 추가검사·재검사 소견([B]) 분리 제거 — 결과 항목만 그대로 렌더.
+            const normalItems = sortByDate(items);
             return (
               <section key={qTitle} className="overflow-hidden rounded-[8px] bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
                 <div className="flex items-center gap-2.5 border-b border-gray-100 px-5 py-3.5">
@@ -637,19 +562,6 @@ function DisclosureSection({
                     {normalItems.map((item, idx) => (
                       <DiseaseCard key={`${item.code}-${idx}`} item={item} qNum={qNum} isEasy={isEasy} />
                     ))}
-                  </div>
-                )}
-                {examItems.length > 0 && (
-                  <div className="border-t border-amber-200 bg-amber-50/60 px-5 py-4">
-                    <p className="text-sm font-bold text-amber-800">설계사 확인 필요 항목</p>
-                    <p className="mt-1 text-xs leading-relaxed text-amber-700">
-                      고지 대상은 아니나 아래 질병에 대해 의사의 추가검사·재검사 소견 또는 권유가 있었는지 고객에게 직접 확인해 주세요.
-                    </p>
-                    <div className="mt-3 divide-y divide-amber-100 overflow-hidden rounded-[8px] border border-amber-100 bg-white/70">
-                      {examItems.map((item, idx) => (
-                        <DiseaseCard key={`exam-${item.code}-${idx}`} item={item} qNum={qNum} isEasy={isEasy} />
-                      ))}
-                    </div>
                   </div>
                 )}
               </section>
@@ -1317,7 +1229,7 @@ const postTourSteps: TourStep[] = [
   {
     target: "cards",
     title: "하단 병력 확인하기",
-    body: "질병별 카드에서 통원, 입원, 수술, 투약, 추가검사 의심 내용을 최종 확인합니다.",
+    body: "질병별 카드에서 통원, 입원, 수술, 투약 내용을 최종 확인합니다.",
   },
 ];
 

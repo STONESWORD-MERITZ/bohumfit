@@ -61,14 +61,16 @@ def test_ai_non_q2_dropped_general():
     assert "I10" not in _codes_in(std, Q5_TITLE)
 
 
-# ── AI Q2(추가검사 의심)는 정상 표시 ─────────────────────────────────────
-def test_ai_q2_kept():
+# ── BOHUMFIT-168: 소견만 있는 AI Q2(추가검사·재검사)는 결과에서 제거 ──────
+def test_ai_q2_suspicion_only_removed():
+    """BOHUMFIT-168: 소견만 있고 다른 근거 없는 AI Q2 항목은 결과에서 완전 제거.
+    (구 BOHUMFIT-038 test_ai_q2_kept — Q2 소견 표시 스펙 폐지)."""
     ds = {"K29": mk("K29", "위염", visits=[_ymd(60)])}
     ai = [{"code": "K29", "disease": "위염", "duty_question": "Q2",
            "reason": "1년이내 확정진단", "q2_suspicion": "위내시경 재검 권고",
            "_source": "ai", "date": _ymd(60)}]
     std = _std(ds, [], ai)
-    assert "K29" in _codes_in(std, Q2_TITLE)        # AI Q2는 유지
+    assert "K29" not in _codes_in(std, Q2_TITLE)    # 소견만 → 결과에서 제거(168)
 
 
 # ── ★ Q5 중대질병 = 결정론 코드매칭만(I10→Q5, E78→Q5 미표시) ─────────────
