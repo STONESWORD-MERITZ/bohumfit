@@ -6,7 +6,7 @@ Use this file to record active Codex file ownership during a task.
 
 
 ### Released
-- 2026-07-04 `BOHUMFIT-167a` - Codex - Windows verification passed; protected-route smoke noted; commit pending; active none.
+- 2026-07-04 `BOHUMFIT-167a` - Codex - Windows verification passed; protected-route smoke noted; commit `1c4de36`; active none.
 - 2026-07-04 `BOHUMFIT-167a` - Cowork - 완료. 잔여 페이지 리브랜딩: InsuranceCalculator·CoverageAnalysis raw gray→166 토큰(+aria-label 2: 파일 업로드·카테고리 select). 나머지 8 대상(Home·HomeMission·DisclosureHub·CoverageCompare·CoverageGuide·DownloadGuide·ReportSample·WhyDisclosure·InsuranceLinks)은 이미 토큰(0건). Disclosure(143)·BeforeAfter(22 고아)는 무접촉. grep: 대상 raw gray 0·#15663D 0·라임 text 0. tsc/build·커밋 Codex.
 - 2026-07-04 `BOHUMFIT-166` - Codex - Windows verification passed; Logo ? symbol/header-footer smoke fixed; commit `1aba27d`; active none.
 - 2026-07-04 `BOHUMFIT-166-verify` - Cowork - 실 가이드 PDF 대조 완료: 컬러·ㅍ 심볼(B 브릿지 픽셀 실측 일치)·보험핏 앱아이콘(에메랄드+흰 ㅍ, 라임 ㅍ는 형제앱 FC WORKS)·버튼·타이포 전부 일치. 보정 1건: og-image.svg 라임 언더바 제거(원형 면만). tsc/build·커밋 Codex.
