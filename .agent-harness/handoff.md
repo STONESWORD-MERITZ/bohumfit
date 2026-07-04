@@ -20,7 +20,7 @@
 - 확정 신규 backend pytest 기준선: 462 passed, 8 skipped.
 - 실 PDF 자동 분석/PDF 생성 smoke는 PII·인증 흐름 때문에 Windows 자동화에서는 생략. 결과 생성 경로는 result_builder 회귀와 전체 pytest로 확인했으며, 배포 후 실제 PDF E2E에서 최종 육안 확인 필요.
 ### Commit
-- pending
+- `fbfce1e`
 ### Next
 - Human — 배포 후 실 PDF로 소견 미표시 확인 + Gemini 호출 중단 여부 결정. 이후 167b(Disclosure 리브랜딩).
 

@@ -7,7 +7,7 @@ Use this file to record active Codex file ownership during a task.
 - (none)
 
 ### Released
-- 2026-07-04 `BOHUMFIT-168` - Codex - Windows verification passed; frontend tsc/node/build/npm test and backend pytest `462 passed, 8 skipped`; scoped commit pending hash in handoff.
+- 2026-07-04 `BOHUMFIT-168` - Codex - Windows verification passed; frontend tsc/node/build/npm test and backend pytest `462 passed, 8 skipped`; commit `fbfce1e`.
 - 2026-07-04 `BOHUMFIT-168` - Cowork - 완료. 소견(exam_check_only) 항목 결과 제거: result_builder `_strip_exam_check_only_reports`(소견만 제외/실근거 병존 유지+필드제거)+test_recheck_removal_168(4 passed). 프런트 Disclosure 142 소견 UI 전면 제거([B]·접기·칩·helper·타입4). test_ai_q2_only 1건 스펙 반전, Disclosure.test fixture 정합. API=Gemini(감지 무접촉). 전체 pytest/tsc/build·커밋은 Codex(기준선 458→462 예상). ★스타일은 167b.
 - 2026-07-04 `BOHUMFIT-167a` - Codex - Windows verification passed; protected-route smoke noted; commit `1c4de36`; active none.
 - 2026-07-04 `BOHUMFIT-167a` - Cowork - 완료. 잔여 페이지 리브랜딩: InsuranceCalculator·CoverageAnalysis raw gray→166 토큰(+aria-label 2: 파일 업로드·카테고리 select). 나머지 8 대상(Home·HomeMission·DisclosureHub·CoverageCompare·CoverageGuide·DownloadGuide·ReportSample·WhyDisclosure·InsuranceLinks)은 이미 토큰(0건). Disclosure(143)·BeforeAfter(22 고아)는 무접촉. grep: 대상 raw gray 0·#15663D 0·라임 text 0. tsc/build·커밋 Codex.
