@@ -2,6 +2,7 @@
 #  실제 Gemini 호출 불가 → genai.Client mock으로 게이팅/프롬프트/파싱/폴백 검증.
 import asyncio
 import json
+import os
 import pathlib
 
 import pipeline.ai_judgment as aij
@@ -23,6 +24,7 @@ class _FakeClient:
 def _run_with_mock(findings_json, raise_exc=False):
     cap = {}
     orig = aij.genai.Client
+    os.environ["ENABLE_Q2_AI_JUDGMENT"] = "true"  # BOHUMFIT-169: 이 테스트는 on 경로(기존 Gemini 게이팅/파싱) 검증
     class _BoomModels:
         def generate_content(self, **kw): raise RuntimeError("gemini down")
     class _BoomClient:
@@ -37,6 +39,7 @@ def _run_with_mock(findings_json, raise_exc=False):
         return out, cap
     finally:
         aij.genai.Client = orig
+        os.environ.pop("ENABLE_Q2_AI_JUDGMENT", None)  # BOHUMFIT-169: 플래그 원복(기본 off)
 
 
 _HIGH = json.dumps({"findings": [{"disease_code": "K29", "possibility": "높음", "suspicion": "위내시경 재검"}]})

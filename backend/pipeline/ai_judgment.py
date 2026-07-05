@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
 
 from google import genai
@@ -316,6 +317,16 @@ async def _call_medical_judgment(
 
 
 
+def _q2_ai_judgment_enabled() -> bool:
+    """BOHUMFIT-169: Q2 추가검사·재검사 소견용 Gemini 호출 on/off 플래그(기본 off).
+
+    BOHUMFIT-168에서 소견을 분석 결과에서 완전 제거했으므로, 소견 생성용 Gemini
+    호출은 결과에 영향이 없다 → 비용 절감 위해 기본 비활성. 프롬프트/파싱 로직은 보존.
+    재활성화: 환경변수 ENABLE_Q2_AI_JUDGMENT=true (또는 1/yes/on).
+    """
+    return os.environ.get("ENABLE_Q2_AI_JUDGMENT", "false").strip().lower() in ("1", "true", "yes", "on")
+
+
 async def _call_q2_health_findings(q2_items: list[dict], reference_date, api_key: str) -> dict:
     """BOHUMFIT-009: Q2 건강체 항목별 '추가검사·재검사 의심 소견' 텍스트 생성.
 
@@ -325,6 +336,10 @@ async def _call_q2_health_findings(q2_items: list[dict], reference_date, api_key
 
     반환: {disease_code: suspicion_text} 매핑. 호출 실패 시 빈 dict.
     """
+    # BOHUMFIT-169: 플래그 off(기본)면 Gemini 호출 없이 '의심 없음'(빈 dict) 반환.
+    #   168 이후 소견은 결과에서 제거되므로 출력 변화 0, Gemini 호출 비용만 절감.
+    if not _q2_ai_judgment_enabled():
+        return {}
     if not q2_items:
         return {}
 

@@ -7,6 +7,8 @@ Use this file to record active Codex file ownership during a task.
 - (none)
 
 ### Released
+- 2026-07-05 `BOHUMFIT-169` - Codex - Windows verification passed; frontend tsc/node/build and backend pytest `466 passed, 8 skipped`; scoped commit pending hash in handoff.
+- 2026-07-04 `BOHUMFIT-169` - Cowork - 완료. ai_judgment.py `_q2_ai_judgment_enabled()`(env ENABLE_Q2_AI_JUDGMENT 기본 off) + `_call_q2_health_findings` 조기반환({}). Q2 소견 Gemini만 차단(출력 변화 0), treatment_ongoing 산출 `_call_medical_judgment`는 유지. test_gemini_disable_169(신규 4)·test_q2_ai_gate(on 명시). /tmp 로직 OK, 실모듈은 mount truncation(line519)로 Codex/Windows 권위. 기준선 462→466 예상. Railway 기본 off라 무설정.
 - 2026-07-04 `BOHUMFIT-168` - Codex - Windows verification passed; frontend tsc/node/build/npm test and backend pytest `462 passed, 8 skipped`; commit `fbfce1e`.
 - 2026-07-04 `BOHUMFIT-168` - Cowork - 완료. 소견(exam_check_only) 항목 결과 제거: result_builder `_strip_exam_check_only_reports`(소견만 제외/실근거 병존 유지+필드제거)+test_recheck_removal_168(4 passed). 프런트 Disclosure 142 소견 UI 전면 제거([B]·접기·칩·helper·타입4). test_ai_q2_only 1건 스펙 반전, Disclosure.test fixture 정합. API=Gemini(감지 무접촉). 전체 pytest/tsc/build·커밋은 Codex(기준선 458→462 예상). ★스타일은 167b.
 - 2026-07-04 `BOHUMFIT-167a` - Codex - Windows verification passed; protected-route smoke noted; commit `1c4de36`; active none.

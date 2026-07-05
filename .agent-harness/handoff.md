@@ -1,3 +1,35 @@
+## 2026-07-05 Codex BOHUMFIT-169 Windows verification
+### Changed
+- `backend/pipeline/ai_judgment.py`: `ENABLE_Q2_AI_JUDGMENT` 플래그 추가. 기본값 off에서 `_call_q2_health_findings`는 Gemini 호출 없이 `{}` 반환.
+- `backend/tests/test_gemini_disable_169.py`: 기본 off 호출 차단, off 결과 불변, on 기존 경로 유지, 플래그 파싱 4개 회귀 추가.
+- `backend/tests/test_q2_ai_gate.py`: 기존 Q2 Gemini 게이트/파싱 테스트는 `ENABLE_Q2_AI_JUDGMENT=true`를 명시해 on 경로 검증으로 유지.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` PASS.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` PASS.
+- [x] `npm run build` PASS (기존 Vite chunk-size warning만).
+- [x] `cd backend && python -m pytest -q` PASS: 466 passed, 8 skipped.
+- [x] `cd backend && python -m pytest -q tests/test_gemini_disable_169.py -vv` PASS: 4 passed.
+- [x] `cd backend && python -m pytest -q tests/test_q2_ai_gate.py -vv` PASS: 8 passed.
+- [x] `cd backend && python -m pytest -q tests/test_recheck_removal_168.py -vv` PASS: 4 passed.
+- [x] Mock 계측: env 미설정 기본 off에서 `_call_q2_health_findings` 결과 `{}`, Gemini client 호출 0회.
+- [x] Mock 계측: `_call_medical_judgment`는 호출 1회로 유지되어 `treatment_ongoing` 소싱 경로 보존 확인.
+### Notes
+- ENABLE_Q2_AI_JUDGMENT 기본 off — Railway 별도 설정 불필요, 재활성화 시 true 설정.
+- `_call_medical_judgment`는 treatment_ongoing 소싱으로 유지 — additional_tests 절반 절감은 Human 판단 대기 (후속 옵션).
+- 확정 신규 backend pytest 기준선: 466 passed, 8 skipped.
+- 실제 처방 PDF 자동 분석 smoke는 PII·인증 흐름 때문에 Windows 자동화에서는 생략. 호출 차단/출력 불변 핵심은 mock 계측과 168/169 회귀로 확인.
+### Commit
+- pending
+### Next
+- Human — 배포 후 분석 결과 불변 확인. 다음 170(v1.1 델타)·167b.
+
+## 2026-07-04 Cowork BOHUMFIT-169 [Q2 소견용 Gemini 호출 비활성화]
+### Summary
+- Step 0 진단: `_call_q2_health_findings`는 168 이후 출력에 쓰이지 않는 Q2 소견만 생성하므로 비용 절감을 위해 차단 가능. `_call_medical_judgment`는 `treatment_ongoing` 소싱으로 유지 필요.
+- 구현: `ENABLE_Q2_AI_JUDGMENT` env 플래그(기본 off), off일 때 `_call_q2_health_findings`가 Gemini 호출 없이 `{}` 반환. true/1/yes/on일 때 기존 경로 유지.
+- 테스트: `test_gemini_disable_169.py` 4건 추가, `test_q2_ai_gate.py`는 플래그 on 경로로 수정.
+### Next
+- Codex Windows 권위 검증 후 scoped commit/push.
 ## 2026-07-04 Codex BOHUMFIT-168 Windows verification
 ### Changed
 - `backend/pipeline/result_builder.py`: Q2 추가검사/재검사 소견 전용 항목을 summary_reports 반환 직전에 제거하고, 실제 고지 근거가 함께 있는 항목은 유지하되 소견 필드만 비움.
