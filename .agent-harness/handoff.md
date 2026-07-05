@@ -19,7 +19,7 @@
 - 확정 신규 backend pytest 기준선: 466 passed, 8 skipped.
 - 실제 처방 PDF 자동 분석 smoke는 PII·인증 흐름 때문에 Windows 자동화에서는 생략. 호출 차단/출력 불변 핵심은 mock 계측과 168/169 회귀로 확인.
 ### Commit
-- pending
+- `dc24b1f`
 ### Next
 - Human — 배포 후 분석 결과 불변 확인. 다음 170(v1.1 델타)·167b.
 
