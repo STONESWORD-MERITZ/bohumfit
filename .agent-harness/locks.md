@@ -7,7 +7,7 @@ Use this file to record active Codex file ownership during a task.
 - (none)
 
 ### Released
-- 2026-07-06 `BOHUMFIT-172` - Codex - Windows verification passed; frontend tsc app/node, build, npm test `53 passed`, backend pytest `480 passed, 8 skipped`; commit `PENDING_HASH`. Active none.
+- 2026-07-06 `BOHUMFIT-172` - Codex - Windows verification passed; frontend tsc app/node, build, npm test `53 passed`, backend pytest `480 passed, 8 skipped`; commit `8f6e14a`. Active none.
 - 2026-07-06 `BOHUMFIT-172` - Cowork - 완료. 진입점 통합: 허브 모드 탭 줄 우측 [분석 히스토리(data-tour=history)][필터 가이드 다시보기] 고스트 2버튼(replay는 onRegisterReplay 콜백 등록·flex-wrap 자연 줄바꿈), Disclosure 중복 행 제거. 투어 pre 스텝 +1(히스토리 안내 — 10건·7일·90일 수치, 기존 5스텝 무변경, 빈 슬롯 3 채워져 1~6 연속·오버레이 무수정). Disclosure.test 시퀀스 +1 정합(범위 추가 사유 handoff 기록). 진입점 grep 1개·raw gray 0·백엔드 무변경(480/8). tsc/build/test·커밋은 Codex/Windows 권위.
 - 2026-07-06 `BOHUMFIT-171a/171b` - Codex - Windows verification passed; frontend tsc app/node, build, npm test `53 passed`, backend pytest `480 passed, 8 skipped`; combined commit `12e1a83`. Active none.
 - 2026-07-06 `BOHUMFIT-171b` - Cowork - 완료. 히스토리 2트랙: backend(track 파라미터·recent 10 롤링·7일 lazy·PATCH 승격+한도·analyze 자동 기록[완전 격리·실명 제거]·CORS PATCH·saved 한도 count 트랙 분리)+test_history_171 7케이스·156 픽스처 track 1줄. 프런트(History 2탭[최근 기본]·승격 모달·Disclosure 동의 문구 정합+히스토리 동선·PrivacyPolicy §3/§4 자동 기록 조항). /tmp 7+7+44 passed·재구성 prefix 바이트 일치. 전체 pytest(473→480 예상)·tsc·build·커밋은 Codex/Windows 권위.

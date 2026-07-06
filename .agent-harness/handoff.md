@@ -17,7 +17,7 @@
 - Browser-control `node_repl js` tool was unavailable, so actual click/spotlight/mobile visual confirmation is left to Human; route smoke plus code/test assertions passed.
 - Backend unchanged; pytest baseline remains 480 passed, 8 skipped.
 ### Commit
-- PENDING_HASH
+- 8f6e14a
 ### Next
 - Human ? ?? ? ??? ?????? 6?? ?? ??.
 
