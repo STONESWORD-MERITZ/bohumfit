@@ -1,3 +1,28 @@
+## 2026-07-06 Codex BOHUMFIT-170 Windows verification
+### Changed
+- `src/components/Logo.tsx`: light variant wordmark color changed to `text-ink-900` for FIT v1.1 ink wordmark on light surfaces.
+- `public/apple-touch-icon-180.png`, `public/icon-192.png`, `public/icon-512.png`: regenerated as white tile + emerald FIT symbol app icons.
+- `.agent-harness/tasks/BOHUMFIT-170-brand-v1_1-delta.md`: task file included.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` PASS.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` PASS.
+- [x] `npm run build` PASS (existing Vite chunk-size warning only).
+- [x] `cd backend && python -m pytest -q` PASS: 466 passed, 8 skipped.
+- [x] App icon PNG integrity: apple-touch-icon-180/icon-192/icon-512 open as PNG, white tile pixels confirmed, emerald FIT symbol pixels confirmed; visual check OK.
+- [x] Favicon assets unchanged: `favicon.svg`, `favicon-16.png`, `favicon-32.png`, `favicon.ico` have no git diff and remain emerald tile.
+- [x] `public/og-image.svg` unchanged; lime count remains one circular accent.
+- [x] `public/site.webmanifest` parses as JSON and keeps `theme_color` `#084734`.
+- [x] Grep: `Logo.tsx` light variant uses `text-ink-900`; `src` `bg-lime|text-lime` usage = 0.
+- [x] Vite preview route smoke: `/`, `/login`, `/subscription` all returned HTTP 200 with root HTML. Browser-control MCP unavailable in this session, so full visual browser automation was not available; image assets were visually inspected locally.
+### Notes
+- `locks.md` header/encoding structure checked; leftover Cowork BOHUMFIT-170 active lock moved to Released and Active set to none.
+- `favicon.svg`/16/32/ico, `og-image.svg`, and `site.webmanifest` were verified unchanged.
+- Disclosure/backend logic untouched. Unrelated dirty/untracked files were left unstaged.
+### Commit
+- PENDING_HASH
+### Next
+- Human ? deploy ? ?? ?? ???????? ????(? ??) ?? ??. ????(166?167a?167b?168?170) ?? ???.
+
 ## 2026-07-06 Cowork BOHUMFIT-170 [FIT 브랜드 가이드 v1.1 델타 적용]
 ### 델타1 — 밝은 바탕 락업 워드마크 = 잉크
 - `src/components/Logo.tsx`: light variant `engColor` **text-accent-600 → text-ink-900**(잉크 #0A0A0A). 심볼(에메랄드 타일+흰 ㅍ)·한글 보조(text-ink-soft) 유지. default(다크) = 흰 심볼+흰 워드마크 **무변경 확인**.

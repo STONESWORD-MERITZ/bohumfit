@@ -44,7 +44,7 @@ export default function Logo({
   if (!showText) return null;
 
   const isDark = variant === "default";
-  const engColor = isDark ? "text-white" : "text-accent-600";
+  const engColor = isDark ? "text-white" : "text-ink-900"; // BOHUMFIT-170 v1.1: 밝은 바탕 워드마크 = 잉크(#0A0A0A)
   const korColor = isDark ? "text-white/60" : "text-ink-soft";
   const engSize = size >= 24 ? "text-2xl" : size >= 20 ? "text-xl" : "text-lg";
   const korSize = size >= 24 ? "text-lg" : size >= 20 ? "text-base" : "text-sm";
