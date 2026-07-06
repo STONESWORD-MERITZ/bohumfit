@@ -26,7 +26,7 @@
 - `Disclosure.tsx` contains both 171a upload UI and 171b consent/history-link changes in adjacent hunks; to avoid brittle patch splitting, this was committed as one combined 171a/171b commit per task exception.
 - Confirmed backend pytest baseline after 171: 480 passed, 8 skipped.
 ### Commit
-- PENDING_HASH
+- 12e1a83
 ### Next
 - Human ? track ?? spot check SQL ?? + ?? ? ??? UI?2?? ??? ??.
 
