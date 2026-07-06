@@ -19,9 +19,9 @@
 - `favicon.svg`/16/32/ico, `og-image.svg`, and `site.webmanifest` were verified unchanged.
 - Disclosure/backend logic untouched. Unrelated dirty/untracked files were left unstaged.
 ### Commit
-- PENDING_HASH
+- `eb09aed`
 ### Next
-- Human ? deploy ? ?? ?? ???????? ????(? ??) ?? ??. ????(166?167a?167b?168?170) ?? ???.
+- Human - after deploy, visually confirm ink wordmark logo and white-tile home-screen app icon. Close rebrand scope (166, 167a, 167b, 168, 170).
 
 ## 2026-07-06 Cowork BOHUMFIT-170 [FIT 브랜드 가이드 v1.1 델타 적용]
 ### 델타1 — 밝은 바탕 락업 워드마크 = 잉크

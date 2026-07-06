@@ -7,7 +7,7 @@ Use this file to record active Codex file ownership during a task.
 - (none)
 
 ### Released
-- 2026-07-06 `BOHUMFIT-170` - Codex - Windows verification passed; frontend tsc/node/build and backend pytest `466 passed, 8 skipped`; commit PENDING_HASH.
+- 2026-07-06 `BOHUMFIT-170` - Codex - Windows verification passed; frontend tsc/node/build and backend pytest `466 passed, 8 skipped`; commit `eb09aed`.
 - 2026-07-06 `BOHUMFIT-170` - Cowork - completed v1.1 delta; Logo light wordmark ink, white-tile app icons; favicon/OG/manifest unchanged; Disclosure/backend untouched.
 - 2026-07-06 `BOHUMFIT-167b` - Codex - Windows verification passed; frontend tsc/node/build/npm test and backend pytest `466 passed, 8 skipped`; commit `69d07ea`.
 - 2026-07-04 `BOHUMFIT-167b` - Cowork - completed Disclosure token-only rebrand; raw gray/#15663D/lime text grep 0; logic/copy/numbers unchanged.
