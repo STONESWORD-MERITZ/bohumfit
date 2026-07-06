@@ -32,7 +32,7 @@
 - 실제 처방 PDF 업로드·카카오 복사·PDF 생성 브라우저 E2E는 로그인/PII 파일 흐름 때문에 Windows 자동화에서는 미실행. 리브랜딩 diff가 스타일 토큰 치환뿐이고 `npm test`/backend pytest 기준선은 통과했으므로 배포 후 Human 실 PDF 육안 확인 필요.
 - 168 이후 스펙(추가검사·재검사 소견 미표시)은 `npm test` 및 backend 168/169 기준선 유지로 회귀 없음.
 ### Commit
-- pending
+- `69d07ea`
 ### Next
 - Human — 배포 후 분석 결과 화면 육안 확인 (색·뱃지·계산값). 170(v1.1 델타) 상태 확인 후 리브랜딩 클로즈.
 ## 2026-07-04 Cowork BOHUMFIT-167b [Disclosure.tsx FIT v1.1 리브랜딩 — 리브랜딩 완결]

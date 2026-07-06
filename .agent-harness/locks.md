@@ -7,7 +7,7 @@ Use this file to record active Codex file ownership during a task.
 - 2026-07-06 `BOHUMFIT-170` - Cowork - active v1.1 delta; editing Logo.tsx/public assets/meta; Disclosure untouched.
 
 ### Released
-- 2026-07-06 `BOHUMFIT-167b` - Codex - Windows verification passed; frontend tsc/node/build/npm test and backend pytest `466 passed, 8 skipped`; scoped commit pending hash in handoff.
+- 2026-07-06 `BOHUMFIT-167b` - Codex - Windows verification passed; frontend tsc/node/build/npm test and backend pytest `466 passed, 8 skipped`; commit `69d07ea`.
 - 2026-07-04 `BOHUMFIT-167b` - Cowork - completed Disclosure token-only rebrand; raw gray/#15663D/lime text grep 0; logic/copy/numbers unchanged.
 - 2026-07-05 `BOHUMFIT-169` - Codex - Windows verification passed; frontend tsc/node/build and backend pytest `466 passed, 8 skipped`; commit `dc24b1f`.
 - 2026-07-04 `BOHUMFIT-169` - Cowork - 완료. ai_judgment.py `_q2_ai_judgment_enabled()`(env ENABLE_Q2_AI_JUDGMENT 기본 off) + `_call_q2_health_findings` 조기반환({}). Q2 소견 Gemini만 차단(출력 변화 0), treatment_ongoing 산출 `_call_medical_judgment`는 유지. test_gemini_disable_169(신규 4)·test_q2_ai_gate(on 명시). /tmp 로직 OK, 실모듈은 mount truncation(line519)로 Codex/Windows 권위. 기준선 462→466 예상. Railway 기본 off라 무설정.
