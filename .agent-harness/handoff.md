@@ -1,3 +1,26 @@
+## 2026-07-06 Cowork BOHUMFIT-177 홈 지표 섹션 그린 티 틴트(은은한 구분)
+
+Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Codex (Windows 권위 검증·커밋·푸시)
+
+### Changed
+- `src/pages/Home.tsx`: 지표(1분/99%/30초) 섹션 배경 canvas(투명)→`bg-greentea/50`(그린 티 옅은 틴트 면, 전폭 밴드). **배경 클래스만 추가** — 패딩·구조·컨테이너(`shrink-0`·`max-w-5xl`·`grid sm:grid-cols-3`) 무변경. 지표 텍스트색(숫자 `ink-900`·suffix `accent-600`·라벨 `ink-soft`) 무변경. hairline border는 높이 불변 위해 미적용. index.css 무변경.
+- `.agent-harness/tasks/BOHUMFIT-177-metrics-section-tint.md` 신규 · `locks.md` · `handoff.md`.
+
+### Verified (Cowork /tmp — tsc/build/pytest는 Codex/Windows 권위)
+- 그린티 면 전용: `text-greentea`/`border-greentea`/`ring-greentea`/gradient-greentea **0건**, `bg-greentea/50`만(실클래스 1 + 주석 1). 그린티는 UsageBadge와 동일하게 bg 면으로만 사용.
+- WCAG AA(그린티 면 위 지표 텍스트): 적용 실효색 #E4F4D6(=greentea/50 over canvas #FAFAF8) 기준 — 숫자 ink-900 **17.2:1** · suffix 에메랄드 **9.3:1** · 라벨 ink-soft **6.6:1**. solid #CDEDB3 최악값도 15.4 / 8.3 / 5.9로 전부 AA↑(내 계산이 Task 제시 8.3·11.4와 일치 검증).
+- 176 1화면 높이 **불변**: 배경 클래스만 추가 → box-model(width/height/padding/border/margin) 무변 → 653px 모델 그대로.
+- raw gray 0 · TSX(TS 6.0.3 createSourceFile) 파싱 진단 0건 · `bg-greentea/50` 불투명도 수식어는 코드베이스 선례(`bg-accent-50/40`·`bg-ink-50/60` 등) 다수 → Tailwind v4 컴파일 확인.
+- HOW IT WORKS 이하 무변경.
+
+### Notes
+- Step 1 결정: **전폭 틴트 밴드**(카드 아님). 근거 — 176이 히어로+지표를 full-bleed 라이트 서피스로 통합, 기존 Our Story도 `bg-accent-50` 전폭 틴트 → 전폭이 176 레이아웃/기존 패턴과 자연스럽고 fold 하단 지표 밴드로 읽힘. 불투명도 50%로 은은(진한 원색 회피)·임의 hex 금지 규칙 준수(토큰 유틸리티+수식어).
+- ⚠마운트 truncation 지속(Home.tsx 뷰 292행대 고정): 이번 변경 라인(L214 지표 섹션)은 뷰 내부라 직접 확인. 꼬리(§5 Our Story·§6 가격 CTA)는 176 이후 무변경. → Codex는 Windows 원본 꼬리 무결성 확인 후 tsc/build.
+- 백엔드 무접촉(기준선 485/8 불변 예상).
+
+### Next
+- Codex — ① `npx tsc -p tsconfig.app.json/node.json` · `npm run build` · `npm test`(53) · 백엔드 기준선(485/8) ② 노트북 1366×768·모바일 실뷰포트에서 히어로(canvas)↔지표(그린티 틴트) 은은한 구분 + 176 1화면 유지 스모크 ③ 통과 시 `src/pages/Home.tsx` + 태스크 문서만 stage → commit `feat(BOHUMFIT-177): 홈 지표 섹션 그린 티 틴트로 은은한 구분` → push origin main.
+
 ## 2026-07-06 Cowork BOHUMFIT-176 홈 히어로 라이트 전환 + 히어로·지표 1화면 통합
 
 Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Codex (Windows 권위 검증·커밋·푸시)
@@ -9424,3 +9447,26 @@ Remaining:
 - d0aab52
 ### Next
 - Human — 배포 후 첫 화면(라이트 히어로+지표 1페이지) 첫인상 육안 확인.
+## 2026-07-07 Codex BOHUMFIT-177 Windows verification
+### Changed
+- `src/pages/Home.tsx`: added `bg-greentea/50` to the home metrics section (`1분/99%/30초`) only, keeping layout, padding, stats text colors, and HOW IT WORKS/below unchanged.
+- `.agent-harness/tasks/BOHUMFIT-177-metrics-section-tint.md`: task packet included.
+### Verified
+- [x] Windows source integrity: `Home.tsx` tail is intact (`오픈이벤트`, price CTA, final closing tags present); Node UTF-8 read reports 345 lines and tail check true.
+- [x] JSX/TSX parsing: `npx tsc -p tsconfig.app.json --noEmit` PASS.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` PASS.
+- [x] `npm run build` PASS (existing Vite chunk-size warning only; app JS chunk `index-DoonUMU7.js` 755.70 kB).
+- [x] `npm test` PASS: 53 passed.
+- [x] `cd backend && python -m pytest -q` PASS: 485 passed, 8 skipped.
+- [x] Grep: `bg-greentea/50` is the only Home greentea class; no `text-greentea`, `border-greentea`, `ring-greentea`, or greentea gradient classes.
+- [x] Grep: `Home.tsx` raw gray classes = 0.
+- [x] Grep: active `svh` class remains 1 Home wrapper; active `dvh` classes remain 8; active `text-fluid-*` use sites remain 3 (`Home`, `WhyDisclosure`, `HomeMission`).
+- [x] Vite preview route smoke: `/`, `/why`, `/dashboard` all HTTP 200.
+### Notes
+- 176 and earlier relevant tasks are committed/pushed through `d0aab52`/`19fce88`; current scoped commit is 177 only.
+- Exact visual judgment for greentea tint strength and mobile 375px appearance remains Human E2E; route smoke and code-level grep checks passed.
+- Existing unrelated dirty/untracked files remain outside this task and were not staged.
+### Commit
+- PENDING
+### Next
+- Human — 배포 후 지표 섹션 그린티 구분 육안 확인.

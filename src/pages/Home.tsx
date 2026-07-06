@@ -207,8 +207,11 @@ export default function Home() {
             </div>
           </section>
 
-          {/* ── 2. 핵심 수치 (신뢰 지표) — BOHUMFIT-176: 히어로와 1화면 묶음. py-24 → 압축 패딩(shrink-0)로 fold 안 진입. */}
-          <section className="shrink-0 pt-[clamp(0.5rem,0.2rem+1.3vw,1.5rem)] pb-[clamp(2.5rem,1.9rem+2.6vw,4rem)]">
+          {/* ── 2. 핵심 수치 (신뢰 지표) — BOHUMFIT-176: 히어로와 1화면 묶음. py-24 → 압축 패딩(shrink-0)로 fold 안 진입.
+              BOHUMFIT-177: 배경 canvas→그린티 옅은 틴트 면(`bg-greentea/50`)으로 히어로와 은은하게 구분.
+              그린티=면 전용(텍스트/선 금지 준수). 불투명도 50%로 canvas와 블렌드=은은(진한 원색 회피).
+              배경만 추가 → box-model 불변 → 176 1화면 높이(653px) 영향 없음. hairline border는 높이 불변 위해 미적용. */}
+          <section className="shrink-0 bg-greentea/50 pt-[clamp(0.5rem,0.2rem+1.3vw,1.5rem)] pb-[clamp(2.5rem,1.9rem+2.6vw,4rem)]">
             <div className="mx-auto max-w-5xl px-6">
               <div className="grid gap-10 sm:grid-cols-3">
                 {STATS.map((s, i) => (
