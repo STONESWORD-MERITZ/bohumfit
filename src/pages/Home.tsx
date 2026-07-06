@@ -134,7 +134,11 @@ export default function Home() {
     <div className="-mx-5 -mt-8">
 
       {/* ── 1. HERO (다크) ─────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-ink-900">
+      {/* BOHUMFIT-174: 뷰포트 상대 높이 + 세로 중앙 — min-h-[calc(100svh-3.5rem)] (3.5rem = Layout 헤더 h-14 고정).
+          svh 채택 근거: 주소창 확장 상태 기준 고정 → 로드 시 CTA가 항상 fold 안 + 스크롤 중 높이 점프 없음
+          (dvh는 주소창 수축 시 히어로가 늘어나 레이아웃 점프). min-h라 콘텐츠 초과 시 자연 확장(잘림 0).
+          Home 루트 -mt-8이 main 상단 패딩을 상쇄해 헤더 아래부터 정확히 계산됨. svh는 이 히어로 1곳만(173 dvh 무변경). */}
+      <section className="relative flex min-h-[calc(100svh-3.5rem)] items-center overflow-hidden bg-ink-900">
         {/* BOHUMFIT-133b: dot pattern 배경(연한 점) */}
         <div
           aria-hidden

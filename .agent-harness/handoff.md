@@ -1,3 +1,27 @@
+## 2026-07-06 Codex BOHUMFIT-174 Windows verification
+### Changed
+- `src/pages/Home.tsx`: changed the home hero to `min-h-[calc(100svh-3.5rem)]` with `flex/items-center` so the hero centers vertically under the fixed `h-14` header and keeps the metrics fold balanced.
+- `src/components/Layout.tsx`: documented the `h-14` header height linkage used by the home hero calculation.
+- `.agent-harness/tasks/BOHUMFIT-174-hero-viewport-height.md`: task packet included.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` PASS.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` PASS.
+- [x] `npm run build` PASS (existing Vite chunk-size warning only; app JS chunk `index-DdjC5R0x.js` 755.53 kB).
+- [x] `npm test` PASS: 53 passed.
+- [x] `cd backend && python -m pytest -q` PASS: 485 passed, 8 skipped.
+- [x] Grep: active `svh` class is the Home hero only; added `svh` references outside that are explanatory comments.
+- [x] Grep: existing `dvh` active classes remain 8 (`App` x2, `Layout`, `ProtectedRoute`, `Login`, `PhoneVerify`, `Signup` x2).
+- [x] Grep: `text-fluid-*` use sites remain exactly 3 (`Home`, `WhyDisclosure`, `HomeMission`); no body/button/caption fluid text added in 174 diff.
+- [x] Vite preview route smoke: `/`, `/why`, `/dashboard` all HTTP 200.
+### Notes
+- 157, 158, 173, and 163 were already committed/pushed (`ec33f18`, `2967757`, `31feded`, `a467021` plus docs commits); current scoped commit is 174 only.
+- In-app browser viewport automation was unavailable in this Codex session, so exact 1366x768/1440x900/2560x1440/375x812 visual balance and mobile address-bar jump checks remain Human E2E. Code-level `svh`/`dvh`/fluid checks and route smoke passed.
+- Existing out-of-scope raw gray in `App.tsx` fallback UI and older `index.css` clamp/viewport values were not changed.
+### Commit
+- PENDING
+### Next
+- Human — 노트북·27인치·모바일에서 히어로 중앙 균형 + 지표 fold 시작선 육안 확인.
+
 ## 2026-07-06 Codex BOHUMFIT-163 Windows verification
 ### Changed
 - `src/pages/Dashboard.tsx`: added logged-in dashboard with five widgets: recent analyses, monthly usage, saved reports, quick links, and free-user upsell; each data widget has independent fetch/fallback state.
@@ -69,6 +93,28 @@
 - 2967757
 ### Next
 - Human — 배포 후 연계 동선 실사용 확인. M2 마일스톤 클로즈.
+
+## 2026-07-06 Cowork BOHUMFIT-174 [히어로 뷰포트 높이·세로 중앙 — 173 A안 후속, svh 히어로 한정]
+### Step 0 진단
+- **헤더**: Layout header = sticky top-0(문서 흐름 차지 — 차감 필요) + 내부 행 `h-14` **고정 3.5rem, 전 브레이크포인트 동일**(반응형 변형 없음) → 명세 분기대로 **--header-h 변수화 불필요, 상수 calc 채택**. 안전장치: Layout h-14 라인에 히어로 calc 연동 주석 1줄(변경 시 함께 수정 유도).
+- **173 dvh 위치 재확인**: min-h-dvh 8곳(App×2·Layout·ProtectedRoute·Login·PhoneVerify·Signup×2) — svh 전환 대상 아님, 경계 확정.
+- **대상 히어로 판단**: **Home만 적용**. WhyDisclosure 히어로는 정보 페이지 도입부(3~4줄) — full-height화하면 본문 도달 지연으로 UX 저해. HomeMission은 홈 내 미션 섹션(히어로 아님). "히어로+지표 1페이지" 의도 = Home 전용(min-h로 27인치에서 히어로가 정확히 fold에서 끝나고 지표가 fold 라인에서 시작 — 어중간한 걸침 제거). 지표(STATS)를 히어로 내부로 옮기는 구조 변경은 비범위 — 미실행.
+- **레이아웃 정합**: Home 루트 `-mx-5 -mt-8`이 main 상단 패딩(pt-8)을 상쇄 → 히어로가 헤더 바로 아래부터 시작 = calc(100svh-3.5rem)이 픽셀 정확.
+### Changed
+- `src/pages/Home.tsx`: 히어로 section에 `flex min-h-[calc(100svh-3.5rem)] items-center` — 내부 컨테이너(w-full 기존재) 세로 중앙, dot 패턴 absolute 무영향. **svh 채택 근거 주석화**: 주소창 확장 상태 기준 고정 → 로드 시 CTA 항상 fold 안 + 스크롤 중 높이 점프 없음(dvh는 주소창 수축 시 히어로 확장 점프). min-h라 콘텐츠 초과 시 자연 확장(잘림 0).
+- `src/components/Layout.tsx`: h-14 라인 연동 주석 1줄(코드 무변경).
+### Step 3 — clamp 정합 판정
+- 콘텐츠 높이 실측 추정: 데스크톱(60px h1 2줄) ≈ 528px vs 노트북 가용 712px(768-56) / 모바일(36px h1) ≈ 447px vs 611px(667-56) / iPhone SE 512px 가용에도 수용 — 전 구간 중앙 여백 양호·과대/과소 없음 → **173 토큰(--text-fluid-*) 수정 불필요**(무변경).
+### Verified
+- [x] grep: **svh 실코드 = Home 히어로 1곳만**(그 외 매치는 주석) · **dvh 8곳 무변경** · text-fluid 3곳 유지(본문·버튼 rem 고정 — 173 회귀 없음) · 섹션 패딩 clamp 무변경.
+- [x] 잘림 0: min-h + items-center 조합 — 짧은 화면 중앙, 콘텐츠 초과 시 확장(고정 h 아님). 기존 pt/pb clamp는 최소 여백으로 유지.
+- [x] backend 무접촉 — 기준선 485/8 유지. Home·Layout raw gray 0(기확인 유지, 추가 코드 무색상).
+- [ ] tsc(app/node)/build/npm test + 뷰포트 스모크(1366×768·27인치·375px — 히어로 fold 균형·지표 시작선) = **Codex/Windows 권위**.
+### Notes
+- ※157·158·173·163(Cowork 완료·Codex 대기) 작업트리 위 진행 — Codex 순차 검증(157→158→173→163→174).
+- 헤더 높이가 향후 반응형화되면 --header-h 변수화로 전환 필요(Layout 주석으로 연결 명시).
+### Next
+- Codex: 대기열 순차 검증 → stage(174 = Home.tsx·Layout.tsx·tasks/174·handoff·locks) → commit `feat(BOHUMFIT-174): 히어로 뷰포트 높이·세로 중앙 정렬 (노트북·27인치 1페이지 균형)` → push. 이후 Human: 노트북(1366×768)·27인치·모바일에서 히어로 중앙 균형과 지표 fold 시작 육안.
 
 ## 2026-07-06 Cowork BOHUMFIT-163 [로그인 대시보드 홈 — 최근 분석·사용량·바로가기 (기존 API 조합)]
 ### Step 0 진단

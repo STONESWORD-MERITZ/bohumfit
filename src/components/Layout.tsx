@@ -216,6 +216,7 @@ export default function Layout() {
     <div className="min-h-dvh bg-canvas">
       <header className="sticky top-0 z-40 border-b border-line bg-canvas/90 backdrop-blur">
         <div ref={panelRef} className="mx-auto max-w-6xl px-5">
+          {/* BOHUMFIT-174: h-14(3.5rem)는 Home 히어로 min-h-[calc(100svh-3.5rem)]와 연동 — 변경 시 함께 수정 */}
           <div className="flex h-14 items-center justify-between gap-4">
             <BrandLogo />
 
