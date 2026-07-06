@@ -9467,6 +9467,6 @@ Remaining:
 - Exact visual judgment for greentea tint strength and mobile 375px appearance remains Human E2E; route smoke and code-level grep checks passed.
 - Existing unrelated dirty/untracked files remain outside this task and were not staged.
 ### Commit
-- PENDING
+- 81fdb4d
 ### Next
 - Human — 배포 후 지표 섹션 그린티 구분 육안 확인.
