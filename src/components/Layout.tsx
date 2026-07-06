@@ -41,8 +41,9 @@ const NAV: ReadonlyArray<MenuItem> = [
   { kind: "link", to: "/subscription", label: "요금제" },
 ];
 
+// BOHUMFIT-175: whitespace-nowrap — NAV 라벨 내부 줄바꿈 금지(2줄 꺾임 현상의 원인 제거). h-14 불변.
 const LINK_BASE =
-  "relative px-1 py-1.5 text-sm transition-colors after:absolute after:inset-x-0 after:-bottom-[14px] after:h-0.5 after:rounded-full";
+  "relative whitespace-nowrap px-1 py-1.5 text-sm transition-colors after:absolute after:inset-x-0 after:-bottom-[14px] after:h-0.5 after:rounded-full";
 const LINK_ACTIVE = "font-semibold text-accent-700 after:bg-accent-600";
 const LINK_IDLE = "font-medium text-ink-soft hover:text-ink-900 after:bg-transparent";
 
@@ -146,7 +147,8 @@ function UserArea({ stacked = false }: { stacked?: boolean }) {
   }
   return (
     <div className={stacked ? "space-y-2" : "flex items-center gap-3"}>
-      <span className={`truncate text-caption text-ink-soft ${stacked ? "block" : "hidden md:inline"}`} title={user.email ?? undefined}>
+      {/* BOHUMFIT-175: 이메일은 xl(1280+)에서만 + 150px 상한(truncate) — 1280 구간 1줄 확보의 핵심 축약 */}
+      <span className={`truncate text-caption text-ink-soft ${stacked ? "block" : "hidden max-w-[150px] xl:inline"}`} title={user.email ?? undefined}>
         {user.email}
       </span>
       {/* BOHUMFIT-163: 대시보드 진입점(로그인 시) — 구독 왼쪽 */}
@@ -220,8 +222,10 @@ export default function Layout() {
           <div className="flex h-14 items-center justify-between gap-4">
             <BrandLogo />
 
-            {/* 데스크탑·태블릿 가로 메뉴 */}
-            <nav aria-label="주요 메뉴" className="hidden items-center gap-8 md:flex">
+            {/* 데스크탑 가로 메뉴 — BOHUMFIT-175: 163 대시보드 추가로 md~lg(768~1023)는 물리적으로 1줄 불가
+                (가용 ~728px < 필요 ~932px, 기왕 과밀) → 노출 기준 md→lg 상향(항목 제거 없음·햄버거가 커버).
+                gap-8→gap-6로 폭 확보. */}
+            <nav aria-label="주요 메뉴" className="hidden items-center gap-6 lg:flex">
               {NAV.map((item) =>
                 item.kind === "link" ? (
                   <NavLink
@@ -237,7 +241,7 @@ export default function Layout() {
               )}
             </nav>
 
-            <div className="hidden md:block">
+            <div className="hidden lg:block">
               <UserArea />
             </div>
 
@@ -248,7 +252,7 @@ export default function Layout() {
               aria-label={menuOpen ? "메뉴 닫기" : "메뉴 열기"}
               aria-expanded={menuOpen}
               aria-controls="bf-top-menu"
-              className="rounded-btn p-2 text-ink-700 transition-colors hover:bg-ink-50 md:hidden"
+              className="rounded-btn p-2 text-ink-700 transition-colors hover:bg-ink-50 lg:hidden"
             >
               {menuOpen ? <X size={20} aria-hidden /> : <Menu size={20} aria-hidden />}
             </button>
@@ -259,7 +263,7 @@ export default function Layout() {
             <div
               id="bf-top-menu"
               role="menu"
-              className="border-t border-line py-2 md:hidden"
+              className="border-t border-line py-2 lg:hidden"
             >
               {NAV.map((item) =>
                 item.kind === "link" ? (

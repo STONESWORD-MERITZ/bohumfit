@@ -148,8 +148,10 @@ export default function Home() {
             backgroundSize: "22px 22px",
           }}
         />
+        {/* BOHUMFIT-175: 와이드(2xl 1536+)에서만 컨테이너 축소·중앙(대칭 여백) — 1440 이하 완전 현행(회귀 0).
+            텍스트 좌정렬 유지, 블록만 중앙. 174 svh·세로 중앙·173 패딩 clamp 무변경. */}
         <div
-          className={`relative z-10 mx-auto w-full max-w-6xl px-6 pt-[clamp(3.5rem,2.91rem+2.61vw,5rem)] pb-[clamp(4rem,3.22rem+3.48vw,6rem)] transition-all duration-700 ${
+          className={`relative z-10 mx-auto w-full max-w-6xl px-6 pt-[clamp(3.5rem,2.91rem+2.61vw,5rem)] pb-[clamp(4rem,3.22rem+3.48vw,6rem)] transition-all duration-700 2xl:max-w-4xl ${
             mounted ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
           }`}
         >

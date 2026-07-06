@@ -1748,15 +1748,17 @@ export default function Disclosure({
 
       <div className="mb-6">
         <p className="mb-1 text-xs font-bold tracking-wider text-accent-600">{copy.badge}</p>
-        <h1 className="ko-heading text-2xl font-extrabold tracking-tight text-ink-900">{copy.title}</h1>
+        {/* BOHUMFIT-175: 사용량 배지(159)를 업로드 카드 내부에서 제목 라인 우측으로 이동 — 노출 규칙·문구
+            로직 무변경(위치만). flex-wrap이라 모바일에서는 제목 아래 자연 줄바꿈(겹침 0). agent/customer 공통. */}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h1 className="ko-heading text-2xl font-extrabold tracking-tight text-ink-900">{copy.title}</h1>
+          <UsageBadge />
+        </div>
         <p className="ko-text mt-1 text-sm leading-6 text-ink-soft break-keep">{copy.subtitle}</p>
       </div>
 
       <section className="mb-5 rounded-[8px] bg-white p-6 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
-        {/* BOHUMFIT-076: 구독 상태·이번 달 사용량 배지를 분석(업로드) 영역 상단으로 이동(내부 사용자·무료 동작 시 자동 숨김). */}
-        <div className="mb-4 flex justify-end">
-          <UsageBadge />
-        </div>
+        {/* BOHUMFIT-076 → 175: 사용량 배지는 페이지 제목 라인 우측으로 이동(카드 내 줄밀림 해소) */}
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <div data-tour="date">
             <label className="mb-2 block text-sm font-semibold text-ink">{copy.dateLabel}</label>

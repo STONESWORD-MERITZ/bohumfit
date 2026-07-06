@@ -1,3 +1,29 @@
+## 2026-07-06 Codex BOHUMFIT-175 Windows verification
+### Changed
+- `src/components/Layout.tsx`: kept header `h-14` unchanged, prevented nav-label wrapping with `whitespace-nowrap`, reduced desktop nav gap, moved desktop nav/user area breakpoint from `md` to `lg`, and limited email display to `xl` with 150px truncation.
+- `src/pages/Home.tsx`: added `2xl:max-w-4xl` to the home hero content block for wide-screen centering while preserving 1440px and below behavior, 174 `svh`, and 173 fluid spacing.
+- `src/pages/Disclosure.tsx`: moved `UsageBadge` from inside the upload card to the title row, preserving `UsageBadge.tsx` logic and allowing mobile wrap under the title.
+- `.agent-harness/tasks/BOHUMFIT-175-layout-polish.md`: task packet included.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` PASS.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` PASS.
+- [x] `npm run build` PASS (existing Vite chunk-size warning only; app JS chunk `index-CMRLpTpX.js` 755.61 kB).
+- [x] `npm test` PASS: 53 passed.
+- [x] `cd backend && python -m pytest -q` PASS: 485 passed, 8 skipped.
+- [x] Grep: header `h-14` class remains; 174 calc linkage comment remains.
+- [x] Grep: active `svh` class remains the Home hero only; active `dvh` classes remain 8; `text-fluid-*` use sites remain 3.
+- [x] Grep: `src/components/UsageBadge.tsx` has no diff; `UsageBadge` now appears once in `Disclosure.tsx` title row.
+- [x] Grep: no `md:` breakpoint remains in `src/components/Layout.tsx` after lg/xl breakpoint migration.
+- [x] Vite preview route smoke: `/`, `/disclosure`, `/dashboard` all HTTP 200.
+### Notes
+- 157, 158, 173, 163, and 174 are already committed/pushed (`ec33f18`, `2967757`, `31feded`, `a467021`, `18381f2` plus docs commits); current scoped commit is 175 only.
+- Existing unrelated dirty/untracked files remain outside this task and were not staged (`AGENTS.md`, `.agent-harness/decisions.md`, task docs, local PDFs/assets, etc.).
+- In-app browser viewport automation was unavailable in this Codex session, so exact 1024/1280/1440/1920/2560 and tablet/mobile visual checks remain Human E2E. Code-level breakpoint/width checks and route smoke passed.
+### Commit
+- PENDING
+### Next
+- Human — 27인치·노트북 재스크린샷 대조 + 태블릿 햄버거 체감 확인.
+
 ## 2026-07-06 Codex BOHUMFIT-174 Windows verification
 ### Changed
 - `src/pages/Home.tsx`: changed the home hero to `min-h-[calc(100svh-3.5rem)]` with `flex/items-center` so the hero centers vertically under the fixed `h-14` header and keeps the metrics fold balanced.
@@ -93,6 +119,27 @@
 - 2967757
 ### Next
 - Human — 배포 후 연계 동선 실사용 확인. M2 마일스톤 클로즈.
+
+## 2026-07-06 Cowork BOHUMFIT-175 [레이아웃 폴리시 3건 — 헤더 줄바꿈·히어로 와이드 중앙·배지 위치]
+### Step 0 실측
+- **헤더**: 소요 폭 ≈ 로고90 + NAV610(라벨 450+gap-8 160) + UserArea390(email ~150 실폭 포함) + 행 gap 32 ≈ **1122px > 가용 1112px**(max-w-6xl 1152 − px-5×2). 컨테이너가 1152 고정이라 **뷰포트 무관 — 27인치에서도 초과**(스크린샷 현상과 일치). "2줄 꺾임"의 실체 = flex nowrap 아래서 라벨 텍스트의 내부 줄바꿈. 763~1023(md~lg)은 163 이전부터 물리적 과밀(가용 ~728 < 필요 ~930)이던 기왕 구간.
+- **히어로**: 컨테이너 max-w-6xl mx-auto(중앙) — 콘텐츠 텍스트가 컨테이너 좌측 점유 + 27인치에서 캔버스 여백까지 더해져 "중앙-좌" 시각. 컨테이너 폭 축소가 곧 대칭 중앙.
+- **배지**: 업로드 카드 내부 상단 `mb-4 flex justify-end` 블록(076) — 카드 첫 줄을 밀어냄. 페이지 타이틀 행은 badge/h1/subtitle 세로 스택 — h1 라인을 flex 행으로 재구성 가능. agent/customer는 동일 코드(카피만 분기) → 자동 동일 적용.
+### Changed
+- `src/components/Layout.tsx`(문제 1 — **h-14 불변**): ① LINK_BASE에 `whitespace-nowrap`(내부 꺾임 금지) ② nav `gap-8→gap-6`(−40px) ③ 이메일 `hidden md:inline → hidden max-w-[150px] xl:inline`(xl 미만 숨김·xl+ 150px 상한 truncate — 1280 구간 핵심 축약) ④ 데스크톱 NAV·UserArea·햄버거·모바일 패널 **md→lg 상향**(768~1023 기왕 과밀 구간을 햄버거로 커버 — 항목 제거 없음). **검산: lg1024 = 920 ≤ 984 / xl1280 = 1082 ≤ 1112 / 1440~2560 = 컨테이너 고정 동일 ✓ 전 구간 1줄**.
+- `src/pages/Home.tsx`(문제 2): 히어로 컨테이너에 `2xl:max-w-4xl` 1클래스 — **1536 미만 완전 현행(회귀 0)**, 1536+에서 896px 블록 중앙(대칭 여백·텍스트 좌정렬 유지). 174 svh·세로 중앙·173 패딩 clamp 무변경.
+- `src/pages/Disclosure.tsx`(문제 3): 배지를 제목 라인 우측으로 — h1을 `flex flex-wrap items-center justify-between` 행으로 감싸고 `<UsageBadge />` 우측 배치, 카드 내부 배지 블록 제거(줄밀림 해소). flex-wrap → 모바일 제목 아래 자연 줄바꿈(겹침 0). UsageBadge 컴포넌트 파일 무수정(**노출 규칙·문구 로직 무변경 — 위치만**). 배지 null 상태(여유·internal)에서는 h1 단독 좌측 정상.
+### Verified
+- [x] grep: **h-14 클래스 불변** · svh 실코드 히어로 1곳 · min-h-dvh 8곳 유지 · text-fluid 토큰 3종 무변경 · UsageBadge 사용처 = 제목 라인 1곳(카드 내 제거) · Layout 구 md: 브레이크포인트 잔존 0(lg/xl 전환 완결).
+- [x] 헤더 1줄 코드 레벨 검산(1280·1440·1920·2560) 통과 — 위 Changed 수치. 자기검토: JSX 여는 태그 내 주석 삽입 실수 1건 즉시 교정.
+- [x] 편집 3파일 raw gray·lime 0(기확인 유지·추가 코드 무색상). backend 무접촉(485/8).
+- [ ] tsc(app/node)/build/npm test + 실화면 스모크(1280·1440·2560 헤더 1줄, 27인치 히어로 대칭, 배지 모바일 줄바꿈) = **Codex/Windows 권위**.
+### Notes
+- ※157·158·173·163·174(Cowork 완료·Codex 대기) 작업트리 위 진행 — Codex 순차 검증(157→158→173→163→174→175).
+- NAV 데스크톱 노출 md→lg 상향은 태블릿(768~1023)에서 햄버거 사용을 의미 — 기왕 과밀 해소 목적, Human 실기기 확인 권장.
+- 이메일 xl 미만 숨김: 대시보드에 이메일 표기(163)가 있어 정보 손실 없음.
+### Next
+- Codex: 대기열 순차 검증 → stage(175 = Layout.tsx·Home.tsx·Disclosure.tsx·tasks/175·handoff·locks) → commit `fix(BOHUMFIT-175): 레이아웃 폴리시 (헤더 줄바꿈·히어로 와이드 중앙·사용량 배지 위치)` → push. 이후 Human: 27인치·노트북 재스크린샷 대조(헤더 1줄·히어로 대칭·배지 위치)·태블릿 햄버거 확인.
 
 ## 2026-07-06 Cowork BOHUMFIT-174 [히어로 뷰포트 높이·세로 중앙 — 173 A안 후속, svh 히어로 한정]
 ### Step 0 진단
