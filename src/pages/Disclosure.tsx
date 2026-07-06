@@ -1,5 +1,5 @@
 ﻿import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom"; // BOHUMFIT-158: useNavigate(청구 지원 연계)
 import AnalysisProgress from "../components/AnalysisProgress";
 import UsageBadge from "../components/UsageBadge";
 import { useToast } from "../components/ToastContext"; // BOHUMFIT-131
@@ -1100,6 +1100,15 @@ export function ResultView({
     }
   }
 
+  // BOHUMFIT-158: 청구 지원 연계 — 보험사명을 초기 검색어로 넘기는 "동선 연결"만.
+  //   질환→보험사 자동 매칭은 불가(가입 보험사 정보가 분석 데이터에 없음) — 추론 로직 발명 금지 원칙.
+  const navigate = useNavigate();
+  const [claimQuery, setClaimQuery] = useState("");
+  const goClaimLinks = () => {
+    const q = claimQuery.trim();
+    navigate(q ? `/insurance-links?q=${encodeURIComponent(q)}` : "/insurance-links");
+  };
+
   // BOHUMFIT-156b: 분석 결과 히스토리 저장 — label(별칭·실명 금지 안내), 보관 90일 고지.
   //   mode = 현재 탭(간편이면 easy, 그 외 standard). result에 reference_date를 동봉해 재열람 시 복원.
   //   실명(customer_name)은 백엔드(156a)가 저장 전 제거한다.
@@ -1264,6 +1273,33 @@ export function ResultView({
               isEasy={productTab === "easy"}
             />
           )}
+        </div>
+      </section>
+
+      {/* BOHUMFIT-158: 청구 지원 연계 카드 — 분석 → 고객 안내 → 청구 지원 흐름의 동선 연결(147 데이터 재사용).
+          agent/customer 모드·historyView 재열람 공통 노출. 자동 매칭 없음 — 보험사명 초기 검색어 전달만. */}
+      <section className="mb-5 rounded-[8px] border border-line bg-white p-5">
+        <h2 className="text-[15px] font-extrabold text-ink-900">청구까지 도와드려요</h2>
+        <p className="ko-text mt-1.5 text-[13px] leading-6 text-ink-soft break-keep">
+          보험사별 전산·청구양식·필요서류 안내에서 청구 준비를 이어갈 수 있어요.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <input
+            type="text"
+            value={claimQuery}
+            onChange={(e) => setClaimQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") goClaimLinks(); }}
+            placeholder="보험사명 (예: 삼성, 메리츠)"
+            aria-label="청구 지원 보험사명 검색"
+            className="w-44 rounded-[6px] border border-line-strong px-3 py-2 text-sm focus:border-accent-600 focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={goClaimLinks}
+            className="rounded-[8px] border border-line-strong bg-white px-4 py-2 text-sm font-bold text-ink hover:border-accent-600 hover:text-accent-700"
+          >
+            청구양식·필요서류 보기
+          </button>
         </div>
       </section>
 

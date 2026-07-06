@@ -1,3 +1,46 @@
+## 2026-07-06 Codex BOHUMFIT-158 Windows verification
+### Changed
+- `src/pages/InsuranceLinks.tsx`: added `?q=` and whitelisted `?tab=` initial-state deep links, plus a one-line route back to `/disclosure?mode=agent`.
+- `src/pages/Disclosure.tsx`: added ResultView claim-support card before the disclaimer; insurer-name input routes to `/insurance-links?q=...`, empty input routes to `/insurance-links`, no insurer inference/auto-matching.
+- `.agent-harness/tasks/BOHUMFIT-158-claim-link-integration.md`: task packet included.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` PASS.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` PASS.
+- [x] `npm run build` PASS (existing Vite chunk-size warning only; app JS chunk `index-aQCcP98L.js` 747.87 kB).
+- [x] `npm test` PASS: 53 passed.
+- [x] `cd backend && python -m pytest -q` PASS: 485 passed, 8 skipped.
+- [x] Vite preview route smoke: `/insurance-links?q=삼성`, `/insurance-links?tab=생명보험`, `/insurance-links?tab=이상한값`, `/insurance-links` all HTTP 200.
+- [x] Code review smoke: `?q=` seeds search state, `?tab=` uses `TABS` whitelist and invalid tab falls back to `전체`, Disclosure card encodes query with `encodeURIComponent`, empty input routes without params, header analysis link goes to `/disclosure?mode=agent`.
+- [x] Grep modified files raw gray/lime CTA = 0.
+### Notes
+- 157 is already committed (`ec33f18` + docs `d386012`); current staged scope is 158 only.
+- Requested `/insurance-links?q=삼성` visual expectation was "2건", but current existing data has three matching records: `삼성화재`, `삼성화재해상`, `삼성생명`. Data cleanup/dedupe is outside 158 and was not changed.
+- Existing non-token green in `InsuranceLinks.tsx` (`#2d6a4f`, `hover:bg-green-50`, `ring-green-500`) remains from prior UI work; recorded as follow-up candidate, outside this task.
+### Commit
+- PENDING
+### Next
+- Human — 배포 후 연계 동선 실사용 확인. M2 마일스톤 클로즈.
+
+## 2026-07-06 Cowork BOHUMFIT-158 [분석 결과 → 보험사 청구 지원 연계 — 딥링크·연계 카드 (147 시너지)]
+### Step 0 진단
+- **InsuranceLinks 진입 방식**: `query`·`tab` 모두 plain useState — `useSearchParams` 부재 → **딥링크 미지원 확정**(Step 1 필요). 탭 = 전체|손해보험|생명보험|공제회사. 상단 분석 유도 문구 **없음** → Step 3 추가 필요.
+- **ResultView 위치**: 결과 최하단 `<DisclaimerBox />` 직전이 "PDF/카카오 액션 인근·결과 하단" 조건에 부합(탭 섹션 종료 직후).
+- **모드 차이**: agent/customer는 modeCopy 카피 분기뿐, 결과 구조 동일 → 연계 카드는 **양 모드 + historyView 공통 노출**(ResultView 내부 배치로 3케이스 자동 커버). 청구 지원은 고객용 모드에도 유효(중립 카피).
+### Changed
+- `src/pages/InsuranceLinks.tsx`: ① **딥링크** — `useSearchParams`로 `?q=`·`?tab=` 초기값을 useState initializer에 주입(**마운트 1회**, 이후 상태↔URL 동기화 없음 — 명세 준수). tab은 TABS 화이트리스트 검증(잘못된 값 → 전체). 기존 검색·탭 동작 무변경(초기값만). ② **역방향 동선(Step 3)** — 헤더에 "고객 병력 분석이 필요하신가요? → 알릴의무 필터로 이동" 1줄(기존재 없음 확인 후 추가). INSURANCE_DATA 무접촉.
+- `src/pages/Disclosure.tsx`(ResultView): DisclaimerBox 직전 **청구 지원 카드 1개** — 제목 "청구까지 도와드려요"(제안 톤), 본문 1줄, 보험사명 입력(Enter 지원·aria-label) + 세컨더리 버튼 "청구양식·필요서류 보기" → `/insurance-links?q={encodeURIComponent(입력)}`(빈 입력 시 파라미터 없이 이동). **자동 매칭 없음** — 초기 검색어 전달만(질환→보험사 추론 발명 금지 원칙 준수). useNavigate 추가.
+### Verified
+- [x] grep: 카드 위치(ResultView 내 DisclaimerBox 직전) 확인 · InsuranceLinks/Disclosure raw gray·lime = **0**(추가 코드 v1.1 토큰만) · InsuranceLinks 전용 테스트 없음(갱신 대상 없음).
+- [x] 정적: 딥링크는 useState initializer(1회) — 기존 onChange/setTab 경로 무변경 → 검색 회귀 없음. 연계 카드는 ResultView 무조건 렌더 → agent·customer·historyView 3케이스 커버. 버튼 동사 종결("보기") ✓ 라임 미사용 ✓.
+- [x] backend 무접촉 — 기준선 485/8(157 반영 후) 유지 예상.
+- [ ] tsc(app/node)/build/npm test = **Codex/Windows 권위**.
+### Notes
+- ⚠본 작업은 **157(Cowork 완료·Codex 검증 대기)** 작업트리 위에 진행 — Disclosure.tsx에 157·158 변경이 공존. Codex는 157 검증 후 158을 이어서 검증·커밋 분리(또는 인접 hunk 결합은 Codex 재량, 172 선례).
+- InsuranceLinks에 기존 잔재 `#2d6a4f`·`hover:bg-green-50`·`ring-green-500`(131-era, 비토큰) 발견 — 이번 범위 밖(딥링크만), 167 계열 후속 제안.
+- 딥링크는 공개 라우트 URL 파라미터일 뿐 개인정보·분석 데이터 전달 없음(검색어만).
+### Next
+- Codex: 157 검증 → 158 tsc·npm test(53)·build 검증 → stage(InsuranceLinks.tsx·Disclosure.tsx·tasks/158·handoff·locks) → commit `feat(BOHUMFIT-158): 분석 결과 → 보험사 청구양식/필요서류 연계 동선` → push. 이후 Human: 결과 화면 카드 육안(양 모드)·"삼성" 입력→딥링크 초기 검색 적용 확인.
+
 ## 2026-07-06 Cowork BOHUMFIT-157 [히스토리 리포트 PDF 다운로드 — 고객 전달용 파일 방식, 공유 링크 금지]
 ### Step 0 진단
 - **기존 경로**: POST /api/report/pdf(verify_jwt) ← ResultView.saveDisclosurePdf. payload 키 = report_type·reference_date·customer_name·standard_reports·easy_reports·all_disease_summary·total_med_sum — `render_disclosure_html`이 소비하는 키와 동일.

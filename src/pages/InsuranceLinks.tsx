@@ -1,6 +1,7 @@
 // BOHUMFIT-092: 보험사 전산·약관·팩스 바로가기(GA 설계사용). 단일 파일 자기완결형.
 //   외부 fetch 없음 — 39개사 데이터 하드코딩. 082 한국어 타이포(ko-heading/ko-text) 유지.
 import { useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom"; // BOHUMFIT-158: 딥링크·역방향 동선
 import Badge, { type BadgeVariant } from "../components/ui/Badge"; // BOHUMFIT-131
 import { useToast } from "../components/ToastContext"; // BOHUMFIT-131
 import AnimatedNumber from "../components/AnimatedNumber"; // BOHUMFIT-132
@@ -330,9 +331,17 @@ function InsurerCard({ ins }: { ins: Insurer }) {
   );
 }
 
+const TABS = ["전체", "손해보험", "생명보험", "공제회사"] as const;
+
 export default function InsuranceLinks() {
-  const [query, setQuery] = useState("");
-  const [tab, setTab] = useState<"전체" | Category>("전체");
+  // BOHUMFIT-158: 딥링크 초기값(마운트 1회) — /insurance-links?q={검색어}&tab={전체|손해보험|생명보험|공제회사}.
+  //   분석 결과 화면의 청구 지원 카드에서 맥락 진입. 이후 상태↔URL 양방향 동기화는 하지 않는다(명세).
+  const [searchParams] = useSearchParams();
+  const rawTab = searchParams.get("tab") ?? "";
+  const [query, setQuery] = useState(() => searchParams.get("q") ?? "");
+  const [tab, setTab] = useState<"전체" | Category>(
+    (TABS as readonly string[]).includes(rawTab) ? (rawTab as "전체" | Category) : "전체",
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -355,6 +364,13 @@ export default function InsuranceLinks() {
           보험사 전산·약관·팩스 바로가기
         </h1>
         <p className="ko-text mt-2 text-[14px] text-ink-soft">GA 설계사용 · 손해·생명·공제 전산/약관/청구양식/팩스 + 상세 연락처</p>
+        {/* BOHUMFIT-158 Step 3: 역방향 동선 — 청구 지원에서 분석으로 (기존 유도 없음 확인 후 1줄 추가) */}
+        <p className="mt-2 text-[13px] text-ink-soft">
+          고객 병력 분석이 필요하신가요?{" "}
+          <Link to="/disclosure?mode=agent" className="font-semibold text-accent-700 underline hover:text-accent-600">
+            알릴의무 필터로 이동
+          </Link>
+        </p>
       </header>
 
       {/* 검색 */}
