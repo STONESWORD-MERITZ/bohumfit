@@ -1,3 +1,55 @@
+## 2026-07-06 Cowork BOHUMFIT-170 [FIT 브랜드 가이드 v1.1 델타 적용]
+### 델타1 — 밝은 바탕 락업 워드마크 = 잉크
+- `src/components/Logo.tsx`: light variant `engColor` **text-accent-600 → text-ink-900**(잉크 #0A0A0A). 심볼(에메랄드 타일+흰 ㅍ)·한글 보조(text-ink-soft) 유지. default(다크) = 흰 심볼+흰 워드마크 **무변경 확인**.
+### 델타2 — 앱 아이콘 타일 반전 (보험핏 기본 = 흰 타일)
+- Pillow 재생성: `apple-touch-icon-180.png`·`icon-192.png`·`icon-512.png` → **흰 타일(풀블리드)+에메랄드 ㅍ**(iOS 마스크·Android 66% 세이프존). icon-512 육안 OK.
+- 유지(무변경): favicon.svg/16/32/ico(에메랄드 마스터 파비콘)·og-image.svg(에메랄드+라임 원). site.webmanifest theme_color #084734, 파일명 동일이라 manifest 무변경.
+### 델타3 — 금지 규칙 검증
+- src lime/greentea = index.css 토큰 정의 2줄뿐, `bg-lime`/`text-lime` 실사용 0 → 라임 위 흰 텍스트·흰 ㅍ **0건**. 심볼 = 4 rect, **워크바 없음** 확인.
+### Verified
+- [x] Logo light 잉크·default 무변경 / 앱아이콘 3종 흰+에메랄드(사이즈·모드·육안) / 파비콘·og·manifest 무결성 / 라임 위 흰 0 / 워크바 0.
+- [ ] tsc/build = Codex(Logo.tsx 1줄 클래스 변경, 타입 영향 없음 예상).
+### Notes
+- 심볼 기하·5색 토큰 실값·Disclosure(167b)·backend 무접촉. v1.1 = v1.0 대비 델타 3건만.
+### Next
+- Codex: tsc/build 확인 후 stage(Logo.tsx·apple-touch-icon-180/icon-192/icon-512.png·task·handoff·locks) commit(`feat(BOHUMFIT-170): 브랜드 가이드 v1.1 델타 적용 (잉크 워드마크·흰 타일 앱아이콘)`)→push. Human: 실기기 홈화면 아이콘(흰 타일 배경 섞임)·헤더 로고 육안.
+
+## 2026-07-06 Codex BOHUMFIT-167b Windows verification
+### Changed
+- `src/pages/Disclosure.tsx`: raw gray/old brand utility classes를 FIT v1.1 token classes(`text-ink-*`, `bg-ink-*`, `border-line`, `divide-line`)로 치환.
+- `.agent-harness/tasks/BOHUMFIT-167b-disclosure-rebrand.md`: task file included.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` PASS.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` PASS.
+- [x] `npm run build` PASS (기존 Vite chunk-size warning만).
+- [x] `npm test` PASS: 53 passed.
+- [x] `cd backend && python -m pytest -q` PASS: 466 passed, 8 skipped.
+- [x] `src/pages/Disclosure.tsx` grep `text-gray-|bg-gray-|border-gray-|divide-gray-|ring-gray-|#15663D` = 0.
+- [x] 라임/그린티 text color grep = 0.
+- [x] `git diff --word-diff` sample review: className token replacement only; logic/state/handler/copy/number changes not observed.
+### Notes
+- 변경 범위는 `Disclosure.tsx` + harness 문서로 제한. 기존 unrelated dirty 파일은 stage 제외.
+- 실제 처방 PDF 업로드·카카오 복사·PDF 생성 브라우저 E2E는 로그인/PII 파일 흐름 때문에 Windows 자동화에서는 미실행. 리브랜딩 diff가 스타일 토큰 치환뿐이고 `npm test`/backend pytest 기준선은 통과했으므로 배포 후 Human 실 PDF 육안 확인 필요.
+- 168 이후 스펙(추가검사·재검사 소견 미표시)은 `npm test` 및 backend 168/169 기준선 유지로 회귀 없음.
+### Commit
+- pending
+### Next
+- Human — 배포 후 분석 결과 화면 육안 확인 (색·뱃지·계산값). 170(v1.1 델타) 상태 확인 후 리브랜딩 클로즈.
+## 2026-07-04 Cowork BOHUMFIT-167b [Disclosure.tsx FIT v1.1 리브랜딩 — 리브랜딩 완결]
+### 변경 (src/pages/Disclosure.tsx 단독, 스타일·토큰만)
+- 착수 실측 grep: raw gray ~150개(text-gray-600×30·500×23·400×23·border-gray-200×18·text-gray-800×12·bg-gray-50×10·text-gray-700×9·border-gray-100×7·text-gray-900×6·text-gray-300×5·bg-gray-100×4·divide-gray-50×2·bg-gray-950/200·border-gray-400/300·hover:* 등). #15663D 0·라임 text 0(166/168에서 기정리).
+- **16개 distinct base 클래스 replace_all**(167a 결정적 테이블): text-gray-900→text-ink-900 / 800·700→text-ink / 600·500·400→text-ink-soft / 300→text-ink-400 / bg-gray-950→bg-ink-900 / bg-gray-200·100→bg-ink-100 / bg-gray-50→bg-ink-50 / border-gray-400·300→border-line-strong / border-gray-200·100→border-line / divide-gray-50→divide-line. 프리픽스(hover:/placeholder:) 변형은 base 치환으로 자동 처리(substring 충돌 없음 사전확인).
+### Verified (grep·diff)
+- [x] Disclosure.tsx: text/bg/border/divide/ring-gray·from/to-gray·#15663D·#0E4A2C·라임/그린티 text = **0**.
+- [x] diff 성격: className CSS 토큰 문자열 치환만(replace_all이 gray 클래스 문자열만 타격). 로직·상태·핸들러·계산·조건·JSX 구조·카피·숫자 무변경. 스팟체크(섹션 헤더 border-line/text-ink) 확인.
+- [x] 시맨틱색 보존: text-red-*·emerald/amber/sky/rose 상태색·text-white·기존 accent/ink/line 토큰 무접촉.
+- [ ] tsc(app/node)/build/pytest·계산 스모크 = Codex/Windows 권위(Disclosure는 mount truncation 이력 → 실모듈 tsc는 Windows).
+### Notes
+- 접근성: 저대비 text-gray-400→text-ink-soft로 AA 해소(매핑 자동). 아이콘 전용 버튼·placeholder-only input ARIA는 BOHUMFIT-137b/141에서 기 처리, 168 이후 신규 아이콘버튼 없음 → 추가 aria 불필요.
+- ★**리브랜딩 완결**: 166(토큰·로고·자산)+167a(잔여 10p)+168(소견 UI 제거)+170+167b(Disclosure) → **전 페이지 FIT v1.1 토큰 통일 완료**.
+### Next
+- Codex: `npx tsc -p tsconfig.app.json/node --noEmit`·`npm run build`·`pytest -q` 통과 확인 후 Disclosure.tsx(+task·handoff·locks) commit(`feat(BOHUMFIT-167b): Disclosure FIT v1.1 리브랜딩 (분석 화면 토큰 통일 — 리브랜딩 완결)`)→push. 이후 Human: 분석 결과 화면 육안(토큰 색·계산 정상).
+
 ## 2026-07-05 Codex BOHUMFIT-169 Windows verification
 ### Changed
 - `backend/pipeline/ai_judgment.py`: `ENABLE_Q2_AI_JUDGMENT` 플래그 추가. 기본값 off에서 `_call_q2_health_findings`는 Gemini 호출 없이 `{}` 반환.

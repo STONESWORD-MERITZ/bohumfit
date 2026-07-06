@@ -179,15 +179,15 @@ function riskOf(item: SummaryItem): Risk {
 const RISK: Record<Risk, { border: string }> = {
   red: { border: "border-red-400" },
   orange: { border: "border-orange-400" },
-  gray: { border: "border-gray-400" },
+  gray: { border: "border-line-strong" },
   yellow: { border: "border-amber-400" },
   green: { border: "border-emerald-400" },
 };
 
 function Chip({ label, tone = "gray", title }: { label: ReactNode; tone?: string; title?: string }) {
   const tones: Record<string, string> = {
-    gray: "bg-gray-100 text-gray-600",
-    "gray-light": "border border-gray-200 bg-gray-50 text-gray-500",
+    gray: "bg-ink-100 text-ink-soft",
+    "gray-light": "border border-line bg-ink-50 text-ink-soft",
     red: "bg-red-100 text-red-600",
     "red-light": "border border-red-200 bg-red-50 text-red-500",
     amber: "bg-amber-100 text-amber-700",
@@ -291,18 +291,18 @@ function AllDiseaseSection({ diseases }: { diseases: DiseaseSummary[] }) {
         className="flex w-full items-center justify-between px-5 py-4 text-left"
       >
         <div>
-          <span className="text-sm font-extrabold text-gray-900">전체 병력 요약</span>
-          <span className="ml-2 text-xs font-semibold text-gray-400">{diseases.length}개 질환</span>
+          <span className="text-sm font-extrabold text-ink-900">전체 병력 요약</span>
+          <span className="ml-2 text-xs font-semibold text-ink-soft">{diseases.length}개 질환</span>
         </div>
-        <span className="text-xs font-bold text-gray-400">{open ? "접기" : "펼치기"}</span>
+        <span className="text-xs font-bold text-ink-soft">{open ? "접기" : "펼치기"}</span>
       </button>
 
       {open && (
-        <div className="border-t border-gray-100">
+        <div className="border-t border-line">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[680px] text-xs">
               <thead>
-                <tr className="bg-gray-50 text-gray-500">
+                <tr className="bg-ink-50 text-ink-soft">
                   <th className="px-4 py-2.5 text-left">코드</th>
                   <th className="px-4 py-2.5 text-left">질병명</th>
                   <th className="px-4 py-2.5 text-left">진료기간</th>
@@ -313,40 +313,40 @@ function AllDiseaseSection({ diseases }: { diseases: DiseaseSummary[] }) {
                   <th className="px-4 py-2.5 text-left">병원</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-line">
                 {diseases.map((d, i) => (
-                  <tr key={`${d.code}-${i}`} className="hover:bg-gray-50/60">
-                    <td className="px-4 py-2 font-mono text-gray-500">{d.display_code || d.code}</td>
-                    <td className="max-w-[180px] truncate px-4 py-2 font-semibold text-gray-800">{d.name || "-"}</td>
-                    <td className="whitespace-nowrap px-4 py-2 text-gray-500">
+                  <tr key={`${d.code}-${i}`} className="hover:bg-ink-50/60">
+                    <td className="px-4 py-2 font-mono text-ink-soft">{d.display_code || d.code}</td>
+                    <td className="max-w-[180px] truncate px-4 py-2 font-semibold text-ink">{d.name || "-"}</td>
+                    <td className="whitespace-nowrap px-4 py-2 text-ink-soft">
                       {d.first_date}
                       {d.latest_date && d.latest_date !== d.first_date ? ` ~ ${d.latest_date}` : ""}
                     </td>
                     <td className="px-4 py-2 text-center">
                       {d.visit_count > 0 ? (
-                        <span className={`font-semibold ${d.visit_count >= 7 ? "text-amber-600" : "text-gray-600"}`}>
+                        <span className={`font-semibold ${d.visit_count >= 7 ? "text-amber-600" : "text-ink-soft"}`}>
                           {d.visit_count}회
                         </span>
-                      ) : <span className="text-gray-300">-</span>}
+                      ) : <span className="text-ink-400">-</span>}
                     </td>
                     <td className="px-4 py-2 text-center">
                       {d.inpatient_days > 0 ? (
                         <span className="font-semibold text-red-500">{d.inpatient_days}일</span>
-                      ) : <span className="text-gray-300">-</span>}
+                      ) : <span className="text-ink-400">-</span>}
                     </td>
                     <td className="px-4 py-2 text-center">
                       {d.surgery_count > 0 ? (
                         <span className="font-semibold text-red-500">{d.surgery_count}건</span>
-                      ) : <span className="text-gray-300">-</span>}
+                      ) : <span className="text-ink-400">-</span>}
                     </td>
                     <td className="px-4 py-2 text-center">
                       {d.med_days > 0 ? (
                         <span className={`font-semibold ${d.med_days >= 30 ? "text-amber-600" : "text-emerald-600"}`}>
                           {d.med_days}일
                         </span>
-                      ) : <span className="text-gray-300">-</span>}
+                      ) : <span className="text-ink-400">-</span>}
                     </td>
-                    <td className="max-w-[180px] truncate px-4 py-2 text-gray-500">
+                    <td className="max-w-[180px] truncate px-4 py-2 text-ink-soft">
                       {(d.hospitals || []).slice(0, 2).join(", ") || "-"}
                     </td>
                   </tr>
@@ -385,9 +385,9 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
     <article className={`border-l-4 px-5 py-4 transition-colors duration-200 hover:bg-green-50/40 ${RISK[risk].border}`}>
       <div className="mb-1 flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span className="text-[15px] font-bold text-gray-900">{item.name || "질병명 없음"}</span>
+          <span className="text-[15px] font-bold text-ink-900">{item.name || "질병명 없음"}</span>
           {item.code && (
-            <span className="shrink-0 rounded bg-gray-100 px-2 py-0.5 font-mono text-[11px] text-gray-500">
+            <span className="shrink-0 rounded bg-ink-100 px-2 py-0.5 font-mono text-[11px] text-ink-soft">
               {item.display_code || item.code}
             </span>
           )}
@@ -401,25 +401,25 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
         </div>
       )}
 
-      <div className="mb-2.5 space-y-0.5 text-xs text-gray-500">
+      <div className="mb-2.5 space-y-0.5 text-xs text-ink-soft">
         {period && (
           <div className="flex items-center gap-2">
-            <span className="shrink-0 text-gray-400">진료기간</span>
+            <span className="shrink-0 text-ink-soft">진료기간</span>
             <span>{period}</span>
-            {item.last_hospital && <span className="truncate text-gray-400">{item.last_hospital}</span>}
+            {item.last_hospital && <span className="truncate text-ink-soft">{item.last_hospital}</span>}
           </div>
         )}
         {item.first_diagnosis_date && (
           <div className="flex items-center gap-2">
-            <span className="shrink-0 text-gray-400">최초진단</span>
+            <span className="shrink-0 text-ink-soft">최초진단</span>
             <span>{item.first_diagnosis_date}</span>
-            {item.first_hospital && <span className="truncate text-gray-400">{item.first_hospital}</span>}
+            {item.first_hospital && <span className="truncate text-ink-soft">{item.first_hospital}</span>}
           </div>
         )}
       </div>
 
       {item.detail && (
-        <div className="mb-3 text-[13px] font-medium leading-relaxed text-gray-700">
+        <div className="mb-3 text-[13px] font-medium leading-relaxed text-ink">
           {item.detail}
         </div>
       )}
@@ -464,10 +464,10 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
       )}
 
       {hasBottom && (
-        <div className="mt-3 space-y-1 border-t border-gray-100 pt-2.5 text-xs leading-relaxed">
+        <div className="mt-3 space-y-1 border-t border-line pt-2.5 text-xs leading-relaxed">
           {suspN > 0 && (
-            <p className="text-gray-500">
-              <span className="mr-1.5 text-gray-400">의심 행위</span>
+            <p className="text-ink-soft">
+              <span className="mr-1.5 text-ink-soft">의심 행위</span>
               {item.surgery_suspected!.slice(0, 3).join(", ")}
             </p>
           )}
@@ -520,9 +520,9 @@ function DisclosureSection({
       {memo && (
         <section data-tour="copy" className="mb-4 overflow-hidden rounded-[8px] bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
           <div className="flex items-center justify-between gap-3 px-5 py-4">
-            <button type="button" onClick={() => setMemoOpen(!memoOpen)} aria-expanded={memoOpen} className="text-left text-sm font-bold text-gray-800">
+            <button type="button" onClick={() => setMemoOpen(!memoOpen)} aria-expanded={memoOpen} className="text-left text-sm font-bold text-ink">
               {copy.memoLabel}
-              <span className="ml-2 text-xs text-gray-400">{memoOpen ? "접기" : "펼치기"}</span>
+              <span className="ml-2 text-xs text-ink-soft">{memoOpen ? "접기" : "펼치기"}</span>
             </button>
             <button
               onClick={handleCopy}
@@ -532,7 +532,7 @@ function DisclosureSection({
             </button>
           </div>
           {memoOpen && (
-            <pre className="whitespace-pre-wrap bg-gray-50 px-5 py-4 font-sans text-xs leading-relaxed text-gray-600">
+            <pre className="whitespace-pre-wrap bg-ink-50 px-5 py-4 font-sans text-xs leading-relaxed text-ink-soft">
               {memo}
             </pre>
           )}
@@ -553,12 +553,12 @@ function DisclosureSection({
             const normalItems = sortByDate(items);
             return (
               <section key={qTitle} className="overflow-hidden rounded-[8px] bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
-                <div className="flex items-center gap-2.5 border-b border-gray-100 px-5 py-3.5">
+                <div className="flex items-center gap-2.5 border-b border-line px-5 py-3.5">
                   <Badge variant={Q_VARIANT[qNum] ?? "default"} className="shrink-0">{qNum}</Badge>
-                  <h3 className="text-sm font-bold text-gray-800">{cleanQTitle(qTitle)}</h3>
+                  <h3 className="text-sm font-bold text-ink">{cleanQTitle(qTitle)}</h3>
                 </div>
                 {normalItems.length > 0 && (
-                  <div className="divide-y divide-gray-50">
+                  <div className="divide-y divide-line">
                     {normalItems.map((item, idx) => (
                       <DiseaseCard key={`${item.code}-${idx}`} item={item} qNum={qNum} isEasy={isEasy} />
                     ))}
@@ -579,8 +579,8 @@ function DisclosureSection({
 
 function DisclaimerBox() {
   return (
-    <div className="mt-5 rounded-[8px] border border-gray-200 bg-gray-50 p-4 text-[11px] leading-5 text-gray-500">
-      <p className="font-bold text-gray-600">분석 결과 이용 시 유의사항</p>
+    <div className="mt-5 rounded-[8px] border border-line bg-ink-50 p-4 text-[11px] leading-5 text-ink-soft">
+      <p className="font-bold text-ink-soft">분석 결과 이용 시 유의사항</p>
       <p className="mt-1.5 break-keep">
         보험핏 결과는 업로드한 진료자료를 바탕으로 AI가 산출한 <b className="font-bold">참고용 보조자료</b>이며,
         의학적 진단이나 보험 가입·인수·보험금 지급 여부를 확정하지 않습니다. 실제 알릴의무(고지) 대상과 범위는
@@ -806,65 +806,65 @@ function InsuranceSection({ coveredByYear, captured }: { coveredByYear: Record<s
         정확한 금액·보장 여부는 보험사·공단 확인이 필요합니다. 본 안내는 보험 모집·상품 추천·가입 권유가 아닙니다.
       </div>
 
-      <div className="no-print rounded-[8px] border border-gray-100 bg-white p-4">
-        <h3 className="mb-3 text-sm font-bold text-gray-800">실손 정보 입력</h3>
+      <div className="no-print rounded-[8px] border border-line bg-white p-4">
+        <h3 className="mb-3 text-sm font-bold text-ink">실손 정보 입력</h3>
         <div className="grid gap-3 sm:grid-cols-2">
           {years.length > 1 && (
-            <label className="text-xs font-semibold text-gray-600">
+            <label className="text-xs font-semibold text-ink-soft">
               조회 연도
               <select value={year} onChange={(e) => setYear(e.target.value)}
-                className="mt-1 w-full rounded-[6px] border border-gray-200 p-2 text-sm">
+                className="mt-1 w-full rounded-[6px] border border-line p-2 text-sm">
                 {years.map((y) => <option key={y} value={y}>{y}년</option>)}
               </select>
             </label>
           )}
-          <label className="text-xs font-semibold text-gray-600">
+          <label className="text-xs font-semibold text-ink-soft">
             실손 세대
             <select value={gen === "" ? "" : String(gen)}
               onChange={(e) => { const v = e.target.value; setGen(v === "" ? "" : parseInt(v, 10)); setNcOption(null); }}
-              className="mt-1 w-full rounded-[6px] border border-gray-200 p-2 text-sm">
+              className="mt-1 w-full rounded-[6px] border border-line p-2 text-sm">
               <option value="">모름</option>
               {[1, 2, 3, 4, 5].map((g) => <option key={g} value={g}>{g}세대 ({INS_GEN_RATES[g].period})</option>)}
             </select>
           </label>
           {gen === 3 && (
-            <label className="text-xs font-semibold text-gray-600">
+            <label className="text-xs font-semibold text-ink-soft">
               3세대 비급여 자기부담
               <select value={ncOption == null ? "" : String(ncOption)}
                 onChange={(e) => setNcOption(e.target.value === "" ? null : parseInt(e.target.value, 10))}
-                className="mt-1 w-full rounded-[6px] border border-gray-200 p-2 text-sm">
+                className="mt-1 w-full rounded-[6px] border border-line p-2 text-sm">
                 <option value="">선택</option>
                 <option value="20">20%</option>
                 <option value="30">30%</option>
               </select>
             </label>
           )}
-          <label className="text-xs font-semibold text-gray-600">
+          <label className="text-xs font-semibold text-ink-soft">
             소득분위 (건보 상한제)
             <select value={bracket === "" ? "" : String(bracket)}
               onChange={(e) => { const v = e.target.value; setBracket(v === "" ? "" : parseInt(v, 10)); }}
-              className="mt-1 w-full rounded-[6px] border border-gray-200 p-2 text-sm">
+              className="mt-1 w-full rounded-[6px] border border-line p-2 text-sm">
               <option value="">모름</option>
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((b) => <option key={b} value={b}>{b}분위</option>)}
             </select>
           </label>
-          <label className="text-xs font-semibold text-gray-600">
+          <label className="text-xs font-semibold text-ink-soft">
             비급여 금액 직접 입력 (선택)
             <input inputMode="numeric" value={nonCovered}
               onChange={(e) => setNonCovered(e.target.value)} placeholder="예: 500000"
-              className="mt-1 w-full rounded-[6px] border border-gray-200 p-2 text-sm" />
+              className="mt-1 w-full rounded-[6px] border border-line p-2 text-sm" />
           </label>
-          <label className="text-xs font-semibold text-gray-600">
+          <label className="text-xs font-semibold text-ink-soft">
             비급여 영수증 첨부 (선택)
             <input type="file" accept="image/*,application/pdf"
               onChange={(e) => setReceiptName(e.target.files && e.target.files[0] ? e.target.files[0].name : "")}
-              className="mt-1 w-full text-xs text-gray-500" />
+              className="mt-1 w-full text-xs text-ink-soft" />
             {receiptName && (
-              <span className="mt-1 block text-[11px] text-gray-400">첨부: {receiptName} — 영수증 금액 자동 인식은 후속 단계입니다. 금액을 직접 입력해 주세요.</span>
+              <span className="mt-1 block text-[11px] text-ink-soft">첨부: {receiptName} — 영수증 금액 자동 인식은 후속 단계입니다. 금액을 직접 입력해 주세요.</span>
             )}
           </label>
         </div>
-        <p className="mt-3 text-[11px] text-gray-500">입력값(세대·분위·비급여)은 저장하지 않으며 이 화면에서만 사용됩니다.</p>
+        <p className="mt-3 text-[11px] text-ink-soft">입력값(세대·분위·비급여)은 저장하지 않으며 이 화면에서만 사용됩니다.</p>
       </div>
 
       {!captured && (
@@ -885,75 +885,75 @@ function InsuranceSection({ coveredByYear, captured }: { coveredByYear: Record<s
 
       <div id="insurance-print-area" className="space-y-4">
         <div className="print-only mb-2">
-          <h2 className="text-base font-bold text-gray-900">실손 청구 안내 리포트</h2>
-          <p className="text-[11px] text-gray-500">생성일: {printedAt}</p>
-          <p className="text-[11px] text-gray-500">본 문서는 진료기록 기반 민감정보를 포함합니다 — 취급에 주의하세요.</p>
+          <h2 className="text-base font-bold text-ink-900">실손 청구 안내 리포트</h2>
+          <p className="text-[11px] text-ink-soft">생성일: {printedAt}</p>
+          <p className="text-[11px] text-ink-soft">본 문서는 진료기록 기반 민감정보를 포함합니다 — 취급에 주의하세요.</p>
         </div>
 
-        <div className="print-only rounded-[8px] border border-gray-200 p-3 text-xs text-gray-700">
+        <div className="print-only rounded-[8px] border border-line p-3 text-xs text-ink">
           <b>입력 요약</b> — 실손 세대: {genLabel}{genOptionLabel} · 소득분위: {bracketLabel} · 비급여 입력: {wonToMan(ncAmount)} · 조회 연도: {year || "-"} · 급여 본인부담: {wonToMan(coveredSelfPay)}
         </div>
 
       <InsResultCard n="①" title="실손 청구 가능성">
         {claim ? (
           <>
-            <p className="font-semibold text-gray-800">{claim.possibility}</p>
+            <p className="font-semibold text-ink">{claim.possibility}</p>
             {claim.has && (
-              <p className="text-gray-600">청구 추정 {claim.low === claim.high ? wonToMan(claim.low) : `${wonToMan(claim.low)}~${wonToMan(claim.high)}`} 수준일 수 있습니다.</p>
+              <p className="text-ink-soft">청구 추정 {claim.low === claim.high ? wonToMan(claim.low) : `${wonToMan(claim.low)}~${wonToMan(claim.high)}`} 수준일 수 있습니다.</p>
             )}
-            <p className="text-[11px] text-gray-400">급여 본인부담 {wonToMan(coveredSelfPay)}{ncAmount > 0 ? ` · 비급여 ${wonToMan(ncAmount)}` : ""} 기준 추정. 세대별 자기부담률은 2026-06 약관 확인 기준입니다.</p>
+            <p className="text-[11px] text-ink-soft">급여 본인부담 {wonToMan(coveredSelfPay)}{ncAmount > 0 ? ` · 비급여 ${wonToMan(ncAmount)}` : ""} 기준 추정. 세대별 자기부담률은 2026-06 약관 확인 기준입니다.</p>
           </>
         ) : consEst ? (
           <>
-            <p className="font-semibold text-gray-800">{consEst.possibility}</p>
-            <p className="text-gray-600">청구 추정 약 {wonToMan(consEst.low)} 이하 수준일 수 있습니다.</p>
+            <p className="font-semibold text-ink">{consEst.possibility}</p>
+            <p className="text-ink-soft">청구 추정 약 {wonToMan(consEst.low)} 이하 수준일 수 있습니다.</p>
             <p className="text-[11px] text-amber-700">세대 모름 — 세대별 최대 공제 기준(가장 보수적, {consEst.gen}세대)으로 환급을 가장 작게 추정한 값입니다. 실제 세대를 선택하면 더 정확해집니다.</p>
-            <p className="text-[11px] text-gray-400">급여 본인부담 {wonToMan(coveredSelfPay)}{ncAmount > 0 ? ` · 비급여 ${wonToMan(ncAmount)}` : ""} 기준. 세대별 자기부담률은 2026-06 약관 확인 기준입니다.</p>
+            <p className="text-[11px] text-ink-soft">급여 본인부담 {wonToMan(coveredSelfPay)}{ncAmount > 0 ? ` · 비급여 ${wonToMan(ncAmount)}` : ""} 기준. 세대별 자기부담률은 2026-06 약관 확인 기준입니다.</p>
           </>
-        ) : <p className="text-gray-500">실손 세대를 선택하면 청구 추정 범위를 안내합니다. (세대를 모르면 급여/비급여 금액 입력 시 가장 보수적인 추정을 보여드립니다.)</p>}
+        ) : <p className="text-ink-soft">실손 세대를 선택하면 청구 추정 범위를 안내합니다. (세대를 모르면 급여/비급여 금액 입력 시 가장 보수적인 추정을 보여드립니다.)</p>}
       </InsResultCard>
 
       {/* BOHUMFIT-028: ①-b 실손 최소공제 적용 추정 (additive 옵션, 기존 ①②③ 불변) */}
       <InsResultCard n="①-b" title="실손 최소공제 적용 추정 (선택)">
         <div className="no-print space-y-2">
-          <label className="flex items-center gap-2 text-xs font-semibold text-gray-700">
+          <label className="flex items-center gap-2 text-xs font-semibold text-ink">
             <input type="checkbox" checked={minDedOn} onChange={(e) => setMinDedOn(e.target.checked)} />
             최소공제 적용 (통원 자기부담 = 정액·정률 중 큰 값)
           </label>
           {minDedOn && (
             <div className="grid gap-2 sm:grid-cols-2">
-              <label className="text-[11px] font-semibold text-gray-600">
+              <label className="text-[11px] font-semibold text-ink-soft">
                 기관명 (등급 추정)
                 <input value={providerName} onChange={(e) => setProviderName(e.target.value)} placeholder="예: 서울정형외과의원"
-                  className="mt-1 w-full rounded-[6px] border border-gray-200 p-1.5 text-sm" />
-                <span className="mt-0.5 block text-[10px] text-gray-400">추정: {INS_GRADE_LABELS[autoGrade]} — 추정이며 실제와 다를 수 있어요(우측에서 수정).</span>
+                  className="mt-1 w-full rounded-[6px] border border-line p-1.5 text-sm" />
+                <span className="mt-0.5 block text-[10px] text-ink-soft">추정: {INS_GRADE_LABELS[autoGrade]} — 추정이며 실제와 다를 수 있어요(우측에서 수정).</span>
               </label>
-              <label className="text-[11px] font-semibold text-gray-600">
+              <label className="text-[11px] font-semibold text-ink-soft">
                 기관 등급 (수정)
                 <select value={gradeOverride} onChange={(e) => setGradeOverride(e.target.value)}
-                  className="mt-1 w-full rounded-[6px] border border-gray-200 p-1.5 text-sm">
+                  className="mt-1 w-full rounded-[6px] border border-line p-1.5 text-sm">
                   <option value="">자동 ({INS_GRADE_LABELS[autoGrade]})</option>
                   <option value="clinic">의원</option>
                   <option value="general">종합병원</option>
                   <option value="tertiary">상급종합병원</option>
                 </select>
               </label>
-              <label className="text-[11px] font-semibold text-gray-600">
+              <label className="text-[11px] font-semibold text-ink-soft">
                 급여 통원 1회 진료비
                 <input inputMode="numeric" value={covOutCharge} onChange={(e) => setCovOutCharge(e.target.value)} placeholder="예: 30000"
-                  className="mt-1 w-full rounded-[6px] border border-gray-200 p-1.5 text-sm" />
+                  className="mt-1 w-full rounded-[6px] border border-line p-1.5 text-sm" />
               </label>
-              <label className="text-[11px] font-semibold text-gray-600">
+              <label className="text-[11px] font-semibold text-ink-soft">
                 입원 진료비 (정액공제 없음)
                 <input inputMode="numeric" value={inpatientCharge} onChange={(e) => setInpatientCharge(e.target.value)} placeholder="예: 100000"
-                  className="mt-1 w-full rounded-[6px] border border-gray-200 p-1.5 text-sm" />
+                  className="mt-1 w-full rounded-[6px] border border-line p-1.5 text-sm" />
               </label>
-              <label className="text-[11px] font-semibold text-gray-600">
+              <label className="text-[11px] font-semibold text-ink-soft">
                 비급여 통원 {ncTotalMode ? "총액" : "1회 금액"}
                 <input inputMode="numeric" value={ncOutCharge} onChange={(e) => setNcOutCharge(e.target.value)} placeholder="예: 30000"
-                  className="mt-1 w-full rounded-[6px] border border-gray-200 p-1.5 text-sm" />
+                  className="mt-1 w-full rounded-[6px] border border-line p-1.5 text-sm" />
               </label>
-              <div className="text-[11px] font-semibold text-gray-600">
+              <div className="text-[11px] font-semibold text-ink-soft">
                 <label className="flex items-center gap-1">
                   <input type="checkbox" checked={ncTotalMode} onChange={(e) => setNcTotalMode(e.target.checked)} />
                   비급여 총액으로 입력 (건별 권장)
@@ -961,7 +961,7 @@ function InsuranceSection({ coveredByYear, captured }: { coveredByYear: Record<s
                 {!ncTotalMode && (
                   <label className="mt-1 block">횟수
                     <input inputMode="numeric" value={ncVisitCount} onChange={(e) => setNcVisitCount(e.target.value)}
-                      className="mt-1 w-full rounded-[6px] border border-gray-200 p-1.5 text-sm" />
+                      className="mt-1 w-full rounded-[6px] border border-line p-1.5 text-sm" />
                   </label>
                 )}
               </div>
@@ -971,20 +971,20 @@ function InsuranceSection({ coveredByYear, captured }: { coveredByYear: Record<s
 
         {minDedOn && (
           minDed == null ? (
-            <p className="text-gray-500">{genNum ? "이 세대는 통원 정액공제를 적용하지 않습니다 (1세대 legacy·5세대 준비중)." : "실손 세대를 선택해 주세요."}</p>
+            <p className="text-ink-soft">{genNum ? "이 세대는 통원 정액공제를 적용하지 않습니다 (1세대 legacy·5세대 준비중)." : "실손 세대를 선택해 주세요."}</p>
           ) : (
             <div className="space-y-1">
-              <p className="text-gray-700">적용 정액공제: {INS_GRADE_LABELS[effGrade]} {wonToMan(minDed)} (통원). 통원 자기부담 = 정액·정률 중 큰 값.</p>
+              <p className="text-ink">적용 정액공제: {INS_GRADE_LABELS[effGrade]} {wonToMan(minDed)} (통원). 통원 자기부담 = 정액·정률 중 큰 값.</p>
               {mdCovOut && insWon(covOutCharge) > 0 && (
-                <p className="text-gray-600">급여 통원 보상 추정 {wonToMan(mdCovOut.reimbursement)}{mdCovOut.lowValue ? " — 청구 실익 낮음" : ""}.</p>
+                <p className="text-ink-soft">급여 통원 보상 추정 {wonToMan(mdCovOut.reimbursement)}{mdCovOut.lowValue ? " — 청구 실익 낮음" : ""}.</p>
               )}
               {mdNcRow && insWon(ncOutCharge) > 0 && (
-                <p className="text-gray-600">비급여 통원 보상 추정 {wonToMan(mdNcReimb)}{ncTotalMode ? " (총액 1회 공제)" : ` (1회×${mdNcVisits}회)`}{mdNcRow.lowValue ? " — 청구 실익 낮음" : ""}.</p>
+                <p className="text-ink-soft">비급여 통원 보상 추정 {wonToMan(mdNcReimb)}{ncTotalMode ? " (총액 1회 공제)" : ` (1회×${mdNcVisits}회)`}{mdNcRow.lowValue ? " — 청구 실익 낮음" : ""}.</p>
               )}
               {mdInpatient && insWon(inpatientCharge) > 0 && (
-                <p className="text-gray-600">입원 보상 추정 {wonToMan(mdInpatient.reimbursement)} (정액공제 없음·정률만){mdInpatient.lowValue ? " — 청구 실익 낮음" : ""}.</p>
+                <p className="text-ink-soft">입원 보상 추정 {wonToMan(mdInpatient.reimbursement)} (정액공제 없음·정률만){mdInpatient.lowValue ? " — 청구 실익 낮음" : ""}.</p>
               )}
-              <ul className="mt-1 list-disc pl-4 text-[11px] text-gray-400">
+              <ul className="mt-1 list-disc pl-4 text-[11px] text-ink-soft">
                 <li>통원 자기부담은 정액·정률(진료비×자기부담률) 중 큰 값으로 추정합니다.</li>
                 <li>진료비가 정액공제 이하면 보상이 없어 청구 실익이 낮을 수 있습니다.</li>
                 <li>기관 등급은 기관명 추정값이며 실제와 다를 수 있어요 — 직접 수정 가능합니다.</li>
@@ -999,24 +999,24 @@ function InsuranceSection({ coveredByYear, captured }: { coveredByYear: Record<s
       <InsResultCard n="②" title="실손 자기부담금 상한제">
         {selfPayCap ? (
           <>
-            <p className="font-semibold text-gray-800">{selfPayCap.exceeded ? "초과분 추가 보장 가능성 있음" : "상한 초과 아닐 수 있음"}</p>
-            <p className="text-gray-600">연 자기부담금 합산 {wonToMan(selfPayCap.eligible)} / 세대 상한 {wonToMan(selfPayCap.cap)}{selfPayCap.exceeded ? ` · 초과 ${wonToMan(selfPayCap.excess)} 수준` : ""}.</p>
-            {selfPayCap.nonCoveredExcluded && <p className="text-[11px] text-gray-400">4~5세대는 비급여 자기부담이 상한 대상이 아니라 급여 자기부담만 합산합니다.</p>}
+            <p className="font-semibold text-ink">{selfPayCap.exceeded ? "초과분 추가 보장 가능성 있음" : "상한 초과 아닐 수 있음"}</p>
+            <p className="text-ink-soft">연 자기부담금 합산 {wonToMan(selfPayCap.eligible)} / 세대 상한 {wonToMan(selfPayCap.cap)}{selfPayCap.exceeded ? ` · 초과 ${wonToMan(selfPayCap.excess)} 수준` : ""}.</p>
+            {selfPayCap.nonCoveredExcluded && <p className="text-[11px] text-ink-soft">4~5세대는 비급여 자기부담이 상한 대상이 아니라 급여 자기부담만 합산합니다.</p>}
           </>
-        ) : <p className="text-gray-500">실손 세대를 선택해 주세요.</p>}
+        ) : <p className="text-ink-soft">실손 세대를 선택해 주세요.</p>}
       </InsResultCard>
 
       <InsResultCard n="③" title="건강보험 본인부담상한제 (2026 기준)">
         {nhisCap ? (
           <>
-            <p className="font-semibold text-gray-800">{nhisCap.exceeded ? "공단 환급 가능성 있음" : "환급 대상 아닐 수 있음"}</p>
-            <p className="text-gray-600">연 급여 본인부담 {wonToMan(coveredSelfPay)} / {bracket}분위 상한 {wonToMan(nhisCap.cap)}{nhisCap.exceeded ? ` · 환급 ${wonToMan(nhisCap.refund)} 수준` : ""}.</p>
-            <p className="text-[11px] text-gray-400">급여 본인부담만 대상(비급여 제외). 요양병원 120일 초과 시 상한이 달라질 수 있습니다.</p>
+            <p className="font-semibold text-ink">{nhisCap.exceeded ? "공단 환급 가능성 있음" : "환급 대상 아닐 수 있음"}</p>
+            <p className="text-ink-soft">연 급여 본인부담 {wonToMan(coveredSelfPay)} / {bracket}분위 상한 {wonToMan(nhisCap.cap)}{nhisCap.exceeded ? ` · 환급 ${wonToMan(nhisCap.refund)} 수준` : ""}.</p>
+            <p className="text-[11px] text-ink-soft">급여 본인부담만 대상(비급여 제외). 요양병원 120일 초과 시 상한이 달라질 수 있습니다.</p>
           </>
-        ) : <p className="text-gray-500">소득분위를 선택하면 환급 가능성을 안내합니다.</p>}
+        ) : <p className="text-ink-soft">소득분위를 선택하면 환급 가능성을 안내합니다.</p>}
       </InsResultCard>
 
-        <div className="text-[11px] leading-relaxed text-gray-400">
+        <div className="text-[11px] leading-relaxed text-ink-soft">
           <p>{INS_DISCLAIMER}</p>
           <p className="print-only mt-1">본 안내는 추정이며 확정 금액이 아닙니다. 정확한 금액·보장 여부는 보험사·공단 확인이 필요하며, 보험 모집·상품추천·가입권유가 아닙니다.</p>
         </div>
@@ -1098,7 +1098,7 @@ function ResultView({ result, mode, referenceDate }: { result: AnalyzeResult; mo
         //   ("AI 보조 판단이 …초 안에 끝나지 않아…" 외 동일 계열 안내 포함. 다른 경고는 그대로 노출.)
         .filter((w) => !w.includes("AI 보조 판단"))
         .map((w, i) => (
-          <div key={`warning-${i}`} className="mb-3 rounded-[8px] bg-gray-50 p-3 text-sm text-gray-600">
+          <div key={`warning-${i}`} className="mb-3 rounded-[8px] bg-ink-50 p-3 text-sm text-ink-soft">
             {w}
           </div>
         ))}
@@ -1111,9 +1111,9 @@ function ResultView({ result, mode, referenceDate }: { result: AnalyzeResult; mo
           <Metric label="전체 병력" value={`${result.all_disease_summary.length}개`} />
           <Metric label="총 투약일" value={`${result.total_med_sum}일`} />
         </div>
-        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
           {/* BOHUMFIT-067: 고객명 직접 입력(선택). 입력 시 파일명·리포트 본문에 우선 적용, 비우면 자동추출/날짜 폴백. */}
-          <label className="flex items-center gap-1.5 text-[12px] text-gray-600">
+          <label className="flex items-center gap-1.5 text-[12px] text-ink-soft">
             <span className="whitespace-nowrap">고객명</span>
             <input
               type="text"
@@ -1121,7 +1121,7 @@ function ResultView({ result, mode, referenceDate }: { result: AnalyzeResult; mo
               onChange={(e) => setCustomerName(e.target.value)}
               placeholder={result.customer_name || "선택 입력"}
               maxLength={20}
-              className="w-28 rounded-[6px] border border-gray-300 px-2 py-1 text-sm focus:border-accent-600 focus:outline-none"
+              className="w-28 rounded-[6px] border border-line-strong px-2 py-1 text-sm focus:border-accent-600 focus:outline-none"
             />
           </label>
           <button
@@ -1132,7 +1132,7 @@ function ResultView({ result, mode, referenceDate }: { result: AnalyzeResult; mo
           >
             {pdfLoading ? "PDF 생성 중…" : "고지내역 PDF 저장"}
           </button>
-          <span className="text-[11px] text-gray-400">Q1~Q5 고지 검토 내역을 PDF로 저장합니다(개인정보 포함 — 보관에 유의).</span>
+          <span className="text-[11px] text-ink-soft">Q1~Q5 고지 검토 내역을 PDF로 저장합니다(개인정보 포함 — 보관에 유의).</span>
           {pdfError && <span className="text-[11px] text-red-500">{pdfError}</span>}
         </div>
       </div>
@@ -1140,7 +1140,7 @@ function ResultView({ result, mode, referenceDate }: { result: AnalyzeResult; mo
       <AllDiseaseSection diseases={result.all_disease_summary} />
 
       <section className="mb-5 overflow-hidden rounded-[8px] bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
-        <div role="tablist" aria-label="심사 유형" className="flex border-b border-gray-100">
+        <div role="tablist" aria-label="심사 유형" className="flex border-b border-line">
           {(["standard", "easy", "insurance"] as const).map((tab) => {
             const label = tab === "standard" ? "건강체/표준체" : tab === "easy" ? "간편심사" : "실손 청구";
             const count = tab === "standard" ? stdCount : tab === "easy" ? easyCount : 0;
@@ -1153,13 +1153,13 @@ function ResultView({ result, mode, referenceDate }: { result: AnalyzeResult; mo
                 aria-selected={active}
                 onClick={() => setProductTab(tab)}
                 className={`relative flex-1 py-3.5 text-sm font-bold transition-all ${
-                  active ? "text-accent-600" : "text-gray-400 hover:text-gray-600"
+                  active ? "text-accent-600" : "text-ink-soft hover:text-ink-soft"
                 }`}
               >
                 {label}
                 {count > 0 && (
                   <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-xs font-semibold ${
-                    active ? "bg-accent-100 text-accent-600" : "bg-gray-100 text-gray-500"
+                    active ? "bg-accent-100 text-accent-600" : "bg-ink-100 text-ink-soft"
                   }`}>
                     {count}
                   </span>
@@ -1193,10 +1193,10 @@ function ResultView({ result, mode, referenceDate }: { result: AnalyzeResult; mo
   );
 }
 
-function Metric({ label, value, tone = "text-gray-900" }: { label: string; value: string; tone?: string }) {
+function Metric({ label, value, tone = "text-ink-900" }: { label: string; value: string; tone?: string }) {
   return (
-    <div className="rounded-[8px] bg-gray-50 px-4 py-3">
-      <p className="text-xs font-semibold text-gray-400">{label}</p>
+    <div className="rounded-[8px] bg-ink-50 px-4 py-3">
+      <p className="text-xs font-semibold text-ink-soft">{label}</p>
       <p className={`mt-1 text-xl font-black ${tone}`}>{value}</p>
     </div>
   );
@@ -1309,7 +1309,7 @@ function TourOverlay({
           style={spotlightStyle}
         />
       ) : (
-        <div aria-hidden="true" className="absolute inset-0 bg-gray-950/70" />
+        <div aria-hidden="true" className="absolute inset-0 bg-ink-900/70" />
       )}
 
       <section
@@ -1321,15 +1321,15 @@ function TourOverlay({
         }`}
         style={cardStyle}
       >
-        <div className="mb-6 flex items-center justify-between text-sm font-semibold text-gray-400">
+        <div className="mb-6 flex items-center justify-between text-sm font-semibold text-ink-soft">
           <span>{displayIndex} / 6</span>
-          <button type="button" onClick={onSkip} className="hover:text-gray-700">
+          <button type="button" onClick={onSkip} className="hover:text-ink">
             건너뛰기
           </button>
         </div>
         <div className="mb-5">
-          <p className="text-lg font-extrabold text-gray-900 break-keep">{step.title}</p>
-          <p className="mt-3 text-sm leading-7 text-gray-600 break-keep">{step.body}</p>
+          <p className="text-lg font-extrabold text-ink-900 break-keep">{step.title}</p>
+          <p className="mt-3 text-sm leading-7 text-ink-soft break-keep">{step.body}</p>
         </div>
         <div className="flex items-center justify-between gap-4">
           <div className="flex gap-1.5">
@@ -1337,7 +1337,7 @@ function TourOverlay({
               <span
                 key={dotIndex}
                 className={`h-2 rounded-full ${
-                  dotIndex + 1 === displayIndex ? "w-7 bg-accent-600" : "w-2 bg-gray-200"
+                  dotIndex + 1 === displayIndex ? "w-7 bg-accent-600" : "w-2 bg-ink-100"
                 }`}
               />
             ))}
@@ -1533,7 +1533,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
         <button
           type="button"
           onClick={() => replayTour(result ? "post" : "pre")}
-          className="rounded-[8px] border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-500 hover:border-accent-600/40 hover:text-accent-600"
+          className="rounded-[8px] border border-line bg-white px-3 py-2 text-xs font-bold text-ink-soft hover:border-accent-600/40 hover:text-accent-600"
         >
           {result ? "결과 가이드 다시보기" : "필터 가이드 다시보기"}
         </button>
@@ -1541,8 +1541,8 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
 
       <div className="mb-6">
         <p className="mb-1 text-xs font-bold tracking-wider text-accent-600">{copy.badge}</p>
-        <h1 className="ko-heading text-2xl font-extrabold tracking-tight text-gray-900">{copy.title}</h1>
-        <p className="ko-text mt-1 text-sm leading-6 text-gray-500 break-keep">{copy.subtitle}</p>
+        <h1 className="ko-heading text-2xl font-extrabold tracking-tight text-ink-900">{copy.title}</h1>
+        <p className="ko-text mt-1 text-sm leading-6 text-ink-soft break-keep">{copy.subtitle}</p>
       </div>
 
       <section className="mb-5 rounded-[8px] bg-white p-6 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
@@ -1552,28 +1552,28 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
         </div>
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <div data-tour="date">
-            <label className="mb-2 block text-sm font-semibold text-gray-700">{copy.dateLabel}</label>
+            <label className="mb-2 block text-sm font-semibold text-ink">{copy.dateLabel}</label>
             <input
               type="date"
               value={refDate}
               onChange={(e) => setRefDate(e.target.value)}
-              className="w-full rounded-[8px] bg-gray-50 px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-accent-600/30"
+              className="w-full rounded-[8px] bg-ink-50 px-4 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent-600/30"
             />
-            <p className="mt-2 text-xs leading-5 text-gray-400">{copy.dateHelp}</p>
+            <p className="mt-2 text-xs leading-5 text-ink-soft">{copy.dateHelp}</p>
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-semibold text-gray-700">
-              PDF 비밀번호 <span className="font-normal text-gray-300">선택</span>
+            <label className="mb-2 block text-sm font-semibold text-ink">
+              PDF 비밀번호 <span className="font-normal text-ink-400">선택</span>
             </label>
             <input
               type="text"
               placeholder="예: 19900101"
               value={birthdate}
               onChange={(e) => setBirthdate(e.target.value)}
-              className="w-full rounded-[8px] bg-gray-50 px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-accent-600/30"
+              className="w-full rounded-[8px] bg-ink-50 px-4 py-2.5 text-sm text-ink placeholder:text-ink-400 focus:outline-none focus:ring-2 focus:ring-accent-600/30"
             />
-            <p className="mt-2 text-xs leading-5 text-gray-500">암호화 PDF라면 생년월일 8자리를 입력해 주세요.</p>
+            <p className="mt-2 text-xs leading-5 text-ink-soft">암호화 PDF라면 생년월일 8자리를 입력해 주세요.</p>
           </div>
         </div>
 
@@ -1605,7 +1605,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
           {selectedNames.length === 0 && (
             <>
               <Upload aria-hidden className="mx-auto mb-2 h-7 w-7 text-accent-600" />
-              <p className="mb-3 text-sm font-semibold text-gray-700">PDF 파일을 여기에 드래그하거나 클릭하세요</p>
+              <p className="mb-3 text-sm font-semibold text-ink">PDF 파일을 여기에 드래그하거나 클릭하세요</p>
             </>
           )}
           <input
@@ -1619,12 +1619,12 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
               setSelectedNames(fs.map((f) => f.name));
               setPreviewFiles(fs); // BOHUMFIT-138(항목6)
             }}
-            className="block w-full cursor-pointer text-sm text-gray-600 file:mr-4 file:rounded-[8px] file:border-0 file:bg-accent-600 file:px-5 file:py-2.5 file:text-sm file:font-bold file:text-white hover:file:bg-accent-700"
+            className="block w-full cursor-pointer text-sm text-ink-soft file:mr-4 file:rounded-[8px] file:border-0 file:bg-accent-600 file:px-5 file:py-2.5 file:text-sm file:font-bold file:text-white hover:file:bg-accent-700"
           />
           {selectedNames.length > 0 && (
             <ul className="mt-3 space-y-1 text-left">
               {selectedNames.map((n, i) => (
-                <li key={i} className="flex items-center gap-1.5 text-[12px] text-gray-700">
+                <li key={i} className="flex items-center gap-1.5 text-[12px] text-ink">
                   <FileText aria-hidden className="h-3.5 w-3.5 shrink-0 text-accent-600" />
                   <span className="truncate">{n}</span>
                   <CheckCircle2 aria-hidden className="ml-auto h-3.5 w-3.5 shrink-0 text-emerald-500" />
@@ -1632,12 +1632,12 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
               ))}
             </ul>
           )}
-          <p className="mt-3 text-xs text-gray-500">
+          <p className="mt-3 text-xs text-ink-soft">
             {copy.uploadHelp} 파일은 최대 {MAX_FILE_COUNT}개, 개별 {MAX_FILE_SIZE / 1024 / 1024}MB, 총합 {MAX_TOTAL_SIZE / 1024 / 1024}MB까지 업로드할 수 있습니다.
           </p>
         </div>
 
-        <label className="mt-4 flex items-start gap-2.5 rounded-[8px] bg-gray-50 px-4 py-3 text-xs leading-5 text-gray-600">
+        <label className="mt-4 flex items-start gap-2.5 rounded-[8px] bg-ink-50 px-4 py-3 text-xs leading-5 text-ink-soft">
           <input
             type="checkbox"
             checked={consent}
@@ -1645,14 +1645,14 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
             className="mt-0.5 h-4 w-4 shrink-0 accent-accent-600"
           />
           <span className="break-keep">
-            업로드하는 진료자료에는 <b className="font-bold text-gray-700">민감정보(건강에 관한 정보)</b>가 포함됩니다.
+            업로드하는 진료자료에는 <b className="font-bold text-ink">민감정보(건강에 관한 정보)</b>가 포함됩니다.
             고지 리스크 점검 목적의 처리에 동의하며, 자료는 분석 직후 보험핏 서버에서 폐기되고 서비스 데이터베이스에 저장되지 않습니다.
-            <Link to="/privacy-policy" className="ml-1 underline hover:text-gray-800">개인정보처리방침</Link>
+            <Link to="/privacy-policy" className="ml-1 underline hover:text-ink">개인정보처리방침</Link>
           </span>
         </label>
 
         {mode === "agent" && (
-          <label className="mt-3 flex items-start gap-2.5 rounded-[8px] bg-gray-50 px-4 py-3 text-xs leading-5 text-gray-600">
+          <label className="mt-3 flex items-start gap-2.5 rounded-[8px] bg-ink-50 px-4 py-3 text-xs leading-5 text-ink-soft">
             <input
               type="checkbox"
               checked={subjectConsent}
@@ -1677,7 +1677,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
 
       {/* BOHUMFIT-136b: 모바일(md 미만) 하단 고정 분석 CTA — 스크롤 후 표시, 분석 전까지만. PC는 기존 버튼 유지. */}
       {showSticky && !result && (
-        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white px-4 py-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] md:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-white px-4 py-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] md:hidden">
           <button
             type="button"
             onClick={analyze}
@@ -1731,18 +1731,18 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
 
       {/* BOHUMFIT-138(항목6): 업로드 PDF 미리보기(결과 상단, 기본 접힘, 다중=탭) */}
       {result && previewUrls.length > 0 && (
-        <section className="mb-5 overflow-hidden rounded-[8px] border border-gray-200 bg-white">
+        <section className="mb-5 overflow-hidden rounded-[8px] border border-line bg-white">
           <button
             type="button"
             onClick={() => setPreviewOpen((o) => !o)}
             aria-expanded={previewOpen}
-            className="flex w-full items-center justify-between px-5 py-3 text-sm font-bold text-gray-800"
+            className="flex w-full items-center justify-between px-5 py-3 text-sm font-bold text-ink"
           >
             <span>업로드한 PDF 미리보기 ({previewUrls.length})</span>
-            <span className="text-xs text-gray-400">{previewOpen ? "접기 ▲" : "펼치기 ▼"}</span>
+            <span className="text-xs text-ink-soft">{previewOpen ? "접기 ▲" : "펼치기 ▼"}</span>
           </button>
           {previewOpen && (
-            <div className="border-t border-gray-100 p-4">
+            <div className="border-t border-line p-4">
               {previewFiles.length > 1 && (
                 <div role="tablist" aria-label="PDF 파일" className="mb-3 flex flex-wrap gap-1.5">
                   {previewFiles.map((f, i) => (
@@ -1753,7 +1753,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
                       aria-selected={previewTab === i}
                       onClick={() => setPreviewTab(i)}
                       className={`rounded-[6px] px-2.5 py-1 text-[11px] font-semibold ${
-                        previewTab === i ? "bg-accent-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        previewTab === i ? "bg-accent-600 text-white" : "bg-ink-100 text-ink-soft hover:bg-ink-100"
                       }`}
                     >
                       {f.name.length > 18 ? `${f.name.slice(0, 16)}…` : f.name}
@@ -1764,10 +1764,10 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
               <object
                 data={previewUrls[Math.min(previewTab, previewUrls.length - 1)]}
                 type="application/pdf"
-                className="h-[500px] w-full rounded-[6px] border border-gray-200"
+                className="h-[500px] w-full rounded-[6px] border border-line"
                 aria-label="업로드 PDF 미리보기"
               >
-                <p className="p-4 text-sm text-gray-500">
+                <p className="p-4 text-sm text-ink-soft">
                   미리보기를 표시할 수 없습니다.{" "}
                   <a href={previewUrls[Math.min(previewTab, previewUrls.length - 1)]} target="_blank" rel="noreferrer" className="underline">
                     새 탭에서 열기
@@ -1783,8 +1783,8 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
 
       {!result && !loading && !error && (
         <section className="rounded-[8px] bg-white p-8 text-center shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
-          <p className="text-sm font-bold text-gray-800">심평원 진료자료 PDF를 업로드해 주세요.</p>
-          <p className="mt-2 text-xs leading-6 text-gray-400 break-keep">
+          <p className="text-sm font-bold text-ink">심평원 진료자료 PDF를 업로드해 주세요.</p>
+          <p className="mt-2 text-xs leading-6 text-ink-soft break-keep">
             기본진료, 세부진료, 처방조제 3종을 함께 올리면 통원, 입원, 수술, 투약 기록을 더 정확하게 교차검증할 수 있습니다.
           </p>
         </section>
