@@ -18,7 +18,7 @@
 - 157, 158, and 173 are already committed/pushed (`ec33f18`, `2967757`, `31feded` plus docs commits); current scoped commit is 163 only.
 - Authenticated visual smoke (free/subscription/internal widget variations, 375px stacked UserArea, and forced individual widget failures) requires a real browser login/session and remains Human E2E.
 ### Commit
-- PENDING
+- a467021
 ### Next
 - Human — 배포 후 계정 유형별(무료/구독/internal) 위젯 노출 + 모바일 1단 육안 확인.
 
