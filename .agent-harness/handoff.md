@@ -20,7 +20,7 @@
 - Existing unrelated dirty/untracked files remain outside this task and were not staged (`AGENTS.md`, `.agent-harness/decisions.md`, task docs, local PDFs/assets, etc.).
 - In-app browser viewport automation was unavailable in this Codex session, so exact 1024/1280/1440/1920/2560 and tablet/mobile visual checks remain Human E2E. Code-level breakpoint/width checks and route smoke passed.
 ### Commit
-- PENDING
+- 36ee62b
 ### Next
 - Human — 27인치·노트북 재스크린샷 대조 + 태블릿 햄버거 체감 확인.
 
