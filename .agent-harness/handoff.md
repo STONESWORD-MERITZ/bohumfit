@@ -1,3 +1,36 @@
+## 2026-07-06 Cowork BOHUMFIT-176 홈 히어로 라이트 전환 + 히어로·지표 1화면 통합
+
+Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Codex (Windows 권위 검증·커밋·푸시)
+
+### Changed
+- `src/pages/Home.tsx` (히어로 다크→라이트):
+  - 히어로 `<section>`의 `bg-ink-900`·full-height min-h 제거하고 bg-canvas 래퍼 안으로 흡수(라이트 통일).
+  - dot 패턴 `rgba(255,255,255,0.06)`(흰)→`rgba(10,10,10,0.04)`(잉크 극연점).
+  - h1 `text-white`→`text-ink-900`; "1분"·eyebrow(For Insurance Planners) `text-accent-400`→`text-accent-600`; 서브카피 `text-ink-200`→`text-ink`(#1E293B); 세컨더리 CTA 2개 `border-ink-700 bg-transparent text-ink-100 hover:bg-ink-800`→`border-line-strong bg-white text-ink-900 hover:bg-ink-50`; 캡션 `text-ink-400`→`text-ink-soft`.
+  - 프라이머리 CTA(에메랄드 면+흰 텍스트)·bf-shimmer·175 `2xl:max-w-4xl`·133b 마운트 트랜지션 유지. 라임 CTA 미사용(라이트 서피스 → 원칙 자동 충족).
+- `src/pages/Home.tsx` (히어로+지표 1화면 통합):
+  - bg-canvas 래퍼를 히어로 앞으로 이동, 히어로+지표를 `<div className="flex min-h-[calc(100svh-3.5rem)] flex-col">` 묶음으로 감쌈.
+  - 히어로 섹션 `flex flex-1 items-center`(174 min-h는 히어로 단독→묶음으로 **이전=부분 롤백**), 지표 섹션 `py-24`→`shrink-0 pt-[clamp(0.5rem,0.2rem+1.3vw,1.5rem)] pb-[clamp(2.5rem,1.9rem+2.6vw,4rem)]`.
+  - 히어로 콘텐츠 div 패딩 `pt-[clamp(…5rem)] pb-[clamp(…6rem)]`(≈80/96px)→`py-[clamp(1.5rem,1rem+2.2vw,2.75rem)]`(24~44px) 압축. 근거: 묶음 flex-1 items-center가 세로중앙 담당 → 기존 단독-히어로 패딩 중복, 768 노트북서 지표를 fold 밖으로 밀어냄(모델상 741px, 712 초과 29). 압축 후 653px로 1화면 진입.
+  - HOW IT WORKS·Features·Our Story·가격 CTA 내용/구조 무변경. **index.css 무변경**(기존 토큰 사용).
+- `.agent-harness/tasks/BOHUMFIT-176-hero-light-onepage.md` 신규 · `locks.md` · `handoff.md`.
+
+### Verified (Cowork /tmp — tsc/build/pytest는 Codex/Windows 권위)
+- TSX 문법: TypeScript 6.0.3 `createSourceFile`(TSX) 파싱 진단 **0건**(패딩 압축 후 재파싱 포함, 재구성 전체본 기준).
+- 태그 균형(재구성 전체): div 22=22(self-close 1=dot `/>`), section 6=6, 중괄호 87=87.
+- WCAG AA(캔버스 #FAFAF8 기준): 헤드라인 18.9:1 · 에메랄드(1분/eyebrow) 10.3:1 · 본문 14.0:1 · 캡션 7.3:1 · 프라이머리 CTA 흰/에메랄드 10.7:1 · 세컨더리 CTA 잉크/흰 19.8:1 — 전부 AA↑. (변경 전 accent-400 3.6:1·ink-400 캡션 2.3:1 미달 → 교체 근거)
+- grep(전체 파일): 흰 바탕 라임/그린티 텍스트 **0** · raw gray **0** · 다크 잔재 클래스(ink-100/200/border-ink-700/bg-ink-800) **0**(잔존 `text-white` 2건은 에메랄드 프라이머리 CTA로 정상) · `text-fluid-hero` 1(173 유지) · `min-h-[calc(100svh` 실클래스 1(묶음).
+- 1화면 높이 모델(요소별 합산·폭1280): 히어로 콘텐츠블록 475 + 지표밴드 178 = **653px** ≤ fold가용 712(768)/744(800)/844(900) → 전 노트북 1화면 진입. min-h라 초과해도 잘림 0(모바일 세로 확장 허용).
+
+### Notes
+- ⚠**마운트 truncation(ENV-MOUNT-NOTES 재현)**: Home.tsx 마운트 뷰가 원본 바이트길이(≈14962B/292행)에 고정돼, 편집으로 커진 파일의 꼬리(§6 가격 CTA·최종 닫는 태그)가 뷰에서 잘림(마지막 바이트 비개행 확인). Cowork는 상단(L1~약252, 176 편집분 포함)만 뷰로 직접 확인했고, 꼬리는 **무변경 원본**이라 /tmp 재구성본으로 문법·태그균형을 검증함. → **Codex는 Windows 원본에서 Home.tsx 꼬리(§5 Our Story·§6 가격 CTA·루트 `</div></div>`)의 온전·태그균형을 먼저 확인한 뒤 tsc/build 진행.**
+- 174 관계: full-height는 히어로 단독→히어로+지표 묶음으로 이전(부분 롤백). 계산식 `100svh-3.5rem`(헤더 h-14)·svh 채택 근거는 유지.
+- 173 관계: 유동 타이포 토큰(`--text-fluid-*`, index.css) 무변경. 조정한 것은 이 묶음 구간의 여백 clamp뿐(Step 2 지시 범위 — 근거 기록).
+- 백엔드 무접촉(기준선 485 passed/8 skipped 불변 예상).
+
+### Next
+- Codex — ① Windows 원본 Home.tsx 꼬리 무결성·태그균형 확인 ② `npx tsc -p tsconfig.app.json --noEmit` / `tsconfig.node.json` · `npm run build` · `npm test`(53) · 백엔드 무변경이나 기준선(485/8) 확인 ③ 노트북 1366×768·모바일 375 실뷰포트에서 히어로 라이트 대비 + 히어로·지표 1화면(fold) 스모크 ④ 통과 시 `src/pages/Home.tsx` + 태스크 문서만 stage → commit `feat(BOHUMFIT-176): 홈 히어로 라이트 전환 + 히어로·지표 1화면 통합` → push origin main.
+
 ## 2026-07-06 Codex BOHUMFIT-175 Windows verification
 ### Changed
 - `src/components/Layout.tsx`: kept header `h-14` unchanged, prevented nav-label wrapping with `whitespace-nowrap`, reduced desktop nav gap, moved desktop nav/user area breakpoint from `md` to `lg`, and limited email display to `xl` with 150px truncation.
@@ -9366,3 +9399,28 @@ Remaining:
 - ec33f18
 ### Next
 - Human — 배포 후 실 PDF 다운로드·브랜드·면책 문구 육안 확인.
+## 2026-07-07 Codex BOHUMFIT-176 Windows verification
+### Changed
+- `src/pages/Home.tsx`: converted the home hero from the dark band to the light `bg-canvas` surface, moved the `min-h-[calc(100svh-3.5rem)]` height to the hero+stats wrapper, compressed hero/stats vertical padding so `1분/99%/30초` enters the first viewport, and kept HOW IT WORKS and below as scroll content.
+- `.agent-harness/tasks/BOHUMFIT-176-hero-light-onepage.md`: task packet included.
+### Verified
+- [x] Windows source integrity: `Home.tsx` tail is intact (`오픈이벤트`, price CTA, final closing tags present); Node UTF-8 read reports 342 lines and tail check true.
+- [x] JSX/TSX parsing: `npx tsc -p tsconfig.app.json --noEmit` PASS.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` PASS.
+- [x] `npm run build` PASS (existing Vite chunk-size warning only; app JS chunk `index-wUdEKZdI.js` 755.69 kB).
+- [x] `npm test` PASS: 53 passed.
+- [x] `cd backend && python -m pytest -q` PASS: 485 passed, 8 skipped.
+- [x] Grep: `Home.tsx` raw gray classes = 0.
+- [x] Grep: lime/greentea text use on Home light surface = 0; only token definitions remain in `src/index.css`.
+- [x] Grep: dark hero active classes removed; remaining dark class strings in `Home.tsx` are explanatory comments only. `text-white` active uses are the two intended emerald CTAs.
+- [x] Grep: active `svh` class remains 1 Home wrapper; active `dvh` classes remain 8; active `text-fluid-*` use sites remain 3 (`Home`, `WhyDisclosure`, `HomeMission`).
+- [x] Vite preview route smoke: `/`, `/why`, `/dashboard` all HTTP 200.
+### Notes
+- 157, 158, 173, 163, 174, and 175 are already committed/pushed (`ec33f18`, `2967757`, `31feded`, `a467021`, `18381f2`, `36ee62b` plus docs commits); current scoped commit is 176 only.
+- PowerShell `Get-Content` displays Korean as mojibake in this terminal, but Node UTF-8 read and TypeScript parsing confirmed the Windows source is intact.
+- Playwright/browser automation is not installed in this repo (`Cannot find module 'playwright'`), so exact 1366x768/1440x900/2560x1440/375px visual fold checks remain Human E2E. Route smoke and code-level `svh`/contrast-class checks passed.
+- Existing unrelated dirty/untracked files remain outside this task and were not staged.
+### Commit
+- PENDING
+### Next
+- Human — 배포 후 첫 화면(라이트 히어로+지표 1페이지) 첫인상 육안 확인.

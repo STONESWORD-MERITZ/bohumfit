@@ -133,80 +133,92 @@ export default function Home() {
   return (
     <div className="-mx-5 -mt-8">
 
-      {/* ── 1. HERO (다크) ─────────────────────────────────────── */}
-      {/* BOHUMFIT-174: 뷰포트 상대 높이 + 세로 중앙 — min-h-[calc(100svh-3.5rem)] (3.5rem = Layout 헤더 h-14 고정).
-          svh 채택 근거: 주소창 확장 상태 기준 고정 → 로드 시 CTA가 항상 fold 안 + 스크롤 중 높이 점프 없음
-          (dvh는 주소창 수축 시 히어로가 늘어나 레이아웃 점프). min-h라 콘텐츠 초과 시 자연 확장(잘림 0).
-          Home 루트 -mt-8이 main 상단 패딩을 상쇄해 헤더 아래부터 정확히 계산됨. svh는 이 히어로 1곳만(173 dvh 무변경). */}
-      <section className="relative flex min-h-[calc(100svh-3.5rem)] items-center overflow-hidden bg-ink-900">
-        {/* BOHUMFIT-133b: dot pattern 배경(연한 점) */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            backgroundImage: "radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1px)",
-            backgroundSize: "22px 22px",
-          }}
-        />
-        {/* BOHUMFIT-175: 와이드(2xl 1536+)에서만 컨테이너 축소·중앙(대칭 여백) — 1440 이하 완전 현행(회귀 0).
-            텍스트 좌정렬 유지, 블록만 중앙. 174 svh·세로 중앙·173 패딩 clamp 무변경. */}
-        <div
-          className={`relative z-10 mx-auto w-full max-w-6xl px-6 pt-[clamp(3.5rem,2.91rem+2.61vw,5rem)] pb-[clamp(4rem,3.22rem+3.48vw,6rem)] transition-all duration-700 2xl:max-w-4xl ${
-            mounted ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
-          }`}
-        >
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accent-400">
-            For Insurance Planners
-          </p>
-          {/* BOHUMFIT-173: 히어로 h1 유동 스케일(36→60px clamp) — 브레이크포인트 점프 제거, max=현행 데스크톱 */}
-          <h1 className="ko-heading mt-6 text-fluid-hero font-extrabold leading-[1.15] tracking-tight text-white break-keep">
-            고지의무 검토,
-            <br />
-            이제 <span className="text-accent-400">1분</span>이면 끝납니다
-          </h1>
-          <p className="ko-text mobile-copy mt-7 max-w-2xl text-lg leading-8 text-ink-200 break-keep">
-            설계사님이 매번 수작업으로 하던 병력 분석을
-            심평원 PDF 한 장으로 AI가 자동 완성합니다.
-          </p>
-          <div className="mt-9 flex flex-wrap gap-3">
-            <Link
-              to="/signup"
-              className="button-text bf-shimmer rounded-btn bg-accent-600 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-accent-700"
-            >
-              무료로 시작하기 →
-            </Link>
-            <a
-              href="#features"
-              className="button-text rounded-btn border border-ink-700 bg-transparent px-6 py-3.5 text-sm font-semibold text-ink-100 transition hover:bg-ink-800"
-            >
-              기능 둘러보기
-            </a>
-            {/* BOHUMFIT-112: 비로그인 리포트 샘플 미리보기 진입 */}
-            <Link
-              to="/disclosure/sample"
-              className="button-text rounded-btn border border-ink-700 bg-transparent px-6 py-3.5 text-sm font-semibold text-ink-100 transition hover:bg-ink-800"
-            >
-              리포트 샘플 미리보기
-            </Link>
-          </div>
-          <p className="ko-text mt-5 text-caption text-ink-400">
-            가입 후 5회 무료 체험 · 신용카드 불필요
-          </p>
-        </div>
-      </section>
-
+      {/* BOHUMFIT-176: 라이트 통일 서피스 — 히어로도 bg-canvas 위에 얹어 첫 화면 다크 밴드 제거.
+          (174까지 히어로는 bg-ink-900 별도 섹션 → 176에서 라이트로 흡수 통합) */}
       <div className="relative z-10 bg-canvas">
 
-        {/* ── 2. 핵심 수치 (신뢰 지표) ───────────────────────────── */}
-        <section className="py-24">
-          <div className="mx-auto max-w-5xl px-6">
-            <div className="grid gap-10 sm:grid-cols-3">
-              {STATS.map((s, i) => (
-                <StatCard key={s.label} value={s.value} suffix={s.suffix} label={s.label} delay={i * 100} />
-              ))}
+        {/* ── 1. HERO + 지표 1화면 묶음 (BOHUMFIT-176) ─────────────────
+            174의 min-h-[calc(100svh-3.5rem)]를 히어로 단독 → 히어로+지표 묶음 기준으로 이전(부분 롤백).
+            묶음=flex-col·높이 100svh-헤더(h-14=3.5rem). 히어로 flex-1(잔여 흡수·세로 중앙), 지표 shrink-0 하단.
+            → 노트북에서 히어로+지표(1분/99%/30초)가 한 화면(fold) 안. min-h라 모바일은 자연 확장(스크롤 허용·잘림 0). */}
+        <div className="flex min-h-[calc(100svh-3.5rem)] flex-col">
+
+          {/* ── HERO (BOHUMFIT-176 다크→라이트 전환) ──────────────────
+              다크(bg-ink-900·흰 텍스트·accent-400 포인트) → 라이트(canvas·잉크/본문그레이·accent-600 강조).
+              대비 AA: 잉크#0A0A0A/흰 19.8:1 · 에메랄드#084734/흰 10.7:1 · 본문#1E293B/흰 14.6:1. */}
+          <section className="relative flex flex-1 items-center overflow-hidden">
+            {/* BOHUMFIT-133b dot → BOHUMFIT-176: 라이트 배경용 잉크 극연점(흰 점은 라이트서 불가시). 알파 0.04로 과하지 않게. */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{
+                backgroundImage: "radial-gradient(rgba(10,10,10,0.04) 1px, transparent 1px)",
+                backgroundSize: "22px 22px",
+              }}
+            />
+            {/* BOHUMFIT-175: 와이드(2xl 1536+)에서만 컨테이너 축소·중앙(대칭 여백) — 1440 이하 완전 현행(회귀 0). 텍스트 좌정렬 유지, 블록만 중앙.
+                BOHUMFIT-176: 히어로 콘텐츠 패딩 pt-clamp(56~80)·pb-clamp(64~96) → py-clamp(24~44)로 압축.
+                근거: 묶음이 flex-1 items-center로 세로 중앙을 담당 → 기존 단독 히어로용 큰 패딩(≈80/96px)은 중복이며
+                768px 노트북에서 히어로+지표 합산이 fold를 초과시킴. 압축 후 합산 ≈656<712(768-헤더56)로 1화면 진입.
+                ※173 유동 타이포 토큰(text-fluid-*)은 무변경 — 여기서 조정한 것은 이 묶음 구간의 여백뿐(Step2 지시 범위). */}
+            <div
+              className={`relative z-10 mx-auto w-full max-w-6xl px-6 py-[clamp(1.5rem,1rem+2.2vw,2.75rem)] transition-all duration-700 2xl:max-w-4xl ${
+                mounted ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
+              }`}
+            >
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accent-600">
+                For Insurance Planners
+              </p>
+              {/* BOHUMFIT-173: 히어로 h1 유동 스케일(36→60px clamp) 유지 — BOHUMFIT-176: text-white→text-ink-900(잉크). */}
+              <h1 className="ko-heading mt-6 text-fluid-hero font-extrabold leading-[1.15] tracking-tight text-ink-900 break-keep">
+                고지의무 검토,
+                <br />
+                이제 <span className="text-accent-600">1분</span>이면 끝납니다
+              </h1>
+              <p className="ko-text mobile-copy mt-7 max-w-2xl text-lg leading-8 text-ink break-keep">
+                설계사님이 매번 수작업으로 하던 병력 분석을
+                심평원 PDF 한 장으로 AI가 자동 완성합니다.
+              </p>
+              <div className="mt-9 flex flex-wrap gap-3">
+                <Link
+                  to="/signup"
+                  className="button-text bf-shimmer rounded-btn bg-accent-600 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-accent-700"
+                >
+                  무료로 시작하기 →
+                </Link>
+                {/* BOHUMFIT-176: 다크 아웃라인(border-ink-700·text-ink-100·hover:bg-ink-800) → 라이트 아웃라인. */}
+                <a
+                  href="#features"
+                  className="button-text rounded-btn border border-line-strong bg-white px-6 py-3.5 text-sm font-semibold text-ink-900 transition hover:bg-ink-50"
+                >
+                  기능 둘러보기
+                </a>
+                {/* BOHUMFIT-112: 비로그인 리포트 샘플 미리보기 진입 (BOHUMFIT-176 라이트 아웃라인) */}
+                <Link
+                  to="/disclosure/sample"
+                  className="button-text rounded-btn border border-line-strong bg-white px-6 py-3.5 text-sm font-semibold text-ink-900 transition hover:bg-ink-50"
+                >
+                  리포트 샘플 미리보기
+                </Link>
+              </div>
+              <p className="ko-text mt-5 text-caption text-ink-soft">
+                가입 후 5회 무료 체험 · 신용카드 불필요
+              </p>
             </div>
-          </div>
-        </section>
+          </section>
+
+          {/* ── 2. 핵심 수치 (신뢰 지표) — BOHUMFIT-176: 히어로와 1화면 묶음. py-24 → 압축 패딩(shrink-0)로 fold 안 진입. */}
+          <section className="shrink-0 pt-[clamp(0.5rem,0.2rem+1.3vw,1.5rem)] pb-[clamp(2.5rem,1.9rem+2.6vw,4rem)]">
+            <div className="mx-auto max-w-5xl px-6">
+              <div className="grid gap-10 sm:grid-cols-3">
+                {STATS.map((s, i) => (
+                  <StatCard key={s.label} value={s.value} suffix={s.suffix} label={s.label} delay={i * 100} />
+                ))}
+              </div>
+            </div>
+          </section>
+
+        </div>
 
         {/* ── 3. 3단계 사용 흐름 ─────────────────────────────────── */}
         <section className="py-24">
