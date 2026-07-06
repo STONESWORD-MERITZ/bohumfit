@@ -17,7 +17,7 @@
 - Requested `/insurance-links?q=삼성` visual expectation was "2건", but current existing data has three matching records: `삼성화재`, `삼성화재해상`, `삼성생명`. Data cleanup/dedupe is outside 158 and was not changed.
 - Existing non-token green in `InsuranceLinks.tsx` (`#2d6a4f`, `hover:bg-green-50`, `ring-green-500`) remains from prior UI work; recorded as follow-up candidate, outside this task.
 ### Commit
-- PENDING
+- 2967757
 ### Next
 - Human — 배포 후 연계 동선 실사용 확인. M2 마일스톤 클로즈.
 
