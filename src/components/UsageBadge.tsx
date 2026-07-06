@@ -44,21 +44,23 @@ export default function UsageBadge() {
   if (data.is_internal) return null; // 내부 사용자: 무제한 — 배지 숨김
   if (data.enabled === false) return null; // 구독 게이트 비활성(기존 무료 동작)
 
-  // BOHUMFIT-072: 미구독 → 무료 체험 사용량 표시(남으면 체험, 소진 시 구독 유도).
+  // BOHUMFIT-072: 미구독 → 무료 체험 사용량 표시.
+  // BOHUMFIT-159: 과노출 금지 — 잔여 3회 이상이면 숨기고, 잔여 ≤ 2부터 "무료 분석 N회 남음"
+  //   (v1.1 캡션 위계 600·12, 그린티 틴트 면). 소진(0회)은 소진 안내 + 요금제 제안.
   if (data.status !== "active") {
     const trialLimit = data.trial_limit ?? 5;
     const trialUsed = data.trial_used ?? 0;
     const trialLeft = Math.max(0, trialLimit - trialUsed);
+    if (trialLeft > 2) return null; // 여유 있을 땐 노출하지 않음(과노출 금지)
     if (trialLeft > 0) {
       return (
         <button
           type="button"
           onClick={() => navigate("/subscription")}
-          className="inline-flex items-center gap-1.5 rounded-[8px] border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[12px] font-medium text-emerald-700 hover:bg-emerald-100"
-          title="구독 관리"
+          className="inline-flex items-center gap-1.5 rounded-[8px] bg-greentea px-3 py-1.5 text-[12px] font-semibold text-ink hover:opacity-90"
+          title="요금제 보기"
         >
-          무료 체험 <b className="font-bold">{trialUsed}</b> / {trialLimit}회 사용
-          <span className="text-emerald-500">(남은 {trialLeft}회)</span>
+          무료 분석 <b className="font-bold">{trialLeft}회</b> 남음
         </button>
       );
     }
@@ -66,15 +68,16 @@ export default function UsageBadge() {
       <button
         type="button"
         onClick={() => navigate("/subscription")}
-        className="inline-flex items-center gap-1.5 rounded-[8px] border border-amber-300 bg-amber-50 px-3 py-1.5 text-[12px] font-bold text-amber-700 hover:bg-amber-100"
+        className="inline-flex items-center gap-1.5 rounded-[8px] border border-amber-300 bg-amber-50 px-3 py-1.5 text-[12px] font-semibold text-amber-700 hover:bg-amber-100"
       >
-        구독 필요 · 무료 체험을 모두 사용했어요 →
+        무료 분석 {trialLimit}회를 모두 사용했어요 · 요금제 보기 →
       </button>
     );
   }
 
   const remaining = Math.max(0, (data.limit ?? 30) - (data.used ?? 0));
-  const tone = remaining <= 3 ? "text-amber-700 border-amber-300 bg-amber-50" : "text-gray-600 border-gray-200 bg-gray-50";
+  // BOHUMFIT-159: raw gray → v1.1 ink 토큰(로직 불변).
+  const tone = remaining <= 3 ? "text-amber-700 border-amber-300 bg-amber-50" : "text-ink-soft border-line bg-ink-50";
   return (
     <button
       type="button"
@@ -83,7 +86,7 @@ export default function UsageBadge() {
       title="구독 관리"
     >
       이번 달 <b className="font-bold">{data.used}</b> / {data.limit}회 사용
-      <span className="text-gray-400">(남은 {remaining}회)</span>
+      <span className="text-ink-400">(남은 {remaining}회)</span>
     </button>
   );
 }

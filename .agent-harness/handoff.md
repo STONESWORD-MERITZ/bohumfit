@@ -1,3 +1,51 @@
+## 2026-07-06 Codex BOHUMFIT-159 Windows verification
+### Changed
+- `src/components/UsageBadge.tsx`: ?? ?? ?? >2? ?? ??, 1~2? ?? ??, 0? ?? ?? UX ??.
+- `src/pages/Disclosure.tsx`: analyze 402 ??? ?? ?? ?? `/subscription` ?? ??? ???? ?? ?? ??.
+- `src/pages/ReportSample.tsx`: ?? ?? CTA? ??? ??? ?? `/signup` ?? `/disclosure?mode=agent`? ??.
+- `src/pages/Subscription.tsx`: ?? ?? ?? ?? ??? ?? ?? ??? ?? ??.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` PASS.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` PASS.
+- [x] `npm run build` PASS (?? Vite chunk-size warning only).
+- [x] `npm test` PASS: 53 passed.
+- [x] `cd backend && python -m pytest -q` PASS: 473 passed, 8 skipped.
+- [x] Grep raw gray (`text-gray-|bg-gray-|border-gray-`) in 4 target files = 0.
+- [x] `???` grep: ?? ??/?? ?? 0?. ?? internal ??? ?? ?? 1?? ??.
+- [x] Vite preview route smoke: `/disclosure/sample`, `/subscription` HTTP 200.
+- [x] Code review smoke: anonymous sample CTA -> `/signup`; logged-in sample CTA -> `/disclosure?mode=agent`; subscription consumed banner tone amber; 402 card CTA -> `/subscription`.
+- [x] Diff review: billing/payment logic and usage decrement checks untouched; frontend wording/rendering branch only.
+### Notes
+- Browser-control MCP/Playwright package was unavailable in this workspace, so authenticated visual smoke was covered by Vite preview route 200 + code-level route/branch review. Free-consumed 402 real session screen remains Human E2E.
+- Backend unchanged; pytest baseline remains 473 passed, 8 skipped.
+### Commit
+- PENDING_HASH
+### Next
+- Human ? ?? ?? 5? ?? ??? ?? (?? 2? ?? ? ?? ?? ? ??? ??).
+
+## 2026-07-06 Cowork BOHUMFIT-159 [무료/Pro 경계 업셀 UX — 잔여 표시·전환 카드·샘플 동선]
+### Step 0 진단
+- **노출 지점 전수 매핑**: ① `UsageBadge.tsx`(071/072, Disclosure 업로드 카드 상단 렌더) = 유일한 잔여 표시 지점 — 미구독 시 첫 사용부터 상시 노출(과노출·태스크와 상충), 구독 분기에 raw gray 4건 ② Disclosure 402 처리 = 빨간 error div + error 토스트(전환 카드 없음) ③ ReportSample = 하단 전환 섹션 기존재하나 로그인 무관 일괄 /subscription ④ Subscription 소진 배너 = "무료 체험 횟수를 모두 사용했습니다"(수치 없음·합니다체 → 톤 불일치).
+- **remaining 필드**: `/billing/status`가 이미 `used/limit`+`trial_used/trial_limit` 반환 → **remaining은 프런트 계산으로 충분, 백엔드 수정 불필요**(분석·차감 로직 완전 무접촉, pytest 기준선 473/8 변화 없음).
+- **실플랜 대조(발명 0 원칙)**: 베이직 = 오픈이벤트 월 9,900(~26-09-30, 이후 14,900)·매월 30회·고객용 PDF / 프로 = 월 24,900·매월 100회·보장분석. ★"무제한 분석" 없음·"히스토리 무제한"은 internal 전용 → 가치 제안 문구에서 배제.
+### Changed
+- `src/components/UsageBadge.tsx`: 미구독 분기 — 잔여 >2 숨김(과노출 금지), 잔여 1~2 "무료 분석 N회 남음"(그린티 틴트 면 `bg-greentea`+ink, 캡션 600·12), 소진 0회 amber "무료 분석 {limit}회를 모두 사용했어요 · 요금제 보기 →"(제안 톤). 구독 분기 raw gray 4건 → ink 토큰(`text-ink-soft/border-line/bg-ink-50/text-ink-400`, 로직 불변).
+- `src/pages/Disclosure.tsx`: `upsell` 상태 + analyze 402 조기 분기(red 오류·error 토스트 대신 **전환 카드**) — 헤드라인 "무료 분석 {N}회를 모두 사용했어요"(N=서버 detail 수치 파싱·폴백 5), 본문 1줄 "매월 30회(베이직)~100회(프로) 분석과 고객용 PDF 저장"(실혜택만), CTA "요금제 보기"(accent 프라이머리 → /subscription). 재분석 시 카드 초기화. 429(플랜 월 한도)는 기존 red 유지(무료/Pro 경계 밖).
+- `src/pages/ReportSample.tsx`: 하단 전환 섹션 1개 로그인 분기 — 비로그인 "가입하고 분석 시작하기"→/signup(+"매월 무료 분석 5회" 실혜택 캡션), 로그인 "내 PDF로 분석하기"→/disclosure. 중간 삽입 없음(상단 샘플 경고 배너는 기존 유지).
+- `src/pages/Subscription.tsx`: 소진 배너 1줄만 최소 수정 — "무료 분석 {limit}회를 모두 사용했어요. 구독하면 매월 30회부터 계속 분석할 수 있어요."(카드와 수치·톤 통일). 결제/토스 빌링 코드 무접촉.
+### Verified
+- [x] grep: 4개 파일 raw gray(text/bg/border/divide/ring)·#15663D = **0**, `bg-lime/text-lime` = **0**(라임 미사용 — 라이트 서피스라 라임 CTA 원칙 자동 충족, 화면당 ≤1 위반 불가).
+- [x] `bg-greentea` 유틸 유효(@theme `--color-greentea` 정의 확인). 대비: ink(#0A0A0A) on greentea(#CDEDB3) ≈ 13:1 AA+, amber-700 on amber-50 기존 패턴.
+- [x] 가치 제안 ↔ Subscription 실플랜 대조: 30회/100회/고객용 PDF/무료 5회 전부 실존 — **발명 0**. 버튼 동사 종결("보기"·"분석하기"·"시작하기") ✓ 지시 톤 0 ✓.
+- [x] 백엔드 무수정 — 테스트 추가 불요, 기준선 473 passed/8 skipped 불변.
+- [ ] tsc(app/node)/build/npm test = **Codex/Windows 권위**(Disclosure 마운트 truncation — ENV-MOUNT-NOTES).
+### Notes
+- 402 시 error 토스트 미발생은 의도(오류→안내 톤 전환, 카드가 즉시 노출). 429는 기존 오류 UX 유지.
+- 잔여 >2 숨김으로 UsageBadge의 "구독 관리" 진입점이 여유 구간에서 사라짐 — 태스크 명시 스펙(과노출 금지) 준수, NAV/Subscription 직접 진입은 유지.
+- 오픈이벤트 가격(9,900)은 기간 만료 리스크로 카드 문구에서 제외(횟수·PDF만 사용) — 이벤트 종료 후에도 문구 유효.
+### Next
+- Codex: tsc app/node·npm test·build(+pytest 473/8 확인) → stage(UsageBadge·Disclosure·ReportSample·Subscription·tasks/159·handoff·locks) → commit `feat(BOHUMFIT-159): 무료/Pro 경계 업셀 UX (잔여 표시·전환 카드·샘플 동선)` → push. 이후 Human: 무료 계정으로 5회 소진 실화면(배지 2회 시점 노출→소진 카드→요금제 유입) 육안 확인.
+
 ## 2026-07-06 Codex BOHUMFIT-156a/156b Windows verification
 ### Changed
 - 156a backend: `backend/main.py` history API (`POST /history`, `GET /history`, `GET /history/{id}`, `DELETE /history/{id}`), CORS DELETE allowance, 90-day lazy purge, free 10-item limit, internal unlimited, customer_name stripping, 1MB result cap.

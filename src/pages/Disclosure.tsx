@@ -1506,6 +1506,8 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<AnalyzeResult | null>(null);
+  // BOHUMFIT-159: 무료 체험 소진(402) → 빨간 오류 대신 전환 카드(안내 톤). count = 서버 detail의 한도 수치.
+  const [upsell, setUpsell] = useState<{ count: string } | null>(null);
   const [tourPhase, setTourPhase] = useState<TourPhase | null>(() => (readTourSeen().pre ? null : "pre"));
   const [tourIndex, setTourIndex] = useState(0);
   const [postTourShown, setPostTourShown] = useState(false);
@@ -1622,6 +1624,7 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
     setLoading(true);
     setError("");
     setResult(null);
+    setUpsell(null); // BOHUMFIT-159: 재시도 시 전환 카드 초기화
 
     const form = new FormData();
     for (const f of files) form.append("files", f);
@@ -1640,6 +1643,13 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
+        // BOHUMFIT-159: 무료 체험 소진(402)은 오류가 아니라 전환 접점 — red 오류·error 토스트 대신
+        //   전환 카드로 안내(수치는 서버 detail에서 추출, 파싱 실패 시 5 폴백). 429(플랜 월 한도)는 기존 유지.
+        if (res.status === 402) {
+          const m = String(body?.detail || "").match(/(\d+)\s*회/);
+          setUpsell({ count: m ? m[1] : "5" });
+          return;
+        }
         throw new Error(body?.detail || "분석 중 문제가 발생했어요. 잠시 후 다시 시도해 주세요.");
       }
       const data = await res.json();
@@ -1838,6 +1848,23 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
 
       {error && (
         <div className="mb-5 rounded-[8px] bg-red-50 p-4 text-sm font-semibold text-red-600">{error}</div>
+      )}
+
+      {/* BOHUMFIT-159: 무료 체험 소진 전환 카드 — 수치 헤드라인 + 실제 플랜 혜택 1줄 + 프라이머리 CTA.
+          가치 제안은 Subscription 실플랜(베이직 월 30회·고객용 PDF / 프로 월 100회)과 대조 완료 — 발명 없음. */}
+      {upsell && (
+        <section className="mb-5 rounded-[8px] border border-accent-200 bg-accent-50 p-5">
+          <h2 className="text-[15px] font-extrabold text-ink-900">무료 분석 {upsell.count}회를 모두 사용했어요</h2>
+          <p className="ko-text mt-1.5 text-[13px] leading-6 text-ink-soft break-keep">
+            구독하면 매월 30회(베이직)~100회(프로) 분석과 고객용 PDF 저장을 계속 이용할 수 있어요.
+          </p>
+          <Link
+            to="/subscription"
+            className="mt-3 inline-block rounded-[8px] bg-accent-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-accent-700"
+          >
+            요금제 보기
+          </Link>
+        </section>
       )}
 
       {loading && (

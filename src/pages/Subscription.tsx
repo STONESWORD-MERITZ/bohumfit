@@ -214,7 +214,7 @@ export default function Subscription() {
             <div className={`mt-6 rounded-[8px] px-4 py-3 text-sm ${trialLeft > 0 ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
               {trialLeft > 0
                 ? <>무료 체험 <b>{trialLeft}회</b> 남음 (이번 달 {trialUsed}/{trialLimit}회 사용). 더 분석하려면 구독해 주세요.</>
-                : <>이번 달 무료 체험 횟수를 모두 사용했습니다. 구독하고 계속 이용하세요.</>}
+                : <>무료 분석 {trialLimit}회를 모두 사용했어요. 구독하면 매월 30회부터 계속 분석할 수 있어요.</>}
             </div>
           ) : (
             <div className="mt-6 rounded-[8px] bg-ink-50 px-4 py-3 text-sm text-ink-soft">

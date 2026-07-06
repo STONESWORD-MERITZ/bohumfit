@@ -2,6 +2,7 @@
 //   하드코딩 mock 데이터(실데이터·PII 없음). 실제 분석과 혼동 없도록 상단 샘플 배너·워터마크 문구 표시.
 //   실제 분석 화면(Disclosure)과 분리된 자기완결형 페이지 — 표시 구조만 모사한다.
 import { Link } from "react-router-dom";
+import { useAuth } from "../lib/auth-context"; // BOHUMFIT-159: 하단 전환 섹션 로그인 분기
 
 type SampleItem = { code: string; name: string; first: string; latest: string; visit: number; med: number; surgery?: string };
 
@@ -39,6 +40,7 @@ function Metric({ label, value, tone }: { label: string; value: string; tone: st
 }
 
 export default function ReportSample() {
+  const { user } = useAuth(); // BOHUMFIT-159: 로그인 여부로 하단 CTA 분기
   return (
     <div className="mx-auto max-w-3xl">
       {/* 샘플 배너 */}
@@ -105,16 +107,29 @@ export default function ReportSample() {
         ))}
       </div>
 
-      {/* 하단 구독 유도 */}
+      {/* BOHUMFIT-159: 하단 전환 섹션(딱 1개 — 중간 삽입 없음). 로그인 → 분석, 비로그인 → 가입. */}
       <div className="mt-8 rounded-card border border-accent-200 bg-accent-50 p-6 text-center">
         <h2 className="ko-heading text-lg font-bold text-ink-900">내 PDF로 실제 분석해 보세요</h2>
-        <p className="ko-text mt-1 text-[13px] text-ink-soft">샘플은 예시일 뿐, 실제 분석은 업로드한 진료자료를 기준으로 정확히 산출됩니다.</p>
-        <Link
-          to="/subscription"
-          className="button-text mt-4 inline-flex rounded-btn bg-accent-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-accent-700"
-        >
-          요금제 보기 →
-        </Link>
+        <p className="ko-text mt-1 text-[13px] text-ink-soft">
+          {user
+            ? "샘플은 예시일 뿐, 실제 분석은 업로드한 진료자료를 기준으로 정확히 산출됩니다."
+            : "가입하면 매월 무료 분석 5회가 제공됩니다."}
+        </p>
+        {user ? (
+          <Link
+            to="/disclosure?mode=agent"
+            className="button-text mt-4 inline-flex rounded-btn bg-accent-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-accent-700"
+          >
+            내 PDF로 분석하기 →
+          </Link>
+        ) : (
+          <Link
+            to="/signup"
+            className="button-text mt-4 inline-flex rounded-btn bg-accent-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-accent-700"
+          >
+            가입하고 분석 시작하기 →
+          </Link>
+        )}
       </div>
 
       <p className="mt-4 text-center text-[11px] text-ink-400">
