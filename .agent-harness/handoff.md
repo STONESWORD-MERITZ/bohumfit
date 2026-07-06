@@ -18,13 +18,13 @@
 ### Notes
 - Confirmed backend pytest baseline after 156a: 473 passed, 8 skipped.
 - Authenticated browser E2E (save -> list -> reopen -> delete) requires a real login session plus Supabase `bohumfit_analysis_history` schema, so it remains Human verification after deploy.
-- Human - after deploy, verify save -> list -> reopen -> delete in real usage.
+- Human check needed: compare live Supabase schema (`bohumfit_analysis_history`) and decide whether PrivacyPolicy effective date should be updated.
 - Unrelated dirty/untracked files were left unstaged.
 ### Commits
 - 156a: `1bc3fb2`
 - 156b: `60bb073`
 ### Next
-- Human ? ?? ? ???????????? ??? ??.
+- Human - after deploy, verify save -> list -> reopen -> delete in real usage.
 
 ## 2026-07-06 Cowork BOHUMFIT-156b [분석 히스토리 프런트 — 저장 UX·목록·재열람·법무 고지]
 ### Step 0 진단
