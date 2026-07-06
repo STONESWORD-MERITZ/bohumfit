@@ -1521,16 +1521,19 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
-  // BOHUMFIT-138(항목6): 업로드 PDF 미리보기(로컬 objectURL, 외부 라이브러리 없음).
-  const [previewFiles, setPreviewFiles] = useState<File[]>([]);
-  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewTab, setPreviewTab] = useState(0);
-  useEffect(() => {
-    const urls = previewFiles.map((f) => URL.createObjectURL(f));
-    setPreviewUrls(urls);
-    return () => urls.forEach((u) => URL.revokeObjectURL(u));
-  }, [previewFiles]);
+  // BOHUMFIT-171a: 파일 목록 압축용 상태 — 3개 이상 접기/펼치기 + 총 용량 표시.
+  const [filesOpen, setFilesOpen] = useState(false);
+  const [selectedSize, setSelectedSize] = useState(0);
+  // BOHUMFIT-171a: 개별 파일 제거 — 분석이 읽는 fileRef 원본과 표시 상태를 함께 재구성.
+  const removeFileAt = (idx: number) => {
+    const cur = fileRef.current?.files ? Array.from(fileRef.current.files) : [];
+    cur.splice(idx, 1);
+    const dt = new DataTransfer();
+    cur.forEach((f) => dt.items.add(f));
+    if (fileRef.current) fileRef.current.files = dt.files;
+    setSelectedNames(cur.map((f) => f.name));
+    setSelectedSize(cur.reduce((s, f) => s + f.size, 0));
+  };
   // BOHUMFIT-138(항목7): 10분 재보기 — 마운트 시 저장 결과 복원(10분 이내).
   const [restoredAt, setRestoredAt] = useState<number | null>(null);
   useEffect(() => {
@@ -1676,7 +1679,14 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
 
   return (
     <div>
-      <div className="mb-5 flex justify-end">
+      <div className="mb-5 flex justify-end gap-2">
+        {/* BOHUMFIT-171b: 히스토리 재진입 동선 — 가이드 다시보기 인접, 세컨더리 스타일 통일 */}
+        <Link
+          to="/history"
+          className="rounded-[8px] border border-line bg-white px-3 py-2 text-xs font-bold text-ink-soft hover:border-accent-600/40 hover:text-accent-600"
+        >
+          분석 히스토리
+        </Link>
         <button
           type="button"
           onClick={() => replayTour(result ? "post" : "pre")}
@@ -1724,9 +1734,21 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
           </div>
         </div>
 
-        {/* BOHUMFIT-136b: 드래그앤드롭 시각 강화(dragover 그린) + 선택 파일 표시. 분석은 fileRef 그대로 사용. */}
+        {/* BOHUMFIT-136b/171a: 드롭존 단일화 — 네이티브 input("파일선택/선택된 파일 없음")은 숨기고
+            드롭존 전체를 단일 클릭 타깃으로. 키보드 접근성(role=button·tabIndex·Enter/Space·aria-label)은
+            기존 input aria-label에서 드롭존으로 이전(137 기준 후퇴 없음). 분석은 fileRef 그대로 사용. */}
         <div
           data-tour="upload"
+          role="button"
+          tabIndex={0}
+          aria-label={`진료자료 PDF 업로드 — 최대 ${MAX_FILE_COUNT}개, 클릭 또는 드래그`}
+          onClick={() => fileRef.current?.click()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              fileRef.current?.click();
+            }
+          }}
           onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
           onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
           onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
@@ -1741,48 +1763,74 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
               dropped.forEach((f) => dt.items.add(f));
               fileRef.current.files = dt.files; // 기존 analyze가 읽는 fileRef에 그대로 주입
               setSelectedNames(dropped.map((f) => f.name));
-              setPreviewFiles(dropped); // BOHUMFIT-138(항목6)
+              setSelectedSize(dropped.reduce((s, f) => s + f.size, 0)); // BOHUMFIT-171a
             }
           }}
-          className={`mt-5 rounded-[8px] border-2 border-dashed p-6 text-center transition-colors ${
+          className={`mt-5 cursor-pointer rounded-[8px] border-2 border-dashed p-6 text-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-600/40 ${
             isDragging ? "border-green-400 bg-green-50" : "border-accent-200 bg-accent-50 hover:border-accent-400"
           }`}
         >
-          {/* BOHUMFIT-138(항목1): 파일 선택 전에만 안내 문구·아이콘 표시 */}
-          {selectedNames.length === 0 && (
-            <>
-              <Upload aria-hidden className="mx-auto mb-2 h-7 w-7 text-accent-600" />
-              <p className="mb-3 text-sm font-semibold text-ink">PDF 파일을 여기에 드래그하거나 클릭하세요</p>
-            </>
-          )}
+          <Upload aria-hidden className="mx-auto mb-2 h-7 w-7 text-accent-600" />
+          <p className="text-sm font-semibold text-ink">PDF를 드래그하거나 클릭해 업로드 (최대 {MAX_FILE_COUNT}개)</p>
           <input
             ref={fileRef}
             type="file"
             accept=".pdf"
             multiple
-            aria-label="진료자료 PDF 업로드"
+            tabIndex={-1}
+            aria-hidden="true"
+            onClick={(e) => e.stopPropagation()}
             onChange={() => {
               const fs = fileRef.current?.files ? Array.from(fileRef.current.files) : [];
               setSelectedNames(fs.map((f) => f.name));
-              setPreviewFiles(fs); // BOHUMFIT-138(항목6)
+              setSelectedSize(fs.reduce((s, f) => s + f.size, 0)); // BOHUMFIT-171a
             }}
-            className="block w-full cursor-pointer text-sm text-ink-soft file:mr-4 file:rounded-[8px] file:border-0 file:bg-accent-600 file:px-5 file:py-2.5 file:text-sm file:font-bold file:text-white hover:file:bg-accent-700"
+            className="hidden"
           />
-          {selectedNames.length > 0 && (
-            <ul className="mt-3 space-y-1 text-left">
-              {selectedNames.map((n, i) => (
-                <li key={i} className="flex items-center gap-1.5 text-[12px] text-ink">
-                  <FileText aria-hidden className="h-3.5 w-3.5 shrink-0 text-accent-600" />
-                  <span className="truncate">{n}</span>
-                  <CheckCircle2 aria-hidden className="ml-auto h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                </li>
-              ))}
-            </ul>
-          )}
-          <p className="mt-3 text-xs text-ink-soft">
-            {copy.uploadHelp} 파일은 최대 {MAX_FILE_COUNT}개, 개별 {MAX_FILE_SIZE / 1024 / 1024}MB, 총합 {MAX_TOTAL_SIZE / 1024 / 1024}MB까지 업로드할 수 있습니다.
+          <p className="mt-2 text-xs text-ink-soft">
+            {copy.uploadHelp} 개별 {MAX_FILE_SIZE / 1024 / 1024}MB, 총합 {MAX_TOTAL_SIZE / 1024 / 1024}MB까지.
           </p>
         </div>
+
+        {/* BOHUMFIT-171a: 선택 파일 목록(드롭존 밖 분리) — 1~2개 그대로, 3개 이상 요약 행 + 접기/펼치기.
+            개별 삭제 X 버튼(모든 행 공통 — 잘못 올린 파일 즉시 제거). */}
+        {selectedNames.length > 0 && (
+          <div className="mt-3 overflow-hidden rounded-[8px] border border-line bg-white">
+            {selectedNames.length >= 3 && (
+              <button
+                type="button"
+                onClick={() => setFilesOpen((o) => !o)}
+                aria-expanded={filesOpen}
+                className="flex w-full items-center justify-between px-4 py-2.5 text-[13px] font-semibold text-ink"
+              >
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <FileText aria-hidden className="h-4 w-4 shrink-0 text-accent-600" />
+                  파일 {selectedNames.length}개 · 총 {(selectedSize / 1024 / 1024).toFixed(1)}MB
+                </span>
+                <span className="shrink-0 text-xs font-normal text-ink-soft">{filesOpen ? "접기 ▲" : "펼치기 ▼"}</span>
+              </button>
+            )}
+            {(selectedNames.length < 3 || filesOpen) && (
+              <ul className={selectedNames.length >= 3 ? "border-t border-line" : ""}>
+                {selectedNames.map((n, i) => (
+                  <li key={`${n}-${i}`} className="flex h-8 items-center gap-1.5 px-4 text-[12px] text-ink">
+                    <FileText aria-hidden className="h-3.5 w-3.5 shrink-0 text-accent-600" />
+                    <span className="min-w-0 flex-1 truncate text-left">{n}</span>
+                    <CheckCircle2 aria-hidden className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                    <button
+                      type="button"
+                      aria-label={`${n} 제거`}
+                      onClick={() => removeFileAt(i)}
+                      className="shrink-0 rounded p-0.5 text-ink-400 hover:text-red-500"
+                    >
+                      ✕
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
         <label className="mt-4 flex items-start gap-2.5 rounded-[8px] bg-ink-50 px-4 py-3 text-xs leading-5 text-ink-soft">
           <input
@@ -1792,8 +1840,10 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
             className="mt-0.5 h-4 w-4 shrink-0 accent-accent-600"
           />
           <span className="break-keep">
+            {/* BOHUMFIT-171b: 최근 분석 자동 기록 도입에 맞춰 문구 정합(기존 "DB 미저장" 단정과 충돌 해소) */}
             업로드하는 진료자료에는 <b className="font-bold text-ink">민감정보(건강에 관한 정보)</b>가 포함됩니다.
-            고지 리스크 점검 목적의 처리에 동의하며, 자료는 분석 직후 보험핏 서버에서 폐기되고 서비스 데이터베이스에 저장되지 않습니다.
+            고지 리스크 점검 목적의 처리에 동의합니다. 원본 PDF는 분석 직후 보험핏 서버에서 폐기됩니다.
+            분석 결과 요약은 편의를 위해 최근 10건 자동 기록(7일 보관)되며, 히스토리에서 직접 삭제할 수 있습니다.
             <Link to="/privacy-policy" className="ml-1 underline hover:text-ink">개인정보처리방침</Link>
           </span>
         </label>
@@ -1891,56 +1941,6 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
             새로 분석하기
           </button>
         </div>
-      )}
-
-      {/* BOHUMFIT-138(항목6): 업로드 PDF 미리보기(결과 상단, 기본 접힘, 다중=탭) */}
-      {result && previewUrls.length > 0 && (
-        <section className="mb-5 overflow-hidden rounded-[8px] border border-line bg-white">
-          <button
-            type="button"
-            onClick={() => setPreviewOpen((o) => !o)}
-            aria-expanded={previewOpen}
-            className="flex w-full items-center justify-between px-5 py-3 text-sm font-bold text-ink"
-          >
-            <span>업로드한 PDF 미리보기 ({previewUrls.length})</span>
-            <span className="text-xs text-ink-soft">{previewOpen ? "접기 ▲" : "펼치기 ▼"}</span>
-          </button>
-          {previewOpen && (
-            <div className="border-t border-line p-4">
-              {previewFiles.length > 1 && (
-                <div role="tablist" aria-label="PDF 파일" className="mb-3 flex flex-wrap gap-1.5">
-                  {previewFiles.map((f, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      role="tab"
-                      aria-selected={previewTab === i}
-                      onClick={() => setPreviewTab(i)}
-                      className={`rounded-[6px] px-2.5 py-1 text-[11px] font-semibold ${
-                        previewTab === i ? "bg-accent-600 text-white" : "bg-ink-100 text-ink-soft hover:bg-ink-100"
-                      }`}
-                    >
-                      {f.name.length > 18 ? `${f.name.slice(0, 16)}…` : f.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <object
-                data={previewUrls[Math.min(previewTab, previewUrls.length - 1)]}
-                type="application/pdf"
-                className="h-[500px] w-full rounded-[6px] border border-line"
-                aria-label="업로드 PDF 미리보기"
-              >
-                <p className="p-4 text-sm text-ink-soft">
-                  미리보기를 표시할 수 없습니다.{" "}
-                  <a href={previewUrls[Math.min(previewTab, previewUrls.length - 1)]} target="_blank" rel="noreferrer" className="underline">
-                    새 탭에서 열기
-                  </a>
-                </p>
-              </object>
-            </div>
-          )}
-        </section>
       )}
 
       {result && <ResultView result={result} mode={mode} referenceDate={refDate} />}

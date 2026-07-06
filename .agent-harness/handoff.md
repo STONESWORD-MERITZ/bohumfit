@@ -1,3 +1,79 @@
+## 2026-07-06 Codex BOHUMFIT-171a/171b Windows verification
+### Changed
+- `src/pages/Disclosure.tsx`: upload dropzone unified, native file input hidden, keyboard activation retained, compact selected-file list with expand/delete, upload PDF preview UI removed, history link and consent copy aligned with recent auto history.
+- `backend/main.py`: history two-track backend (`recent`/`saved`), recent auto-record after analyze, recent rolling 10, 7-day retention, saved promotion endpoint, CORS PATCH.
+- `backend/tests/test_history_171.py`: new 7 regression cases for recent auto-record, rolling, promotion/limit, track filter, 7-day expiry, isolation.
+- `backend/tests/test_history_156.py`: seeded rows updated with `track='saved'` for compatibility.
+- `src/pages/History.tsx`: recent/saved tabs, recent default, save/promotion modal, track-specific retention/quota copy.
+- `src/pages/PrivacyPolicy.tsx`: recent auto-history 7-day retention clauses added.
+### Verified
+- [x] Windows source integrity: `backend/main.py` AST parse PASS.
+- [x] `python -m pytest --collect-only tests/test_history_171.py` PASS: 7 tests collected.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` PASS.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` PASS.
+- [x] `npm run build` PASS (existing Vite chunk-size warning only; app JS chunk changed to `index-BMq30KU7.js` 743.98 kB after preview removal/history additions).
+- [x] `npm test` PASS: 53 passed.
+- [x] `cd backend && python -m pytest -q` PASS: 480 passed, 8 skipped.
+- [x] `cd backend && python -m pytest tests/test_history_171.py -vv` PASS: 7 passed.
+- [x] `cd backend && python -m pytest tests/test_history_156.py -vv` PASS: 7 passed.
+- [x] Grep target files raw gray/old brand classes = 0.
+- [x] Upload preview state/render identifiers (`previewFiles`, `previewUrls`, `previewOpen`, `previewTab`, `<object`, `PDF ????`) = 0. Existing report PDF download still uses `URL.createObjectURL(blob)` and is unrelated to upload preview.
+- [x] Old consent assertion `??? ??????? ???? ????` in Disclosure = 0; replacement copy includes source PDF deletion + recent 10 auto-history/7-day retention.
+- [x] Vite preview route smoke: `/disclosure`, `/history`, `/privacy-policy` HTTP 200.
+- [x] Code review smoke: dropzone single text/no native file button exposure, Enter/Space triggers file input, 3+ file summary with expand/delete, History recent default tab/save button, PrivacyPolicy 7-day auto-history clause.
+### Notes
+- Browser-control `node_repl js` tool was unavailable in this session, so file picker and authenticated interactions were verified by route smoke + code review; real click/session E2E remains Human.
+- `Disclosure.tsx` contains both 171a upload UI and 171b consent/history-link changes in adjacent hunks; to avoid brittle patch splitting, this was committed as one combined 171a/171b commit per task exception.
+- Confirmed backend pytest baseline after 171: 480 passed, 8 skipped.
+### Commit
+- PENDING_HASH
+### Next
+- Human ? track ?? spot check SQL ?? + ?? ? ??? UI?2?? ??? ??.
+
+## 2026-07-06 Cowork BOHUMFIT-171b [분석 히스토리 2트랙 — 최근 자동 10개·저장 승격·동의 문구 정합]
+### 설계 판단
+- track 컬럼(Human SQL 완료: 'recent'|'saved' 기본 'saved') — 기존 156 레코드는 default로 saved 취급(가정: ADD COLUMN DEFAULT가 기존 행 백필. Codex가 실DB 1행 spot check 권장).
+- **한도 분리**: `_history_count`에 `.eq("track","saved")` 추가 — recent가 saved 무료 10건을 소모하지 않도록 격리(누락 시 자동 기록이 수동 저장 한도를 잠식하는 버그가 됨).
+- 자동 기록 label = "{기준일} 분석" 자동 생성(수동 별칭과 구분). 승격 시 사용자가 별칭으로 교체.
+- 승격 후 보관은 created_at 기준 saved 90일(시각 리셋 없음 — 단순성 우선, 최대 83일 손해는 수용 가능·기록).
+### Changed — backend
+- `backend/main.py`: CORS **PATCH 추가**(승격용 — 필수 인접 수정). 상수 `HISTORY_TRACKS/RECENT_LIMIT(10)/RECENT_RETENTION_DAYS(7)` + `_history_cutoff_dt(track)`·`_history_retention_days`. `_history_lazy_purge` 2트랙(saved 90일·recent 7일). `_history_trim_recent`(최신 10 초과분 `.in_` 일괄 삭제). `_history_record_recent`(**전체 try/except 격리** + customer_name 제거 + 1MB 캡 + reference_date 동봉). POST /history track 파라미터(recent=한도 없이 저장+롤링 / saved=기존 로직 불변). GET /history `track` 필터(기본 saved — 156 호환)+트랙별 retention_days·quota. GET /{id} 만료를 행 track 기준 판정. **PATCH /history/{id}/save** 승격(별칭 필수·saved 한도 409·본인+recent 조건 update → 미일치 404). analyze는 응답 dict 캡처 후 `await _history_record_recent(...)` 1줄 삽입 — **분석 파이프라인 무접촉**(응답 조립 이후 부수 저장).
+- `backend/tests/test_history_171.py`(신규 7): (a)analyze 자동 기록+실명 제거 (a')기록 실패 격리(강제 insert 예외에도 200) (b)11개째 롤링 (c)승격+재승격 404 (c')한도 409+타인 404 (d)track 필터+400 (e)recent 7일 만료·saved 90일 불침범.
+- `backend/tests/test_history_156.py`: `_seed_row`에 track:'saved' 1줄(스키마 진화 픽스처 대응 — **정책값 무변경**).
+### Changed — frontend
+- `src/pages/History.tsx`: 트랙 탭 [최근 분석(기본)]/[저장됨](role=tablist), fetch에 track 파라미터·탭 전환 시 재조회. 최근 탭: 캡션 "최근 10건이 자동 기록되며 7일 후 삭제됩니다" + 항목별 **저장 버튼→승격 모달**(별칭·실명 금지·90일 고지·409 시 Pro 링크 — 156 모달 규칙 재사용). 저장 탭·재열람·삭제는 기존 그대로. 빈 상태·하단 고지 트랙별 분기.
+- `src/pages/Disclosure.tsx`: ① 동의 문구 정합(법무) — "서비스 데이터베이스에 저장되지 않습니다" 단정 제거 → "원본 PDF는 분석 직후 폐기 + 결과 요약 최근 10건 자동 기록(7일)·직접 삭제 가능"(명세 취지 그대로). ② "가이드 다시보기" 좌측에 **"분석 히스토리"** 세컨더리 링크(/history, 동일 스타일).
+- `src/pages/PrivacyPolicy.tsx`: §3 자동 기록 문장 1건(§3의 "직접 요청한 경우에 한하여"가 자동 기록과 모순되므로 정합화 — Step 3 취지 내), §4 자동 기록 보관 조항 1줄(10건·7일·자동 파기·직접 삭제).
+### Verified
+- [x] /tmp: `test_history_171.py` **7 passed** + `test_history_156.py` 7 passed + main 회귀(usage·ratelimit·security·guardrails·report) 44 passed/1 skipped.
+- [x] 격리: 자동 기록 강제 실패 시 analyze 200 + 기록 0건(테스트 a').
+- [x] 재구성 무결성: 마운트 main.py 재절단(48,272B 고정) → /tmp 완전본에 패치 스크립트(10건, 각 1회 매칭 강제)로 동일 적용, **재구성본 prefix 48,272B가 마운트 뷰와 바이트 일치** + ast OK(1,442행). 테스트 2파일은 outputs 릴레이/신규 동기화(ast OK).
+- [x] grep: History/Disclosure/PrivacyPolicy raw gray·lime = 0. Disclosure "저장되지 않습니다" 잔재 0.
+- [ ] 전체 pytest·tsc·build = **Codex/Windows 권위. 기준선 473→480 예상(+7)** — 확정치 기록 요망.
+### Notes
+- GET /history 기본 track=saved(파라미터 없는 156 호환 호출은 저장 탭 의미 유지).
+- 최근 재열람 배너 문구는 저장/기록 공용("저장 시점의 분석 결과…") — 세분화는 후속 옵션.
+- 자동 기록은 로그인 사용자 전원 대상(게이트 비활성/admin None 시 자동 skip — graceful).
+### Next
+- Codex: pytest(480/8 예상)·tsc app/node·npm test·build → **2커밋 분리**: ① `feat(BOHUMFIT-171a): 업로드 UI 개선 (드롭존 단일화·파일 목록 압축·미리보기 제거)` = Disclosure.tsx(업로드 영역) ② `feat(BOHUMFIT-171b): 분석 히스토리 2트랙 (최근 자동 10개·저장 승격·동의 문구 정합)` = main.py·test_history_171.py·test_history_156.py·History.tsx·Disclosure.tsx(동의·동선)·PrivacyPolicy.tsx + tasks 2건·handoff·locks. ⚠단일 파일(Disclosure.tsx) 2커밋 분할은 hunk 단위 stage(git add -p) 필요 — 곤란 시 커밋1에 Disclosure 전체 포함하고 커밋 메시지에 171b 동의·동선 포함 명시 판단은 Codex 재량. 이후 Human: 실DB track 컬럼 spot check·분석→최근 탭 자동 기록→승격→7일 문구 실화면 확인·프라이버시 개정 시행일자 결정.
+
+## 2026-07-06 Cowork BOHUMFIT-171a [업로드 UI 개선 — 드롭존 단일화·파일 목록 압축·미리보기 제거]
+### Step 0 진단
+- **중복 원인**: 드롭존 안내문("PDF 파일을 여기에 드래그하거나 클릭하세요")과 네이티브 input의 `file:` pseudo 노출("파일선택/선택된 파일 없음")이 병존.
+- **파일 목록**: selectedNames ul — 개별 삭제 기능 없음, 10개 업로드 시 세로 과점유.
+- **미리보기(138 항목6)**: 전용 상태 4개(previewFiles/Urls/Open/Tab) + objectURL useEffect + 렌더 섹션. **외부 라이브러리 없음**(브라우저 `<object>` 태그) · 타 기능과 공유 없음 → **전체 안전 제거 판정**. 실손 계산기 영수증 input(별개 기능)은 무접촉.
+### Changed — `src/pages/Disclosure.tsx` (업로드 영역만)
+- **드롭존 단일화**: input `hidden`(tabIndex -1·aria-hidden·클릭 전파 차단) → 드롭존 div가 단일 클릭 타깃(role=button·tabIndex 0·Enter/Space·aria-label·focus-visible ring). 문구 1개 "PDF를 드래그하거나 클릭해 업로드 (최대 10개)" — 하단 제한 캡션에서 개수 중복 제거.
+- **파일 목록 분리·압축**: 드롭존 밖 별도 카드. 1~2개 = 행 그대로 / 3개↑ = 요약 행 "파일 N개 · 총 M.M MB" + 접기(기본 접힘)/펼치기(aria-expanded). 행 높이 h-8 한 줄(아이콘+truncate+체크+삭제 ✕). **개별 삭제 신설**: `removeFileAt`이 fileRef(분석이 읽는 원본)를 DataTransfer로 재구성 + 표시 상태 동기화. ✕는 모든 행 공통 — 명세 "현행 유사"는 비압축 표시 의미로 해석, 잘못 올린 파일 제거는 개수 무관 유용(취지 보강, 기록).
+- **미리보기 제거**: 상태 4종·useEffect·onDrop/onChange 셋 콜·렌더 섹션 전부 삭제. **번들 영향: 외부 라이브러리가 애초에 없어 chunk 구성 변화 없음, JSX ~50줄 감소**(기존 Vite chunk-size warning 동일 예상).
+### Verified
+- [x] grep: `preview*` 잔재 0(설명 주석 1건 제외) · Disclosure raw gray·#15663D 0.
+- [x] 접근성: 기존 input aria-label → 드롭존으로 이전 + 키보드 조작(Enter/Space) 추가 — 137 기준 후퇴 없음(강화). 드래깅 green 상태색은 136b 기존 시맨틱 유지.
+- [x] 업로드 검증 값(10개·15MB·40MB)·동의 체크박스 로직·analyze 흐름 무변경(fileRef 소비 지점 불변).
+- [ ] tsc(app/node)/build/npm test = Codex/Windows 권위.
+### Next
+- Cowork(본 세션 계속): 171b 히스토리 2트랙 → 완료 후 Codex 일괄 검증·2커밋 분리.
+
 ## 2026-07-06 Codex BOHUMFIT-159 Windows verification
 ### Changed
 - `src/components/UsageBadge.tsx`: ?? ?? ?? >2? ?? ??, 1~2? ?? ??, 0? ?? ?? UX ??.

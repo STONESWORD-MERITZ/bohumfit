@@ -7,6 +7,9 @@ Use this file to record active Codex file ownership during a task.
 - (none)
 
 ### Released
+- 2026-07-06 `BOHUMFIT-171a/171b` - Codex - Windows verification passed; frontend tsc app/node, build, npm test `53 passed`, backend pytest `480 passed, 8 skipped`; combined commit `PENDING_HASH`. Active none.
+- 2026-07-06 `BOHUMFIT-171b` - Cowork - 완료. 히스토리 2트랙: backend(track 파라미터·recent 10 롤링·7일 lazy·PATCH 승격+한도·analyze 자동 기록[완전 격리·실명 제거]·CORS PATCH·saved 한도 count 트랙 분리)+test_history_171 7케이스·156 픽스처 track 1줄. 프런트(History 2탭[최근 기본]·승격 모달·Disclosure 동의 문구 정합+히스토리 동선·PrivacyPolicy §3/§4 자동 기록 조항). /tmp 7+7+44 passed·재구성 prefix 바이트 일치. 전체 pytest(473→480 예상)·tsc·build·커밋은 Codex/Windows 권위.
+- 2026-07-06 `BOHUMFIT-171a` - Cowork - 완료. 업로드 UI: 드롭존 단일화(input hidden·role=button·Enter/Space·aria-label — 137 후퇴 없음)·문구 1개화·파일 목록 드롭존 밖 분리(1~2개 그대로/3개↑ 요약행+접기·개별 삭제 ✕ 신설[fileRef 재구성])·138 미리보기 전체 제거(전용 코드 판정·외부 라이브러리 없음 → chunk 불변·~50줄 감소). preview 잔재 0·raw gray 0. tsc/build는 Codex/Windows 권위.
 - 2026-07-06 `BOHUMFIT-159` - Codex - Windows verification passed; frontend tsc app/node, build, npm test `53 passed`, backend pytest `473 passed, 8 skipped`; commit `93b69c5`.
 - 2026-07-06 `BOHUMFIT-159` - Cowork - 완료. 업셀 UX: UsageBadge(잔여 >2 숨김·1~2 그린티 "무료 분석 N회 남음"·소진 amber 제안 톤·구독 분기 raw gray→ink 4건)·Disclosure(402→red 오류 대신 전환 카드: 수치 헤드라인+실혜택 1줄+요금제 보기 CTA, 429 기존 유지)·ReportSample(하단 1개 섹션 로그인 분기: signup/disclosure)·Subscription(소진 배너 1줄 톤 통일). ★백엔드 무수정(billing_status가 used/limit·trial_used/trial_limit 기제공 → remaining 프런트 계산, 기준선 473/8 불변). grep raw gray·lime 0, 발명 0. tsc/build/test·커밋은 Codex/Windows 권위.
 - 2026-07-06 `BOHUMFIT-156b` - Codex - Windows verification passed; frontend tsc/node/build/npm test and backend pytest `473 passed, 8 skipped`; commit `60bb073`.

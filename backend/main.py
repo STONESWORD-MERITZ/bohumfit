@@ -244,8 +244,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    # BOHUMFIT-156a: 분석 히스토리 삭제(DELETE /history/{id})용 DELETE 허용 추가.
-    allow_methods=["GET", "POST", "DELETE"],
+    # BOHUMFIT-156a/171b: 히스토리 삭제(DELETE /history/{id})·최근→저장 승격(PATCH /history/{id}/save) 허용.
+    allow_methods=["GET", "POST", "DELETE", "PATCH"],
     allow_headers=["*"],
 )
 
@@ -804,15 +804,24 @@ async def verify_phone(
 #    조회 필터가 노출 0을 보장하므로 삭제 지연은 보관 비용 문제일 뿐 노출 위험 아님.)
 # - ★실명 저장 금지: result.customer_name(심평원 PDF 추출 실명)은 저장 전 서버에서 제거.
 HISTORY_TABLE = "bohumfit_analysis_history"
-HISTORY_FREE_LIMIT = 10            # 무료 저장 한도(internal 외 전 사용자)
-HISTORY_RETENTION_DAYS = 90        # 보관 기간(일)
+HISTORY_FREE_LIMIT = 10            # 무료 저장 한도(internal 외 전 사용자) — saved 트랙
+HISTORY_RETENTION_DAYS = 90        # saved 트랙 보관 기간(일)
 HISTORY_MAX_RESULT_BYTES = 1_000_000   # result jsonb 상한(실측 극단 ~350KB의 여유 2.8배)
 HISTORY_MAX_LABEL_LEN = 40
 HISTORY_LIST_MAX = 50              # 페이지네이션 limit 상한
+# BOHUMFIT-171b: 2트랙 — recent(분석 시 자동 기록·10개 롤링·7일 보관) / saved(수동 저장·기존 156 정책).
+#   track 컬럼('recent'|'saved', 기본 'saved')은 Human이 SQL로 추가 완료.
+HISTORY_TRACKS = ("recent", "saved")
+HISTORY_RECENT_LIMIT = 10          # recent 롤링 개수(전 사용자 공통, 한도 검사 아님)
+HISTORY_RECENT_RETENTION_DAYS = 7  # recent 보관 기간(일)
 
 
-def _history_cutoff_dt() -> datetime:
-    return datetime.now(timezone.utc) - timedelta(days=HISTORY_RETENTION_DAYS)
+def _history_retention_days(track: str) -> int:
+    return HISTORY_RECENT_RETENTION_DAYS if track == "recent" else HISTORY_RETENTION_DAYS
+
+
+def _history_cutoff_dt(track: str = "saved") -> datetime:
+    return datetime.now(timezone.utc) - timedelta(days=_history_retention_days(track))
 
 
 def _history_parse_dt(value):
@@ -840,10 +849,11 @@ def _history_is_internal(admin, user_id: str) -> bool:
 
 
 def _history_count(admin, user_id: str, cutoff_iso: str) -> int:
+    """saved 트랙 저장 개수 — 무료 한도 검사용(recent는 한도 소모 안 함 — BOHUMFIT-171b)."""
     try:
         r = (
             admin.table(HISTORY_TABLE).select("id", count="exact")
-            .eq("user_id", user_id).gte("created_at", cutoff_iso).execute()
+            .eq("user_id", user_id).eq("track", "saved").gte("created_at", cutoff_iso).execute()
         )
         return getattr(r, "count", 0) or 0
     except Exception:
@@ -851,12 +861,65 @@ def _history_count(admin, user_id: str, cutoff_iso: str) -> int:
         return 0
 
 
-def _history_lazy_purge(admin, user_id: str, cutoff_iso: str) -> None:
-    """90일 초과분 lazy 삭제 — 본인 레코드만, 실패해도 요청 진행(조회 필터가 노출 차단)."""
+def _history_lazy_purge(admin, user_id: str) -> None:
+    """만료분 lazy 삭제(본인 레코드만) — saved 90일·recent 7일(BOHUMFIT-171b).
+    실패해도 요청은 진행(조회 필터가 노출 차단)."""
+    for track in HISTORY_TRACKS:
+        try:
+            cutoff = _history_cutoff_dt(track).isoformat()
+            (
+                admin.table(HISTORY_TABLE).delete()
+                .eq("user_id", user_id).eq("track", track).lt("created_at", cutoff).execute()
+            )
+        except Exception as e:
+            logger.warning("history lazy purge 실패(요청은 진행, track=%s): %s", track, e)
+
+
+def _history_trim_recent(admin, user_id: str) -> None:
+    """BOHUMFIT-171b: recent 롤링 — 최신 HISTORY_RECENT_LIMIT개 초과분(오래된 순)을 삭제."""
     try:
-        admin.table(HISTORY_TABLE).delete().eq("user_id", user_id).lt("created_at", cutoff_iso).execute()
+        res = (
+            admin.table(HISTORY_TABLE).select("id")
+            .eq("user_id", user_id).eq("track", "recent")
+            .order("created_at", desc=True)
+            .range(HISTORY_RECENT_LIMIT, HISTORY_RECENT_LIMIT + HISTORY_LIST_MAX - 1)
+            .execute()
+        )
+        extra_ids = [r.get("id") for r in (getattr(res, "data", None) or []) if r.get("id")]
+        if extra_ids:
+            admin.table(HISTORY_TABLE).delete().eq("user_id", user_id).in_("id", extra_ids).execute()
     except Exception as e:
-        logger.warning("history lazy purge 실패(요청은 진행): %s", e)
+        logger.warning("recent 롤링 삭제 실패(요청은 진행): %s", e)
+
+
+async def _history_record_recent(user_id: str, result: dict, reference_date: str) -> None:
+    """BOHUMFIT-171b: 분석 완료 시 recent 자동 기록 — 어떤 실패도 분석 응답을 막지 않는다(격리).
+    실명(customer_name)은 156a 정책 그대로 저장 전 제거. label은 기준일 기반 자동 생성."""
+    try:
+        admin = _get_supabase_admin()
+        if admin is None:
+            return
+
+        payload = dict(result)
+        payload.pop("customer_name", None)
+        payload["reference_date"] = reference_date
+        if len(json.dumps(payload, ensure_ascii=False, default=str).encode("utf-8")) > HISTORY_MAX_RESULT_BYTES:
+            logger.warning("recent 자동 기록 skip: 결과 크기 상한 초과")
+            return
+
+        def _rec() -> None:
+            admin.table(HISTORY_TABLE).insert({
+                "user_id": user_id,
+                "label": f"{reference_date} 분석",
+                "mode": "standard",
+                "result": payload,
+                "track": "recent",
+            }).execute()
+            _history_trim_recent(admin, user_id)
+
+        await asyncio.to_thread(_rec)
+    except Exception as e:
+        logger.warning("recent 자동 기록 실패(분석 응답은 정상 반환): %s", e)
 
 
 @app.post("/history")
@@ -866,9 +929,11 @@ async def history_create(
     payload: dict = Body(...),
     user_id: str = Depends(verify_jwt),
 ):
-    """분석 결과 저장 — {label(별칭·실명 금지), mode(standard|easy), result(분석 응답 JSON)}."""
+    """분석 결과 저장 — {label(별칭·실명 금지), mode(standard|easy), result(분석 응답 JSON), track?}.
+    BOHUMFIT-171b: track='recent'(자동 기록 트랙·한도 없음·10개 롤링)|'saved'(기본·기존 156 정책)."""
     label = str(payload.get("label") or "").strip()
     mode = str(payload.get("mode") or "").strip()
+    track = str(payload.get("track") or "saved").strip()
     result = payload.get("result")
     if not label:
         raise HTTPException(status_code=400, detail="저장할 별칭을 입력해 주세요.")
@@ -876,6 +941,8 @@ async def history_create(
         raise HTTPException(status_code=400, detail=f"별칭은 {HISTORY_MAX_LABEL_LEN}자 이내로 입력해 주세요.")
     if mode not in PRODUCT_TYPE_MAP:
         raise HTTPException(status_code=400, detail="mode는 standard 또는 easy여야 합니다.")
+    if track not in HISTORY_TRACKS:
+        raise HTTPException(status_code=400, detail="track은 recent 또는 saved여야 합니다.")
     if not isinstance(result, dict) or not result:
         raise HTTPException(status_code=400, detail="저장할 분석 결과가 없습니다. 분석을 먼저 실행해 주세요.")
 
@@ -893,12 +960,12 @@ async def history_create(
     admin = _require_history_admin()
 
     def _create() -> dict:
-        cutoff = _history_cutoff_dt().isoformat()
-        _history_lazy_purge(admin, user_id, cutoff)
+        _history_lazy_purge(admin, user_id)
         is_internal = _history_is_internal(admin, user_id)
         used = None
-        if not is_internal:
-            used = _history_count(admin, user_id, cutoff)
+        # BOHUMFIT-171b: 한도 검사는 saved 트랙만(recent는 롤링으로 자체 상한).
+        if track == "saved" and not is_internal:
+            used = _history_count(admin, user_id, _history_cutoff_dt("saved").isoformat())
             if used >= HISTORY_FREE_LIMIT:
                 raise HTTPException(
                     status_code=409,
@@ -911,18 +978,22 @@ async def history_create(
                 "label": label,
                 "mode": mode,
                 "result": result,
+                "track": track,
             }).execute()
             row = (getattr(ins, "data", None) or [{}])[0]
         except Exception as e:
             logger.warning("history insert 실패: %s", e)
             raise HTTPException(status_code=500, detail="히스토리 저장에 실패했어요. 잠시 후 다시 시도해 주세요.")
+        if track == "recent":
+            _history_trim_recent(admin, user_id)
         return {
             "id": row.get("id"),
             "label": label,
             "mode": mode,
+            "track": track,
             "created_at": row.get("created_at"),
             "quota": {"used": (used + 1) if used is not None else None,
-                      "max": None if is_internal else HISTORY_FREE_LIMIT},
+                      "max": None if (is_internal or track == "recent") else HISTORY_FREE_LIMIT},
         }
 
     return await asyncio.to_thread(_create)
@@ -934,21 +1005,25 @@ async def history_list(
     request: Request,
     limit: int = 20,
     offset: int = 0,
+    track: str = "saved",
     user_id: str = Depends(verify_jwt),
 ):
-    """본인 히스토리 목록 — result 제외(id·label·mode·created_at), 최신순 페이지네이션."""
+    """본인 히스토리 목록 — result 제외, 최신순 페이지네이션.
+    BOHUMFIT-171b: track 필터('recent'|'saved', 기본 saved — 156 호환)."""
     limit = max(1, min(HISTORY_LIST_MAX, limit))
     offset = max(0, offset)
+    if track not in HISTORY_TRACKS:
+        raise HTTPException(status_code=400, detail="track은 recent 또는 saved여야 합니다.")
     admin = _require_history_admin()
 
     def _list() -> dict:
-        cutoff = _history_cutoff_dt().isoformat()
-        _history_lazy_purge(admin, user_id, cutoff)
+        _history_lazy_purge(admin, user_id)
+        cutoff = _history_cutoff_dt(track).isoformat()
         try:
             res = (
                 admin.table(HISTORY_TABLE)
-                .select("id,label,mode,created_at", count="exact")
-                .eq("user_id", user_id).gte("created_at", cutoff)
+                .select("id,label,mode,track,created_at", count="exact")
+                .eq("user_id", user_id).eq("track", track).gte("created_at", cutoff)
                 .order("created_at", desc=True)
                 .range(offset, offset + limit - 1)
                 .execute()
@@ -958,14 +1033,19 @@ async def history_list(
             raise HTTPException(status_code=500, detail="히스토리 목록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.")
         items = getattr(res, "data", None) or []
         total = getattr(res, "count", None) or 0
+        if track == "recent":
+            quota = {"used": total, "max": HISTORY_RECENT_LIMIT}
+        else:
+            quota = {"used": total,
+                     "max": None if _history_is_internal(admin, user_id) else HISTORY_FREE_LIMIT}
         return {
             "items": items,
             "total": total,
             "limit": limit,
             "offset": offset,
-            "retention_days": HISTORY_RETENTION_DAYS,
-            "quota": {"used": total,
-                      "max": None if _history_is_internal(admin, user_id) else HISTORY_FREE_LIMIT},
+            "track": track,
+            "retention_days": _history_retention_days(track),
+            "quota": quota,
         }
 
     return await asyncio.to_thread(_list)
@@ -978,15 +1058,15 @@ async def history_get(
     history_id: str,
     user_id: str = Depends(verify_jwt),
 ):
-    """본인 소유 단건 result 조회 — 타인/부재/만료 모두 404(존재 여부 비노출)."""
+    """본인 소유 단건 result 조회 — 타인/부재/만료 모두 404(존재 여부 비노출).
+    BOHUMFIT-171b: 만료 판정은 행의 track 기준(recent 7일 / saved 90일)."""
     admin = _require_history_admin()
 
     def _get() -> dict:
-        cutoff_dt = _history_cutoff_dt()
         try:
             res = (
                 admin.table(HISTORY_TABLE)
-                .select("id,label,mode,result,created_at")
+                .select("id,label,mode,track,result,created_at")
                 .eq("id", history_id).eq("user_id", user_id)
                 .single().execute()
             )
@@ -994,11 +1074,16 @@ async def history_get(
         except Exception:
             row = None
         if not row:
-            raise HTTPException(status_code=404, detail="히스토리를 찾을 수 없어요. 삭제됐거나 보관 기간(90일)이 지났을 수 있어요.")
+            raise HTTPException(status_code=404, detail="히스토리를 찾을 수 없어요. 삭제됐거나 보관 기간이 지났을 수 있어요.")
+        row_track = row.get("track") if row.get("track") in HISTORY_TRACKS else "saved"
+        cutoff_dt = _history_cutoff_dt(row_track)
         created = _history_parse_dt(row.get("created_at"))
         if created is not None and created < cutoff_dt:
-            _history_lazy_purge(admin, user_id, cutoff_dt.isoformat())
-            raise HTTPException(status_code=404, detail="보관 기간(90일)이 지나 삭제된 히스토리예요.")
+            _history_lazy_purge(admin, user_id)
+            raise HTTPException(
+                status_code=404,
+                detail=f"보관 기간({_history_retention_days(row_track)}일)이 지나 삭제된 히스토리예요.",
+            )
         return row
 
     return await asyncio.to_thread(_get)
@@ -1029,6 +1114,60 @@ async def history_delete(
         return {"ok": True, "id": history_id}
 
     return await asyncio.to_thread(_delete)
+
+
+@app.patch("/history/{history_id}/save")
+@limiter.limit("20/minute")
+async def history_promote(
+    request: Request,
+    history_id: str,
+    payload: dict = Body(...),
+    user_id: str = Depends(verify_jwt),
+):
+    """BOHUMFIT-171b: recent → saved 승격 — 별칭(실명 금지) 필수, saved 무료 한도(10건) 검사 적용.
+    승격 후 보관 기간은 saved 기준(90일, created_at 기준 유지)."""
+    label = str(payload.get("label") or "").strip()
+    if not label:
+        raise HTTPException(status_code=400, detail="저장할 별칭을 입력해 주세요.")
+    if len(label) > HISTORY_MAX_LABEL_LEN:
+        raise HTTPException(status_code=400, detail=f"별칭은 {HISTORY_MAX_LABEL_LEN}자 이내로 입력해 주세요.")
+    admin = _require_history_admin()
+
+    def _promote() -> dict:
+        _history_lazy_purge(admin, user_id)
+        is_internal = _history_is_internal(admin, user_id)
+        used = None
+        if not is_internal:
+            used = _history_count(admin, user_id, _history_cutoff_dt("saved").isoformat())
+            if used >= HISTORY_FREE_LIMIT:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"히스토리 저장 한도({HISTORY_FREE_LIMIT}건)에 도달했어요. "
+                           "기존 항목을 삭제하거나 Pro 플랜을 확인해 주세요.",
+                )
+        try:
+            res = (
+                admin.table(HISTORY_TABLE)
+                .update({"track": "saved", "label": label})
+                .eq("id", history_id).eq("user_id", user_id).eq("track", "recent")
+                .execute()
+            )
+            updated = getattr(res, "data", None) or []
+        except Exception as e:
+            logger.warning("history promote 실패: %s", e)
+            raise HTTPException(status_code=500, detail="저장으로 전환하지 못했어요. 잠시 후 다시 시도해 주세요.")
+        if not updated:
+            raise HTTPException(status_code=404, detail="히스토리를 찾을 수 없어요. 이미 저장됐거나 삭제됐을 수 있어요.")
+        return {
+            "ok": True,
+            "id": history_id,
+            "label": label,
+            "track": "saved",
+            "quota": {"used": (used + 1) if used is not None else None,
+                      "max": None if is_internal else HISTORY_FREE_LIMIT},
+        }
+
+    return await asyncio.to_thread(_promote)
 
 
 # ── 보장 비교분석 PDF 파싱 (BOHUMFIT-114) ──────────────────────────────────────
@@ -1195,7 +1334,7 @@ async def analyze(
     std_kakao = _with_kakao_disclaimer(std_kakao)
     easy_kakao = _with_kakao_disclaimer(easy_kakao)
 
-    return {
+    response_payload = {
         "flagged_count":        len(flagged_codes),
         "total_q_count":        len(std_reports),
         "total_visit_sum":      sum(item["visit"] for items in std_reports.values() for item in items),
@@ -1222,6 +1361,12 @@ async def analyze(
         "meritz_easy_details":          meritz.get("exception_diseases", []) + meritz.get("rejected_diseases", []),
         "meritz_easy_message":          meritz.get("detail_message", ""),
     }
+
+    # BOHUMFIT-171b: 최근 분석 자동 기록(recent 트랙·10개 롤링·7일) — 응답 조립 이후 부수 저장.
+    #   내부 try/except로 완전 격리: 어떤 실패도 분석 응답을 막지 않는다. 실명(customer_name)은 제거 저장.
+    await _history_record_recent(user_id, response_payload, reference_date)
+
+    return response_payload
 
 
 # ── 리포트 PDF (BOHUMFIT-030) ────────────────────────────────────────────────

@@ -130,8 +130,9 @@ def _iso_days_ago(days: int) -> str:
 
 def _seed_row(admin, user_id, label="별칭", days_ago=0, mode="standard"):
     admin.seq += 1
+    # BOHUMFIT-171b: track 컬럼 도입(기본 'saved') — 기존 saved 트랙 시드에 반영(정책값 불변).
     row = {"id": f"h{admin.seq}", "user_id": user_id, "label": label, "mode": mode,
-           "result": {"flagged_count": 0}, "created_at": _iso_days_ago(days_ago)}
+           "result": {"flagged_count": 0}, "created_at": _iso_days_ago(days_ago), "track": "saved"}
     admin.rows.append(row)
     return row
 
