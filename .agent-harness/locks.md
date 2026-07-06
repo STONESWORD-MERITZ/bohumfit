@@ -7,6 +7,10 @@ Use this file to record active Codex file ownership during a task.
 - (none)
 
 ### Released
+- 2026-07-06 `BOHUMFIT-156b` - Codex - Windows verification passed; frontend tsc/node/build/npm test and backend pytest `473 passed, 8 skipped`; commit PENDING_156B_HASH.
+- 2026-07-06 `BOHUMFIT-156a` - Codex - Windows verification passed; backend pytest `473 passed, 8 skipped`, history regression 7 passed; commit `1bc3fb2`.
+- 2026-07-06 `BOHUMFIT-156b` - Cowork - 완료. 히스토리 프런트: Disclosure(ResultView export+옵션 props 2종·저장 세컨더리 버튼·별칭 모달[실명 금지·90일 고지]·409 인라인+Pro 링크)·History.tsx 신규(목록·삭제 확인 모달·빈 상태·더보기·재열람=ResultView 주입)·App /history ProtectedRoute·DisclosureHub 진입 링크·PrivacyPolicy §3 옵트인 예외+§4 보관 조항(별칭·분석결과/90일/자동파기/삭제권). grep raw gray 0(App.tsx 기존 3건은 범위 밖). tsc/build/test·커밋은 Codex/Windows 권위.
+- 2026-07-06 `BOHUMFIT-156a` - Cowork - 완료. 히스토리 백엔드: main.py /history 4종(POST 저장[무료 10건 409·internal 무제한]·GET 목록[result 제외·페이지네이션]·GET{id}·DELETE{id}, 소유권 .eq(user_id) 강제, 90일 조회 제외+lazy 삭제, result 1MB 캡, ★customer_name 실명 저장 전 제거, CORS DELETE 추가)+test_history_156.py 7케이스. /tmp 신규 7+회귀 30 passed(마운트 truncation→outputs 재조립 검증). 전체 pytest는 Codex/Windows 권위(466→473 예상).
 - 2026-07-06 `BOHUMFIT-170` - Codex - Windows verification passed; frontend tsc/node/build and backend pytest `466 passed, 8 skipped`; commit `eb09aed`.
 - 2026-07-06 `BOHUMFIT-170` - Cowork - completed v1.1 delta; Logo light wordmark ink, white-tile app icons; favicon/OG/manifest unchanged; Disclosure/backend untouched.
 - 2026-07-06 `BOHUMFIT-167b` - Codex - Windows verification passed; frontend tsc/node/build/npm test and backend pytest `466 passed, 8 skipped`; commit `69d07ea`.

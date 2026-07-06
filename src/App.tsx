@@ -24,6 +24,7 @@ import CoverageGuide from "./pages/CoverageGuide";
 import CoverageCompare from "./pages/CoverageCompare";
 import InsuranceLinks from "./pages/InsuranceLinks";
 import ReportSample from "./pages/ReportSample";
+import History from "./pages/History"; // BOHUMFIT-156b
 import NotFound from "./pages/NotFound"; // BOHUMFIT-165
 import { ToastProvider } from "./components/ToastContext"; // BOHUMFIT-131
 
@@ -92,6 +93,11 @@ function App() {
           />
           {/* 구 고객용 경로 — 북마크·기존 링크 보존용 redirect */}
           <Route path="check" element={<Navigate to="/disclosure?mode=customer" replace />} />
+          {/* BOHUMFIT-156b: 분석 히스토리(저장 결과 목록·재열람·삭제) — NAV 미편입, DisclosureHub에서 진입 */}
+          <Route
+            path="history"
+            element={<ProtectedRoute><History /></ProtectedRoute>}
+          />
           {/* BOHUMFIT-112: 고지의무 리포트 샘플 미리보기(공개·비로그인 구독 유도) */}
           <Route path="disclosure/sample" element={<ReportSample />} />
           {/* BOHUMFIT-077: 심평원 자료 다운로드 가이드(공개) */}

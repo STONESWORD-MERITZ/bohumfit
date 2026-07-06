@@ -1,3 +1,76 @@
+## 2026-07-06 Codex BOHUMFIT-156a/156b Windows verification
+### Changed
+- 156a backend: `backend/main.py` history API (`POST /history`, `GET /history`, `GET /history/{id}`, `DELETE /history/{id}`), CORS DELETE allowance, 90-day lazy purge, free 10-item limit, internal unlimited, customer_name stripping, 1MB result cap.
+- 156a tests: `backend/tests/test_history_156.py` with 7 regression cases.
+- 156b frontend: `src/pages/History.tsx` new protected page, `src/App.tsx` route, `src/pages/DisclosureHub.tsx` entry link, `src/pages/Disclosure.tsx` ResultView export/history save flow, `src/pages/PrivacyPolicy.tsx` history retention/privacy clauses.
+### Verified
+- [x] Windows source integrity: `backend/main.py` AST parse PASS.
+- [x] `python -m pytest --collect-only tests/test_history_156.py` PASS: 7 tests collected.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` PASS.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` PASS.
+- [x] `npm run build` PASS (existing Vite chunk-size warning only).
+- [x] `npm test` PASS: 53 passed.
+- [x] `cd backend && python -m pytest -q` PASS: 473 passed, 8 skipped.
+- [x] `cd backend && python -m pytest tests/test_history_156.py -vv` PASS: 7 passed.
+- [x] Grep: History/Disclosure/DisclosureHub/PrivacyPolicy raw gray/old brand classes = 0.
+- [x] Code-level CORS check: backend CORS `allow_methods` includes DELETE.
+- [x] Vite preview route smoke: `/`, `/history`, `/privacy-policy`, `/disclosure` all returned HTTP 200 root HTML.
+### Notes
+- Confirmed backend pytest baseline after 156a: 473 passed, 8 skipped.
+- Authenticated browser E2E (save -> list -> reopen -> delete) requires a real login session plus Supabase `bohumfit_analysis_history` schema, so it remains Human verification after deploy.
+- Human ?? ?? ? Supabase ???? ??(`bohumfit_analysis_history`), PrivacyPolicy ???? ?? ??.
+- Unrelated dirty/untracked files were left unstaged.
+### Commits
+- 156a: `1bc3fb2`
+- 156b: PENDING_156B_HASH
+### Next
+- Human ? ?? ? ???????????? ??? ??.
+
+## 2026-07-06 Cowork BOHUMFIT-156b [분석 히스토리 프런트 — 저장 UX·목록·재열람·법무 고지]
+### Step 0 진단
+- 재열람 **가능(대수술 아님)** 판정 → 축소 없이 전체 범위(저장+목록+재열람) 진행. 근거: 결과 렌더가 이미 `ResultView({result, mode, referenceDate})` 순수 props 컴포넌트(단일 파일 내 분리 완료)이고, BOHUMFIT-138 sessionStorage 10분 재보기가 "저장된 JSON 주입 재열람"을 기실증. 필요한 변경은 export + 옵션 props 2종뿐(기본값 = 기존 동작 불변).
+### Changed
+- `src/pages/Disclosure.tsx`: `AnalyzeResult` 타입·`ResultView` export(태스크 허용 "결과 렌더 재사용 최소 분리"). ResultView 옵션 props `initialProductTab`(저장 시점 탭 복원)·`historyView`(재열람 시 저장 버튼 숨김). 메트릭 카드에 **"히스토리에 저장" 세컨더리 아웃라인 버튼**(라임 CTA 아님) + label 모달: "고객 실명 대신 별칭" 안내·"90일 뒤 자동 삭제" 1줄 고지·Enter 저장·성공 토스트·저장됨 상태. **409 시 인라인 1줄 + /subscription 링크**(과하지 않게). 저장 mode=현재 탭(easy 외 standard), result에 `reference_date` 동봉(재열람 PDF·표기 복원).
+- `src/pages/History.tsx`(신규): 목록(label·mode 배지·저장일시·열람·**삭제 확인 모달**·빈 상태·더 보기 페이지네이션·quota 뱃지 n/10 또는 무제한) + 재열람(단건 GET → ResultView 주입 + "저장 시점 결과·청약 직전 재분석" 주의 배너) + 하단 별칭·90일·삭제권 고지 1줄.
+- `src/App.tsx`: `/history` ProtectedRoute 라우트 추가(NAV 미편입).
+- `src/pages/DisclosureHub.tsx`: 모드 세그먼트 우측 "분석 히스토리 →" 진입 링크(Link).
+- `src/pages/PrivacyPolicy.tsx`: §3에 히스토리 옵트인 예외 1문장(기존 "DB 미저장 원칙"과의 모순 제거 — 필수 정합화·실명 미저장 명시), §4에 보관 조항(**항목: 별칭·분석 결과 / 90일 / 자동 파기 / 언제든 직접 삭제**).
+### Verified
+- [x] grep: History/Disclosure/DisclosureHub/PrivacyPolicy raw gray(text/bg/border/divide/ring)·#15663D = **0**. ⚠`App.tsx` 기존 3건(FallbackUI·RedirectIfAuthed의 text-gray)은 166/167 리브랜딩 범위 밖 잔존이며 이번 수정 라인과 무관 — 후속 정리 제안.
+- [x] 정적 자기검토: hooks 무조건 호출 순서 유지 / 모달 a11y(role=dialog·aria-modal·오버레이 클릭 닫기·autoFocus) / `Disclosure.test.tsx`는 이름 기반 쿼리만 사용(스냅샷 없음) → 신규 버튼 무충돌 / ResultView 기존 호출부(props 옵션) 하위호환.
+- [ ] tsc(app/node)/build/npm test = **Codex/Windows 권위** (Disclosure.tsx 마운트 뷰 binary·truncation으로 샌드박스 tsc 불가 — ENV-MOUNT-NOTES).
+### Notes
+- PrivacyPolicy `EFFECTIVE_DATE`(2026-06-30) 갱신·개정 공지 여부는 법무 사안 → **Human 결정**(문구 자체는 Human 확정 정책의 반영).
+- 재열람 화면에서도 PDF 재생성 가능. customer_name은 미저장이므로 파일명은 날짜 폴백(별칭 대체는 후속 옵션).
+- sessionStorage 10분 재보기(138)와 독립 공존(충돌 없음).
+### Next
+- Codex: tsc app/node·npm test·build·backend pytest(**기준선 466→473 예상, +7 — 확정치 handoff 기록**) 통과 후 **2커밋 분리**: ① `feat(BOHUMFIT-156a): 분석 히스토리 백엔드 API (저장/목록/재열람/삭제 + 한도)` = backend/main.py·backend/tests/test_history_156.py·tasks/156a ② `feat(BOHUMFIT-156b): 분석 히스토리 UI (저장·목록·법무 고지)` = History.tsx·App.tsx·DisclosureHub.tsx·Disclosure.tsx·PrivacyPolicy.tsx·tasks/156b(+handoff·locks는 ②에 포함) → push. 이후 Human: Supabase `bohumfit_analysis_history` 실스키마 대조, 실화면 왕복(저장→목록→재열람→삭제→409), 프라이버시 문구·시행일자 검토.
+
+## 2026-07-06 Cowork BOHUMFIT-156a [분석 히스토리 백엔드 API — 저장/목록/재열람/삭제 + 한도]
+### Step 0 진단 (구현 전)
+1. **인증**: 기존 `verify_jwt(Depends)`(Supabase Auth 서버 검증) 그대로 사용 — 신규 인증 방식 없음. 레이트리밋은 `@limiter.limit` + `request: Request` 기존 패턴.
+2. **Supabase**: `_get_supabase_admin()` = service role → **RLS 우회이므로 전 쿼리에 `.eq("user_id", user_id)` 소유권 강제**(usage_logs·billing 패턴 동일). RLS는 프런트 직접 접근 방어층. admin 미설정 시 503 graceful(빌링 패턴).
+3. **페이로드 실측**: /api/analyze 응답 합성 실측 — 전형(질병 5/Q) 55KB·다질병 140KB·극단 350KB → **jsonb 적정**. 서버 캡 1MB(413) 설정.
+### Changed
+- `backend/main.py`: `/history` 4종 — POST(저장·한도)·GET(목록: id/label/mode/created_at만·최신순·limit≤50 페이지네이션·quota 포함)·GET/{id}(본인 단건 result)·DELETE/{id}(본인 삭제). 헬퍼 `HISTORY_*` 상수·`_history_cutoff_dt/_parse_dt/_require_history_admin/_is_internal/_count/_lazy_purge`. **CORS `allow_methods`에 DELETE 추가**(필수 인접 수정 — 미추가 시 브라우저 preflight에서 삭제 차단).
+- `backend/tests/test_history_156.py`(신규): (a)왕복 (b)타인 차단 (c)무료 10건 409 (d)internal 무제한 (e)90일 제외+lazy 삭제 + 입력검증·503 graceful. 상태 보존 FakeAdmin(select 컬럼 프로젝션 재현).
+### 90일 lazy 삭제 설계 근거
+- Railway 단일 프로세스에 스케줄러 부재(pg_cron은 Human DB 권한). **조회 필터(`gte cutoff`)가 만료분 노출 0을 이미 보장**하므로, 본인 접근 시점(list/create/단건 만료 감지)에 본인 만료분만 delete — 비용 0·개인정보 최소보관. 비활성 사용자 만료분 물리 삭제는 후속 pg_cron 도입 시(Human 옵션).
+### ★취지 반영 보강
+- **`result.customer_name`(PDF 추출 실명) 저장 전 서버측 제거** — "실명 저장 금지" 정책의 서버 강제. 재열람 화면 이름은 label(별칭)로 대체.
+- 타인·부재·만료 단건 모두 404 통일(존재 여부 비노출).
+- 한도 해석: internal 외 전 사용자 10건(유료 플랜별 확대는 Human 미결정 — PLANS에 history_limit 추가는 후속 제안). 409 문구에 Pro 안내 포함.
+### Verified
+- [x] /tmp: `test_history_156.py` **7 passed** + main 관련 회귀(usage_middleware·ratelimit_063·security_060·launch_guardrails·report_pdf endpoint) **30 passed**.
+- [x] Windows 원본 무결성: main.py 1297행 정상 종결 Read 확인. ⚠마운트 truncation 재현 — main.py 뷰 48,272B·test 뷰 11,448B 고정 절단 → outputs 경유 재조립본(prefix cmp 일치·ast OK)으로 /tmp 검증. 기존 truncation 4모듈(ai_judgment·pdf_parser·helpers·meritz_easy_rules)은 analyzer 스텁 우회.
+- [ ] 전체 pytest = **Codex/Windows 권위. 기준선 466→473 예상(+7)** — 신규 기준선 확정 기록 요망.
+### Notes
+- 테이블 스키마 가정(Human 생성): `id uuid PK·user_id uuid·label text·mode text·result jsonb·created_at timestamptz`. 컬럼 상이 시 insert 실패가 500+서버 로그로 표면화 — Codex 검증 시 실 Supabase 스키마 대조 권장.
+- `parse_errors` 내 원본 파일명에 고객명 잔존 가능성(customer_name 외 스크럽은 범위 밖) — Human 판단 후속.
+- `_history_count` 실패 시 0 반환(가용성 우선·게이트 계열과 동일) — DB 장애 시 한도 우회 가능성은 기존 usage 게이트와 동일 수준.
+### Next
+- Cowork(본 세션 계속): 156b 프런트(저장 UX·/history·법무 고지) → 완료 후 Codex 일괄 검증·2커밋 분리 푸시.
+
 ## 2026-07-06 Codex BOHUMFIT-170 Windows verification
 ### Changed
 - `src/components/Logo.tsx`: light variant wordmark color changed to `text-ink-900` for FIT v1.1 ink wordmark on light surfaces.

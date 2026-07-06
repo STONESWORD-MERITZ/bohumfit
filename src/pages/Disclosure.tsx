@@ -72,7 +72,8 @@ type SummaryItem = {
   detail: string;
 };
 
-type AnalyzeResult = {
+// BOHUMFIT-156b: History(재열람) 페이지에서 재사용하도록 export.
+export type AnalyzeResult = {
   // BOHUMFIT-009: 신구조 — 건강체/간편 탭 + Q1~Q4 6 키 복구. easy_reports/easy_kakao 도 호환 유지.
   flagged_count: number;
   total_q_count: number;
@@ -1025,9 +1026,23 @@ function InsuranceSection({ coveredByYear, captured }: { coveredByYear: Record<s
   );
 }
 
-function ResultView({ result, mode, referenceDate }: { result: AnalyzeResult; mode: AudienceMode; referenceDate: string }) {
+// BOHUMFIT-156b: History 재열람에서 재사용하도록 export + 옵션 props 2종(기본값 = 기존 동작 불변).
+//   initialProductTab: 저장 시점 탭 복원 / historyView: 재열람 화면(저장 버튼 숨김 — 중복 저장 방지).
+export function ResultView({
+  result,
+  mode,
+  referenceDate,
+  initialProductTab,
+  historyView = false,
+}: {
+  result: AnalyzeResult;
+  mode: AudienceMode;
+  referenceDate: string;
+  initialProductTab?: "standard" | "easy";
+  historyView?: boolean;
+}) {
   // BOHUMFIT-009: 건강체/간편 탭 + Q1~Q4 신구조 섹션 복구.
-  const [productTab, setProductTab] = useState<"standard" | "easy" | "insurance">("standard");
+  const [productTab, setProductTab] = useState<"standard" | "easy" | "insurance">(initialProductTab ?? "standard");
   const easyReports = result.easy_reports || {};
   const stdCount = Object.values(result.standard_reports).reduce((s, arr) => s + arr.length, 0);
   const easyCount = Object.values(easyReports).reduce((s, arr) => s + arr.length, 0);
@@ -1085,6 +1100,55 @@ function ResultView({ result, mode, referenceDate }: { result: AnalyzeResult; mo
     }
   }
 
+  // BOHUMFIT-156b: 분석 결과 히스토리 저장 — label(별칭·실명 금지 안내), 보관 90일 고지.
+  //   mode = 현재 탭(간편이면 easy, 그 외 standard). result에 reference_date를 동봉해 재열람 시 복원.
+  //   실명(customer_name)은 백엔드(156a)가 저장 전 제거한다.
+  const { showToast } = useToast();
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [saveLabel, setSaveLabel] = useState("");
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [saveLimited, setSaveLimited] = useState(false); // 409(한도) — Pro 안내 인라인 1줄
+  const [savedDone, setSavedDone] = useState(false);
+  async function saveToHistory() {
+    const label = saveLabel.trim();
+    if (!label) {
+      setSaveError("별칭을 입력해 주세요.");
+      return;
+    }
+    const token = session?.access_token;
+    setSaveLoading(true);
+    setSaveError("");
+    setSaveLimited(false);
+    try {
+      const res = await fetch(`${API_BASE}/history`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          label,
+          mode: productTab === "easy" ? "easy" : "standard",
+          result: { ...result, reference_date: referenceDate },
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        if (res.status === 409) {
+          setSaveLimited(true);
+          throw new Error(d.detail || "히스토리 저장 한도(10건)에 도달했어요. 기존 항목을 삭제해 주세요.");
+        }
+        throw new Error(d.detail || `저장에 실패했어요 (${res.status})`);
+      }
+      setSavedDone(true);
+      setSaveOpen(false);
+      setSaveLabel("");
+      showToast("히스토리에 저장되었습니다", "success");
+    } catch (e: unknown) {
+      setSaveError(e instanceof Error ? e.message : "저장에 실패했어요. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setSaveLoading(false);
+    }
+  }
+
   return (
     <div>
       {(result.parse_errors || []).map((e, i) => (
@@ -1132,6 +1196,17 @@ function ResultView({ result, mode, referenceDate }: { result: AnalyzeResult; mo
           >
             {pdfLoading ? "PDF 생성 중…" : "고지내역 PDF 저장"}
           </button>
+          {/* BOHUMFIT-156b: 히스토리 저장 — 세컨더리(아웃라인) 버튼. 재열람 화면(historyView)에서는 숨김. */}
+          {!historyView && (
+            <button
+              type="button"
+              onClick={() => { setSaveError(""); setSaveLimited(false); setSaveOpen(true); }}
+              disabled={savedDone}
+              className="rounded-[8px] border border-line-strong bg-white px-4 py-2 text-sm font-bold text-ink hover:border-accent-600 hover:text-accent-700 disabled:opacity-60"
+            >
+              {savedDone ? "히스토리에 저장됨 ✓" : "히스토리에 저장"}
+            </button>
+          )}
           <span className="text-[11px] text-ink-soft">Q1~Q5 고지 검토 내역을 PDF로 저장합니다(개인정보 포함 — 보관에 유의).</span>
           {pdfError && <span className="text-[11px] text-red-500">{pdfError}</span>}
         </div>
@@ -1189,6 +1264,68 @@ function ResultView({ result, mode, referenceDate }: { result: AnalyzeResult; mo
       </section>
 
       <DisclaimerBox />
+
+      {/* BOHUMFIT-156b: 히스토리 저장 모달 — 별칭(실명 금지) + 보관 90일 고지 */}
+      {saveOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 px-5"
+          role="dialog"
+          aria-modal="true"
+          aria-label="히스토리에 저장"
+          onClick={() => !saveLoading && setSaveOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-[8px] bg-white p-5 shadow-[0_8px_32px_rgba(0,0,0,0.18)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-sm font-extrabold text-ink-900">히스토리에 저장</h3>
+            <p className="mt-1.5 text-[12px] leading-5 text-ink-soft">
+              고객 실명 대신 <strong className="text-ink">별칭</strong>을 입력하세요. (예: 40대 남 · 고혈압)
+            </p>
+            <input
+              type="text"
+              value={saveLabel}
+              onChange={(e) => setSaveLabel(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !saveLoading) void saveToHistory(); }}
+              placeholder="예: 40대 남 · 고혈압"
+              maxLength={40}
+              autoFocus
+              aria-label="히스토리 별칭"
+              className="mt-3 w-full rounded-[6px] border border-line-strong px-3 py-2 text-sm focus:border-accent-600 focus:outline-none"
+            />
+            <p className="mt-2 text-[11px] text-ink-soft">저장된 결과는 90일 뒤 자동 삭제됩니다.</p>
+            {saveError && (
+              <p className="mt-2 text-[12px] font-semibold text-red-500">
+                {saveError}
+                {saveLimited && (
+                  <>
+                    {" "}
+                    <Link to="/subscription" className="font-bold text-accent-700 underline">Pro 안내 보기</Link>
+                  </>
+                )}
+              </p>
+            )}
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setSaveOpen(false)}
+                disabled={saveLoading}
+                className="rounded-[8px] border border-line px-4 py-2 text-sm font-bold text-ink-soft hover:text-ink disabled:opacity-60"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={() => void saveToHistory()}
+                disabled={saveLoading}
+                className="rounded-[8px] bg-accent-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+              >
+                {saveLoading ? "저장 중…" : "저장"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

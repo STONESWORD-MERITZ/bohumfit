@@ -2,7 +2,7 @@
 // 기존 Disclosure 컴포넌트를 그대로 렌더(무수정·리마운트 없음). 탭은 ?mode= 만 변경하며,
 // Disclosure 가 파라미터를 라이브 해석하므로 단일 라우트 안에서 입력 상태가 보존된다
 // (기존 /check↔/disclosure 라우트 분리 시절의 상태 손실 개선).
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import Disclosure from "./Disclosure";
 
 type AudienceMode = "customer" | "agent";
@@ -27,11 +27,12 @@ export default function DisclosureHub() {
 
   return (
     <div>
-      {/* 모드 세그먼트 — Mercury 톤(파스텔 활성) */}
+      {/* 모드 세그먼트 — Mercury 톤(파스텔 활성) + 히스토리 진입 링크(BOHUMFIT-156b, NAV 미편입) */}
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
       <div
         role="tablist"
         aria-label="알릴의무 필터 모드"
-        className="mb-5 inline-flex rounded-btn border border-line bg-white p-1"
+        className="inline-flex rounded-btn border border-line bg-white p-1"
       >
         {MODES.map((m) => {
           const active = m.value === mode;
@@ -55,6 +56,13 @@ export default function DisclosureHub() {
             </button>
           );
         })}
+      </div>
+      <Link
+        to="/history"
+        className="text-[13px] font-semibold text-ink-soft hover:text-accent-700"
+      >
+        분석 히스토리 →
+      </Link>
       </div>
 
       {/* 기존 페이지 그대로 — ?mode= 파라미터가 모드를 결정 */}
