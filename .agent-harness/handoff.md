@@ -18,7 +18,7 @@
 - In-app browser viewport automation was unavailable in this Codex session, so exact 1366x768/1440x900/2560x1440/375x812 visual balance and mobile address-bar jump checks remain Human E2E. Code-level `svh`/`dvh`/fluid checks and route smoke passed.
 - Existing out-of-scope raw gray in `App.tsx` fallback UI and older `index.css` clamp/viewport values were not changed.
 ### Commit
-- PENDING
+- 18381f2
 ### Next
 - Human — 노트북·27인치·모바일에서 히어로 중앙 균형 + 지표 fold 시작선 육안 확인.
 
