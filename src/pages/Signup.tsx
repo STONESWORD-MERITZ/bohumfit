@@ -41,7 +41,7 @@ export default function Signup() {
 
   if (done) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F8F9FC] px-4">
+      <div className="flex min-h-dvh items-center justify-center bg-[#F8F9FC] px-4">
         <div className="w-full max-w-sm text-center">
           <h2 className="mb-2 text-lg font-extrabold text-ink-900">이메일을 확인해 주세요</h2>
           <p className="mb-6 text-sm leading-6 text-ink-soft">
@@ -58,7 +58,7 @@ export default function Signup() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F8F9FC] px-4">
+    <div className="flex min-h-dvh items-center justify-center bg-[#F8F9FC] px-4">
       <div className="w-full max-w-sm">
         <div className="mb-10 text-center">
           <Logo size={34} variant="light" className="mx-auto" />

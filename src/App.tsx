@@ -32,7 +32,7 @@ const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 function FallbackUI() {
   return (
-    <div className="min-h-screen flex items-center justify-center px-6 text-center">
+    <div className="min-h-dvh flex items-center justify-center px-6 text-center">
       <div className="max-w-md">
         <p className="text-2xl font-extrabold text-gray-900">잠시 문제가 생겼어요</p>
         <p className="mt-2 text-sm text-gray-600">
@@ -56,7 +56,7 @@ function RedirectIfAuthed({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-gray-400">로딩 중...</div>
+      <div className="flex min-h-dvh items-center justify-center text-sm text-ink-400">로딩 중...</div>
     );
   }
   if (user) return <Navigate to="/disclosure?mode=agent" replace />;

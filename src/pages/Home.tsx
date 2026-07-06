@@ -145,14 +145,15 @@ export default function Home() {
           }}
         />
         <div
-          className={`relative z-10 mx-auto w-full max-w-6xl px-6 pt-20 pb-24 transition-all duration-700 ${
+          className={`relative z-10 mx-auto w-full max-w-6xl px-6 pt-[clamp(3.5rem,2.91rem+2.61vw,5rem)] pb-[clamp(4rem,3.22rem+3.48vw,6rem)] transition-all duration-700 ${
             mounted ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
           }`}
         >
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accent-400">
             For Insurance Planners
           </p>
-          <h1 className="ko-heading mt-6 text-4xl font-extrabold leading-[1.15] tracking-tight text-white md:text-6xl break-keep">
+          {/* BOHUMFIT-173: 히어로 h1 유동 스케일(36→60px clamp) — 브레이크포인트 점프 제거, max=현행 데스크톱 */}
+          <h1 className="ko-heading mt-6 text-fluid-hero font-extrabold leading-[1.15] tracking-tight text-white break-keep">
             고지의무 검토,
             <br />
             이제 <span className="text-accent-400">1분</span>이면 끝납니다

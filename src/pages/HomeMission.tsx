@@ -22,11 +22,12 @@ const VALUES = [
 
 export default function HomeMission() {
   return (
-    <section id="mission" className="scroll-mt-20 py-24">
+    // BOHUMFIT-173: 랜딩 미션 섹션 — 유동 스페이싱(64→96px)·헤드라인 유동 스케일(30→36px), max=현행
+    <section id="mission" className="scroll-mt-20 py-[clamp(4rem,3.22rem+3.48vw,6rem)]">
       <div className="mx-auto max-w-4xl px-6">
         <Logo size={28} variant="light" className="mb-6" />
         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent-600">Our Mission</p>
-        <h2 className="mt-4 text-3xl font-extrabold leading-snug tracking-tight text-ink-900 md:text-4xl break-keep">
+        <h2 className="mt-4 text-fluid-title font-extrabold leading-snug tracking-tight text-ink-900 break-keep">
           보험은 가입보다 점검이 먼저입니다
         </h2>
 

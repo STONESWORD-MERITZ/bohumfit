@@ -48,7 +48,7 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center overflow-x-clip bg-canvas px-4">
+    <div className="flex min-h-dvh items-center justify-center overflow-x-clip bg-canvas px-4">
       <div className="w-full max-w-sm min-w-0">
         <div className="mb-8 text-center">
           <h1 className="flex w-full min-w-0 justify-center overflow-visible">

@@ -17,7 +17,8 @@ export default function WhyDisclosure() {
     <div className="-mt-8 overflow-x-hidden md:-mx-5">
 
       {/* ── 1. HERO (다크 — 이 페이지 유일한 강조 포인트) ──────────── */}
-      <section className="bg-ink-900 px-6 py-20 md:py-24">
+      {/* BOHUMFIT-173: 히어로 유동 스페이싱(64→96px clamp) — max=현행 데스크톱 py-24 */}
+      <section className="bg-ink-900 px-6 py-[clamp(4rem,3.22rem+3.48vw,6rem)]">
         <div className="mx-auto max-w-4xl text-center">
           <Link
             to="/"
@@ -26,7 +27,8 @@ export default function WhyDisclosure() {
             ← 홈으로
           </Link>
           <p className="text-xs font-semibold uppercase tracking-[0.3em] text-accent-300">Why It Matters</p>
-          <h1 className="mt-5 text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-4xl md:text-5xl break-words md:break-keep">
+          {/* BOHUMFIT-173: 히어로 h1 유동 스케일(30→48px clamp) — sm/md 점프 제거, max=현행 데스크톱 */}
+          <h1 className="mt-5 text-fluid-headline font-extrabold leading-tight tracking-tight text-white break-words md:break-keep">
             고지 누락은<br className="hidden md:inline" /> 작은 실수가 아닙니다
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-[15px] leading-8 text-ink-200 break-words md:break-keep">

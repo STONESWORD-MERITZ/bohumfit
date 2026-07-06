@@ -47,6 +47,14 @@
   --color-text-strong: #0A0A0A;    /* 고유명사 강조 전용(검정) */
   --color-text-muted: #475569;     /* 보조·설명 */
 
+  /* BOHUMFIT-173: 유동 타이포(clamp) — 랜딩 히어로/디스플레이 전용 3종.
+     원칙: max = 현행 데스크톱 값(큰 화면에서 현행보다 커지지 않음), min = 현행 모바일 값,
+     360~1280px 구간 선형. preferred에 rem 항 포함 — 브라우저 확대(200%)·사용자 글꼴 설정에 반응(WCAG 1.4.4).
+     ⚠본문·캡션·버튼에 사용 금지(고정 rem 유지). 순수 vw 단독 사용 금지. */
+  --text-fluid-hero: clamp(2.25rem, 1.66rem + 2.61vw, 3.75rem);      /* 36→60px — Home 히어로 h1 */
+  --text-fluid-headline: clamp(1.875rem, 1.43rem + 1.96vw, 3rem);    /* 30→48px — WhyDisclosure 히어로 h1 */
+  --text-fluid-title: clamp(1.875rem, 1.73rem + 0.65vw, 2.25rem);    /* 30→36px — HomeMission 헤드라인 h2 */
+
   /* 시맨틱 — 저채도 파스텔 배경 + 진한 동계열 텍스트 */
   --color-success-50: #EBF6EF;
   --color-success-100: #D5ECDF;

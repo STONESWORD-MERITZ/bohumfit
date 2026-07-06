@@ -201,7 +201,8 @@ export default function Layout() {
   const disclosureActive = location.pathname.startsWith("/disclosure");
 
   return (
-    <div className="min-h-screen bg-canvas">
+    // BOHUMFIT-173: 100vh→100dvh — 모바일 주소창 수축 반영(짧은 페이지 footer 가림 방지). min-height라 긴 페이지 무영향.
+    <div className="min-h-dvh bg-canvas">
       <header className="sticky top-0 z-40 border-b border-line bg-canvas/90 backdrop-blur">
         <div ref={panelRef} className="mx-auto max-w-6xl px-5">
           <div className="flex h-14 items-center justify-between gap-4">

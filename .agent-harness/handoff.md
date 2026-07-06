@@ -1,3 +1,28 @@
+## 2026-07-06 Codex BOHUMFIT-173 Windows verification
+### Changed
+- `src/index.css`: added `--text-fluid-hero`, `--text-fluid-headline`, `--text-fluid-title` clamp typography tokens for hero/display use only.
+- `src/pages/Home.tsx`, `src/pages/WhyDisclosure.tsx`, `src/pages/HomeMission.tsx`: applied fluid hero/title text and clamp-based hero/section spacing.
+- `src/App.tsx`, `src/components/Layout.tsx`, `src/components/ProtectedRoute.tsx`, `src/pages/Login.tsx`, `src/pages/PhoneVerify.tsx`, `src/pages/Signup.tsx`: replaced fullscreen `min-h-screen` surfaces with `min-h-dvh`; loading text now uses `text-ink-400`.
+- `.agent-harness/tasks/BOHUMFIT-173-fluid-scale.md`: task packet included.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` PASS.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` PASS.
+- [x] `npm run build` PASS (existing Vite chunk-size warning only; app JS chunk `index-JAkRXSRv.js` 747.91 kB).
+- [x] `npm test` PASS: 53 passed.
+- [x] `cd backend && python -m pytest -q` PASS: 485 passed, 8 skipped.
+- [x] Grep: `text-fluid-*` class use sites exactly 3 (`Home`, `WhyDisclosure`, `HomeMission`); definitions + uses total 6.
+- [x] Grep: new `vw` usage in 173 diff is inside `clamp(...)` only; body/button/caption not changed to fluid text.
+- [x] Grep: touched files no `min-h-screen`/`h-screen` active class remains; only explanatory `100vh->100dvh` comment.
+- [x] Vite preview route smoke: `/`, `/why`, `/login`, `/signup` all HTTP 200.
+### Notes
+- 157 and 158 were already committed/pushed (`ec33f18`/`2967757` plus docs commits); current scoped commit is 173 only.
+- Existing `index.css` non-173 viewport values (`height: 165vh`, `animation-range: 0 90vh`, and `clamp(15px, 3.8vw, 17px)`) remain from older code and were not changed.
+- In-app browser control tool was unavailable in this Codex session, so actual 360/768/1280/1920 visual and 200% zoom checks are left to Human; route smoke and code-level clamp checks passed.
+### Commit
+- PENDING
+### Next
+- Human — 배포 후 히어로 유동 스케일·모바일 dvh 육안 확인.
+
 ## 2026-07-06 Codex BOHUMFIT-158 Windows verification
 ### Changed
 - `src/pages/InsuranceLinks.tsx`: added `?q=` and whitelisted `?tab=` initial-state deep links, plus a one-line route back to `/disclosure?mode=agent`.
@@ -20,6 +45,34 @@
 - 2967757
 ### Next
 - Human — 배포 후 연계 동선 실사용 확인. M2 마일스톤 클로즈.
+
+## 2026-07-06 Cowork BOHUMFIT-173 [뷰포트 유동 스케일 — clamp 기반·접근성 보존 (A안)]
+### Step 0 진단
+- **타이포 정의 방식**: Tailwind 유틸 직접 사용(`text-4xl md:text-6xl` 브레이크포인트 점프) — 커스텀 타이포 토큰 없음 → 진입점 = **TW4 `@theme --text-*` 토큰**(네이티브 유틸 생성 — 이중 체계 아님).
+- **히어로 실사용 매핑**: Home h1(36→60px)·WhyDisclosure h1(30→36→48px)·HomeMission h2(30→36px) = 적용 3곳 확정. Home/Why의 **숫자 통계 디스플레이 2곳은 제외**(tabular-nums 통계는 급간 유지가 정렬 안정적 — 후속 옵션 기록). Home 섹션 h2들(text-3xl md:text-4xl)도 제외(최상위 아님 — 과잉 적용 금지).
+- **100vh 사용처**: min-h-screen 8곳(App×2·Layout·ProtectedRoute·Login·PhoneVerify·Signup×2) — 전부 풀스크린 센터링/래퍼 의도 → dvh 대상. 기존 vw 사용 3곳은 이미 min()/clamp() 클램프됨(무접촉).
+- **방식 결정**: 타이포 = @theme 토큰 3종 / 스페이싱 = 인라인 arbitrary `py-[clamp(...)]`(3곳뿐·재사용 낮음 — 토큰 남발 방지, rounded-[8px] 관례 준용).
+### ⚠기준값 해석 (Human 확인 1건)
+- 명세 "(디스플레이 42px 등)"과 현행 실측 불일치: Home 히어로 데스크톱 = **60px**(가이드 42 아님). "큰 화면에서 현행보다 커지지 않게" 취지 우선 → **max = 현행 데스크톱 렌더값** 채택(60/48/36 — 시각 회귀 0). 가이드 엄격(42px 상한) 적용은 히어로 30% 축소라 브랜드/제품 결정 → Human 판단 시 토큰 1줄 수정으로 전환 가능.
+### Changed
+- `src/index.css`(@theme): `--text-fluid-hero`(36→60)·`--text-fluid-headline`(30→48)·`--text-fluid-title`(30→36) — **360~1280px 선형, preferred = rem 항 + vw 항 혼합**(브라우저 200% 확대·사용자 글꼴 설정에 rem 항이 반응 — WCAG 1.4.4 코드 레벨 충족). min/max도 rem. 본문·버튼 사용 금지 주석 명시.
+- `src/pages/Home.tsx`: 히어로 h1 → `text-fluid-hero`(md:text-6xl 점프 제거), 히어로 컨테이너 `pt-[clamp(3.5rem,2.91rem+2.61vw,5rem)]`(56→80) `pb-[clamp(4rem,3.22rem+3.48vw,6rem)]`(64→96).
+- `src/pages/WhyDisclosure.tsx`: 히어로 h1 → `text-fluid-headline`(sm/md 2단 점프 제거), 섹션 `py-[clamp(4rem,3.22rem+3.48vw,6rem)]`.
+- `src/pages/HomeMission.tsx`: 헤드라인 h2 → `text-fluid-title`, 섹션 py 동일 clamp.
+- **100vh→100dvh 8곳**: Layout(min-h-dvh — 짧은 페이지 footer 주소창 가림 방지·min-height라 긴 페이지 무영향)·App FallbackUI/로딩·ProtectedRoute 로딩·Login·PhoneVerify·Signup×2(풀스크린 센터링 — 현재 보이는 영역 기준 중앙이 정확). **svh 미채택 근거**: svh는 주소창 확장 상태 고정이라 수축 시 하단 여백 발생 — 센터링 UX에 dvh가 적합, min-height 특성상 스크롤 지터 없음. lvh 불필요(오버플로 위험).
+- 부수: 편집 라인의 기존 raw gray 2건(App 로딩·ProtectedRoute 로딩 text-gray-400) → text-ink-400 토큰화.
+### Verified
+- [x] **clamp 전수 검산(스크립트)**: 5개 ramp 모두 360px→min·1280px→max 정확 도달(계수 오기 1차 발견 → 스페이싱 2종 즉시 수정 후 재검산 ALL OK).
+- [x] grep: 실코드 **순수 vw(클램프 없는) 0**(잔존 1건은 금지 명시 주석 텍스트) · min-h-screen 잔존 **0** · `text-fluid-*` 사용처 정확히 **3곳**(본문·캡션·버튼 미적용) · 편집 파일 raw gray **0**.
+- [x] 접근성: preferred rem 항 → 200% 확대 시 텍스트 비례 확대(vw 고정분만 잔류— clamp 상한도 rem이라 함께 스케일) · 기존 leading/break-keep 유지 → 잘림·겹침 요인 없음. Tailwind 브레이크포인트 로직 무접촉(제거는 히어로 폰트 클래스 2곳의 사이즈 변형뿐).
+- [x] backend 무접촉 — 기준선 485/8 유지.
+- [ ] tsc(app/node)/build/npm test + **200% 확대·375px 뷰포트 스모크 = Codex/Windows 권위**.
+### Notes
+- ※157·158(Cowork 완료·Codex 대기) 작업트리 위에 진행 — Codex 순차 검증.
+- 숫자 통계 디스플레이·Home 섹션 h2 유동화는 후속 옵션(수요 확인 후).
+- index.css:275 기존 `clamp(15px, 3.8vw, 17px)`(구코드)는 preferred에 rem 항이 없어 확대 반응 제한적 — 범위 밖 잔존, 후속 정리 제안.
+### Next
+- Codex: 157→158→173 순차 검증(tsc·npm test 53·build) + 브라우저 스모크(홈 히어로 375px/1280px/200% 확대) → stage(173 = index.css·Home·WhyDisclosure·HomeMission·Layout·ProtectedRoute·Login·PhoneVerify·Signup·App·tasks/173·handoff·locks) → commit `feat(BOHUMFIT-173): 히어로 유동 스케일 전환 (clamp 기반·접근성 보존)` → push. 이후 Human: 히어로 육안(중간 뷰포트 부드러움)·max 42px 가이드 엄격 적용 여부 결정.
 
 ## 2026-07-06 Cowork BOHUMFIT-158 [분석 결과 → 보험사 청구 지원 연계 — 딥링크·연계 카드 (147 시너지)]
 ### Step 0 진단

@@ -11,7 +11,7 @@ export default function ProtectedRoute({ children }: { children: ReactNode }) {
 
   if (status === "loading") {
     return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-gray-400">로딩 중...</div>
+      <div className="flex min-h-dvh items-center justify-center text-sm text-ink-400">로딩 중...</div>
     );
   }
 
