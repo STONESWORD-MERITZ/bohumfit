@@ -9127,6 +9127,6 @@ Remaining:
 - Browser-control tooling was not available in this session, so authenticated `/history` saved/recent click smoke and final PDF visual inspection remain Human E2E after deploy; endpoint behavior and filename are covered by tests.
 - Backend baseline is now confirmed at 485 passed, 8 skipped.
 ### Commit
-- PENDING
+- ec33f18
 ### Next
 - Human — 배포 후 실 PDF 다운로드·브랜드·면책 문구 육안 확인.
