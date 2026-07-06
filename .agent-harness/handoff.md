@@ -1,3 +1,31 @@
+## 2026-07-06 Cowork BOHUMFIT-157 [히스토리 리포트 PDF 다운로드 — 고객 전달용 파일 방식, 공유 링크 금지]
+### Step 0 진단
+- **기존 경로**: POST /api/report/pdf(verify_jwt) ← ResultView.saveDisclosurePdf. payload 키 = report_type·reference_date·customer_name·standard_reports·easy_reports·all_disease_summary·total_med_sum — `render_disclosure_html`이 소비하는 키와 동일.
+- **호환성**: 히스토리 result = analyze 응답 전문 + reference_date(156b·171b 모두 동봉) → **PDF 입력과 100% 호환**. customer_name만 미저장(156a) → "" 전달 = 헤더 고객명 줄 자동 생략(실명 미저장 정책과 정합).
+- **파일명 현행**: 서버 disposition·프런트 a.download 모두 `보험핏-고지내역-{이름}-{기준일}.pdf`(065) — 분석 화면은 유지, 히스토리는 신규 규칙 적용.
+- **브랜드**: 구 로고 SVG는 051부터 미사용(`logo_data_uri: ""` — 참조 0, 파일 무접촉). 실제 잔재 = **템플릿 CSS 구 그린(#15663D·#2E6B3E·#145C2A)**.
+- **면책**: "참고용·청약서 문항 대조" 취지 기존재(유지). ⚠"본 서비스는 분석 결과를 저장하지 않으며"가 171b 이후 **부정확 진술** → 정합 수정 필수 판정.
+### Changed — backend
+- `backend/main.py`: **POST /history/{id}/report-pdf** — 소유권 `.eq(user_id)` 강제(타인/부재/만료 404), **recent 409** "먼저 저장한 뒤 PDF" 안내(별칭 확인 항목만 파일화), 저장 result → 기존 `generate_report_pdf("disclosure")` 렌더만(파이프라인 무접촉), 파일명 `BohumFit_고지의무리포트_{별칭 sanitize [^가-힣A-Za-z0-9] 제거·20자}_{YYYYMMDD}.pdf`(RFC5987+ASCII 폴백·no-store).
+- `backend/pipeline/report_pdf.py`(문구만): DISCLOSURE/INSURANCE_DISCLAIMER의 "저장하지 않음" 단정 → "이용자가 직접 관리·삭제할 수 있는 분석 히스토리(최근 자동 기록 7일·저장 90일) 외에는 보관하지 않음"으로 정합. 참고용·청약서 취지 문장 무변경 유지.
+- `backend/templates/report_disclosure.html·report_insurance.html`(CSS만): 구 그린 → FIT v1.1 — `--brand-green #084734`(배지·권고·brand-bar), 보조 그린 #2E6B3E→#0E6647, 금액 강조 #145C2A→#084734, soft 배경 accent-50(#EEF6F1), **워드마크 = 잉크 #0A0A0A**(170 델타1 — 밝은 바탕). 렌더 로직·jinja 구조 무접촉.
+- `backend/tests/test_report_history_157.py`(신규 5): (a)saved 200+파일명+렌더 payload(실명 "") (b)recent 409 (c)타인 404 (d)별칭 금지 문자 제거 (e)만료·부재 404.
+### Changed — frontend
+- `src/pages/History.tsx`: `downloadPdf(item)` 공용 핸들러(목록·재열람 재사용, blob 다운로드·파일명 서버 규칙 동일) + saved 탭 목록 [열람][**PDF 저장**(세컨더리)][삭제] + 재열람 배너 saved=PDF 저장 버튼 / recent="저장 후 PDF로 내려받을 수 있어요" 안내 + 캡션에 PDF 안내 1구절.
+- `src/pages/Disclosure.tsx`: ResultView `historyView`에서 고객명 입력+PDF 행 숨김 — 재열람 PDF는 History의 서버 경로(트랙 강제·별칭 파일명)로 일원화(중복 버튼 방지·동작 통일). 분석 화면 PDF 흐름은 무변경.
+### Verified
+- [x] /tmp: `test_report_history_157.py` **5 passed** + 히스토리·main 회귀(156·171·usage·ratelimit·security·guardrails·report) **58 passed/1 skipped** + 렌더 20 passed.
+- [x] **실렌더 검증**: 패치본 render_report_html 출력에 #084734 존재·구 그린 3색 0·면책 신문구 포함·"참고용/청약서" 취지 유지 assert 통과.
+- [x] 재구성 무결성: main.py 패치 후 prefix 48,272B 마운트 뷰와 바이트 일치·ast OK. 테스트 파일 mount ast OK.
+- [x] grep: History/Disclosure raw gray·lime 0 · 공유 URL/외부 링크 기능 0(주석의 금지 명시 1건뿐) · 카카오 복사 무접촉 · 트랙 정책값 무변경.
+- [ ] 전체 pytest·tsc·build = **Codex/Windows 권위. 기준선 480→485 예상(+5)** — 확정치 기록 요망. ⚠report_pdf.py·템플릿 2종도 마운트 절단 가능 — Windows 원본 ast/렌더 재확인 권장. 실 PDF 육안(에메랄드 브랜드바·잉크 워드마크)은 Chromium 필요 → Codex/Human.
+### Notes
+- 파일명 YYYYMMDD = 다운로드 당일(전달 시점 기준 — 분석 기준일은 리포트 본문에 표기). 필요 시 reference_date 기반으로 변경 가능(Human 취향 결정).
+- 면책 문구 수정은 법무 표현 — 배포 전 Human 검토 권장(취지: 저장 사실 정직 고지).
+- 구 로고 SVG 파일 2종(backend/assets/brand)은 미사용 상태로 존치 — 삭제는 Codex/Human 후속 판단.
+### Next
+- Codex: pytest(485/8 예상)·tsc·build + Windows에서 report_pdf.py/템플릿 무결성 확인, 가능하면 Chromium 실PDF 1회 생성 육안 → stage(main.py·report_pdf.py·템플릿 2·test_report_history_157.py·History.tsx·Disclosure.tsx·tasks/157·handoff·locks) → commit `feat(BOHUMFIT-157): 히스토리 리포트 PDF 다운로드 (고객 전달용 파일 방식)` → push. 이후 Human: 실PDF 브랜드·면책 육안, 파일명 날짜 기준 확정.
+
 ## 2026-07-06 Codex BOHUMFIT-172 Windows verification
 ### Changed
 - `src/pages/DisclosureHub.tsx`: mode tab row now owns the single history entry plus filter-guide replay ghost button group, with `flex-wrap` for narrow widths.
@@ -9077,3 +9105,28 @@ Verified:
 Remaining:
 
 -
+## 2026-07-06 Codex BOHUMFIT-157 Windows verification
+### Changed
+- `backend/main.py`: added `POST /history/{id}/report-pdf` for saved history PDF file download only; owner/expiry checks, recent-track 409, existing disclosure PDF renderer reuse, no share URL. Codex adjusted filename date to use stored analysis `reference_date` and exposed `Content-Disposition` for the browser download name.
+- `src/pages/History.tsx`: added saved-history PDF download buttons on list/reopen views, recent-track save guidance, and server filename parsing from `Content-Disposition`.
+- `backend/pipeline/report_pdf.py`, `backend/templates/report_disclosure.html`, `backend/templates/report_insurance.html`: aligned disclosure/insurance report disclaimer and FIT v1.1 emerald/ink report styling.
+- `backend/tests/test_report_history_157.py`: new 5 ownership/recent/sanitize/render regression tests.
+- `backend/tests/test_report_pdf_branding.py`: updated brand regression to require emerald `#084734` and old green colors absent.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` PASS.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` PASS.
+- [x] `npm run build` PASS (existing Vite chunk-size warning only; app JS chunk `index-tw_nnRcb.js` 746.28 kB).
+- [x] `npm test` PASS: 53 passed.
+- [x] `cd backend && python -m pytest -q` PASS: 485 passed, 8 skipped.
+- [x] `cd backend && python -m pytest tests/test_report_history_157.py -vv` PASS: 5 passed.
+- [x] `cd backend && python -m pytest tests/test_history_171.py tests/test_history_156.py -vv` PASS: 14 passed.
+- [x] `cd backend && python -m pytest tests/test_report_pdf_branding.py -vv` PASS: 7 passed; emerald present, old green `#15663D/#2E6B3E/#145C2A` absent.
+- [x] Grep share/signed/public URL code in 157 touched files: no functional share URL/link code; only auth token variables and "share URL forbidden" comments.
+### Notes
+- Human-confirmed filename date basis applied: `BohumFit_고지의무리포트_{별칭}_{YYYYMMDD}.pdf` now uses analysis `reference_date` when available, falling back to today only for legacy/malformed rows.
+- Browser-control tooling was not available in this session, so authenticated `/history` saved/recent click smoke and final PDF visual inspection remain Human E2E after deploy; endpoint behavior and filename are covered by tests.
+- Backend baseline is now confirmed at 485 passed, 8 skipped.
+### Commit
+- PENDING
+### Next
+- Human — 배포 후 실 PDF 다운로드·브랜드·면책 문구 육안 확인.

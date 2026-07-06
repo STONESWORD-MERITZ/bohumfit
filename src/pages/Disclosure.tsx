@@ -1175,6 +1175,9 @@ export function ResultView({
           <Metric label="전체 병력" value={`${result.all_disease_summary.length}개`} />
           <Metric label="총 투약일" value={`${result.total_med_sum}일`} />
         </div>
+        {/* BOHUMFIT-157: 재열람(historyView)에서는 이 행 숨김 — History가 트랙 검사·별칭 파일명이 적용된
+            자체 PDF 저장 버튼(서버 /history/{id}/report-pdf)을 제공한다(동작·스타일 통일, 중복 버튼 방지). */}
+        {!historyView && (
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
           {/* BOHUMFIT-067: 고객명 직접 입력(선택). 입력 시 파일명·리포트 본문에 우선 적용, 비우면 자동추출/날짜 폴백. */}
           <label className="flex items-center gap-1.5 text-[12px] text-ink-soft">
@@ -1210,6 +1213,7 @@ export function ResultView({
           <span className="text-[11px] text-ink-soft">Q1~Q5 고지 검토 내역을 PDF로 저장합니다(개인정보 포함 — 보관에 유의).</span>
           {pdfError && <span className="text-[11px] text-red-500">{pdfError}</span>}
         </div>
+        )}
       </div>
 
       <AllDiseaseSection diseases={result.all_disease_summary} />

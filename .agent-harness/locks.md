@@ -7,6 +7,7 @@ Use this file to record active Codex file ownership during a task.
 - (none)
 
 ### Released
+- 2026-07-06 `BOHUMFIT-157` - Cowork - 완료. 히스토리 PDF: POST /history/{id}/report-pdf(소유권 강제·recent 409 안내·saved만·별칭 sanitize 파일명 BohumFit_고지의무리포트_별칭_YYYYMMDD)+test 5케이스. 템플릿 구 그린(#15663D·#2E6B3E·#145C2A)→v1.1 에메랄드/잉크 워드마크, 면책 "저장하지 않음" 단정→히스토리 도입 정합(참고용·청약서 취지 유지). History 목록·재열람 PDF 저장 버튼(공용 핸들러)+recent 안내, ResultView historyView PDF 행 숨김(일원화). /tmp 5+58+렌더 20 passed·실렌더 assert. 공유 URL 0. 전체 pytest(480→485 예상)·tsc·build·커밋은 Codex/Windows 권위.
 - 2026-07-06 `BOHUMFIT-172` - Codex - Windows verification passed; frontend tsc app/node, build, npm test `53 passed`, backend pytest `480 passed, 8 skipped`; commit `8f6e14a`. Active none.
 - 2026-07-06 `BOHUMFIT-172` - Cowork - 완료. 진입점 통합: 허브 모드 탭 줄 우측 [분석 히스토리(data-tour=history)][필터 가이드 다시보기] 고스트 2버튼(replay는 onRegisterReplay 콜백 등록·flex-wrap 자연 줄바꿈), Disclosure 중복 행 제거. 투어 pre 스텝 +1(히스토리 안내 — 10건·7일·90일 수치, 기존 5스텝 무변경, 빈 슬롯 3 채워져 1~6 연속·오버레이 무수정). Disclosure.test 시퀀스 +1 정합(범위 추가 사유 handoff 기록). 진입점 grep 1개·raw gray 0·백엔드 무변경(480/8). tsc/build/test·커밋은 Codex/Windows 권위.
 - 2026-07-06 `BOHUMFIT-171a/171b` - Codex - Windows verification passed; frontend tsc app/node, build, npm test `53 passed`, backend pytest `480 passed, 8 skipped`; combined commit `12e1a83`. Active none.

@@ -52,7 +52,10 @@ def test_easy_section_page_break():
 # ── A-1 / C: 워드마크·브랜드 토큰·뱃지 ────────────────────────────────────
 def test_brand_tokens_and_wordmark():
     html = R.render_report_html("disclosure", _payload(), GEN)
-    assert "--brand-green: #15663D" in html
+    assert "--brand-green: #084734" in html
+    assert "#15663D" not in html
+    assert "#2E6B3E" not in html
+    assert "#145C2A" not in html
     assert "--accent: #B45309" in html           # 종전 미정의 var 보정
     assert "wordmark-sub" in html                # 깔끔한 보조 라인(깨진 SVG 보조텍스트 대체)
     assert "background: var(--brand-green); color: #fff" in html  # 고지 권고 뱃지 그린

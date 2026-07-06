@@ -1170,6 +1170,93 @@ async def history_promote(
     return await asyncio.to_thread(_promote)
 
 
+@app.post("/history/{history_id}/report-pdf")
+@limiter.limit("10/minute,60/hour")
+async def history_report_pdf(
+    request: Request,
+    history_id: str,
+    user_id: str = Depends(verify_jwt),
+):
+    """BOHUMFIT-157: 저장(saved) 히스토리를 고객 전달용 고지 리포트 PDF 파일로 다운로드.
+    - 공유 URL 금지(Human 확정) — 파일 응답만. 소유권(.eq user_id) 강제, 타인/부재/만료 404.
+    - recent(자동 기록) 항목은 409 + "먼저 저장" 안내 — 별칭이 확인된 항목만 파일화.
+    - 분석 파이프라인 무접촉: 저장된 result를 기존 generate_report_pdf로 렌더만 한다.
+    - 파일명: BohumFit_고지의무리포트_{별칭}_{YYYYMMDD}.pdf (금지 문자 제거 — 실명 아닌 별칭)."""
+    admin = _require_history_admin()
+
+    def _load():
+        try:
+            res = (
+                admin.table(HISTORY_TABLE)
+                .select("id,label,mode,track,result,created_at")
+                .eq("id", history_id).eq("user_id", user_id)
+                .single().execute()
+            )
+            return getattr(res, "data", None)
+        except Exception:
+            return None
+
+    row = await asyncio.to_thread(_load)
+    if not row:
+        raise HTTPException(status_code=404, detail="히스토리를 찾을 수 없어요.")
+    row_track = row.get("track") if row.get("track") in HISTORY_TRACKS else "saved"
+    created = _history_parse_dt(row.get("created_at"))
+    if created is not None and created < _history_cutoff_dt(row_track):
+        raise HTTPException(status_code=404, detail="보관 기간이 지나 삭제된 히스토리예요.")
+    if row_track != "saved":
+        raise HTTPException(status_code=409, detail="최근 자동 기록 항목은 먼저 저장한 뒤 PDF로 내려받을 수 있어요.")
+    result = row.get("result")
+    if not isinstance(result, dict) or not result:
+        raise HTTPException(status_code=404, detail="리포트로 만들 분석 결과가 없어요.")
+
+    report_payload = {
+        "report_type": "disclosure",
+        "reference_date": result.get("reference_date") or "",
+        "customer_name": "",  # 실명 미저장(156a) — 헤더 고객명 줄 생략, 별칭은 파일명에만
+        "standard_reports": result.get("standard_reports") or {},
+        "easy_reports": result.get("easy_reports") or {},
+        "all_disease_summary": result.get("all_disease_summary") or [],
+        "total_med_sum": result.get("total_med_sum") or 0,
+    }
+    try:
+        pdf = await asyncio.wait_for(
+            generate_report_pdf("disclosure", report_payload),
+            timeout=REPORT_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("history report pdf 시간 초과 (%ss)", REPORT_TIMEOUT_SECONDS)
+        raise HTTPException(status_code=504, detail="리포트 생성이 시간 내에 끝나지 않았어요. 잠시 후 다시 시도해 주세요.")
+    except ReportError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except ReportUnavailableError as e:
+        logger.error("history report pdf 렌더러 사용 불가: %s", e)
+        raise HTTPException(status_code=503, detail="리포트 생성 기능을 준비 중입니다. 잠시 후 다시 시도해 주세요.")
+    except Exception as e:
+        logger.exception("history report pdf failed: %s", e)
+        raise HTTPException(status_code=500, detail="리포트를 생성하지 못했어요. 잠시 후 다시 시도해 주세요.")
+
+    safe_label = re.sub(r"[^가-힣A-Za-z0-9]", "", str(row.get("label") or ""))[:20]
+    ref = str(report_payload.get("reference_date") or "").strip()
+    ref_match = re.match(r"^(\d{4})-(\d{2})-(\d{2})$", ref)
+    date_part = "".join(ref_match.groups()) if ref_match else date.today().strftime("%Y%m%d")
+    base = f"BohumFit_고지의무리포트_{safe_label}_{date_part}" if safe_label else f"BohumFit_고지의무리포트_{date_part}"
+    ascii_fallback = f"BohumFit_report_{date_part}.pdf"
+    disposition = (
+        f'attachment; filename="{ascii_fallback}"; '
+        f"filename*=UTF-8''{urllib.parse.quote(base + '.pdf')}"
+    )
+    logger.info("history report pdf done: bytes=%d", len(pdf))
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": disposition,
+            "Access-Control-Expose-Headers": "Content-Disposition",
+            "Cache-Control": "no-store",
+        },
+    )
+
+
 # ── 보장 비교분석 PDF 파싱 (BOHUMFIT-114) ──────────────────────────────────────
 @app.post("/coverage/parse")
 @limiter.limit("20/minute")

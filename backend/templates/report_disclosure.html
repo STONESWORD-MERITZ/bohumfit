@@ -7,10 +7,11 @@
 <style>
 {{ font_face_css | safe }}
 :root {
-  /* BOHUMFIT-051: 브랜드 팔레트 토큰 — 주 그린 / 강조 잉크 / 보조 그레이. */
-  --brand-green: #15663D;        /* 주 브랜드: 헤더 워드마크·질문 배지·고지권고 */
-  --brand-green-soft: #ECF5EE;   /* 그린 연한 배경 */
+  /* BOHUMFIT-051 → 157: FIT v1.1 팔레트 정렬 — 에메랄드(#084734)·잉크 워드마크(구 그린 잔재 교체 완료). */
+  --brand-green: #084734;        /* 주 브랜드(에메랄드): 질문 배지·고지권고 */
+  --brand-green-soft: #EEF6F1;   /* 에메랄드 연한 배경(accent-50) */
   --brand-green-line: #BFD8C7;   /* 그린 보더 */
+  --brand-wordmark: #0A0A0A;     /* v1.1: 밝은 바탕 워드마크 = 잉크(BOHUMFIT-170 델타1) */
   --brand-ink: #1F2937;          /* 헤더·강조 텍스트 */
   --brand-gray: #6D747D;         /* 보조 텍스트 */
   /* 하위 호환 별칭(기존 규칙이 참조) */
@@ -34,11 +35,11 @@ html, body {
   word-break: keep-all;
 }
 /* ── 헤더 ── */
-.brand-bar { height: 6px; background: linear-gradient(90deg, var(--navy) 70%, #15663D 70%); border-radius: 2px; }
+.brand-bar { height: 6px; background: linear-gradient(90deg, var(--navy) 70%, #084734 70%); border-radius: 2px; }
 .head { display: flex; justify-content: space-between; align-items: flex-end; padding: 14px 2px 12px; }
-/* BOHUMFIT-051 A-1: 깔끔한 텍스트 워드마크(브랜드 그린) + 보조 라인. */
-.wordmark { font-size: 19pt; font-weight: 800; color: var(--brand-green); letter-spacing: 0.3px; line-height: 1.05; }
-.wordmark .dot { color: var(--brand-green); }
+/* BOHUMFIT-051 A-1 → 157: 텍스트 워드마크는 v1.1 잉크(밝은 바탕 — 170 델타1). */
+.wordmark { font-size: 19pt; font-weight: 800; color: var(--brand-wordmark); letter-spacing: 0.3px; line-height: 1.05; }
+.wordmark .dot { color: var(--brand-wordmark); }
 .wordmark-sub { font-size: 8pt; font-weight: 700; color: var(--brand-gray); letter-spacing: 1.5px; margin-top: 2px; }
 /* BOHUMFIT-051: 헤더 워드마크 로고(컬러 SVG data-URI). viewBox 4.18:1 → width:auto 로 비율 유지. */
 .brand-logo { height: 26px; width: auto; display: block; }
@@ -101,7 +102,7 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
 .q-title { font-size: 10.5pt; font-weight: 800; color: var(--navy-deep); }
 .empty {
   background: #EFF6EF; border: 1px solid #CFE3CF; border-radius: 6px;
-  text-align: center; padding: 14px; font-weight: 700; color: #2E6B3E; font-size: 10pt;
+  text-align: center; padding: 14px; font-weight: 700; color: #0E6647; font-size: 10pt;
 }
 
 /* ── 항목 카드 ── */
@@ -132,13 +133,13 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
 }
 .chip.red { background: #FBEDEC; color: #9F2D24; border-color: #E5B5B0; }
 .chip.amber { background: #FEF3C7; color: #92400E; border-color: #FCD34D; }
-.chip.green { background: #ECF5EE; color: #2E6B3E; border-color: #BFDCC6; }
+.chip.green { background: #ECF5EE; color: #0E6647; border-color: #BFDCC6; }
 /* 추가검사·재검사 표시 (콘텐츠 수정 2 — unconfirmed 라벨은 미확정 항목 전용) */
 .review { margin-top: 6px; border-top: 1px dashed var(--line); padding-top: 5px; font-size: 8.8pt; }
 .review .lb { font-weight: 800; margin-right: 6px; }
 .review.suspected .lb { color: #8C2F86; }
 .review.suspected { color: #6E2A69; }
-.review.cleared .lb { color: #2E6B3E; }
+.review.cleared .lb { color: #0E6647; }
 .review.cleared { color: #44694C; }
 .review.unconfirmed .lb { color: #374151; }
 .review.unconfirmed { color: #475569; }

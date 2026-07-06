@@ -17,6 +17,7 @@ type HistoryItem = {
   id: string;
   label: string;
   mode: string; // "standard" | "easy"
+  track?: string; // BOHUMFIT-171b: "recent" | "saved"
   created_at: string;
 };
 
@@ -31,6 +32,19 @@ type HistoryList = {
 
 // 저장 시 reference_date를 동봉(Disclosure 저장 로직) — 재열람 복원용.
 type StoredResult = AnalyzeResult & { reference_date?: string };
+
+function filenameFromDisposition(value: string | null): string | null {
+  if (!value) return null;
+  const encoded = value.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded);
+    } catch {
+      return encoded;
+    }
+  }
+  return value.match(/filename="([^"]+)"/i)?.[1] || null;
+}
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -106,6 +120,39 @@ export default function History() {
   useEffect(() => {
     if (token) void fetchList(0, false);
   }, [token, fetchList]);
+
+  // BOHUMFIT-157: 저장(saved) 항목을 고객 전달용 리포트 PDF 파일로 다운로드(공유 링크 금지 — 파일만).
+  //   목록·재열람 화면이 동일 핸들러를 재사용. 파일명은 서버 규칙과 동일하게 클라이언트에서도 지정.
+  const [pdfLoadingId, setPdfLoadingId] = useState<string | null>(null);
+  async function downloadPdf(item: HistoryItem) {
+    setPdfLoadingId(item.id);
+    try {
+      const res = await fetch(`${API_BASE}/history/${item.id}/report-pdf`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.detail || `PDF 생성에 실패했어요 (${res.status})`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const safeLabel = item.label.replace(/[^가-힣A-Za-z0-9]/g, "").slice(0, 20);
+      const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      a.download = filenameFromDisposition(res.headers.get("Content-Disposition"))
+        || (safeLabel
+          ? `BohumFit_고지의무리포트_${safeLabel}_${datePart}.pdf`
+          : `BohumFit_고지의무리포트_${datePart}.pdf`);
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : "PDF 생성에 실패했어요. 잠시 후 다시 시도해 주세요.", "error");
+    } finally {
+      setPdfLoadingId(null);
+    }
+  }
 
   // BOHUMFIT-171b: recent → saved 승격 (별칭 필수, 한도 409 시 안내)
   async function confirmPromote() {
@@ -204,10 +251,25 @@ export default function History() {
           >
             ← 히스토리 목록으로
           </button>
-          <p className="text-[12px] text-ink-soft">
-            <span className="font-bold text-ink">{viewing.item.label}</span>
-            {" · "}{modeLabel(viewing.item.mode)}{" · "}{formatDate(viewing.item.created_at)} 저장
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-[12px] text-ink-soft">
+              <span className="font-bold text-ink">{viewing.item.label}</span>
+              {" · "}{modeLabel(viewing.item.mode)}{" · "}{formatDate(viewing.item.created_at)} 저장
+            </p>
+            {/* BOHUMFIT-157: 재열람에서도 동일 핸들러로 PDF 다운로드(saved) / recent는 저장 유도 안내 */}
+            {viewing.item.track === "saved" ? (
+              <button
+                type="button"
+                onClick={() => void downloadPdf(viewing.item)}
+                disabled={pdfLoadingId === viewing.item.id}
+                className="rounded-[8px] border border-line-strong bg-white px-3.5 py-2 text-[13px] font-bold text-ink hover:border-accent-600 hover:text-accent-700 disabled:opacity-60"
+              >
+                {pdfLoadingId === viewing.item.id ? "생성 중…" : "PDF 저장"}
+              </button>
+            ) : (
+              <span className="text-[11px] text-ink-soft">저장 후 PDF로 내려받을 수 있어요.</span>
+            )}
+          </div>
         </div>
         <div className="mb-4 rounded-[8px] border border-line bg-ink-50 px-4 py-2.5 text-[12px] text-ink-soft">
           저장 시점의 분석 결과입니다. 이후 진료 이력은 반영되어 있지 않으니, 청약 직전에는 새로 분석해 주세요.
@@ -231,8 +293,8 @@ export default function History() {
           <h1 className="text-xl font-extrabold text-ink-900">분석 히스토리</h1>
           <p className="mt-1.5 text-[13px] leading-6 text-ink-soft">
             {track === "recent"
-              ? "최근 10건이 자동 기록되며 7일 후 삭제됩니다. 남기고 싶은 결과는 저장해 주세요."
-              : `별칭으로 저장한 분석 결과를 다시 열람할 수 있습니다. 저장일부터 ${retentionDays}일이 지나면 자동 삭제됩니다.`}
+              ? "최근 10건이 자동 기록되며 7일 후 삭제됩니다. 남기고 싶은 결과는 저장해 주세요 — 저장 후 PDF로 내려받을 수 있어요."
+              : `별칭으로 저장한 분석 결과를 다시 열람하거나 고객 전달용 PDF로 내려받을 수 있습니다. 저장일부터 ${retentionDays}일이 지나면 자동 삭제됩니다.`}
           </p>
         </div>
         {track === "saved" && quota && (
@@ -322,6 +384,17 @@ export default function History() {
                 >
                   {openLoadingId === item.id ? "여는 중…" : "열람"}
                 </button>
+                {/* BOHUMFIT-157: 저장 항목 → 고객 전달용 PDF 다운로드(세컨더리) */}
+                {track === "saved" && (
+                  <button
+                    type="button"
+                    onClick={() => void downloadPdf(item)}
+                    disabled={pdfLoadingId === item.id}
+                    className="rounded-[8px] border border-line-strong bg-white px-3.5 py-2 text-[13px] font-bold text-ink hover:border-accent-600 hover:text-accent-700 disabled:opacity-60"
+                  >
+                    {pdfLoadingId === item.id ? "생성 중…" : "PDF 저장"}
+                  </button>
+                )}
                 {/* BOHUMFIT-171b: 최근 항목 → 저장 승격(별칭 모달) */}
                 {track === "recent" && (
                   <button
