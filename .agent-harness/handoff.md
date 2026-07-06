@@ -9421,6 +9421,6 @@ Remaining:
 - Playwright/browser automation is not installed in this repo (`Cannot find module 'playwright'`), so exact 1366x768/1440x900/2560x1440/375px visual fold checks remain Human E2E. Route smoke and code-level `svh`/contrast-class checks passed.
 - Existing unrelated dirty/untracked files remain outside this task and were not staged.
 ### Commit
-- PENDING
+- d0aab52
 ### Next
 - Human — 배포 후 첫 화면(라이트 히어로+지표 1페이지) 첫인상 육안 확인.
