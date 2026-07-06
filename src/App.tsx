@@ -25,6 +25,7 @@ import CoverageCompare from "./pages/CoverageCompare";
 import InsuranceLinks from "./pages/InsuranceLinks";
 import ReportSample from "./pages/ReportSample";
 import History from "./pages/History"; // BOHUMFIT-156b
+import Dashboard from "./pages/Dashboard"; // BOHUMFIT-163
 import NotFound from "./pages/NotFound"; // BOHUMFIT-165
 import { ToastProvider } from "./components/ToastContext"; // BOHUMFIT-131
 
@@ -97,6 +98,11 @@ function App() {
           <Route
             path="history"
             element={<ProtectedRoute><History /></ProtectedRoute>}
+          />
+          {/* BOHUMFIT-163: 로그인 대시보드 홈 — 진입은 UserArea, 로그인 후 기본 흐름(/disclosure)은 무변경(A안) */}
+          <Route
+            path="dashboard"
+            element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
           />
           {/* BOHUMFIT-112: 고지의무 리포트 샘플 미리보기(공개·비로그인 구독 유도) */}
           <Route path="disclosure/sample" element={<ReportSample />} />

@@ -1,3 +1,27 @@
+## 2026-07-06 Codex BOHUMFIT-163 Windows verification
+### Changed
+- `src/pages/Dashboard.tsx`: added logged-in dashboard with five widgets: recent analyses, monthly usage, saved reports, quick links, and free-user upsell; each data widget has independent fetch/fallback state.
+- `src/App.tsx`: added protected `/dashboard` route without changing login-success default redirect to `/disclosure?mode=agent`.
+- `src/components/Layout.tsx`: added logged-in UserArea "대시보드" entry before subscription.
+- `.agent-harness/tasks/BOHUMFIT-163-dashboard.md`: task packet included.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` PASS.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` PASS.
+- [x] `npm run build` PASS (existing Vite chunk-size warning only; app JS chunk `index-JU25L6Pa.js` 755.48 kB).
+- [x] `npm test` PASS: 53 passed.
+- [x] `cd backend && python -m pytest -q` PASS: 485 passed, 8 skipped.
+- [x] API grep: Dashboard calls existing endpoints only — `/history?track=recent&limit=5`, `/history?track=saved&limit=1`, `/billing/status`; no new backend route.
+- [x] Grep: no lime CTA in 163 files; no new raw gray in 163 diff. Existing `App.tsx` FallbackUI raw gray remains outside this task.
+- [x] Vite preview route smoke: `/dashboard`, `/disclosure`, `/subscription` all HTTP 200.
+- [x] Code review smoke: `/dashboard` is wrapped by `ProtectedRoute`, UserArea exposes `to="/dashboard"` only when logged in, `RedirectIfAuthed` still sends authenticated login/signup visitors to `/disclosure?mode=agent`, widget grid is `grid ... md:grid-cols-2 lg:grid-cols-3`, fetches use independent `catch` states.
+### Notes
+- 157, 158, and 173 are already committed/pushed (`ec33f18`, `2967757`, `31feded` plus docs commits); current scoped commit is 163 only.
+- Authenticated visual smoke (free/subscription/internal widget variations, 375px stacked UserArea, and forced individual widget failures) requires a real browser login/session and remains Human E2E.
+### Commit
+- PENDING
+### Next
+- Human — 배포 후 계정 유형별(무료/구독/internal) 위젯 노출 + 모바일 1단 육안 확인.
+
 ## 2026-07-06 Codex BOHUMFIT-173 Windows verification
 ### Changed
 - `src/index.css`: added `--text-fluid-hero`, `--text-fluid-headline`, `--text-fluid-title` clamp typography tokens for hero/display use only.
@@ -45,6 +69,29 @@
 - 2967757
 ### Next
 - Human — 배포 후 연계 동선 실사용 확인. M2 마일스톤 클로즈.
+
+## 2026-07-06 Cowork BOHUMFIT-163 [로그인 대시보드 홈 — 최근 분석·사용량·바로가기 (기존 API 조합)]
+### Step 0 진단
+- **로그인 후 진입**: RedirectIfAuthed → `/disclosure?mode=agent`(App.tsx) — **무변경 확인**(A안). 대시보드는 UserArea 진입 전용.
+- **API 시그니처 충족**: ① `GET /history?track=recent&limit=5` → items(id·label·mode·created_at)·total ② `GET /history?track=saved&limit=1` → **total로 저장 수 커버**(quota.max 포함 — 신규 count API 불필요) ③ `GET /billing/status` → used/limit·trial_used/trial_limit·is_internal·plan·enabled. **부족 필드 0 — 최소 호출 수 = 3**(위젯 5종 전부 커버).
+- **재사용 매핑**: NAV 진입점 = Layout `UserArea`(구독 왼쪽·동일 NavLink 스타일·stacked 모바일 대응 자동). 사용량 규칙 = 159 UsageBadge와 동일(internal 월100/active 플랜/그 외 trial). 히스토리 아이템·업셀 카드 = 156b/159 마크업·문구 패턴 재사용(컴포넌트 미export라 대시보드 내 경량 재구성 — 결합도 최소).
+### Changed
+- `src/pages/Dashboard.tsx`(신규): 위젯 5종 — ① 최근 분석 5건(→/history, 빈 상태 "첫 분석 시작하기" CTA) ② 이번 달 사용량(수치+progressbar role/aria, 잔여 ≤max(1,10%) 시 amber 톤) ③ 저장 리포트 수(n/10 또는 무제한·90일/PDF 캡션·→/history) ④ 바로가기 3종(분석/보험사 링크/요금제 — lucide 아이콘+라벨) ⑤ **Pro 업셀(무료 한정: 비구독·비internal·잔여 ≤1)** — 159 가치 문구·accent 카드 톤 그대로. **위젯별 독립 fetch·독립 상태(null=로딩/false=실패) → 한 위젯 실패가 페이지를 깨지 않음**(graceful). Widget 공통 셸(h2 위계·tone 분기로 클래스 충돌 방지).
+- `src/App.tsx`: `/dashboard` ProtectedRoute 라우트 1개(그 외 라우트 추가 없음).
+- `src/components/Layout.tsx`: UserArea에 "대시보드" NavLink(로그인 시만·구독 왼쪽·기존 스타일 재사용 — stacked 모바일 메뉴 자동 대응).
+### Verified
+- [x] **신규 백엔드 API 0**: fetch 정확히 3회 — 전부 기존 엔드포인트(/history×2·/billing/status), 파라미터도 기존(track·limit). 백엔드 무접촉(기준선 485/8 유지).
+- [x] graceful: 3 fetch 독립 catch → 위젯별 폴백 캡션, alive 플래그 cleanup. 게이트 비활성(enabled=false)도 별도 안내.
+- [x] grep: Dashboard/App/Layout raw gray·lime = **0**(라임 미사용 — 화면당 ≤1 자동 충족, primary CTA는 빈 상태·업셀의 accent 2곳뿐).
+- [x] 반응형: grid 1단(모바일)→md 2열→lg 3열, 최근 분석 col-span-2·업셀 미노출 시 바로가기 확장. 접근성: 위젯 h2 위계·progressbar aria·재열람 링크 aria-label.
+- [x] 자기검토 수정 2건: ReactNode 타입 임포트 누락·Widget 면 클래스 충돌(bg-white vs accent-50 비결정) → tone prop 분기로 해소.
+- [ ] tsc(app/node)/build/npm test = **Codex/Windows 권위**.
+### Notes
+- ※157·158·173(Cowork 완료·Codex 대기) 작업트리 위에 진행 — Codex 순차 검증(157→158→173→163).
+- 최근 분석 클릭 = /history 이동(재열람은 히스토리 화면에서 — 딥링크 재열람은 라우트 추가 금지 원칙상 후속 옵션).
+- 사용량 위젯의 amber 경고 임계 = max(1, 한도의 10%) — 159 배지(≤2/≤3)와 근접 취지 통일, 플랜별 비례.
+### Next
+- Codex: 157→158→173→163 순차 검증(tsc·npm test 53·build·pytest 485/8) → stage(163 = Dashboard.tsx·App.tsx·Layout.tsx·tasks/163·handoff·locks) → commit `feat(BOHUMFIT-163): 로그인 대시보드 홈 (최근 분석·사용량·바로가기)` → push. 이후 Human: 로그인 후 UserArea 대시보드 진입·위젯 5종(무료/구독/internal 계정별)·모바일 1단 육안.
 
 ## 2026-07-06 Cowork BOHUMFIT-173 [뷰포트 유동 스케일 — clamp 기반·접근성 보존 (A안)]
 ### Step 0 진단
