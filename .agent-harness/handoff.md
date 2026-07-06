@@ -19,7 +19,7 @@
 - Browser-control MCP/Playwright package was unavailable in this workspace, so authenticated visual smoke was covered by Vite preview route 200 + code-level route/branch review. Free-consumed 402 real session screen remains Human E2E.
 - Backend unchanged; pytest baseline remains 473 passed, 8 skipped.
 ### Commit
-- PENDING_HASH
+- 93b69c5
 ### Next
 - Human ? ?? ?? 5? ?? ??? ?? (?? 2? ?? ? ?? ?? ? ??? ??).
 

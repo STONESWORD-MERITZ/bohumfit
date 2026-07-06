@@ -7,7 +7,7 @@ Use this file to record active Codex file ownership during a task.
 - (none)
 
 ### Released
-- 2026-07-06 `BOHUMFIT-159` - Codex - Windows verification passed; frontend tsc app/node, build, npm test `53 passed`, backend pytest `473 passed, 8 skipped`; commit `PENDING_HASH`.
+- 2026-07-06 `BOHUMFIT-159` - Codex - Windows verification passed; frontend tsc app/node, build, npm test `53 passed`, backend pytest `473 passed, 8 skipped`; commit `93b69c5`.
 - 2026-07-06 `BOHUMFIT-159` - Cowork - 완료. 업셀 UX: UsageBadge(잔여 >2 숨김·1~2 그린티 "무료 분석 N회 남음"·소진 amber 제안 톤·구독 분기 raw gray→ink 4건)·Disclosure(402→red 오류 대신 전환 카드: 수치 헤드라인+실혜택 1줄+요금제 보기 CTA, 429 기존 유지)·ReportSample(하단 1개 섹션 로그인 분기: signup/disclosure)·Subscription(소진 배너 1줄 톤 통일). ★백엔드 무수정(billing_status가 used/limit·trial_used/trial_limit 기제공 → remaining 프런트 계산, 기준선 473/8 불변). grep raw gray·lime 0, 발명 0. tsc/build/test·커밋은 Codex/Windows 권위.
 - 2026-07-06 `BOHUMFIT-156b` - Codex - Windows verification passed; frontend tsc/node/build/npm test and backend pytest `473 passed, 8 skipped`; commit `60bb073`.
 - 2026-07-06 `BOHUMFIT-156a` - Codex - Windows verification passed; backend pytest `473 passed, 8 skipped`, history regression 7 passed; commit `1bc3fb2`.
