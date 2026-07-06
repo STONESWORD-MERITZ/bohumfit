@@ -1350,6 +1350,13 @@ const preTourSteps: TourStep[] = [
     title: "PDF 첨부",
     body: "기본진료, 세부진료, 처방조제 PDF를 올리고 암호가 있으면 비밀번호를 입력합니다.",
   },
+  // BOHUMFIT-172: 히스토리 안내 스텝(추가만 — 기존 스텝 무변경). 타깃은 허브 모드 탭 줄의 버튼.
+  //   pre 3번째 스텝이 되면서 기존에 비어 있던 표시 슬롯 3(/6)이 채워져 1~6이 연속된다.
+  {
+    target: "history",
+    title: "분석 히스토리",
+    body: "분석 결과는 최근 10건이 자동 기록되고 7일간 보관됩니다. 남기고 싶은 결과는 저장하면 90일간 보관돼요. 분석 히스토리에서 언제든 다시 확인할 수 있습니다.",
+  },
 ];
 
 const postTourSteps: TourStep[] = [
@@ -1492,7 +1499,14 @@ function TourOverlay({
   );
 }
 
-export default function Disclosure({ initialMode = "agent" }: { initialMode?: AudienceMode }) {
+export default function Disclosure({
+  initialMode = "agent",
+  onRegisterReplay,
+}: {
+  initialMode?: AudienceMode;
+  // BOHUMFIT-172: 상단(허브) 모드 탭 줄의 "필터 가이드 다시보기" 버튼이 투어를 트리거하도록 replay 등록.
+  onRegisterReplay?: (fn: () => void) => void;
+}) {
   const [searchParams] = useSearchParams();
   const requestedMode = searchParams.get("mode");
   const mode: AudienceMode = requestedMode === "customer" || requestedMode === "agent" ? requestedMode : initialMode;
@@ -1577,6 +1591,16 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
     setTourPhase(phase);
     setTourIndex(0);
   };
+
+  // BOHUMFIT-172: 최신 replay 함수를 ref로 유지(렌더마다 갱신) — result 유무에 따라 pre/post 자동 선택.
+  //   허브(모드 탭 줄)의 버튼이 등록된 함수를 호출한다(진입점 통합으로 본 컴포넌트의 버튼 행은 제거).
+  const replayLatestRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    replayLatestRef.current = () => replayTour(result ? "post" : "pre");
+  });
+  useEffect(() => {
+    onRegisterReplay?.(() => replayLatestRef.current());
+  }, [onRegisterReplay]);
 
   const showPostTour = () => {
     if (readTourSeen().post) return;
@@ -1679,22 +1703,8 @@ export default function Disclosure({ initialMode = "agent" }: { initialMode?: Au
 
   return (
     <div>
-      <div className="mb-5 flex justify-end gap-2">
-        {/* BOHUMFIT-171b: 히스토리 재진입 동선 — 가이드 다시보기 인접, 세컨더리 스타일 통일 */}
-        <Link
-          to="/history"
-          className="rounded-[8px] border border-line bg-white px-3 py-2 text-xs font-bold text-ink-soft hover:border-accent-600/40 hover:text-accent-600"
-        >
-          분석 히스토리
-        </Link>
-        <button
-          type="button"
-          onClick={() => replayTour(result ? "post" : "pre")}
-          className="rounded-[8px] border border-line bg-white px-3 py-2 text-xs font-bold text-ink-soft hover:border-accent-600/40 hover:text-accent-600"
-        >
-          {result ? "결과 가이드 다시보기" : "필터 가이드 다시보기"}
-        </button>
-      </div>
+      {/* BOHUMFIT-172: 히스토리 링크·가이드 다시보기 버튼 행 제거 — 상단(허브) 모드 탭 줄로 통합.
+          171b의 이 행이 허브의 "분석 히스토리 →"(156b)와 중복 노출됐던 것을 정리(Human 실화면 확인). */}
 
       <div className="mb-6">
         <p className="mb-1 text-xs font-bold tracking-wider text-accent-600">{copy.badge}</p>

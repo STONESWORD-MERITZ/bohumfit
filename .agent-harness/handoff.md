@@ -1,3 +1,46 @@
+## 2026-07-06 Codex BOHUMFIT-172 Windows verification
+### Changed
+- `src/pages/DisclosureHub.tsx`: mode tab row now owns the single history entry plus filter-guide replay ghost button group, with `flex-wrap` for narrow widths.
+- `src/pages/Disclosure.tsx`: removed duplicate lower history/guide row, added history step to pre-tour, registered replay callback for hub button, kept existing post-tour steps unchanged.
+- `src/pages/Disclosure.test.tsx`: updated tour sequence assertions for 1~6 flow and new history step.
+- `.agent-harness/tasks/BOHUMFIT-172-guide-history-cleanup.md`: task packet included.
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` PASS.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` PASS.
+- [x] `npm run build` PASS (existing Vite chunk-size warning only; app JS chunk `index-BFlRatKg.js` 744.35 kB).
+- [x] `npm test` PASS: 53 passed.
+- [x] `cd backend && python -m pytest -q` PASS: 480 passed, 8 skipped.
+- [x] Grep modified files raw gray/old brand classes = 0.
+- [x] Code review smoke: `/disclosure` top mode row has `[?? ????]` + `[?? ??? ????]`, lower duplicate row removed, pre-tour includes history as 3rd step, counter remains 1~6, history button has `data-tour="history"`, mobile wrapping uses `flex-wrap`.
+- [x] Vite preview route smoke: `/disclosure` HTTP 200, `/history` HTTP 200.
+### Notes
+- Browser-control `node_repl js` tool was unavailable, so actual click/spotlight/mobile visual confirmation is left to Human; route smoke plus code/test assertions passed.
+- Backend unchanged; pytest baseline remains 480 passed, 8 skipped.
+### Commit
+- PENDING_HASH
+### Next
+- Human ? ?? ? ??? ?????? 6?? ?? ??.
+
+## 2026-07-06 Cowork BOHUMFIT-172 [히스토리 진입점 통합 + 필터 가이드에 히스토리 안내 추가]
+### Step 0 진단
+- **중복 진입점**: ① DisclosureHub 모드 탭 줄 우측 "분석 히스토리 →"(156b, 텍스트 링크) ② Disclosure 상단 행 "분석 히스토리" + "가이드 다시보기"(171b·기존, 고스트 버튼). 서로 다른 컴포넌트(허브가 Disclosure를 감싸는 구조)라 같은 화면에 2회 노출.
+- **투어 구조**: `TourStep {target(data-tour 셀렉터)·title·body}` / preTourSteps 2(date·upload)·postTourSteps 3(summary·copy·cards). TourOverlay는 `document.querySelector`로 전역 탐색(허브 요소 타깃 가능), **타깃 부재 시 rect null 안전 처리**(중앙 카드). 카운터 `displayIndex = pre? i+1 : i+4`에 총계 "/6" 하드코딩 — **기존엔 표시 슬롯 3이 비어 있었고(1·2→4·5·6), pre에 1스텝 추가하면 1~6 연속이 되는 설계라 오버레이 무수정**.
+### Changed
+- `src/pages/DisclosureHub.tsx`: 모드 탭 줄 우측에 [분석 히스토리(Link, `data-tour="history"`)]+[필터 가이드 다시보기] 고스트 버튼 2개 나란히(Disclosure의 기존 버튼 스타일 그대로 통일). `flex flex-wrap`이라 좁은 폭에서 버튼 그룹이 탭 아래로 자연 줄바꿈(겹침·가로 스크롤 없음). replay 연결은 `onRegisterReplay` 콜백 등록 방식(useCallback 고정 → 1회 등록, 등록 전 disabled).
+- `src/pages/Disclosure.tsx`: ① props에 `onRegisterReplay?` 추가, 최신 replay를 ref로 유지(매 렌더 갱신 effect)해 등록 — result 유무에 따라 pre/post 투어 자동 선택(기존 동작 보존). ② 상단 중복 버튼 행 전체 제거. ③ preTourSteps 말미에 히스토리 스텝 1개 추가(target "history"): "분석 결과는 최근 10건이 자동 기록되고 7일간 보관됩니다. 남기고 싶은 결과는 저장하면 90일간 보관돼요. …" — 수치 3개 포함·제안 톤. **기존 스텝 5개 내용 무변경(추가만)**.
+- `src/pages/Disclosure.test.tsx`: pre 투어가 2→3스텝이 되어 클릭 시퀀스 갱신(다음×2→완료, "3 / 6"·"분석 히스토리" 단언 추가). **범위 추가 사유: 스텝 수 변경의 필수 정합 — 기존 단언 무변경, 시퀀스 +1만**(CLAUDE.md 회귀 테스트 동반 원칙).
+### Verified
+- [x] 진입점 grep: /disclosure 화면 렌더 기준 "분석 히스토리" 요소 = **허브 Link 1개**(Disclosure 잔존은 투어 스텝 텍스트·주석뿐 — 진입점 아님).
+- [x] 투어: preTourSteps 3(기존 2 무변경+추가 1)·postTourSteps 3 무변경 — 표시 1~6 연속·"/6" 총계 정합(오버레이 무수정). 테스트 타깃 부재 시 rect null 경로 기확인.
+- [x] grep: Disclosure·DisclosureHub raw gray·lime = **0**. 모바일 줄바꿈 코드 레벨 확인(flex-wrap 그룹).
+- [x] 모드 탭 동작·히스토리 API·분석 파이프라인 무접촉(백엔드 무변경 — 기준선 480/8 유지).
+- [ ] tsc(app/node)/build/**npm test(53→54 예상 아님 — 케이스 수 동일·시퀀스만 변경, 53 유지)** = Codex/Windows 권위.
+### Notes
+- 허브 버튼 라벨은 "필터 가이드 다시보기" 고정 — 기존 Disclosure 버튼의 "결과 가이드 다시보기" 라벨 토글은 사라졌으나 동작(결과 후 post 투어 재생)은 유지. 라벨까지 동적으로 원하면 등록 페이로드에 label 추가하는 후속 옵션.
+- 첫 방문 자동 투어(pre)는 이제 허브 버튼도 스포트라이트로 비춘다(data-tour="history" 전역 탐색).
+### Next
+- Codex: tsc app/node·npm test(53)·build 통과 확인 → stage(Disclosure.tsx·DisclosureHub.tsx·Disclosure.test.tsx·tasks/172·handoff·locks) → commit `fix(BOHUMFIT-172): 히스토리 진입점 통합 + 필터 가이드에 히스토리 안내 추가` → push. 이후 Human: /disclosure 실화면에서 진입점 1개·투어 3번째 스텝(히스토리 버튼 스포트라이트)·모바일 폭 줄바꿈 육안 확인.
+
 ## 2026-07-06 Codex BOHUMFIT-171a/171b Windows verification
 ### Changed
 - `src/pages/Disclosure.tsx`: upload dropzone unified, native file input hidden, keyboard activation retained, compact selected-file list with expand/delete, upload PDF preview UI removed, history link and consent copy aligned with recent auto history.

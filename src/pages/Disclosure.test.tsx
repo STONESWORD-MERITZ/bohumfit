@@ -110,6 +110,11 @@ describe("Disclosure guided tour", () => {
     expect(await screen.findByText("2 / 6")).toBeInTheDocument();
     expect(screen.getByText("PDF 첨부")).toBeInTheDocument();
 
+    // BOHUMFIT-172: 필터 가이드 3번째 스텝 — 분석 히스토리 안내(기존 스텝 무변경, 추가분).
+    await user.click(screen.getByRole("button", { name: "다음" }));
+    expect(await screen.findByText("3 / 6")).toBeInTheDocument();
+    expect(screen.getByText("분석 히스토리")).toBeInTheDocument();
+
     await user.click(screen.getByRole("button", { name: "완료" }));
     await user.upload(
       container.querySelector("input[type='file']") as HTMLInputElement,
