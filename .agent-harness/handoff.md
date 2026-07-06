@@ -18,11 +18,11 @@
 ### Notes
 - Confirmed backend pytest baseline after 156a: 473 passed, 8 skipped.
 - Authenticated browser E2E (save -> list -> reopen -> delete) requires a real login session plus Supabase `bohumfit_analysis_history` schema, so it remains Human verification after deploy.
-- Human ?? ?? ? Supabase ???? ??(`bohumfit_analysis_history`), PrivacyPolicy ???? ?? ??.
+- Human - after deploy, verify save -> list -> reopen -> delete in real usage.
 - Unrelated dirty/untracked files were left unstaged.
 ### Commits
 - 156a: `1bc3fb2`
-- 156b: PENDING_156B_HASH
+- 156b: `60bb073`
 ### Next
 - Human ? ?? ? ???????????? ??? ??.
 
