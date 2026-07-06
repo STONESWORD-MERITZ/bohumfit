@@ -19,7 +19,7 @@
 - Existing `index.css` non-173 viewport values (`height: 165vh`, `animation-range: 0 90vh`, and `clamp(15px, 3.8vw, 17px)`) remain from older code and were not changed.
 - In-app browser control tool was unavailable in this Codex session, so actual 360/768/1280/1920 visual and 200% zoom checks are left to Human; route smoke and code-level clamp checks passed.
 ### Commit
-- PENDING
+- 31feded
 ### Next
 - Human — 배포 후 히어로 유동 스케일·모바일 dvh 육안 확인.
 
