@@ -1,3 +1,29 @@
+## 2026-07-06 Cowork BOHUMFIT-178 KB 보장분석 제안서 파싱 규칙 명세 (조사 전용·코드 0)
+
+Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Codex (문서만 stage·commit·push)
+
+### Changed
+- `.agent-harness/tasks/BOHUMFIT-178-coverage-parse-spec.md` 신규 (태스크 패킷).
+- `.agent-harness/tasks/BOHUMFIT-178-parse-spec.md` 신규 (★산출 명세, 16.5KB·섹션 0~8).
+- `.agent-harness/handoff.md`, `.agent-harness/locks.md`.
+- ★src/·backend/ 무접촉(조사 전용). 고지의무 파이프라인 무접촉.
+
+### Verified (Cowork 분석·검산 — 코드 검증 대상 아님)
+- 입력: `문건주님 kb보장분석 제안서.pdf`(30p, OZ Report Viewer, 텍스트 레이어 전 페이지 존재 → 규칙 기반 파싱 가능·OCR 불필요).
+- 페이지 역할 맵 확정: p5(계약리스트)·p6~7(상품별 가입현황 회사×담보 매트릭스)·p20(전체 담보 진단현황) = 파싱 소스 3종. 헤더 "…님의 XXX" 문구로 역할 식별(페이지번호 하드코딩 금지).
+- p5 6계약 실측 → 월납 합계 573,227원(PDF 표기 일치 검산 ✅). 납입기간 파싱(20/25/20/81/5/15년→월 ×12). 총납입액 Σ(월납×납입월)=**181,984,128원**(구 ×240=137,574,480 대비 +44,409,648 → 정확 파싱 필요 입증).
+- p6~7 좌측 요약열 = p20 가입금액 = 담보 합산값 실측 대조(상해사망 5.5억·일반암 1억·교통사고 1.8억 = Σby_company ✅).
+- 37 표준담보 → 11 대분류 매핑표 전량 + 집계(sum/rep) 확정. [전]/[최종] JSON 스키마 확정(by_company 키=계약 idx, 회사명 중복 대비). 엣지케이스 8종.
+- 산출 문서 2종 완결 확인(섹션 0~8+완료체크, 꼬리 정상, 매핑 37행). §7-3 배상 예시 수치 오류 자체수정.
+
+### Notes
+- ★**Human 결정 필요 5건(§7)**: ①입원일당 집계 — KB PDF는 **합산**(3만+3만=6만) 표기, 태스크 규칙은 대표값 → **충돌**(권고: 합산, 정액일당 중복지급). ②11 대분류에 간병/치매 없음 — 미매핑 4담보(장기요양·경증치매·간병일당2) → 대분류 신설 권고. ③일상배상 rep vs sum. ④암/뇌/심장 수술비 분류. ⑤실손 다건 대표값 기준. → 179 착수 전 확정 권장.
+- ⚠**PII**: 산출 명세에 문건주 실계약 데이터 포함(검증용) — 내부·비공개 저장소 전용, 외부 공유 금지.
+- 후속 분해: 179(백엔드 KB 파서·고지의무와 격리)·180(프런트 리모델링표 2종)·181(전후비교). §8.
+
+### Next
+- Codex — 문서 3종(task 패킷·parse-spec·handoff/locks)만 stage → commit `docs(BOHUMFIT-178): KB 보장분석 제안서 파싱 규칙 명세` → push. (코드 검증 게이트 불필요 — 코드 0.) 이후 Human: §7 결정 5건 확정 → 179 착수.
+
 ## 2026-07-06 Cowork BOHUMFIT-177 홈 지표 섹션 그린 티 틴트(은은한 구분)
 
 Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Codex (Windows 권위 검증·커밋·푸시)
@@ -9470,3 +9496,19 @@ Remaining:
 - 81fdb4d
 ### Next
 - Human — 배포 후 지표 섹션 그린티 구분 육안 확인.
+## 2026-07-07 Codex BOHUMFIT-178 docs-only verification
+### Changed
+- `.agent-harness/tasks/BOHUMFIT-178-coverage-parse-spec.md`: task packet for KB coverage proposal parsing spec.
+- `.agent-harness/tasks/BOHUMFIT-178-parse-spec.md`: detailed KB coverage proposal parsing rules/spec packet.
+- `.agent-harness/handoff.md`, `.agent-harness/locks.md`: handoff and lock records.
+### Verified
+- [x] Docs-only scope confirmed; no `src/` or `backend/` code files staged.
+- [x] Code verification intentionally skipped per task instruction (code 0).
+- [x] Staging limited to requested `.md`/harness files; original PDFs and local PII files excluded.
+### Notes
+- Working tree contains unrelated dirty/untracked local files (including PDFs/assets/older task docs); left untouched and unstaged.
+- BOHUMFIT-178 spec contains sample-derived verification details and must remain private/internal.
+### Commit
+- PENDING
+### Next
+- Human — review BOHUMFIT-178 decisions, then proceed to BOHUMFIT-179 implementation planning.
