@@ -1,5 +1,7 @@
 ## 2026-07-07 Codex BOHUMFIT-180 Windows verification
 
+Commit: 752d512 (eat(BOHUMFIT-180): 보장분석 리모델링표 프런트 + 구 보장분석 은퇴(114비교·엑셀도구 제거))
+
 ### Changed
 - `src/pages/CoverageRemodel.tsx` 신규: KB 보장분석 제안서 PDF 업로드, `/coverage/analyze` 호출, `[최종]` 보장 진단과 `[전]` 회사별 가입 현황 렌더.
 - `src/App.tsx`: `/coverage-compare`를 `ProtectedRoute(CoverageRemodel)`로 연결하고 `/coverage` 구 라우트 제거.
