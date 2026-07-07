@@ -28,6 +28,7 @@ import httpx
 
 from analyzer import run_analysis, AnalysisError, SERVER_ANALYZE_DEADLINE_SECONDS
 from pipeline.coverage_parser import parse_coverage_pdf  # BOHUMFIT-114
+from coverage.service import analyze_kb_coverage, KBFormatError  # BOHUMFIT-179 (KB 신정원 제안서 파서·격리 모듈)
 # BOHUMFIT-097: 번호 중복 hard-block 제거로 phone_guard 미사용(스펙 완화). 모듈은 보존.
 from tosspayments import (
     issue_billing_key,
@@ -1289,6 +1290,43 @@ async def coverage_parse(
     except Exception as e:
         logger.exception("coverage_parse failed: %s", e)
         raise HTTPException(status_code=500, detail="보장분석 파싱에 실패했어요. 잠시 후 다시 시도해 주세요.")
+    finally:
+        del data
+    return result
+
+
+# ── KB 신정원 보장분석 제안서 → 리모델링 [전]/[최종] (BOHUMFIT-179) ─────────────
+@app.post("/coverage/analyze")
+@limiter.limit("20/minute")
+async def coverage_analyze(
+    request: Request,
+    file: UploadFile = File(..., description="KB 신정원 보장분석 제안서 PDF"),
+    user_id: str = Depends(verify_jwt),
+):
+    """BOHUMFIT-179: KB 신정원 보장분석 제안서 PDF → 리모델링 보장분석표 데이터.
+    - 응답 = {before(회사별 세부·월납 내림차순), final(담보 합산+진단), warnings}. KB 표준양식 전용.
+    - KB 양식 아님/PDF 손상 → 400. 그 외 실패 500.
+    - ★ PII(성명·계약)는 서버에 저장하지 않으며 요청-응답 내에서만 처리 후 즉시 폐기."""
+    fname = file.filename or "upload.pdf"
+    if not fname.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="PDF 파일만 업로드할 수 있어요.")
+    data = await file.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="빈 파일입니다.")
+    if len(data) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"개별 PDF 크기는 {MAX_FILE_SIZE // (1024 * 1024)}MB를 넘을 수 없습니다.",
+        )
+    if b"%PDF-" not in data[:1024]:
+        raise HTTPException(status_code=400, detail="올바른 PDF 파일이 아니에요.")
+    try:
+        result = await asyncio.to_thread(analyze_kb_coverage, data)
+    except KBFormatError as e:  # 비-KB 양식·PDF 열기 실패
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("coverage_analyze failed: %s", e)
+        raise HTTPException(status_code=500, detail="보장분석 생성에 실패했어요. 잠시 후 다시 시도해 주세요.")
     finally:
         del data
     return result

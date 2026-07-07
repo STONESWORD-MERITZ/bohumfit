@@ -27,5 +27,8 @@ dist-ssr
 # Environment
 .env
 
+# Local PII / real coverage analysis files
+보장분석/
+
 # Claude Code (personal settings)
 .claude/settings.local.json

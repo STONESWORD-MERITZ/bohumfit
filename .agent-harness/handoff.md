@@ -1,3 +1,33 @@
+## 2026-07-06 Cowork BOHUMFIT-179 KB 보장분석 제안서 파서 + 데이터 생성 API (백엔드·A방식 패스1)
+
+Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Codex (Windows 권위 검증·실 PDF 패스2 보정·커밋·푸시)
+
+### Changed
+- `backend/coverage/` 신규 격리 모듈(고지의무 pipeline/ 무접촉):
+  - `constants.py` — 37 표준담보 사전 + 12 대분류(실비·수술·암·뇌·심장·입원·사망·후유장해·골절·배상책임·운전자·간병/치매) + 집계방식(sum/rep) + match_coverage(substring 충돌 길이순 해소) + 페이지 역할 마커.
+  - `amount.py` — 금액 토크나이저("5억 5,000만"→550000000·"-"→None), 매트릭스/진단 셀 추출, 월납·납입기간(N년→N*12) 파서.
+  - `parser.py` — 페이지 역할 식별(헤더 문구)·p5 계약리스트·p6~7 매트릭스(담보명 뒤 구간만 금액 추출 → 담보명 내부 숫자 오검출 방지)·p20 진단. 순수 텍스트 함수(lines 입력)로 실 PDF 없이 테스트 가능, parse_document만 pdfplumber 의존.
+  - `aggregator.py` — [전](회사 월납 내림차순+요약열=집계값)·[최종](담보 집계+진단+월납합계+총납입). 집계: sum=합산, rep=대표값(다건 최대).
+  - `schema.py` — Contract/Customer dataclass + [전]/[최종] dict 빌더. `service.py` — analyze_kb_coverage(pdf)→{before,final,warnings}.
+- `backend/tests/test_coverage_parser_179.py` 신규 — 익명(홍길동) 합성 픽스처(문건주 목표값 재현) 11케이스.
+- `backend/main.py` — import(L31) + `POST /coverage/analyze` 엔드포인트(L1299~) 등록. 기존 verify_jwt·limiter·File 검증·`b"%PDF-"`·asyncio.to_thread 패턴 재사용. KBFormatError→400. **기존 `/coverage/parse`(114)·pipeline/ 무접촉.**
+
+### Verified (Cowork /tmp + 마운트 — 전체 pytest·실 PDF는 Codex 권위)
+- 179 테스트 **11 passed** (/tmp 및 마운트 backend 양쪽). coverage 모듈 마운트 py_compile OK, import 체인 OK(pdfplumber 0.11.9).
+- 핵심 목표값 대조: 월납합계 **573,227** · 총납입 **181,984,128**(=Σ 월납×납입월, 81년→972·15년→180 포함) · 상해사망 **5.5억** · 일반암 **1억** · 교통사고처리 **1.8억** (합산=요약열) · 입원일당 **합산 6만** · 실손 **대표값(max)** · 회사 월납 내림차순 · 12대분류 매핑 · 비-KB→KBFormatError.
+
+### Notes — ★Codex 패스2 보정 지점(A방식: 실 PDF는 로컬 `C:\Users\18_rk\BOHUMFIT\보장분석\`에만, Cowork 샌드박스엔 없음)
+1. **텍스트 추출 엔진 차이**: 내 픽스처는 pdftotext `-layout` 기반. 실제 파서는 pdfplumber `extract_text(layout=True)` 사용 → 실 PDF에서 p6~7 매트릭스 행이 한 줄로 나오는지·공백 패턴 재확인(정규식 미세 보정 가능).
+2. **p5 상품명 wrap**: 상품명은 같은 줄만 결합(best-effort). idx/insurer/월납/납입월은 견고. 상품명 여러 줄 결합은 Codex 보정.
+3. **매트릭스 열↔계약 매핑**: 페이지 좌→우 positional(p6=계약1~4, p7=5~6). 실 PDF 열/페이지 순서 확인. 열수≠계약수면 warnings 기록됨.
+4. **금액 병합 위험**: "N억"(단독)+"N,NNN만"(단독)이 인접 열이면 CELL_TOKEN_RE 병합 가능(문건주는 "-" 사이로 무해). 좌표 기반 열 분리로 보정 권장.
+5. **패키지명 FYI**: `coverage`는 coverage.py(code-coverage)와 동명 — 현재 미설치라 무충돌. 향후 pytest-cov 도입 시 rename 고려.
+- ⚠**마운트 truncation(ENV-MOUNT-NOTES 재현)**: `main.py` 마운트 뷰가 원본 바이트(70323B)에 고정돼 편집으로 커진 꼬리가 잘림 → py_compile이 **1526행(기존 report-pdf endpoint의 except, 절단 지점 너머)** 에서 false-fail. 내 2개 편집(import L31·엔드포인트 L1299~1332)은 grep/sed로 정상·균형 확인. **Codex는 Windows 원본에서 main.py py_compile/import 재확인 필수.** (coverage 모듈은 소형이라 마운트 무결·py_compile OK.)
+- ⚠**PII**: 실 PDF·엑셀 미저장·미커밋. 픽스처는 익명(홍길동)·합성. **Codex: `.gitignore`에 `보장분석/`(및 실 PDF 경로) 추가 + 실 데이터 stage 금지.**
+
+### Next
+- Codex — ① Windows 원본 main.py py_compile/import 확인(마운트 truncation 무관) ② `cd backend && python -m pytest -q`(기준선 485→ **+11 = 496 passed/8 skipped 예상**) ③ 실 PDF 패스2: 로컬 KB 제안서로 `analyze_kb_coverage` 실행 → 위 보정지점(정규식·열매핑) 대조·수정, 목표값(573,227 등) 재확인 ④ `.gitignore` 보장분석/ 추가 ⑤ 통과 시 `backend/coverage/`·test·`backend/main.py`·태스크문서 stage(실 PDF 제외) → commit `feat(BOHUMFIT-179): KB 보장분석 제안서 파서 + 데이터 생성 API` → push. 이후 180(프런트 리모델링표).
+
 ## 2026-07-06 Cowork BOHUMFIT-178 KB 보장분석 제안서 파싱 규칙 명세 (조사 전용·코드 0)
 
 Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Codex (문서만 stage·commit·push)
@@ -9512,3 +9542,31 @@ Remaining:
 - `04182e6` docs(BOHUMFIT-178): KB 보장분석 제안서 파싱 규칙 명세
 ### Next
 - Human — review BOHUMFIT-178 decisions, then proceed to BOHUMFIT-179 implementation planning.
+## 2026-07-07 Codex BOHUMFIT-179 Windows pass2 verification
+### Changed
+- `.gitignore`: added `보장분석/` to keep real coverage PDFs/XLSX out of git.
+- `backend/coverage/constants.py`, `amount.py`, `parser.py`, `aggregator.py`: normalized mojibake tokens to real Korean KB proposal labels, amount/status tokens, p5 product-wrap parsing, p6~p7 contract-column mapping, p20 diagnosis parsing.
+- `backend/coverage/__init__.py`, `schema.py`, `service.py`: new coverage parser package from Cowork implementation.
+- `backend/main.py`: `/coverage/analyze` API integration from Cowork implementation.
+- `backend/tests/test_coverage_parser_179.py`: 179 parser regression suite.
+- `.agent-harness/tasks/BOHUMFIT-179-coverage-parser-backend.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md`.
+### Verified
+- [x] PII protection: `보장분석/` ignored; no real PDF/XLSX tracked or staged.
+- [x] `python -c "import ast; ast.parse(open('backend/main.py', encoding='utf-8').read())"` PASS.
+- [x] `python -c "import main"` from `backend/` cwd PASS.
+- [x] `python -m py_compile backend/coverage/*.py` PASS.
+- [x] Real PDF pass2: `문건주님 kb보장분석 제안서.pdf` parsed with warnings `[]`, customer parsed, 6 contracts, 37 coverage rows.
+- [x] Real PDF key totals: monthly total `573,227`, paid total `181,984,128`, key rows parsed (`상해사망 550,000,000`, `일반암 100,000,000`, `상해입원일당 60,000`, `교통사고처리지원금 180,000,000`).
+- [x] `npx tsc -p tsconfig.app.json --noEmit` PASS.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` PASS.
+- [x] `npm run build` PASS (existing chunk-size warning only).
+- [x] `cd backend && python -m pytest -q` PASS: `496 passed, 8 skipped`.
+- [x] `cd backend && python -m pytest -q tests/test_coverage_parser_179.py -vv` PASS: `11 passed`.
+### Notes
+- Regex/layout fixes applied: p5 wrapped product names, p6/p7 `(n)` header contract mapping, Korean amount token parsing after coverage names, p20 diagnosis status/amount parsing, synthetic-test fallback when matrix headers are omitted.
+- Excel cross-check: workbook XML `문건주님.xlsx` has `최종!F4 = 573227`, but `최종!F6` formula is `기존!F6*12*20 = 137,574,480`. This conflicts with the BOHUMFIT-178/179 rule and task target `181,984,128` (sum of each contract monthly premium × actual payment months). Parser intentionally follows the 178/179 rule; Human may need to decide whether the Excel template should switch from flat 20-year total to actual payment-period total.
+- `.xlsx` was read through XML because HCell style metadata makes openpyxl fail with `IndexError: list index out of range`.
+### Commit
+- PENDING
+### Next
+- Human — 180 frontend remodeling table. 실 PDF 추가 케이스 검증 권장; Excel 총납입 산식(20년 고정 vs 실제 납입기간 합산) 정책 확인 필요.
