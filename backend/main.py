@@ -29,6 +29,8 @@ import httpx
 from analyzer import run_analysis, AnalysisError, SERVER_ANALYZE_DEADLINE_SECONDS
 from pipeline.coverage_parser import parse_coverage_pdf  # BOHUMFIT-114
 from coverage.service import analyze_kb_coverage, KBFormatError  # BOHUMFIT-179 (KB 신정원 제안서 파서·격리 모듈)
+from coverage.export_excel import build_workbook_bytes  # BOHUMFIT-181 (엑셀 내보내기)
+from coverage.export_pdf import generate_coverage_pdf   # BOHUMFIT-181 (PDF 내보내기)
 # BOHUMFIT-097: 번호 중복 hard-block 제거로 phone_guard 미사용(스펙 완화). 모듈은 보존.
 from tosspayments import (
     issue_billing_key,
@@ -1330,6 +1332,80 @@ async def coverage_analyze(
     finally:
         del data
     return result
+
+
+# ── 보장분석 리모델링표 내보내기 (BOHUMFIT-181) ────────────────────────────────
+#   프런트가 분석 결과 JSON(before/final)을 전달 → 서버는 렌더만(재파싱 X). PII 미저장.
+def _coverage_export_names(payload: dict, ext: str) -> tuple[str, str]:
+    label = ((payload.get("before") or {}).get("customer") or {}).get("name") or ""
+    safe = re.sub(r"[^가-힣A-Za-z0-9]", "", str(label))[:20] or "고객"
+    date_part = date.today().strftime("%Y%m%d")
+    return f"BohumFit_보장분석_{safe}_{date_part}.{ext}", f"BohumFit_coverage_{date_part}.{ext}"
+
+
+def _coverage_disposition(payload: dict, ext: str) -> str:
+    base, ascii_fb = _coverage_export_names(payload, ext)
+    return f'attachment; filename="{ascii_fb}"; filename*=UTF-8\'\'{urllib.parse.quote(base)}'
+
+
+def _require_analysis(payload: dict) -> None:
+    if not isinstance(payload, dict) or "before" not in payload or "final" not in payload:
+        raise HTTPException(status_code=400, detail="분석 결과(before/final)가 필요해요.")
+
+
+@app.post("/coverage/export/excel")
+@limiter.limit("20/minute")
+async def coverage_export_excel(
+    request: Request,
+    payload: dict = Body(..., description="/coverage/analyze 응답(before/final)"),
+    user_id: str = Depends(verify_jwt),
+):
+    """BOHUMFIT-181: [전]/[최종] JSON → 엑셀(.xlsx) 스트림. ★서버 미저장."""
+    _require_analysis(payload)
+    try:
+        data = await asyncio.to_thread(build_workbook_bytes, payload)
+    except Exception as e:
+        logger.exception("coverage excel export failed: %s", e)
+        raise HTTPException(status_code=500, detail="엑셀 생성에 실패했어요. 잠시 후 다시 시도해 주세요.")
+    return Response(
+        content=data,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": _coverage_disposition(payload, "xlsx"),
+            "Access-Control-Expose-Headers": "Content-Disposition",
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@app.post("/coverage/export/pdf")
+@limiter.limit("10/minute,60/hour")
+async def coverage_export_pdf(
+    request: Request,
+    payload: dict = Body(..., description="/coverage/analyze 응답(before/final)"),
+    user_id: str = Depends(verify_jwt),
+):
+    """BOHUMFIT-181: [전]/[최종] JSON → FIT v1.1 PDF 스트림(헤드리스 Chromium). ★서버 미저장."""
+    _require_analysis(payload)
+    try:
+        pdf = await asyncio.wait_for(generate_coverage_pdf(payload), timeout=REPORT_TIMEOUT_SECONDS)
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="PDF 생성이 시간 내에 끝나지 않았어요. 잠시 후 다시 시도해 주세요.")
+    except ReportUnavailableError as e:
+        logger.error("coverage pdf 렌더러 사용 불가: %s", e)
+        raise HTTPException(status_code=503, detail="PDF 생성 기능을 준비 중입니다. 잠시 후 다시 시도해 주세요.")
+    except Exception as e:
+        logger.exception("coverage pdf export failed: %s", e)
+        raise HTTPException(status_code=500, detail="PDF 생성에 실패했어요. 잠시 후 다시 시도해 주세요.")
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": _coverage_disposition(payload, "pdf"),
+            "Access-Control-Expose-Headers": "Content-Disposition",
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @app.post("/api/analyze")

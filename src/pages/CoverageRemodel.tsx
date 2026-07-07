@@ -117,6 +117,7 @@ export default function CoverageRemodel() {
   const [fileName, setFileName] = useState("");
   const [result, setResult] = useState<AnalyzeResult | null>(null);
   const [showBefore, setShowBefore] = useState(false);
+  const [exporting, setExporting] = useState<"" | "excel" | "pdf">(""); // BOHUMFIT-181
 
   async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -153,6 +154,46 @@ export default function CoverageRemodel() {
     } finally {
       setBusy(false);
       event.target.value = "";
+    }
+  }
+
+  // BOHUMFIT-181: 분석 결과(result) JSON을 서버로 보내 엑셀/PDF 스트림 수신 → 다운로드. (서버 미저장)
+  async function exportFile(kind: "excel" | "pdf") {
+    if (!result) return;
+    const token = session?.access_token;
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+    setExporting(kind);
+    setError("");
+    try {
+      const response = await fetch(`${API_BASE}/coverage/export/${kind}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(result),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.detail || "파일을 생성하지 못했습니다.");
+      }
+      const blob = await response.blob();
+      const disposition = response.headers.get("Content-Disposition") || "";
+      const match = /filename\*=UTF-8''([^;]+)/.exec(disposition);
+      const fallback = kind === "excel" ? "BohumFit_보장분석.xlsx" : "BohumFit_보장분석.pdf";
+      const downloadName = match ? decodeURIComponent(match[1]) : fallback;
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = downloadName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    } catch (exportError) {
+      setError(exportError instanceof Error ? exportError.message : "파일 생성 중 오류가 발생했습니다.");
+    } finally {
+      setExporting("");
     }
   }
 
@@ -240,9 +281,30 @@ export default function CoverageRemodel() {
                 <h2 className="ko-heading text-lg font-bold text-ink-900">최종 보장 진단</h2>
                 <p className="mt-1 text-xs text-ink-soft">{DISCLAIMER}</p>
               </div>
-              {result.before.customer.name && (
-                <p className="text-sm font-semibold text-ink-700">고객명 {result.before.customer.name}</p>
-              )}
+              <div className="flex flex-col items-start gap-2 md:items-end">
+                {result.before.customer.name && (
+                  <p className="text-sm font-semibold text-ink-700">고객명 {result.before.customer.name}</p>
+                )}
+                {/* BOHUMFIT-181: 엑셀·PDF 내보내기(세컨더리). 분석 결과 있을 때만 노출. */}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void exportFile("excel")}
+                    disabled={exporting !== ""}
+                    className="button-text rounded-btn border border-line-strong bg-white px-4 py-2 text-[13px] font-bold text-ink-800 hover:bg-ink-50 disabled:opacity-50"
+                  >
+                    {exporting === "excel" ? "엑셀 생성 중…" : "엑셀 저장"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void exportFile("pdf")}
+                    disabled={exporting !== ""}
+                    className="button-text rounded-btn border border-line-strong bg-white px-4 py-2 text-[13px] font-bold text-ink-800 hover:bg-ink-50 disabled:opacity-50"
+                  >
+                    {exporting === "pdf" ? "PDF 생성 중…" : "PDF 저장"}
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="mt-4 grid gap-3 sm:grid-cols-3">

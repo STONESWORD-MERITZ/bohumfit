@@ -2,6 +2,7 @@ fastapi==0.136.3
 uvicorn==0.48.0
 pdfplumber==0.11.9
 pandas==2.3.3
+openpyxl==3.1.5     # BOHUMFIT-181: 보장분석 리모델링표 엑셀(.xlsx) 생성
 # BOHUMFIT-140: 재현성 위해 핵심 전이 의존성도 명시 고정(설치본 기준). pydantic=fastapi, pillow=pdfplumber 경유.
 pydantic==2.13.4
 pillow==12.2.0
