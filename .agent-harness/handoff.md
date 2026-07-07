@@ -9738,3 +9738,46 @@ Commit: `0c6898e` (`feat(BOHUMFIT-181): 보장분석 리모델링표 엑셀/PDF 
 
 ### Next
 - Human — 배포 후 `/coverage-compare`에서 실 PDF 업로드 후 엑셀/PDF 저장 파일을 직접 열어 양식, 색상, 파일명, 면책 문구 최종 육안 확인. 160 보장분석 통합 완료.
+## 2026-07-07 Codex BOHUMFIT-185 consulting-after rebuild spec
+
+Owner flow: Claude Chat -> Codex | Current owner: Human / next Cowork task authoring
+
+### Changed
+- Added `.agent-harness/tasks/BOHUMFIT-185-consulting-after-spec.md`.
+- Added `.agent-harness/tasks/BOHUMFIT-185-after-engine-spec.md`.
+- Added BOHUMFIT-185 lock line to `.agent-harness/locks.md`.
+
+### Investigation
+- Current HEAD model reviewed with `git show HEAD:` only:
+  - `backend/coverage/schema.py`
+  - `backend/coverage/aggregator.py`
+  - `backend/coverage/service.py`
+  - `backend/coverage/export_excel.py`
+  - `src/pages/CoverageRemodel.tsx`
+- Deleted consulting-after history reviewed:
+  - `a7b6c00` BOHUMFIT-041 mapping engine
+  - `158a87b` BOHUMFIT-043 consulting-after state and after table
+  - `a1f4098` BOHUMFIT-044 final comparison table
+  - `f7858a2` BOHUMFIT-045 Excel export
+  - `752d512` BOHUMFIT-180 retirement/deletion commit
+
+### Verified
+- Documentation-only task. No code, renderer, coverage module, or `CoverageRemodel.tsx` edits performed.
+- Stage completeness checked:
+  - Stage 0 current model/deletion history: complete.
+  - Stage 1 existing-contract disposition schema: complete.
+  - Stage 2 new proposal schema: complete.
+  - Stage 3 after recalculation rule: complete.
+  - Stage 4 before-vs-after and final summary output: complete.
+  - Stage 5 BOHUMFIT-186+ implementation split: complete.
+- PII posture documented: real PDFs/XLSX are not staged; examples are internal/private only.
+
+### Notes
+- Core design decision: keep the old 043 principle, but move it onto the new backend model. `[후]` must be computed by applying a consulting plan to `[전]` inputs and then using the same aggregation/diagnosis path as `[전]/[최종]`; no duplicate after-only formulas.
+- Reuse conceptually: `applyConsultingPlan`, `buildAfterTable`, before/after comparison, three-sheet export idea.
+- Discard technically: old browser-only `coverageMapping.ts`, old SheetJS export, old UI components, and old category ids as canonical keys.
+- 문건주 validation anchor: current `[전]` monthly 573,227 and paid total 181,984,128 remain the baseline for after-flow checks. 황종철 local fixture was not present in this repo scan; spec reserves a validation slot for Human-provided data.
+- Human decisions are listed in the spec: save plan vs session-only, customer name/alias policy, unmapped proposal coverage, premium-reduction semantics, rider removal, and proposal paid-total estimation.
+
+### Next
+- Human / Claude Chat — use `BOHUMFIT-185-after-engine-spec.md` to packetize BOHUMFIT-186 backend after-model implementation, then proceed 187 UI, 188 proposals, 189 comparison, 190 export.

@@ -4,7 +4,10 @@ Use this file to record active Codex file ownership during a task.
 
 ## Active
 
-- (none)
+- 2026-07-07 `BOHUMFIT-185` - Codex - consulting-after spec docs only
+- 2026-07-07 `BOHUMFIT-182` - Cowork - 편집 중. parser.py·aggregator.py·schema.py(필요시)·tests/test_coverage_parser_182.py. 회사명 wrap 결합·[전] 열==계약수(BOP 보험료미제공 포함). pipeline 무접촉·집계값 회귀 금지.
+- 2026-07-07 `BOHUMFIT-183` - Cowork - 편집 중. constants.py·aggregator.py·export_excel.py·export_pdf.py·CoverageRemodel.tsx·tests/test_coverage_group_183.py. 대분류 재편(순서·간병 이동·치매 제외·골절→상해). 담보 집계값 불변.
+- 2026-07-07 `BOHUMFIT-184` - Cowork - 편집 중. parser.py·schema.py·aggregator.py·export_excel.py·export_pdf.py·CoverageRemodel.tsx·tests/test_coverage_contract_list_184.py. [전] 보유 계약 리스트. 집계값 불변.
 
 ### Released
 - 2026-07-06 `BOHUMFIT-181` - Cowork - 완료(160 마지막). 보장분석 리모델링표 엑셀/PDF 내보내기. 신규 backend/coverage/export_excel.py(2시트 openpyxl)·export_pdf.py(FIT v1.1 HTML+html_to_pdf_bytes 재사용) + main.py 라우터 2종(/coverage/export/excel·pdf, 분석JSON 입력·파일명·no-store)+import+헬퍼3 + requirements openpyxl==3.1.5 + CoverageRemodel 다운로드 버튼/핸들러 + test_coverage_export_181(4). 검증: coverage 22 passed(179:11+179b:7+181:4)·엑셀 왕복(573,227·181,984,128·담보·기타·비고)·PDF-HTML(에메랄드·구브랜드0·값·ㅍ)·파일명 sanitize·main.py 삽입블록 AST OK. 157/179파서/고지의무/CoverageRemodel 렌더 무접촉. ⚠마운트 truncation(main.py·CoverageRemodel)→Codex Windows tsc/py_compile 필수. 신규 dep openpyxl→pip install. PDF 실렌더=Codex 로컬 playwright. 기준선 514→518 예상(npm 15 유지). PII 미저장.
