@@ -8,7 +8,7 @@ UNIT_EOK = 100_000_000
 UNIT_MAN = 10_000
 
 AMOUNT_TOKEN_RE = re.compile(
-    r"[+\-]?\s*(?:\d+\s*억(?:\s*\d[\d,]*\s*만)?|\d[\d,]*\s*만|0|-)"
+    r"[+\-]?\s*(?:\d+\s*억(?:\s*\d[\d,]*\s*[만幻])?|\d[\d,]*\s*[만幻]|0|-)"
 )
 CELL_TOKEN_RE = AMOUNT_TOKEN_RE
 DIAG_TOKEN_RE = AMOUNT_TOKEN_RE
@@ -20,10 +20,11 @@ def parse_amount(token: Optional[str]) -> Optional[int]:
 
     Examples: ``5억 5,000만`` -> 550000000, ``27만`` -> 270000,
     ``+3만`` -> 30000, ``-1억`` -> -100000000, ``-`` -> None.
+    Some embedded-font PDFs extract ``만`` as ``幻``; treat it as the same unit.
     """
     if token is None:
         return None
-    t = str(token).strip().replace(" ", "")
+    t = str(token).strip().replace(" ", "").replace("幻", "만")
     if t in ("", "-"):
         return None
     sign = 1

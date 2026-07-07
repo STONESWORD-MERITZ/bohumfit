@@ -16,6 +16,7 @@ class Contract:
     pay_months: Optional[int]
     maturity: Optional[str]
     monthly_premium: Optional[int]
+    remark: Optional[str] = None  # 계약 특이사항 비고(계피상이 등, 값 아님)
 
     @property
     def paid_total(self) -> Optional[int]:

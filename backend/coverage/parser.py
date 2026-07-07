@@ -6,7 +6,7 @@ import re
 from typing import Optional
 
 from .amount import extract_cells, extract_diag_cells, parse_amount, parse_won, years_to_months, diag_status
-from .constants import KB_FORMAT_HINTS, ROLE_MARKERS, match_coverage, match_coverage_span
+from .constants import KB_FORMAT_HINTS, ROLE_MARKERS, classify_extra, match_coverage, match_coverage_span
 
 CONTRACT_LINE_RE = re.compile(
     r"(?P<date>\d{4}-\d{2}-\d{2})\s+"
@@ -18,6 +18,8 @@ CONTRACT_LINE_RE = re.compile(
 CONTRACT_PREFIX_RE = re.compile(r"^\s*(?P<idx>\d+)\s+(?P<insurer>\S+)\s*(?P<product>.*)$")
 CUSTOMER_RE = re.compile(r"(?P<name>\S+)\s*\(\s*(?P<age>\d+)\s*세\s*,\s*(?P<sex>남자|여자)\s*\)")
 PAGE_COL_RE = re.compile(r"\((\d+)\)")
+DETAIL_PREMIUM_RE = re.compile(r"(?P<premium>[\d,]+)\s*원")
+KP_RE = re.compile(r"(?P<contractor>[가-힣*]{2,10})\s*/\s*(?P<insured>[가-힣*]{2,10})")
 
 
 class KBFormatError(ValueError):
@@ -34,6 +36,7 @@ def classify_page(lines: list[str]) -> Optional[str]:
     for role, marker in (
         ("diagnosis", ROLE_MARKERS["diagnosis"]),
         ("contracts", ROLE_MARKERS["contracts"]),
+        ("detail", ROLE_MARKERS["detail"]),
         ("matrix", ROLE_MARKERS["matrix"]),
     ):
         if "".join(marker.split()) in compact_head:
@@ -55,10 +58,6 @@ def parse_customer(lines: list[str]) -> dict:
     if not m:
         return {"name": None, "age": None, "sex": None}
     return {"name": m.group("name"), "age": int(m.group("age")), "sex": m.group("sex")}
-
-
-def _is_contract_line(line: str) -> bool:
-    return bool(CONTRACT_PREFIX_RE.search(line) and CONTRACT_LINE_RE.search(line))
 
 
 def _is_product_continuation(line: str) -> bool:
@@ -191,6 +190,62 @@ def _extract_pages(pdf_bytes: bytes) -> list[list[str]]:
         raise KBFormatError(f"PDF를 읽을 수 없습니다: {exc}") from exc
 
 
+def _detail_contract_idx(lines: list[str], premium_to_idx: dict[int, int]) -> Optional[int]:
+    for line in lines[:16]:
+        if not re.search(r"\d{4}-\d{2}-\d{2}\s*~\s*\d{4}-\d{2}-\d{2}", line):
+            continue
+        premiums = [parse_won(m.group("premium") + "원") for m in DETAIL_PREMIUM_RE.finditer(line)]
+        for premium in reversed(premiums):
+            if premium in premium_to_idx:
+                return premium_to_idx[premium]
+    return None
+
+
+def _last_amount(line: str):
+    vals = [parse_amount(t) for t in extract_cells(line)]
+    for value in reversed(vals):
+        if value:
+            return value
+    return None
+
+
+def parse_detail_pages(detail_pages: list[list[str]], contracts: list[dict]):
+    """Parse detailed pages for contract remarks and non-standard 기타 riders."""
+    premium_to_idx = {c["monthly_premium"]: c["idx"] for c in contracts if c.get("monthly_premium")}
+    notes: dict[int, dict] = {}
+    extra: dict[str, dict] = {}
+
+    for lines in detail_pages:
+        idx = _detail_contract_idx(lines, premium_to_idx)
+        for line in lines[:16]:
+            if "월납" not in line and "연납" not in line and "일시납" not in line:
+                continue
+            match = KP_RE.search(line)
+            if match and idx is not None and idx not in notes:
+                contractor = match.group("contractor")
+                insured = match.group("insured")
+                notes[idx] = {
+                    "contractor": contractor,
+                    "insured": insured,
+                    "kp_differs": contractor != insured,
+                }
+                break
+
+        for line in lines:
+            classified = classify_extra(line)
+            if not classified:
+                continue
+            amount = _last_amount(line)
+            if amount is None:
+                continue
+            label, agg = classified
+            entry = extra.setdefault(label, {"agg": agg, "by_company": {}})
+            key = str(idx) if idx is not None else "?"
+            entry["by_company"][key] = entry["by_company"].get(key, 0) + amount
+
+    return notes, extra
+
+
 def parse_document(pdf_bytes: bytes) -> dict:
     pages = _extract_pages(pdf_bytes)
     joined_heads = " ".join(" ".join(p[:8]) for p in pages)
@@ -200,6 +255,7 @@ def parse_document(pdf_bytes: bytes) -> dict:
     warnings: list[str] = []
     contracts_lines: list[str] = []
     matrix_pages: list[list[str]] = []
+    detail_pages: list[list[str]] = []
     diagnosis_lines: list[str] = []
     customer = {"name": None, "age": None, "sex": None}
 
@@ -213,12 +269,15 @@ def parse_document(pdf_bytes: bytes) -> dict:
             contracts_lines = lines
         elif role == "matrix":
             matrix_pages.append(lines)
+        elif role == "detail":
+            detail_pages.append(lines)
         elif role == "diagnosis":
             diagnosis_lines = lines
 
     contracts = parse_contract_list(contracts_lines) if contracts_lines else []
     matrix = parse_matrix(matrix_pages) if matrix_pages else {}
     diagnosis = parse_diagnosis(diagnosis_lines) if diagnosis_lines else {}
+    notes, extra = parse_detail_pages(detail_pages, contracts) if detail_pages else ({}, {})
 
     if not contracts:
         warnings.append("p5 계약리스트를 찾지 못했습니다.")
@@ -234,5 +293,7 @@ def parse_document(pdf_bytes: bytes) -> dict:
         "contracts": contracts,
         "matrix": matrix,
         "diagnosis": diagnosis,
+        "notes": notes,
+        "extra": extra,
         "warnings": warnings,
     }

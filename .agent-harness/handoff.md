@@ -1,3 +1,28 @@
+## 2026-07-06 Cowork BOHUMFIT-179b 보장분석 파서 기타 대분류 + 계약 특이사항 비고 (백엔드·A방식 패스1)
+
+Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Codex (Windows 권위 검증·실 PDF 패스2·커밋·푸시)
+
+### Changed (179 확장 — 37/12 경로 무접촉·append만)
+- `backend/coverage/constants.py`: `GROUP_ETC="기타"`·`GROUP13`(12+기타)·`EXTRA_PATTERNS`(상급/종합병원 일당·수술비 → N대수술비 → 화상 → 양성종양/폴립 → 통원일당) + `classify_extra()`. 표준담보는 None(회귀 안전). ROLE_MARKERS에 detail 추가.
+- `backend/coverage/parser.py`: classify_page detail 역할(‘상품별 가입담보상세’, matrix보다 우선), `parse_detail_pages(detail_pages, contracts)`→(notes, extra) — 계약 식별=상세헤더 월보험료(계약별 고유)→p5 idx, 계피 A/B 추출, 기타 행=classify_extra+마지막금액. parse_document 반환에 notes·extra.
+- `backend/coverage/schema.py`: Contract.remark(비고). `aggregator.py`: 계피 비고 주입(`_remark`, 계피상이=계약자≠피보험자), 기타 coverage append(group 기타·정액 합산), rollup GROUP13.
+- `backend/tests/test_coverage_parser_179b.py` 신규(7케이스). **main.py 변경 없음**(179 엔드포인트가 확장 데이터 자동 반환). 고지의무 pipeline·기존 /coverage/parse 무접촉.
+
+### Verified (Cowork /tmp + 마운트 — 전체 pytest·실 PDF는 Codex 권위)
+- **179 + 179b = 18 passed**(/tmp·마운트 backend 양쪽). coverage 모듈 마운트 py_compile OK.
+- ★**179 회귀 무결**: 월납 573,227·총납입 181,984,128·상해사망 5.5억·일반암 1억·입원일당 6만 **불변**, 37 기본형 수 유지(기타만 append).
+- 기타 집계(라벨별 합산, 계약 idx 무관): N대수술비 **4,090만** · 화상 **6,000만** · 양성종양/폴립 **30만** · 상급/종합병원 일당 **120만**. 전부 group=기타·정액 합산.
+- 상세 표준담보(상해사망·일반암 등)는 기타에 미포섭(패턴만) → 12대분류 값 상세영향 0. 계피 비고 동일/상이 감지, companies.remark 반영, rollup에 기타 포함(진단 없어 recommended None).
+
+### Notes
+- 설계 판단: 상세 col4 네임스페이스가 37 기본형과 별개(100+) → 잔여버킷 대신 **태스크 열거 비표준 패턴만 기타로 포섭**(중복/오분류 0, 회귀 안전). N대수술비 라벨에 5대장기이식·[갱신형]5대골절수술비 포함(패턴 `\d+대\S*수술`). 통원일당은 문건주 자료엔 없음(패턴만 준비).
+- ★Codex 실 PDF 패스2 보정점: ① 삼성 상세(p12~15) **계피 라인 포맷 상이** → 일부 미검출(문건주는 전부 동일이라 무해하나 실 varied 데이터 확인) ② 상세 상품명 wrap(중대화상·\n부식진단비 등) — 현재 col4가 화상 포함해 라인2로 포착되나 wrap 분할 케이스 확인 ③ 상세 계약 idx 매핑=월보험료 기준(고유) — 실 PDF에서 헤더 월보험료 파싱 확인 ④ 추가 비표준 담보(중대골절진단·특정상해수술·기타 인보험 정액담보 등)를 기타에 포함할지 Human/Codex 결정(현재 미열거분은 미포섭).
+- ⚠마운트 truncation: 이번엔 coverage 모듈(소형)만 변경 → py_compile OK. main.py 무변경(179b). (179의 main.py truncation 이슈는 179 handoff 참조.)
+- ⚠PII: 상세 픽스처 익명(홍길동)·합성. 실 PDF·엑셀 미저장·미커밋. `.gitignore` 보장분석/ 유지.
+
+### Next
+- Codex — ① `cd backend && python -m pytest -q`(기준선 496→ **+7 = 503 passed/8 skipped 예상**) ② 실 PDF 패스2: 로컬 KB 제안서로 기타 집계·계피 비고 대조, 위 보정점 확인·수정 ③ 통과 시 backend/coverage/{constants,parser,aggregator,schema}.py·179b test·태스크문서 stage(실 PDF 제외)→ commit `feat(BOHUMFIT-179b): 보장분석 파서 기타 대분류 + 계약 특이사항 비고` → push. 이후 180(프런트).
+
 ## 2026-07-06 Cowork BOHUMFIT-179 KB 보장분석 제안서 파서 + 데이터 생성 API (백엔드·A방식 패스1)
 
 Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Codex (Windows 권위 검증·실 PDF 패스2 보정·커밋·푸시)
@@ -9570,3 +9595,34 @@ Remaining:
 - `ab028af` feat(BOHUMFIT-179): KB 보장분석 제안서 파서 + 데이터 생성 API
 ### Next
 - Human — 180 frontend remodeling table. 실 PDF 추가 케이스 검증 권장; Excel 총납입 산식(20년 고정 vs 실제 납입기간 합산) 정책 확인 필요.
+## 2026-07-07 Codex BOHUMFIT-179b Windows pass2 verification
+
+### Changed
+- `backend/coverage/constants.py`: 179 기준 12대분류/37개 표준담보 경로는 유지하고 `기타` 13번째 그룹, `EXTRA_PATTERNS`, `classify_extra()`를 정상 UTF-8 한글로 복구·보강.
+- `backend/coverage/parser.py`: 179의 실 PDF 검증된 계약/매트릭스 파싱을 복구하고, 상세 페이지 보험료→계약 idx 매핑, 계피(계약자/피보험자) 비고, 기타 담보 추출을 추가.
+- `backend/coverage/amount.py`: 금액 토크나이저 UTF-8 복구 및 일부 KB PDF 글꼴 추출값(`幻`=만) 대응.
+- `backend/coverage/aggregator.py`, `backend/coverage/schema.py`: 계약 비고와 기타 담보 append/rollup 반영.
+- `backend/tests/test_coverage_parser_179b.py`: 179b 회귀 18건 신규/재작성.
+- `.agent-harness/tasks/BOHUMFIT-179b-coverage-parser-etc.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md`.
+
+### Verified
+- [x] `.gitignore`에 `보장분석/` 유지 확인. 실 PDF·엑셀은 untracked/stage에 없음.
+- [x] Windows 원본 무결성: `backend/main.py` AST OK, backend cwd `import main` OK, `backend/coverage/*.py` py_compile OK.
+- [x] 실 PDF `문건주님 kb보장분석 제안서.pdf`: warnings `[]`, 월납 `573,227`, 총납입 `181,984,128`.
+- [x] 실 PDF 기타 대분류: N대수술비 `40,900,000`, 화상 `60,000,000`, 양성종양·폴립 `300,000`, 상급/종합병원 일당 `1,200,000`.
+- [x] 실 PDF 계피 비고: KB/한화 1~3번 `계피동일`, 삼성화재/삼성생명 4~6번 `계피상이(계약자 장*희·피보험자 문건주)`.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` pass.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` pass.
+- [x] `npm run build` pass (기존 Vite chunk warning만).
+- [x] `cd backend && python -m pytest -q` → `514 passed, 8 skipped`.
+- [x] `cd backend && python -m pytest -q tests/test_coverage_parser_179b.py -vv` → `18 passed`.
+
+### Notes
+- Cowork 미러링본의 `coverage` 모듈 일부가 모지바케 상태라 실 PDF에서 p5/p6~7을 못 잡는 문제가 있었음. Windows 원본에서 `constants.py`, `parser.py`, `amount.py`, `aggregator.py`, 179b 테스트를 정상 UTF-8 한글 기준으로 복구 후 검증 완료.
+- 상세 페이지 계약 idx 매핑은 헤더의 날짜범위+보험료 라인을 사용하도록 보정. 삼성 상세 p12~15 계피 포맷(`장*희/문건주 월납/...`)도 실 PDF에서 정상 추출 확인.
+- 일부 상세 페이지의 embedded-font 추출에서 `만`이 `幻`, `112대질병수술비`가 `112企...呪綬` 형태로 나와 보정 패턴을 추가. Human 확정대로 기타 대분류는 열거 패턴만 처리하며, 무가치/비표준 특약 누락 조사는 하지 않음.
+- 확정 backend 기준선: `514 passed, 8 skipped`.
+- Commit: PENDING.
+
+### Next
+- Human — 180 프런트 리모델링표 (웹최적화·[전]/[최종] 2리포트·기존 보장분석 통합).

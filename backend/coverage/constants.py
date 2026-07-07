@@ -1,5 +1,7 @@
-"""KB guaranteed-issue coverage proposal constants for BOHUMFIT-179."""
+"""KB guaranteed-issue coverage proposal constants for BOHUMFIT-179/179b."""
 from __future__ import annotations
+
+import re
 
 AGG_SUM = "sum"
 AGG_REP = "rep"
@@ -18,6 +20,9 @@ GROUP12 = (
     "배상책임",
     "화재",
 )
+
+GROUP_ETC = "기타"
+GROUP13 = GROUP12 + (GROUP_ETC,)
 
 # (kb_name, kb_group, group12, agg) in the KB proposal display order.
 KB_COVERAGES: tuple[tuple[str, str, str, str], ...] = (
@@ -102,7 +107,29 @@ def coverage_meta(kb_name: str):
 ROLE_MARKERS = {
     "contracts": "전체 계약리스트",
     "matrix": "상품별 가입현황",
+    "detail": "상품별 가입담보상세",
     "diagnosis": "전체 담보 진단 현황",
 }
 
 KB_FORMAT_HINTS = ("계약리스트", "상품별", "진단")
+
+EXTRA_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] = (
+    (re.compile(r"(?:상급종합|종합)병원.*(?:입원|통원)일당"), "상급/종합병원 일당", AGG_SUM),
+    (re.compile(r"(?:상급종합|종합)병원.*수술"), "상급/종합병원 수술비", AGG_SUM),
+    (re.compile(r"\d+대\S*수술"), "N대수술비", AGG_SUM),
+    (re.compile(r"\d+企.*呪綬"), "N대수술비", AGG_SUM),
+    (re.compile(r"화상"), "화상", AGG_SUM),
+    (re.compile(r"폴립|양성종양"), "양성종양·폴립", AGG_SUM),
+    (re.compile(r"통원일당"), "통원일당", AGG_SUM),
+)
+
+
+def classify_extra(text: str):
+    """Classify non-standard detailed riders into the BOHUMFIT-179b 기타 bucket."""
+    compact = _despace(text)
+    for pattern, label, agg in EXTRA_PATTERNS:
+        if pattern.search(compact):
+            return label, agg
+    if match_coverage(text):
+        return None
+    return None
