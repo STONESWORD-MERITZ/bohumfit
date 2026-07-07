@@ -11,7 +11,6 @@ import { useAuth } from "./lib/auth-context";
 import Home from "./pages/Home";
 import DisclosureHub from "./pages/DisclosureHub";
 import InsuranceCalculator from "./pages/InsuranceCalculator";
-import CoverageAnalysis from "./pages/CoverageAnalysis";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -21,7 +20,7 @@ import Subscription from "./pages/Subscription";
 import PhoneVerify from "./pages/PhoneVerify";
 import DownloadGuide from "./pages/DownloadGuide";
 import CoverageGuide from "./pages/CoverageGuide";
-import CoverageCompare from "./pages/CoverageCompare";
+import CoverageRemodel from "./pages/CoverageRemodel";
 import InsuranceLinks from "./pages/InsuranceLinks";
 import ReportSample from "./pages/ReportSample";
 import History from "./pages/History"; // BOHUMFIT-156b
@@ -111,15 +110,11 @@ function App() {
           <Route path="coverage-guide" element={<CoverageGuide />} />
           {/* BOHUMFIT-092: 보험사 전산·약관·팩스 링크모음(공개) */}
           <Route path="insurance-links" element={<InsuranceLinks />} />
-          {/* BOHUMFIT-114: 비로그인도 Step1 열람 가능, 분석 실행은 페이지 내부에서 로그인 유도 */}
-          <Route path="coverage-compare" element={<CoverageCompare />} />
+          {/* BOHUMFIT-180: KB 보장분석 리모델링표. 로그인 필요. */}
+          <Route path="coverage-compare" element={<ProtectedRoute><CoverageRemodel /></ProtectedRoute>} />
           <Route
             path="insurance"
             element={<ProtectedRoute><InsuranceCalculator /></ProtectedRoute>}
-          />
-          <Route
-            path="coverage"
-            element={<ProtectedRoute><CoverageAnalysis /></ProtectedRoute>}
           />
           {/* BOHUMFIT-071: 구독 관리. BOHUMFIT-111: 비로그인도 요금제 열람 가능(결제 버튼만 로그인 유도) */}
           <Route path="subscription" element={<Subscription />} />
