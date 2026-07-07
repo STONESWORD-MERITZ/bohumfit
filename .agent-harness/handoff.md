@@ -9567,6 +9567,6 @@ Remaining:
 - Excel cross-check: workbook XML `문건주님.xlsx` has `최종!F4 = 573227`, but `최종!F6` formula is `기존!F6*12*20 = 137,574,480`. This conflicts with the BOHUMFIT-178/179 rule and task target `181,984,128` (sum of each contract monthly premium × actual payment months). Parser intentionally follows the 178/179 rule; Human may need to decide whether the Excel template should switch from flat 20-year total to actual payment-period total.
 - `.xlsx` was read through XML because HCell style metadata makes openpyxl fail with `IndexError: list index out of range`.
 ### Commit
-- PENDING
+- `ab028af` feat(BOHUMFIT-179): KB 보장분석 제안서 파서 + 데이터 생성 API
 ### Next
 - Human — 180 frontend remodeling table. 실 PDF 추가 케이스 검증 권장; Excel 총납입 산식(20년 고정 vs 실제 납입기간 합산) 정책 확인 필요.
