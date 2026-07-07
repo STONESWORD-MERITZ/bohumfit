@@ -1,3 +1,30 @@
+## 2026-07-06 Cowork BOHUMFIT-181 보장분석 리모델링표 엑셀/PDF 내보내기 (백엔드+프런트, 160 마지막)
+
+Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Codex (Windows tsc/build/pytest·openpyxl 설치·playwright PDF 실렌더·커밋/푸시)
+
+### Changed (179/179b·157·CoverageRemodel 렌더 로직 무접촉 — 신규/추가만)
+- `backend/coverage/export_excel.py` 신규 — `build_workbook_bytes(analysis)→xlsx`. 시트 "최종 보장진단"(월납합계·총납입 + 담보별 권장/가입/과부족/준비 색상)·"전 회사별세부"(회사 월납 내림차순×담보 + 합산/대표 요약열 + 계약 비고). openpyxl. (시트명 대괄호 금지 반영)
+- `backend/coverage/export_pdf.py` 신규 — `build_coverage_html(analysis)→str`(FIT v1.1 에메랄드·잉크 워드마크·ㅍ 심볼·과부족 색상·면책, 구브랜드색 0) + `generate_coverage_pdf`(pipeline.report_pdf `html_to_pdf_bytes`/`build_doc_no` **무수정 재사용**·시스템 Noto).
+- `backend/main.py` — `POST /coverage/export/excel`·`/coverage/export/pdf`(Body=분석 JSON·verify_jwt·Content-Disposition `BohumFit_보장분석_{별칭}_{YYYYMMDD}`·no-store) + import 2줄 + 헬퍼 3(_coverage_export_names/_disposition/_require_analysis).
+- `backend/requirements.txt` — `openpyxl==3.1.5` 추가(신규 의존성).
+- `src/pages/CoverageRemodel.tsx` — [최종] 헤더에 "엑셀 저장"·"PDF 저장" 세컨더리 버튼 + `exportFile(kind)` 핸들러(result JSON POST→blob 다운로드). 렌더 로직 무변경.
+- `backend/tests/test_coverage_export_181.py` 신규(4).
+
+### Verified (Cowork /tmp·마운트 — tsc/build/pytest·실렌더는 Codex 권위)
+- coverage 테스트 **22 passed**(179:11+179b:7+**181:4**) /tmp·마운트 양쪽. export 모듈 마운트 py_compile OK. main.py 181 삽입 블록(엔드포인트 2+헬퍼 3, 72줄) **AST 파싱 OK**·import 2줄 확인.
+- 엑셀: load_workbook 왕복 — 시트 2개, B2 월납 573,227·E2 총납입 181,984,128, 상해사망 5.5억·기타 N대수술비·계피 비고 셀 존재.
+- PDF-HTML: 에메랄드 #084734 존재·구브랜드(#15663D/#2E6B3E/#145C2A) 0·BohumFit/보험핏/ㅍ·573,227·181,984,128·상해사망·충분/부족.
+- 파일명 sanitize: 금지문자(/ * ?) 제거·별칭 없으면 "고객". PII: 프런트 분석JSON 전달→서버 재파싱/저장 없음·no-store.
+
+### Notes
+- ⚠**마운트 truncation(ENV-MOUNT-NOTES)**: `main.py`·`src/pages/CoverageRemodel.tsx` 마운트 뷰가 편집으로 커진 꼬리를 잘라 전체 py_compile/tsc가 false-fail(main.py L1526·CoverageRemodel L305대 절단). 내 편집은 절단 지점 이전·self-contained(main.py 삽입블록 AST OK, CoverageRemodel handler/버튼 grep 확인). **Codex Windows 원본에서 tsc/py_compile 재확인 필수.**
+- 신규 의존성 **openpyxl** — Codex Windows/배포에서 `pip install openpyxl==3.1.5` 필요(requirements 반영됨).
+- PDF 실제 렌더(playwright chromium)는 샌드박스 불가 → HTML 문자열만 검증. **Codex 로컬 실 PDF→analyze→export excel/pdf 실렌더·파일 열림 스모크.**
+- 180 상태 반영: Codex 752d512로 구 114비교·엑셀도구 완전 삭제됨 → 181은 신규 CoverageRemodel/coverage 모듈 위에만 얹음(삭제 파일 무참조).
+
+### Next
+- Codex — ① `pip install openpyxl==3.1.5` ② Windows py_compile main.py·`npx tsc`(CoverageRemodel)·`npm run build` ③ `cd backend && pytest -q`(기준선 514→ **518 passed/8 skipped 예상**, npm 15 유지) ④ 로컬 실 PDF 스모크: 로그인→/coverage-compare→KB PDF 업로드→엑셀·PDF 저장→파일 열림·값·브랜드 확인 ⑤ 통과 시 backend/coverage/export_*·main.py·requirements·CoverageRemodel.tsx·test·태스크문서 stage(실 PDF 제외)→ commit `feat(BOHUMFIT-181): 보장분석 리모델링표 엑셀/PDF 내보내기` → push. **→ 160 보장분석 통합 시리즈(178~181) 완료.**
+
 ## 2026-07-07 Codex BOHUMFIT-180 Windows verification
 
 Commit: 752d512 (eat(BOHUMFIT-180): 보장분석 리모델링표 프런트 + 구 보장분석 은퇴(114비교·엑셀도구 제거))
@@ -9678,3 +9705,36 @@ Remaining:
 
 ### Next
 - Human — 180 프런트 리모델링표 (웹최적화·[전]/[최종] 2리포트·기존 보장분석 통합).
+## 2026-07-07 Codex BOHUMFIT-181 Windows verification
+
+Commit: `0c6898e` (`feat(BOHUMFIT-181): 보장분석 리모델링표 엑셀/PDF 내보내기`)
+
+### Changed
+- `backend/coverage/export_excel.py`, `backend/coverage/export_pdf.py` 신규 추가: 보장분석 결과 JSON을 엑셀 2시트와 고객 전달용 PDF로 내보내는 경로.
+- `backend/main.py`: `/coverage/export/excel`, `/coverage/export/pdf` 엔드포인트 추가.
+- `backend/requirements.txt`: `openpyxl==3.1.5` 고정 추가 및 로컬 설치 완료.
+- `src/pages/CoverageRemodel.tsx`: `[최종]` 결과 영역에 엑셀 저장/PDF 저장 버튼 및 blob 다운로드 처리 추가.
+- `backend/tests/test_coverage_export_181.py`, `.agent-harness/tasks/BOHUMFIT-181-coverage-export.md` 추가.
+
+### Verified
+- [x] `pip install openpyxl==3.1.5` PASS.
+- [x] `python -c "import ast; ast.parse(open('backend/main.py', encoding='utf-8').read())"` PASS.
+- [x] `cd backend && python -c "import main; print('main import OK')"` PASS.
+- [x] `python -m py_compile backend/coverage/export_excel.py backend/coverage/export_pdf.py` PASS.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` PASS.
+- [x] `npx tsc -p tsconfig.node.json --noEmit` PASS.
+- [x] `npm run build` PASS (기존 Vite chunk-size warning만 발생).
+- [x] `npm test` PASS: 15 passed.
+- [x] `cd backend && python -m pytest -q` PASS: 518 passed, 8 skipped.
+- [x] `cd backend && python -m pytest tests/test_coverage_export_181.py -vv` PASS: 4 passed.
+- [x] `cd backend && python -m pytest tests/test_coverage_parser_179.py tests/test_coverage_parser_179b.py tests/test_coverage_export_181.py -vv` PASS: 33 passed.
+- [x] 로컬 실 PDF 스모크: `문건주님 kb보장분석 제안서.pdf` 파싱 -> xlsx 생성 -> PDF 생성까지 성공. 엑셀 2시트(`최종 보장진단`, `전 회사별세부`) 존재, 월납합계 573,227 및 총납입 181,984,128 확인. PDF 바이트 `%PDF` 확인.
+
+### Notes
+- 실 PDF/엑셀/PII는 읽기 전용으로만 사용했고 stage하지 않음. `.gitignore`의 `보장분석/` 유지 확인.
+- 실 PDF 스모크 산출물은 repo 밖 `%TEMP%`에만 생성: `bohumfit-181-smoke.xlsx`, `bohumfit-181-smoke.pdf`.
+- PDF HTML 브랜드 확인: `#084734` 존재, 구 브랜드색 `#15663D`, `#2E6B3E`, `#145C2A` 미검출.
+- coverage 179/179b/181 묶음은 현재 33개 테스트로 수집됨(179: 11, 179b: 18, 181: 4).
+
+### Next
+- Human — 배포 후 `/coverage-compare`에서 실 PDF 업로드 후 엑셀/PDF 저장 파일을 직접 열어 양식, 색상, 파일명, 면책 문구 최종 육안 확인. 160 보장분석 통합 완료.
