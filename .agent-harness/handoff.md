@@ -9509,6 +9509,6 @@ Remaining:
 - Working tree contains unrelated dirty/untracked local files (including PDFs/assets/older task docs); left untouched and unstaged.
 - BOHUMFIT-178 spec contains sample-derived verification details and must remain private/internal.
 ### Commit
-- PENDING
+- `04182e6` docs(BOHUMFIT-178): KB 보장분석 제안서 파싱 규칙 명세
 ### Next
 - Human — review BOHUMFIT-178 decisions, then proceed to BOHUMFIT-179 implementation planning.
