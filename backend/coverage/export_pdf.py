@@ -294,15 +294,20 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
         compare_rows = []
         for row in comparison.get("coverages", []):
             cls = "good" if row.get("improved") else "warn" if row.get("worsened") else ""
+            delta = row.get("delta_value")
+            delta_cls = "good" if isinstance(delta, (int, float)) and delta > 0 else "warn" if isinstance(delta, (int, float)) and delta < 0 else ""
             compare_rows.append(
                 f'<tr><td class="grp">{_esc(row.get("group12"))}</td>'
                 f'<td class="nm">{_esc(row.get("kb_name"))}</td>'
                 f'<td class="num">{_fmt_krw(row.get("before_value"))}</td>'
+                f'<td>{_esc(row.get("before_status") or "-")}</td>'
                 f'<td class="num strong">{_fmt_krw(row.get("after_value"))}</td>'
+                f'<td>{_esc(row.get("after_status") or "-")}</td>'
+                f'<td class="num {delta_cls}">{_fmt_delta_krw(delta)}</td>'
                 f'<td class="{cls}">{_esc(row.get("status_change"))}</td></tr>'
             )
         if not compare_rows:
-            compare_rows.append('<tr><td colspan="5" class="empty">상태 변화가 큰 담보가 없습니다.</td></tr>')
+            compare_rows.append('<tr><td colspan="8" class="empty">상태 변화가 큰 담보가 없습니다.</td></tr>')
         comparison_section = f"""
 <h2>④ 최종 전 VS 후 — 특약별 보장 비교</h2>
 <h3>컨설팅 전 VS 후 요약</h3>
@@ -315,7 +320,10 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
 <table><thead><tr><th>대분류</th><th class="num">전 보장금액</th><th class="num">후 보장금액</th><th class="num">증감</th><th class="num">개선</th></tr></thead>
 <tbody>{''.join(group_rows)}</tbody></table>
 <h3>특약별 보장 비교 · 개선 담보</h3>
-<table><thead><tr><th>대분류</th><th>담보</th><th class="num">전</th><th class="num">후</th><th>상태 변화</th></tr></thead>
+<table><thead>
+<tr><th rowspan="2">대분류</th><th rowspan="2">담보</th><th colspan="2">전</th><th colspan="2">후</th><th rowspan="2" class="num">증감</th><th rowspan="2">변화</th></tr>
+<tr><th class="num">가입</th><th>상태</th><th class="num">가입</th><th>상태</th></tr>
+</thead>
 <tbody>{''.join(compare_rows)}</tbody></table>
 """
     contract_rows = []

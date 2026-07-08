@@ -418,37 +418,50 @@ def _sheet_compare(ws, comparison: dict) -> None:
         if isinstance(value, (int, float)):
             ws[c].font = Font(bold=True, color=(EMERALD if value < 0 else AMBER_TX if value > 0 else GRAY_TX))
 
-    headers = ["대분류", "담보", "권장", "전 가입", "후 가입", "전 상태", "후 상태", "상태 변화", "증감", "개선"]
-    for col, header in enumerate(headers, start=1):
-        _hdr(ws.cell(row=r, column=col), header)
-    r += 1
+    header_row = r
+    for col, header in ((1, "대분류"), (2, "담보"), (3, "권장"), (8, "증감"), (9, "변화")):
+        ws.merge_cells(start_row=header_row, start_column=col, end_row=header_row + 1, end_column=col)
+        _hdr(ws.cell(row=header_row, column=col), header)
+
+    ws.merge_cells(start_row=header_row, start_column=4, end_row=header_row, end_column=5)
+    _hdr(ws.cell(row=header_row, column=4), "전")
+    ws.merge_cells(start_row=header_row, start_column=6, end_row=header_row, end_column=7)
+    _hdr(ws.cell(row=header_row, column=6), "후")
+    for col, header in ((4, "가입"), (5, "상태"), (6, "가입"), (7, "상태")):
+        _hdr(ws.cell(row=header_row + 1, column=col), header)
+    r += 2
     for row in comparison.get("coverages", []):
         values = [
             row.get("group12"),
             row.get("kb_name"),
             row.get("recommended"),
             row.get("before_value"),
-            row.get("after_value"),
             row.get("before_status"),
+            row.get("after_value"),
             row.get("after_status"),
-            row.get("status_change"),
             row.get("delta_value"),
-            "개선" if row.get("improved") else "",
+            row.get("status_change"),
         ]
         for col, value in enumerate(values, start=1):
             cell = ws.cell(row=r, column=col, value=value)
             cell.border = _BORDER
             cell.alignment = Alignment(
-                horizontal="right" if col in (3, 4, 5, 9) else "center" if col in (6, 7, 8, 10) else "left",
+                horizontal="right" if col in (3, 4, 6, 8) else "center" if col in (5, 7, 9) else "left",
                 vertical="center",
                 wrap_text=True,
             )
-            if col in (3, 4, 5, 9) and isinstance(value, (int, float)):
+            if col in (3, 4, 6, 8) and isinstance(value, (int, float)):
                 cell.number_format = '#,##0'
-            if col == 10 and value:
-                cell.fill = PatternFill("solid", fgColor=EMERALD_SOFT)
-                cell.font = Font(bold=True, color=EMERALD)
-            elif col in (6, 7):
+            if col == 9 and value:
+                if row.get("improved"):
+                    cell.fill = PatternFill("solid", fgColor=EMERALD_SOFT)
+                    cell.font = Font(bold=True, color=EMERALD)
+                elif row.get("worsened"):
+                    cell.fill = PatternFill("solid", fgColor=AMBER_SOFT)
+                    cell.font = Font(bold=True, color=AMBER_TX)
+                else:
+                    cell.font = Font(color=GRAY_TX, size=9)
+            elif col in (5, 7):
                 status = str(value or "")
                 if status in _STATUS_FILL:
                     cell.fill = PatternFill("solid", fgColor=_STATUS_FILL[status])
@@ -457,7 +470,7 @@ def _sheet_compare(ws, comparison: dict) -> None:
                 cell.font = Font(color=INK if col == 2 else GRAY_TX, size=9)
         r += 1
 
-    widths = (12, 22, 14, 14, 14, 10, 10, 16, 14, 8)
+    widths = (12, 22, 14, 14, 10, 14, 10, 14, 16)
     for col, width in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(col)].width = width
     ws.freeze_panes = "A5"

@@ -1,3 +1,105 @@
+## 2026-07-08 BOHUMFIT-195 — ④ 특약별 전후 비교표 그룹 헤더 정렬 완료
+
+Owner flow: Human -> Codex Windows | Current owner: Human(완료 확인)
+
+### Result
+- ④ 특약별 전후 비교표를 표시 전용으로 정렬했다. 값, 집계, 상태 판정, 189 대분류 순서, 190 유지/해지, 191 표지, 194 ①~⑥ 흐름은 변경하지 않았다.
+- `src/pages/CoverageRemodel.tsx`: ④ per-rider 표 `thead`만 2단 그룹 헤더로 교체. `tbody`는 기존 `담보 / before_value / before_status / after_value / after_status / delta_value / status_change` 렌더 그대로 유지.
+- `backend/coverage/export_pdf.py`: ④ 특약별 표 데이터행을 8칸(`대분류, 담보, 전 가입, 전 상태, 후 가입, 후 상태, 증감, 변화`)으로 확장하고 전/후 `colspan=2` 그룹 헤더를 적용.
+- `backend/coverage/export_excel.py`: `④ 전후 특약별` 시트 상세 표를 `대분류, 담보, 권장, 전 가입, 전 상태, 후 가입, 후 상태, 증감, 변화`로 재배열. `D:E=전`, `F:G=후` 병합 그룹 헤더와 rowspan 헤더 적용.
+- `backend/tests/test_coverage_report_195.py`: 화면 정적 헤더, PDF 8칸 행, Excel 병합 헤더/행 값 검증 신규 추가.
+
+### Changed
+- `.agent-harness/tasks/BOHUMFIT-195-consulting-compare-group-header.md`
+- `.agent-harness/locks.md`
+- `.agent-harness/handoff.md`
+- `src/pages/CoverageRemodel.tsx`
+- `backend/coverage/export_pdf.py`
+- `backend/coverage/export_excel.py`
+- `backend/tests/test_coverage_report_195.py`
+
+### Verified
+- `cd backend; python -m pytest tests\test_coverage_report_195.py -vv`
+```text
+3 passed in 0.62s
+```
+- `cd backend; python -m pytest tests\test_coverage_compare_188.py tests\test_coverage_report_191.py tests\test_coverage_report_194.py tests\test_coverage_report_195.py -q`
+```text
+13 passed in 0.95s
+```
+- `npx tsc -p tsconfig.app.json --noEmit` 통과.
+- `npx tsc -p tsconfig.node.json --noEmit` 통과.
+- `npm run build` 통과. 기존 Vite chunk-size warning만 출력.
+- `cd backend; python -m pytest -q`
+```text
+551 passed, 7 skipped in 49.87s
+```
+- 다음 기준선: `551 passed, 7 skipped`.
+- 문건주 기준 합성 메모리 스모크: 월납 `573,227`, 총납입 `181,984,128`, 상해사망 `550,000,000` 유지. ④ 특약별 표 전/후 2단 그룹 헤더, 13개 대분류(189 순서), PDF/Excel 동일 순서 확인.
+
+### Notes
+- `backend/pipeline/` 무접촉.
+- 실 PDF/Excel/PII 산출물 저장·커밋 없음.
+- 커밋 해시는 커밋 생성 후 Codex final에서 확정 기록한다(자기 커밋 해시는 같은 커밋 내부에 확정값으로 기록 불가).
+
+### Next
+- Human: `/coverage-compare`에서 실제 로그인 세션으로 ④ 화면/PDF/Excel 헤더 대칭을 육안 확인.
+
+## 2026-07-08 Codex Check — origin/main 기준선 548/7 재확인 + stash 테스트 파일 판정
+
+Owner flow: Human -> Codex Windows | Current owner: Human(기준선 확정 및 stash 코드/테스트 복원 여부 결정)
+
+### Scope
+- 조사·확인 전용, 코드 변경 0.
+- `stash@{0}` 조회만 수행. `stash apply/pop/drop` 금지 준수.
+- 커밋 없음.
+
+### Current Clean Baseline
+- Working directory before this handoff edit: `## main...origin/main`
+- Current commit: `e98b7b24a60a71e041941b81230dc7a97382eb5f`
+- `cd backend; python -m pytest -q`
+```text
+548 passed, 7 skipped in 40.76s
+```
+- 판정: 현재 `origin/main`의 진짜 순수 기준선은 `548 passed, 7 skipped`.
+
+### Stash Code/Test Inventory
+- Stash: `stash@{Wed Jul 8 19:30:46 2026}: On main: pre-resync-20260708`
+- `git stash show -u "stash@{0}" --stat`: 100 files, 3301 insertions(+), 5 deletions(-).
+- `src/*`: 없음.
+- backend 구현 파일(`backend/coverage/*`, `backend/pipeline/*` 등): 없음.
+- backend 테스트 파일:
+```text
+backend/tests/test_q3_real_pattern_regression.py   | 102 ++++++++
+backend/tests/test_subscription_schema.py          |  46 ++++
+```
+
+Test markers inspected from stash without restore:
+```text
+backend/tests/test_q3_real_pattern_regression.py
+- def test_q3_visit_10_in_5y()
+- def test_q3_visit_excludes_over_5y_boundary()
+- def test_q3_med_crossref_to_diagnosis_code()
+- def test_q3_inpatient_and_detail_surgery()
+- def test_q3_laceration_repair_surgery()
+- def test_q3_determinism()
+
+backend/tests/test_subscription_schema.py
+- def test_subscription_schema_tables_and_profile_role_exist()
+- pytest.skip("Supabase service role connection is not configured")
+- pytest.skip(f"Supabase is not reachable: {exc}")
+```
+
+### 554 -> 548 Cause Judgment
+- 과거 handoff의 `554 passed, 8 skipped`는 stash에 들어간 untracked 테스트가 워킹트리에 있었던 상태에서 계산된 숫자로 보는 것이 맞음.
+- `test_q3_real_pattern_regression.py`의 테스트 6개가 pass로 더해지면 `548 -> 554`.
+- `test_subscription_schema.py`의 Supabase 환경 의존 테스트 1개가 현재 환경에서 skip으로 잡히면 `7 -> 8`.
+- 따라서 194 시점 `554/8`과 현재 순수 `548/7`의 차이 6 pass + 1 skip은 stash된 테스트 파일 2개 때문으로 판정.
+
+### Next
+- Human: `origin/main` 기준선을 `548 passed, 7 skipped`로 확정할지 결정.
+- Human: stash 내 `backend/tests/test_q3_real_pattern_regression.py`, `backend/tests/test_subscription_schema.py`를 복원/정리/폐기할지 결정. Codex는 이번 턴에서 stash를 변경하지 않았음.
+
 ## 2026-07-08 Codex Resync — Cowork 마운트 truncation 안전 재동기화
 
 Owner flow: Human -> Codex Windows | Current owner: Human(stash 내용 확인/복원·폐기 결정)

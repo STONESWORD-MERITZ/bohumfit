@@ -1374,13 +1374,27 @@ export default function CoverageRemodel() {
                       <table className="w-full min-w-[840px] text-[12px]">
                         <thead>
                           <tr className="border-b border-line text-left text-ink-500">
-                            <th className="py-2 pr-2">담보</th>
-                            <th className="px-2 py-2 text-right">전 가입</th>
-                            <th className="px-2 py-2 text-center">전 상태</th>
-                            <th className="px-2 py-2 text-right">후 가입</th>
-                            <th className="px-2 py-2 text-center">후 상태</th>
-                            <th className="px-2 py-2 text-right">증감</th>
-                            <th className="py-2 pl-2 text-center">변화</th>
+                            <th rowSpan={2} className="py-2 pr-2 align-middle">
+                              담보
+                            </th>
+                            <th colSpan={2} className="px-2 py-2 text-center">
+                              전
+                            </th>
+                            <th colSpan={2} className="px-2 py-2 text-center">
+                              후
+                            </th>
+                            <th rowSpan={2} className="px-2 py-2 text-right align-middle">
+                              증감
+                            </th>
+                            <th rowSpan={2} className="py-2 pl-2 text-center align-middle">
+                              변화
+                            </th>
+                          </tr>
+                          <tr className="border-b border-line text-ink-500">
+                            <th className="px-2 py-2 text-right">가입</th>
+                            <th className="px-2 py-2 text-center">상태</th>
+                            <th className="px-2 py-2 text-right">가입</th>
+                            <th className="px-2 py-2 text-center">상태</th>
                           </tr>
                         </thead>
                         <tbody>
