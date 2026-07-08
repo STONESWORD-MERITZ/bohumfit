@@ -1,3 +1,36 @@
+## 2026-07-08 Codex - stash regression tests committed
+
+Owner flow: Human -> Codex Windows | Current owner: Human
+
+### Changed
+- `backend/tests/test_q3_real_pattern_regression.py`
+- `backend/tests/test_subscription_schema.py`
+- `.agent-harness/verify.md`
+- `CLAUDE.md`
+- `.agent-harness/handoff.md`
+
+### Verified
+- `git stash list`: `stash@{0}: On main: pre-resync-20260708` exists.
+- `git checkout "stash@{0}^3" -- backend/tests/test_q3_real_pattern_regression.py backend/tests/test_subscription_schema.py`
+  - Restored only the two requested test files. No stash apply/pop/drop.
+- `cd backend; python -m pytest -q`
+```text
+557 passed, 8 skipped in 81.60s
+```
+- `cd backend; python -m pytest -q tests/test_q3_real_pattern_regression.py tests/test_subscription_schema.py`
+```text
+6 passed, 1 skipped in 2.65s
+```
+- Confirmed no implementation diff under `backend/pipeline` or `backend/coverage`.
+
+### Notes
+- Human request expected `554 passed, 8 skipped`, but Windows authoritative run measured `557 passed, 8 skipped`. `verify.md` and `CLAUDE.md` were updated to the measured baseline to avoid recording a false baseline.
+- `stash@{0}` is preserved as requested. Remaining audit/FITHERE/brand/guide/pamphlet stash contents are still waiting for Human decision.
+- No PII/PDF/Excel files staged.
+
+### Next
+- Human: decide whether to keep or clean the remaining stash contents.
+
 ## 2026-07-08 BOHUMFIT-195 — ④ 특약별 전후 비교표 그룹 헤더 정렬 완료
 
 Owner flow: Human -> Codex Windows | Current owner: Human(완료 확인)
