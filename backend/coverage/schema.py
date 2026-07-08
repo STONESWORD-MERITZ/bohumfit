@@ -37,6 +37,19 @@ class Customer:
     sex: Optional[str] = None
 
 
+@dataclass
+class ReportCoverInput:
+    customer_name: Optional[str] = None
+    insurance_age: Optional[str] = None
+    age_change_date: Optional[str] = None
+    ga_name: Optional[str] = None
+    planner_name: Optional[str] = None
+    written_date: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
 def before_coverage(kb_name, kb_group, group12, agg, summary, by_company, enrolled) -> dict:
     return {
         "kb_name": kb_name, "kb_group": kb_group, "group12": group12, "agg": agg,

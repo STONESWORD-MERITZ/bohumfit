@@ -62,6 +62,23 @@ def _period_label(contract: dict) -> str:
     return "미제공"
 
 
+def _group_value_summary(comparison: dict) -> list[dict]:
+    groups: dict[str, dict] = {}
+    for row in comparison.get("coverages", []):
+        group = row.get("group12") or "기타"
+        item = groups.setdefault(group, {"group12": group, "before_value": 0, "after_value": 0, "improved_count": 0})
+        item["before_value"] += row.get("before_value") or 0
+        item["after_value"] += row.get("after_value") or 0
+        if row.get("improved"):
+            item["improved_count"] += 1
+    rows = []
+    for item in groups.values():
+        item["delta_value"] = item["after_value"] - item["before_value"]
+        if item["delta_value"] or item["improved_count"]:
+            rows.append(item)
+    return sorted(rows, key=lambda item: _grp_key(item.get("group12")))
+
+
 def _sheet_final(ws, final: dict, before: dict) -> None:
     ws.title = "최종 보장진단"
     prem = (final.get("premium") or before.get("premium") or {})
@@ -172,18 +189,57 @@ def _sheet_compare(ws, comparison: dict) -> None:
     ws["A1"] = "전후 비교"
     ws["A1"].font = Font(bold=True, size=14, color=INK)
     premium = comparison.get("premium") or {}
-    ws["A2"] = "월납 증감"
-    ws["B2"] = premium.get("delta_monthly")
-    ws["D2"] = "총납입 증감"
-    ws["E2"] = premium.get("delta_paid_total")
-    for c in ("B2", "E2"):
+    premium_rows = [
+        ("전 월납", premium.get("before_monthly"), "후 월납", premium.get("after_monthly"), "월납 증감", premium.get("delta_monthly")),
+        (
+            "전 총납입",
+            premium.get("before_paid_total"),
+            "후 총납입",
+            premium.get("after_paid_total"),
+            "총납입 증감",
+            premium.get("delta_paid_total"),
+        ),
+    ]
+    for row_index, values in enumerate(premium_rows, start=2):
+        for col, value in enumerate(values, start=1):
+            cell = ws.cell(row=row_index, column=col, value=value)
+            cell.font = Font(bold=col in (2, 4, 6), color=INK if col in (2, 4, 6) else GRAY_TX, size=9)
+            if col in (2, 4, 6) and isinstance(value, (int, float)):
+                cell.number_format = '#,##0"원"'
+
+    r = 5
+    ws.cell(row=r, column=1, value="대분류별 보장 변화").font = Font(bold=True, color=INK, size=11)
+    r += 1
+    for col, header in enumerate(["대분류", "전 보장금액", "후 보장금액", "증감", "개선 수"], start=1):
+        _hdr(ws.cell(row=r, column=col), header)
+    r += 1
+    for group in _group_value_summary(comparison):
+        values = [
+            group.get("group12"),
+            group.get("before_value"),
+            group.get("after_value"),
+            group.get("delta_value"),
+            group.get("improved_count"),
+        ]
+        for col, value in enumerate(values, start=1):
+            cell = ws.cell(row=r, column=col, value=value)
+            cell.border = _BORDER
+            cell.alignment = Alignment(horizontal="right" if col > 1 else "left", vertical="center")
+            if col in (2, 3, 4) and isinstance(value, (int, float)):
+                cell.number_format = '#,##0'
+            if col == 4 and isinstance(value, (int, float)):
+                cell.font = Font(color=(EMERALD if value > 0 else AMBER_TX if value < 0 else GRAY_TX))
+        r += 1
+    if r == 7:
+        ws.cell(row=r, column=1, value="대분류별 확대 변화가 없습니다.").border = _BORDER
+        r += 1
+
+    r += 2
+    for c in ("B2", "D2", "F2", "B3", "D3", "F3"):
         ws[c].number_format = '#,##0"원"'
         ws[c].font = Font(bold=True, color=INK)
-    for c in ("A2", "D2"):
-        ws[c].font = Font(color=GRAY_TX, size=9)
 
     headers = ["대분류", "담보", "권장", "전 가입", "후 가입", "전 상태", "후 상태", "상태 변화", "증감", "개선"]
-    r = 4
     for col, header in enumerate(headers, start=1):
         _hdr(ws.cell(row=r, column=col), header)
     r += 1

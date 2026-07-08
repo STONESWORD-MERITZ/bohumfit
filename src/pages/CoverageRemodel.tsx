@@ -88,6 +88,15 @@ type ProposalDraft = {
   coverages: ProposalCoverageDraft[];
 };
 
+type ReportCoverDraft = {
+  customerName: string;
+  insuranceAge: string;
+  ageChangeDate: string;
+  gaName: string;
+  plannerName: string;
+  writtenDate: string;
+};
+
 type ProposalPlan = {
   proposal_id: string;
   insurer?: string;
@@ -211,6 +220,47 @@ function makeProposal(): ProposalDraft {
   };
 }
 
+function todayDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function makeReportCover(): ReportCoverDraft {
+  return {
+    customerName: "",
+    insuranceAge: "",
+    ageChangeDate: "",
+    gaName: "",
+    plannerName: "",
+    writtenDate: todayDate(),
+  };
+}
+
+function maskDisplayName(value: string): string {
+  const raw = value.replace(/\s+/g, "");
+  if (!raw) return "";
+  if (raw.includes("*")) return raw;
+  if (raw.length === 1) return raw;
+  if (raw.length === 2) return `${raw[0]}*`;
+  return `${raw[0]}*${raw[raw.length - 1]}`;
+}
+
+function reportCoverPayload(draft: ReportCoverDraft): Record<string, string> {
+  const entries = {
+    customer_name: draft.customerName.trim(),
+    insurance_age: draft.insuranceAge.trim(),
+    age_change_date: draft.ageChangeDate.trim(),
+    ga_name: draft.gaName.trim(),
+    planner_name: draft.plannerName.trim(),
+    written_date: draft.writtenDate.trim(),
+  };
+  return Object.fromEntries(Object.entries(entries).filter(([, value]) => value)) as Record<string, string>;
+}
+
+function withReportCover<T extends object>(analysis: T, draft: ReportCoverDraft): T & { report_cover?: Record<string, string> } {
+  const reportCover = reportCoverPayload(draft);
+  return Object.keys(reportCover).length > 0 ? { ...analysis, report_cover: reportCover } : analysis;
+}
+
 function formatCoverageAmount(value: number | null | undefined): string {
   if (value == null) return "-";
   if (value === 0) return "0";
@@ -220,6 +270,12 @@ function formatCoverageAmount(value: number | null | undefined): string {
   if (eok) parts.push(`${eok}억`);
   if (man) parts.push(`${man.toLocaleString("ko-KR")}만`);
   return parts.length > 0 ? parts.join(" ") : value.toLocaleString("ko-KR");
+}
+
+function formatCoverageDeltaAmount(value: number | null | undefined): string {
+  if (value == null) return "-";
+  if (value === 0) return "0";
+  return `${value > 0 ? "+" : "-"}${formatCoverageAmount(Math.abs(value))}`;
 }
 
 function formatWon(value: number | null | undefined): string {
@@ -302,6 +358,21 @@ function groupComparisonRows(rows: ComparisonRow[]) {
   return Array.from(grouped.entries())
     .sort(([left], [right]) => groupKey(left) - groupKey(right))
     .map(([group, groupedRows]) => ({ group, rows: groupedRows }));
+}
+
+function groupComparisonValues(rows: ComparisonRow[]) {
+  const grouped = new Map<string, { group: string; beforeValue: number; afterValue: number; improvedCount: number }>();
+  for (const row of rows) {
+    const item = grouped.get(row.group12) || { group: row.group12, beforeValue: 0, afterValue: 0, improvedCount: 0 };
+    item.beforeValue += row.before_value || 0;
+    item.afterValue += row.after_value || 0;
+    if (row.improved) item.improvedCount += 1;
+    grouped.set(row.group12, item);
+  }
+  return Array.from(grouped.values())
+    .map((item) => ({ ...item, deltaValue: item.afterValue - item.beforeValue }))
+    .filter((item) => item.deltaValue !== 0 || item.improvedCount > 0)
+    .sort((left, right) => groupKey(left.group) - groupKey(right.group));
 }
 
 function sortCompanies(companies: Company[]): Company[] {
@@ -612,12 +683,14 @@ export default function CoverageRemodel() {
   const [afterResult, setAfterResult] = useState<CoverageAfterResponse | null>(null);
   const [decisions, setDecisions] = useState<Record<string, ContractDecision>>({});
   const [proposals, setProposals] = useState<ProposalDraft[]>([]);
+  const [reportCover, setReportCover] = useState<ReportCoverDraft>(() => makeReportCover());
   const [showBefore, setShowBefore] = useState(false);
   const [exporting, setExporting] = useState<"" | "excel" | "pdf">("");
 
   const companies = useMemo(() => result?.before.contract_list || result?.before.companies || [], [result]);
   const finalGroups = useMemo(() => groupFinalRows(result?.final.coverages || []), [result]);
   const comparisonGroups = useMemo(() => groupComparisonRows(afterResult?.comparison.coverages || []), [afterResult]);
+  const comparisonValueGroups = useMemo(() => groupComparisonValues(afterResult?.comparison.coverages || []), [afterResult]);
   const statusSummary = useMemo(() => statusCounts(result?.final.coverages || []), [result]);
   const afterStatusSummary = useMemo(() => statusCounts(afterResult?.after.final.coverages || []), [afterResult]);
   const coverageOptions = useMemo(() => result?.before.coverages || [], [result]);
@@ -636,6 +709,7 @@ export default function CoverageRemodel() {
     setAfterResult(null);
     setDecisions({});
     setProposals([]);
+    setReportCover(makeReportCover());
     setFileName(file.name);
     try {
       const formData = new FormData();
@@ -671,7 +745,7 @@ export default function CoverageRemodel() {
       const response = await fetch(`${API_BASE}/coverage/export/${kind}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify(afterResult || result),
+        body: JSON.stringify(withReportCover(afterResult || result, reportCover)),
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
@@ -706,6 +780,10 @@ export default function CoverageRemodel() {
       return { ...current, [key]: { ...previous, ...patch } };
     });
     setAfterResult(null);
+  }
+
+  function updateReportCover(patch: Partial<ReportCoverDraft>) {
+    setReportCover((current) => ({ ...current, ...patch }));
   }
 
   function addProposal() {
@@ -833,6 +911,130 @@ export default function CoverageRemodel() {
 
       {result && (
         <>
+          <section className="mt-6">
+            <div className="flex flex-col gap-1">
+              <h2 className="ko-heading text-lg font-bold text-ink-900">고객용 리포트 표지</h2>
+            </div>
+            <div className="mt-3 grid gap-4 lg:grid-cols-[1.35fr_0.85fr]">
+              <div className="rounded-card border border-line bg-white p-5">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="text-[12px] font-semibold text-ink-700">
+                    고객명
+                    <input
+                      className="mt-1 w-full rounded-[8px] border border-line bg-white px-3 py-2 text-sm"
+                      placeholder="홍길동"
+                      value={reportCover.customerName}
+                      onChange={(event) => updateReportCover({ customerName: event.target.value })}
+                    />
+                  </label>
+                  <label className="text-[12px] font-semibold text-ink-700">
+                    보험나이
+                    <input
+                      className="mt-1 w-full rounded-[8px] border border-line bg-white px-3 py-2 text-sm"
+                      placeholder="40세"
+                      value={reportCover.insuranceAge}
+                      onChange={(event) => updateReportCover({ insuranceAge: event.target.value })}
+                    />
+                  </label>
+                  <label className="text-[12px] font-semibold text-ink-700">
+                    상령일
+                    <input
+                      className="mt-1 w-full rounded-[8px] border border-line bg-white px-3 py-2 text-sm"
+                      type="date"
+                      value={reportCover.ageChangeDate}
+                      onChange={(event) => updateReportCover({ ageChangeDate: event.target.value })}
+                    />
+                  </label>
+                  <label className="text-[12px] font-semibold text-ink-700">
+                    소속(GA)
+                    <input
+                      className="mt-1 w-full rounded-[8px] border border-line bg-white px-3 py-2 text-sm"
+                      placeholder="GA명"
+                      value={reportCover.gaName}
+                      onChange={(event) => updateReportCover({ gaName: event.target.value })}
+                    />
+                  </label>
+                  <label className="text-[12px] font-semibold text-ink-700">
+                    설계사명
+                    <input
+                      className="mt-1 w-full rounded-[8px] border border-line bg-white px-3 py-2 text-sm"
+                      placeholder="설계사명"
+                      value={reportCover.plannerName}
+                      onChange={(event) => updateReportCover({ plannerName: event.target.value })}
+                    />
+                  </label>
+                  <label className="text-[12px] font-semibold text-ink-700">
+                    작성일자
+                    <input
+                      className="mt-1 w-full rounded-[8px] border border-line bg-white px-3 py-2 text-sm"
+                      type="date"
+                      value={reportCover.writtenDate}
+                      onChange={(event) => updateReportCover({ writtenDate: event.target.value })}
+                    />
+                  </label>
+                </div>
+              </div>
+              <div className="rounded-card border border-line bg-white p-5">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-[8px] bg-accent-700 text-lg font-extrabold text-white">
+                    ㅍ
+                  </span>
+                  <div>
+                    <p className="text-sm font-extrabold text-ink-900">BohumFit</p>
+                    <p className="text-[11px] font-semibold text-ink-soft">보험핏</p>
+                  </div>
+                </div>
+                <div className="mt-8">
+                  <p className="text-[12px] font-bold text-accent-700">FIT 보장분석</p>
+                  <p className="ko-heading mt-1 text-3xl font-extrabold text-ink-900">보장분석 리포트</p>
+                </div>
+                <div className="mt-8 grid grid-cols-[88px_1fr] gap-4">
+                  <div className="flex h-16 items-center justify-center rounded-[8px] border border-dashed border-line text-[10px] font-bold uppercase tracking-[0.18em] text-ink-soft">
+                    GA Logo
+                  </div>
+                  <div className="border-t-2 border-accent-700 text-[12px]">
+                    {reportCover.customerName && (
+                      <div className="flex justify-between border-b border-line py-2">
+                        <span className="font-semibold text-ink-soft">고객명</span>
+                        <strong className="text-ink-900">{maskDisplayName(reportCover.customerName)}</strong>
+                      </div>
+                    )}
+                    {reportCover.insuranceAge && (
+                      <div className="flex justify-between border-b border-line py-2">
+                        <span className="font-semibold text-ink-soft">보험나이</span>
+                        <strong className="text-ink-900">{reportCover.insuranceAge}</strong>
+                      </div>
+                    )}
+                    {reportCover.ageChangeDate && (
+                      <div className="flex justify-between border-b border-line py-2">
+                        <span className="font-semibold text-ink-soft">상령일</span>
+                        <strong className="text-ink-900">{reportCover.ageChangeDate}</strong>
+                      </div>
+                    )}
+                    {reportCover.gaName && (
+                      <div className="flex justify-between border-b border-line py-2">
+                        <span className="font-semibold text-ink-soft">소속(GA)</span>
+                        <strong className="text-ink-900">{reportCover.gaName}</strong>
+                      </div>
+                    )}
+                    {reportCover.plannerName && (
+                      <div className="flex justify-between border-b border-line py-2">
+                        <span className="font-semibold text-ink-soft">설계사명</span>
+                        <strong className="text-ink-900">{reportCover.plannerName}</strong>
+                      </div>
+                    )}
+                    {reportCover.writtenDate && (
+                      <div className="flex justify-between border-b border-line py-2">
+                        <span className="font-semibold text-ink-soft">작성일자</span>
+                        <strong className="text-ink-900">{reportCover.writtenDate}</strong>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
           <section className="mt-6 rounded-card border border-line bg-white p-6">
             <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
               <div>
@@ -1162,6 +1364,50 @@ export default function CoverageRemodel() {
                 {afterResult.comparison.summary.short_to_sufficient}개
               </div>
 
+              {comparisonValueGroups.length > 0 && (
+                <div className="mt-5">
+                  <h3 className="ko-heading mb-2 text-sm font-bold text-ink-900">대분류별 보장 변화</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[640px] text-[12px]">
+                      <thead>
+                        <tr className="border-b border-line text-left text-ink-500">
+                          <th className="py-2 pr-2">대분류</th>
+                          <th className="px-2 py-2 text-right">전 보장금액</th>
+                          <th className="px-2 py-2 text-right">후 보장금액</th>
+                          <th className="px-2 py-2 text-right">증감</th>
+                          <th className="py-2 pl-2 text-right">개선</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {comparisonValueGroups.map((group) => (
+                          <tr key={group.group} className="border-b border-line/60">
+                            <td className="py-1.5 pr-2 font-semibold text-ink-800">{group.group}</td>
+                            <td className="px-2 py-1.5 text-right">{formatCoverageAmount(group.beforeValue)}</td>
+                            <td className="px-2 py-1.5 text-right font-semibold text-ink-900">
+                              {formatCoverageAmount(group.afterValue)}
+                            </td>
+                            <td
+                              className={`px-2 py-1.5 text-right font-semibold ${
+                                group.deltaValue > 0
+                                  ? "text-accent-700"
+                                  : group.deltaValue < 0
+                                    ? "text-amber-700"
+                                    : "text-ink-soft"
+                              }`}
+                            >
+                              {formatCoverageDeltaAmount(group.deltaValue)}
+                            </td>
+                            <td className="py-1.5 pl-2 text-right font-semibold text-accent-700">
+                              {group.improvedCount}개
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
               <div className="mt-5 space-y-5">
                 {comparisonGroups.map(({ group, rows }) => (
                   <div key={group}>
@@ -1193,7 +1439,7 @@ export default function CoverageRemodel() {
                               <td className="px-2 py-1.5 text-center">
                                 <StatusBadge status={coverage.after_status} />
                               </td>
-                              <td className="px-2 py-1.5 text-right">{formatCoverageAmount(coverage.delta_value)}</td>
+                              <td className="px-2 py-1.5 text-right">{formatCoverageDeltaAmount(coverage.delta_value)}</td>
                               <td className="py-1.5 pl-2 text-center">
                                 <span
                                   className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${

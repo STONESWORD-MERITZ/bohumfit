@@ -1,3 +1,39 @@
+## 2026-07-08 Codex BOHUMFIT-191 — 고객용 리포트 표지 + 전 VS 후 비교
+
+Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Human
+
+### Changed
+- `backend/coverage/export_pdf.py`: FIT v1.1 오리지널 표지 추가(ㅍ 심볼, 에메랄드, 밝은 바탕), `report_cover` 수기 입력 필드 표시, 고객명/비고 고객명 마스킹, GA 로고 슬롯, 고객용 전후 비교 3축(월납입보험료·총납입보험료·대분류별 보장 변화) 추가.
+- `backend/coverage/export_excel.py`: `전후 비교` 시트에 전/후/증감 보험료와 대분류별 보장 변화 요약 추가.
+- `backend/coverage/schema.py`: `ReportCoverInput` dataclass로 표지 입력 필드 계약 문서화.
+- `src/pages/CoverageRemodel.tsx`: 표지 수기 입력 UI, 고객용 표지 미리보기, GA 로고 슬롯, export payload `report_cover`, 화면 내 대분류별 보장 변화 표 추가.
+- `backend/tests/test_coverage_report_191.py`, `.agent-harness/tasks/BOHUMFIT-191-customer-report-cover-compare.md` 신규.
+- `.agent-harness/verify.md`, `CLAUDE.md`: backend pytest 기준선 `551 passed, 8 skipped`로 갱신.
+
+### Verified
+- [x] `python -m pytest backend\tests\test_coverage_report_191.py -vv` — 3 passed
+- [x] `python -m pytest backend\tests\test_coverage_export_181.py backend\tests\test_coverage_compare_188.py -q` — 8 passed
+- [x] `python -m pytest backend\tests\test_coverage_report_191.py backend\tests\test_coverage_export_181.py backend\tests\test_coverage_compare_188.py -q` — 11 passed
+- [x] FIT/타사 grep — 구브랜드색 코드와 `인카금융/INCAR/Incar` 없음.
+- [x] `npx tsc -p tsconfig.app.json --noEmit` — pass
+- [x] `npx tsc -p tsconfig.node.json --noEmit` — pass
+- [x] `npm run build` — pass (기존 Vite chunk-size warning only)
+- [x] `cd backend && python -m pytest -q` — 551 passed, 8 skipped
+- [x] 문건주 실 PDF memory smoke — 계약 6 해지 + 유사암 신규제안 + 표지 입력 → HTML 마스킹(`문*주`, 원문 이름 미노출)·브랜드/면책 확인, Excel bytes `19,266`, PDF bytes `719,575`, `전후 비교` 시트/대분류별 보장 변화 확인.
+- [x] Dev server HTTP smoke — `http://127.0.0.1:5175/coverage-compare` 200 SPA 응답 확인 후 포트 프로세스 종료.
+
+### Notes
+- `backend/pipeline/` 무접촉. `[전]`/189/190/187/188 코어 경로 유지.
+- 프로필 자동연동, GA 목록 드롭다운, 실제 로고 업로드/삽입은 BOHUMFIT-192 이후 별도 태스크.
+- 실 PDF·엑셀·PII·산출물 미저장/미스테이지.
+- 병렬 BOHUMFIT-192 handoff/locks 기록은 191 stage에서 제외한다.
+
+### Commit
+- Pending at handoff write time; pushed feature commit hash is reported by Codex after scoped commit.
+
+### Next
+- Human: `/coverage-compare`에서 실제 로그인 세션으로 표지 입력→유지/해지+신규제안→고객용 PDF/엑셀 다운로드를 육안 확인.
+
 ## 2026-07-08 Codex BOHUMFIT-190 — 컨설팅 2단계 유지/해지 전용
 
 Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Codex → BOHUMFIT-191
