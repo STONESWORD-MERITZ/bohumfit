@@ -262,17 +262,9 @@ def compare_before_after(before_final: dict, after_final: dict) -> dict:
 
 
 def build_after_result(analysis: dict, plan: dict | None) -> dict:
-    """Wrap the original analysis with a BOHUMFIT-186 after result."""
-    before = analysis["before"]
-    diagnosis = _diagnosis_from_final(analysis.get("final"))
-    after = build_after(before, plan or {}, diagnosis)
-    consulting_plan = plan or {"version": 1, "source": "coverage-remodel", "existing": [], "proposals": []}
-    warnings = list(analysis.get("warnings") or []) + list(after.get("warnings") or [])
-    return {
-        "before": before,
-        "final": analysis["final"],
-        "consulting_plan": consulting_plan,
-        "after": {"before": after["before"], "final": after["final"], "warnings": after.get("warnings") or []},
-        "comparison": compare_before_after(analysis["final"], after["final"]),
-        "warnings": warnings,
-    }
+    """Wrap the original analysis with the current after/comparison result."""
+    from .compare import build_after_analysis
+
+    consulting_plan = {"version": 1, "source": "coverage-remodel", "existing": [], "proposals": []}
+    consulting_plan.update(plan or {})
+    return build_after_analysis(analysis, consulting_plan)

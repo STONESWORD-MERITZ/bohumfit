@@ -26,6 +26,16 @@ def _contract_id(value: Any) -> str:
     return str(value).strip()
 
 
+def _disposition(value: Any) -> str:
+    raw = str(value or "keep").strip()
+    lowered = raw.lower()
+    if raw == "유지":
+        return "keep"
+    if raw == "해지":
+        return "cancel"
+    return lowered
+
+
 def _to_int(value: Any) -> int | None:
     if value is None or value == "":
         return None
@@ -249,7 +259,7 @@ def build_after_analysis(analysis: dict, plan: dict | None = None) -> dict:
     for contract in source_contracts:
         contract_id = _contract_id(contract.get("idx"))
         decision = decisions.get(contract_id) or {}
-        disposition = decision.get("disposition") or "keep"
+        disposition = _disposition(decision.get("disposition"))
         if disposition == "cancel":
             continue
         if disposition != "keep":
@@ -295,8 +305,9 @@ def build_after_analysis(analysis: dict, plan: dict | None = None) -> dict:
             "maturity": proposal.get("maturity"),
             "monthly_premium": monthly,
             "paid_total": paid_total,
-            "remark": proposal.get("remark") or "신규제안",
+            "remark": proposal.get("remark") or "신규가입 제안",
             "consulting_status": "신규제안",
+            "is_proposal": True,
         }
         proposal_contracts.append(contract)
         for coverage in proposal.get("coverages", []):
