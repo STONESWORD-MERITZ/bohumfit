@@ -1,3 +1,36 @@
+## 2026-07-08 Codex BOHUMFIT-189 — 대분류 순서 v2 + 뇌/심장 분리 + 골절 라벨 환원
+
+Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Codex → BOHUMFIT-190
+
+### Changed
+- `backend/coverage/constants.py`: 대분류 순서를 `사망 > 후유장해 > 암 > 뇌 > 심장 > 수술 > 입원(간병 포함) > 운전자 > 골절 > 실손 > 화재 > 배상책임 > 기타`로 갱신.
+- 뇌 진단 담보(`뇌혈관질환`, `뇌졸중`, `뇌출혈`)는 `뇌`, 심장 진단 담보(`허혈성심장질환`, `급성심근경색증`)는 `심장`으로 분리. `뇌혈관질환수술비`, `허혈성심장질환수술비`는 기존대로 `수술` 유지.
+- `골절진단비`, `보철치료비`, extra `화상`을 `골절`로 환원. 간병/입원일당은 `입원(간병 포함)`, 실손 담보는 `실손`으로 표시.
+- `src/pages/CoverageRemodel.tsx`: 화면 그룹 정렬 순서 v2 반영.
+- `backend/tests/test_coverage_group_189.py` 신규, 기존 183/179/179b 그룹 기대값을 189 기준으로 갱신.
+- `.agent-harness/tasks/BOHUMFIT-189-group-order-v2.md` 신규, `.agent-harness/verify.md`와 `CLAUDE.md` 기준선 `548 passed, 8 skipped`로 갱신.
+
+### Verified
+- [x] `python -m pytest backend\tests\test_coverage_group_189.py -vv` — 4 passed
+- [x] `python -m pytest backend\tests\test_coverage_group_183.py backend\tests\test_coverage_parser_179.py backend\tests\test_coverage_parser_179b.py -q` — 34 passed
+- [x] `npx tsc -p tsconfig.app.json --noEmit` — pass
+- [x] `npx tsc -p tsconfig.node.json --noEmit` — pass
+- [x] `npm run build` — pass (기존 Vite chunk-size warning only)
+- [x] `cd backend && python -m pytest -q` — 548 passed, 8 skipped
+- [x] 문건주 실 PDF memory smoke — 월납 `573,227`, 총납입 `181,984,128`, 상해사망 `550,000,000`, 일반암 `100,000,000`, rollup 13개 그룹, 뇌/심장/골절/실손/입원(간병 포함) 라벨 확인.
+
+### Notes
+- `backend/pipeline/` 무접촉. 담보별 집계값 변경 없음.
+- 엑셀/PDF export는 기존처럼 `GROUP13`을 소비하므로 상수 변경으로 새 순서를 반영한다. 별도 하드코딩 변경 없음.
+- 병렬 BOHUMFIT-192 조사 기록이 handoff/locks에 존재하므로 189 커밋 stage에서 제외한다.
+- 실 PDF·엑셀·PII·산출물 미저장/미스테이지.
+
+### Commit
+- Pending at handoff write time; pushed feature commit hash is reported by Codex after scoped commit.
+
+### Next
+- Codex: BOHUMFIT-190 유지/해지 전용(배서 감액/증액 제거) 구현으로 진행.
+
 ## 2026-07-08 Codex — 160 컨설팅 시리즈(182~188) 완료, 기준선 544/8 확정
 
 ## 2026-07-08 Codex BOHUMFIT-186 Windows implementation/revalidation

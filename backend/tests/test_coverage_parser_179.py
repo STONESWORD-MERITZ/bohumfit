@@ -162,7 +162,7 @@ def test_amount_tokenizer():
 
 def test_mapping_37_12_rep():
     assert STANDARD_COUNT == 37
-    assert len(GROUP12) == 11
+    assert len(GROUP12) == 12
     reps = [n for (n, _, _, a) in KB_COVERAGES if a == AGG_REP]
     assert reps == ["상해입원의료비", "상해통원의료비", "질병입원의료비",
                     "질병통원의료비", "3대비급여실손", "가족/일상/자녀배상"]

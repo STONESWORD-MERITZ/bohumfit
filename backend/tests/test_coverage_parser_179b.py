@@ -94,7 +94,7 @@ def _cov(table: dict, name: str):
 
 
 def test_group13_added():
-    assert len(GROUP13) == 12
+    assert len(GROUP13) == 13
     assert GROUP13[-1] == GROUP_ETC
 
 
@@ -148,7 +148,7 @@ def test_classify_extra_patterns(text, label):
 def test_extra_coverages_summary(name, expected):
     _, before, _ = _build()
     assert _cov(before, name)["summary"] == expected
-    expected_group = "상해" if name == "화상" else GROUP_ETC
+    expected_group = "골절" if name == "화상" else GROUP_ETC
     assert _cov(before, name)["group12"] == expected_group
     assert _cov(before, name)["agg"] == "sum"
 

@@ -32,14 +32,15 @@ def test_group_order_reorganized_without_old_care_or_fracture_buckets() -> None:
         "사망",
         "후유장해",
         "암",
-        "뇌/심장",
+        "뇌",
+        "심장",
         "수술",
-        "입원일당",
-        "실손의료비",
-        "상해",
+        "입원(간병 포함)",
         "운전자",
-        "배상책임",
+        "골절",
+        "실손",
         "화재",
+        "배상책임",
         "기타",
     )
 
@@ -58,12 +59,12 @@ def test_care_fracture_and_burn_groups_move_without_amount_change() -> None:
     before = build_before(_raw())
     by_name = {row["kb_name"]: row for row in before["coverages"]}
 
-    assert by_name["간병인/간호간병상해일당"]["group12"] == "입원일당"
+    assert by_name["간병인/간호간병상해일당"]["group12"] == "입원(간병 포함)"
     assert by_name["간병인/간호간병상해일당"]["summary"] == 30_000
-    assert by_name["골절진단비"]["group12"] == "상해"
+    assert by_name["골절진단비"]["group12"] == "골절"
     assert by_name["골절진단비"]["summary"] == 1_000_000
-    assert by_name["보철치료비"]["group12"] == "상해"
-    assert by_name["화상"]["group12"] == "상해"
+    assert by_name["보철치료비"]["group12"] == "골절"
+    assert by_name["화상"]["group12"] == "골절"
     assert by_name["화상"]["summary"] == 2_000_000
 
 
