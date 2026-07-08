@@ -94,7 +94,7 @@ def _cov(table: dict, name: str):
 
 
 def test_group13_added():
-    assert len(GROUP13) == 13
+    assert len(GROUP13) == 12
     assert GROUP13[-1] == GROUP_ETC
 
 
@@ -120,7 +120,7 @@ def test_179_regression_core_coverages_unchanged(name, expected):
 def test_179_base_coverage_count_unchanged():
     _, before, _ = _build()
     base = [c for c in before["coverages"] if c["group12"] != GROUP_ETC]
-    assert len(base) == 37
+    assert len(base) == 36
 
 
 @pytest.mark.parametrize(
@@ -148,7 +148,8 @@ def test_classify_extra_patterns(text, label):
 def test_extra_coverages_summary(name, expected):
     _, before, _ = _build()
     assert _cov(before, name)["summary"] == expected
-    assert _cov(before, name)["group12"] == GROUP_ETC
+    expected_group = "상해" if name == "화상" else GROUP_ETC
+    assert _cov(before, name)["group12"] == expected_group
     assert _cov(before, name)["agg"] == "sum"
 
 

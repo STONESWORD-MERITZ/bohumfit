@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from .constants import AGG_SUM, GROUP13, GROUP_ETC, KB_COVERAGES
+from .constants import AGG_SUM, EXTRA_LABEL_GROUP, GROUP13, GROUP_ETC, GROUP_EXCLUDED, KB_COVERAGES
 from .schema import before_coverage, final_coverage
 
 
@@ -28,20 +28,27 @@ def _remark(note: dict | None):
     return "계피동일"
 
 
+def _company_sort_key(contract: dict):
+    premium = contract.get("monthly_premium")
+    return (premium is None, -(premium or 0), contract.get("idx") or 9999)
+
+
 def build_before(raw: dict) -> dict:
     contracts = raw.get("contracts", [])
     monthly_total = sum(c["monthly_premium"] for c in contracts if c.get("monthly_premium"))
     paid_total = sum((_paid(c) or 0) for c in contracts)
     notes = raw.get("notes", {})
-    companies = sorted(contracts, key=lambda c: (c.get("monthly_premium") or 0), reverse=True)
+    companies = sorted(contracts, key=_company_sort_key)
     companies = [
-        {**c, "paid_total": _paid(c), "remark": _remark(notes.get(c.get("idx")))}
+        {**c, "paid_total": _paid(c), "remark": _remark(notes.get(c.get("idx"))) or c.get("remark")}
         for c in companies
     ]
 
     matrix = raw.get("matrix", {})
     coverages = []
     for kb_name, kb_group, group12, agg in KB_COVERAGES:
+        if group12 == GROUP_EXCLUDED:
+            continue
         row = matrix.get(kb_name)
         by_company = row["by_company"] if row else {}
         summary = _aggregate(by_company, agg)
@@ -51,12 +58,13 @@ def build_before(raw: dict) -> dict:
     for label, extra in raw.get("extra", {}).items():
         by_company = extra.get("by_company", {})
         agg = extra.get("agg", AGG_SUM)
+        group12 = EXTRA_LABEL_GROUP.get(label, GROUP_ETC)
         summary = _aggregate(by_company, agg)
         coverages.append(
             before_coverage(
                 label,
-                GROUP_ETC,
-                GROUP_ETC,
+                group12,
+                group12,
                 agg,
                 summary,
                 by_company,
@@ -68,6 +76,7 @@ def build_before(raw: dict) -> dict:
         "customer": raw.get("customer"),
         "premium": {"monthly_total": monthly_total, "paid_total": paid_total, "currency": "KRW"},
         "companies": companies,
+        "contract_list": companies,
         "coverages": coverages,
     }
 
@@ -76,6 +85,8 @@ def build_final(before: dict, diagnosis: dict) -> dict:
     coverages = []
     rollup_counts = defaultdict(lambda: {"충분": 0, "부족": 0, "미가입": 0})
     for coverage in before["coverages"]:
+        if coverage.get("group12") == GROUP_EXCLUDED:
+            continue
         diagnosis_row = diagnosis.get(coverage["kb_name"], {})
         status = diagnosis_row.get("status")
         coverages.append(

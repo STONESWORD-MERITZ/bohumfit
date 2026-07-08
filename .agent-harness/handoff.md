@@ -1,3 +1,61 @@
+## 2026-07-08 Codex BOHUMFIT-182/183/184 Windows 구현·검증 배치
+
+Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Human
+
+### Changed
+- `backend/coverage/parser.py`: 보험사명 공백무시 매칭(`KNOWN_INSURERS`)으로 회사명 2줄 wrap 결합, BOP/DB손보류 `보험료미제공`·납입기간 없음 계약을 `CONTRACT_LINE_RE`에서 인식, 매트릭스 열집합과 계약 idx 집합 정합화, 월보험료 미제공 계약 `monthly_premium=None` 처리.
+- `backend/coverage/constants.py` / `aggregator.py`: 대분류 순서 재편(사망→후유장해→암→뇌/심장→수술→입원일당→실손의료비→상해→운전자→배상책임→화재→기타), 간병 일당은 입원일당 합류, 장기요양간병비·경증치매진단은 렌더 제외, 골절·보철·화상은 상해로 이동, mojibake dead pattern `\d+企.*呪綬` 제거.
+- `backend/coverage/export_excel.py` / `export_pdf.py` / `src/pages/CoverageRemodel.tsx`: [전]에 보유 계약 리스트(회사명·상품명·납입기간·만기·월보험료·비고) 승격, 월보험료 없음은 `미제공` 표기.
+- 신규/갱신 테스트: `test_coverage_parser_182.py`, `test_coverage_group_183.py`, `test_coverage_contract_list_184.py`, 기존 179/179b 그룹 기대값 갱신.
+- `CLAUDE.md`: backend pytest 기준선 `529 passed, 8 skipped`로 갱신.
+
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` — pass
+- [x] `npx tsc -p tsconfig.node.json --noEmit` — pass
+- [x] `npm run build` — pass (기존 Vite chunk-size warning only)
+- [x] `cd backend && python -m pytest -q` — **529 passed, 8 skipped**
+- [x] `cd backend && python -m pytest -q tests/test_coverage_parser_182.py tests/test_coverage_group_183.py tests/test_coverage_contract_list_184.py -vv` — **11 passed**
+- [x] 실 PDF smoke: `문건주님 kb보장분석 제안서.pdf` 전체 경로 파싱 성공 — 계약 6 / 매트릭스 열 6 / warning 0 / 월납 573,227 / 총납입 181,984,128 / 상해사망 550,000,000 / 일반암 100,000,000 불변. 치매 2종 미표시, 화상 group=`상해`, 계약 리스트에 납입기간·만기·월보험료·비고 표기 데이터 존재.
+- [x] 실 자료 smoke 보조: `김대휘님 상품별 가입 현황.pdf`, `이원록님 상품별 가입 현황.pdf`는 전체 제안서가 아닌 2p 매트릭스 단독 파일이라 `/coverage/analyze` 필수 힌트 부족으로 `KBFormatError`가 정상. 두 파일 모두 `보험료미제공` 텍스트 및 DB손보 열 확인, 매트릭스 열 7·표준 37행 파싱 확인.
+
+### Notes
+- 182 카운트 정책 확정: BOP/DB손보처럼 보험료가 없는 계약도 **계약으로 인식**한다. 열 제외가 아니라 `CONTRACT_LINE_RE` 보정으로 계약 idx에 포함하고, 월보험료 셀은 `미제공`으로 표시한다. 정합 후에도 매트릭스 열집합과 계약 idx 집합이 다를 때만 warning을 낸다.
+- 184 S1 만기 캡처는 기존 `maturity` 필드를 그대로 사용했다. 별도 캡처 추가 없음.
+- PII/실 PDF/엑셀/추출 데이터는 stage 금지. `보장분석/` 실자료는 검증에만 사용했다.
+- 통합 커밋 해시는 push 후 Codex final 보고에 명시한다(커밋이 자기 해시를 같은 tree에 포함할 수 없는 Git 구조상 handoff에는 결과 항목만 기록).
+
+### Next
+- Human: 배포 후 `/coverage`에서 문건주 전체 제안서 기준 [전] 계약 리스트·대분류 순서·치매 미표시·상해 이동·BOP 미제공 표기 육안 확인. 김대휘/이원록은 전체 제안서 PDF 확보 시 `/coverage/analyze` end-to-end 재확인.
+
+## 2026-07-07 Cowork BOHUMFIT-182/183/184 — ⚠마운트 손상으로 코드 구현 보류, 명세 산출 (Codex 구현)
+
+Owner flow: Claude Chat -> Cowork -> Codex | Current owner: **Codex (Windows 원본에 구현)**
+
+### ★공통 블로커 (세 태스크 전부)
+- 실사 중 발견: `backend/coverage/parser.py`(null 53B)·`constants.py`(null 1845B·byte 5262부터 null 패딩)·`amount.py`(null 715B)의 **마운트 뷰가 UTF-8 mid-byte truncation으로 손상**(ENV-MOUNT-NOTES 재현). Codex 커밋 Windows 원본은 정상(181 기준 514 passed). 근거: `constants.py` first null at byte 5262 → 이후 EXTRA_PATTERNS/classify_extra 영역 null 패딩; `python -c "import coverage.constants"` → `ValueError: source code string cannot contain null bytes`.
+- 판단: 이 손상 파일들을 마운트에서 편집하면 **정상 Windows 원본을 오염**시킬 위험 + constants import 불가로 /tmp 통합 검증 불가 → 안전 원칙(불확실 시 편집·푸시 금지, Windows 권위)에 따라 **Cowork 코드 미편집**. 182(parser)·183(constants)·184(parser 의존)는 이 손상 파일이 핵심이라 전부 영향. aggregator/export_excel/export_pdf/schema/CoverageRemodel은 마운트 정상이나 constants import 실패로 단독 테스트 불가.
+- **권장 해소**: Codex가 Windows 원본으로 마운트 재동기화(재클론/재체크아웃)하여 손상 해소 → 이후 Cowork 재세션 구현 가능. 또는 Codex가 아래 명세대로 Windows에서 직접 구현.
+
+### Changed (Cowork 산출 = 명세 문서만, 코드 0)
+- `.agent-harness/tasks/BOHUMFIT-182-company-wrap-count.md` — 회사명 wrap(KNOWN_INSURERS 결합) + BOP(보험료미제공) 계약 열·계약수 정합 구현 명세.
+- `.agent-harness/tasks/BOHUMFIT-183-group-reorg.md` — 대분류 재편(순서·간병→입원일당·치매 완전제외·골절→상해+화상) 정확 변경표.
+- `.agent-harness/tasks/BOHUMFIT-184-contract-list.md` — [전] 보유 계약 리스트(만기 이미 캡처됨·렌더 추가 중심) 명세.
+
+### Verified (Cowork S0 실사, 읽기 가능한 실 데이터)
+- 접근 실자료: `보장분석/`에 김대휘·이원록(상품별 가입현황 2p)·문건주(30p 전체). ※명세의 "황종철"은 오기.
+- **BOP 메커니즘 확인**: 김대휘 매트릭스 `(2) DB손보` 실손[계약전환용]의 월보험료 = **"보험료미제공"**(납입기간 N년·월납 금액 없음) → 현행 `CONTRACT_LINE_RE` 미매치로 p5 누락 → 매트릭스 열수 > 계약수 경고. (182 정합의 근거)
+- 회사명 wrap(메리츠/신한) 실 케이스는 접근 자료에 없음 → 182 S1은 메커니즘 기반 명세 + Codex 실 PDF 검증.
+- 현행 constants group12(마운트 정상 영역): 사망·후유장해·간병/치매·암·뇌/심장·실손의료비·수술·입원·운전자·골절·배상책임·화재 (183 변경표 근거).
+- 회귀 기준선 재확인 대상(불변): 문건주 월납 573,227·총납입 181,984,128·상해사망 5.5억·일반암 1억.
+
+### Notes
+- Human 재확인 포인트: 182 BOP 열 포함 정책(제외가 정답이면 반대 채택) · 183 치매 완전 제외(장기요양·경증치매).
+- ★손상 라인: constants EXTRA_PATTERNS에 mojibake 중복 패턴(`\d+企.*呪綬`)이 마운트 뷰에 보임 — Windows 원본 확인/정리(183에서).
+- git 미실행(Cowork). PII: 실 PDF·엑셀 미저장·미커밋. `.gitignore` `보장분석/`(L31) 확인.
+
+### Next
+- Codex — ① 마운트 손상 해소(재동기화) 또는 Windows 원본에 182→183→184 순차 구현 ② 각 tasks/*.md 명세대로: parser 회사명·BOP 정합 / constants 대분류 재편 / [전] 계약 리스트 렌더 ③ 신규 테스트 3종 + 179/179b group-assertion 갱신(담보값 불변) ④ 문건주 회귀·pytest·tsc/build ⑤ 배치 커밋(182/183/184) → push.
+
 ## 2026-07-06 Cowork BOHUMFIT-181 보장분석 리모델링표 엑셀/PDF 내보내기 (백엔드+프런트, 160 마지막)
 
 Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Codex (Windows tsc/build/pytest·openpyxl 설치·playwright PDF 실렌더·커밋/푸시)

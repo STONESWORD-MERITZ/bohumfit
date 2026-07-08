@@ -49,6 +49,15 @@ def _won(n) -> str:
     return "-" if n is None else f"{int(n):,}원"
 
 
+def _premium_label(n) -> str:
+    return f"{int(n):,}원" if isinstance(n, (int, float)) else "미제공"
+
+
+def _period_label(contract: dict) -> str:
+    years = contract.get("pay_years")
+    return f"{int(years)}년납" if isinstance(years, (int, float)) else "미제공"
+
+
 def _grp_key(g: str) -> int:
     return GROUP13.index(g) if g in GROUP13 else len(GROUP13)
 
@@ -62,7 +71,7 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
     final = analysis.get("final", {}) or {}
     prem = final.get("premium") or before.get("premium") or {}
     customer = before.get("customer") or {}
-    companies = before.get("companies", [])
+    companies = before.get("contract_list") or before.get("companies", [])
     gen = generated_at.strftime("%Y-%m-%d") if generated_at else ""
 
     # [최종] 담보 그룹 순서
@@ -99,16 +108,17 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
         )
     notes = []
     for co in companies:
-        seg = [f'{_esc(co.get("insurer") or "계약")} {_esc(co.get("idx"))}']
-        if co.get("product"):
-            seg.append(_esc(co["product"]))
-        if co.get("pay_years"):
-            seg.append(f'{_esc(co["pay_years"])}년납' + (f'/{_esc(co.get("maturity"))}' if co.get("maturity") else ""))
-        if co.get("monthly_premium") is not None:
-            seg.append(f'월 {int(co["monthly_premium"]):,}원')
-        if co.get("remark"):
-            seg.append(_esc(co["remark"]))
-        notes.append("<li>" + " · ".join(seg) + "</li>")
+        notes.append(
+            "<tr>"
+            f"<td>{_esc(co.get('idx'))}</td>"
+            f"<td>{_esc(co.get('insurer') or '미제공')}</td>"
+            f"<td class=\"nm\">{_esc(co.get('product') or '미제공')}</td>"
+            f"<td>{_esc(_period_label(co))}</td>"
+            f"<td>{_esc(co.get('maturity') or '미제공')}</td>"
+            f"<td class=\"num\">{_esc(_premium_label(co.get('monthly_premium')))}</td>"
+            f"<td>{_esc(co.get('remark') or '')}</td>"
+            "</tr>"
+        )
 
     cust = ""
     if customer.get("name"):
@@ -141,6 +151,9 @@ td.st {{ text-align: center; }}
 .badge {{ display: inline-block; border-radius: 10px; padding: 1px 8px; font-size: 8pt; font-weight: 700; }}
 .notes {{ margin-top: 8px; font-size: 8pt; color: {GRAY}; }}
 .notes li {{ list-style: none; margin: 1px 0; }}
+.contract-list th, .contract-list td {{ font-size: 8.3pt; }}
+.contract-list td {{ text-align: center; }}
+.contract-list td.nm {{ text-align: left; }}
 .disclaimer {{ margin-top: 16px; font-size: 7.5pt; color: {GRAY}; line-height: 1.5; }}
 </style></head><body>
 <div class="head">
@@ -158,9 +171,10 @@ td.st {{ text-align: center; }}
 <tbody>{''.join(final_rows)}</tbody></table>
 
 <h2>회사별 세부 (전)</h2>
+<table class="contract-list"><thead><tr><th>번호</th><th>회사명</th><th>상품명</th><th>납입기간</th><th>만기</th><th class="num">월보험료</th><th>비고</th></tr></thead>
+<tbody>{''.join(notes)}</tbody></table>
 <table><thead><tr><th>대분류</th><th>담보</th><th class="num">합산/대표</th>{comp_head}</tr></thead>
 <tbody>{''.join(before_rows)}</tbody></table>
-<ul class="notes"><li><b>계약 비고</b></li>{''.join(notes)}</ul>
 
 <p class="disclaimer">본 리모델링표는 업로드한 KB 신정원 보장분석 제안서를 기준으로 정리한 참고용 자료입니다. 실제 보장 내용·보험금 지급 여부는 각 보험사 약관과 증권을 따르며, 본 자료는 보험 모집·중개·상품추천·가입권유를 목적으로 하지 않습니다.</p>
 </body></html>"""

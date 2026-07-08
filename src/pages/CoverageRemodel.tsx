@@ -44,6 +44,7 @@ type AnalyzeResult = {
     customer: { name: string | null; age: number | null; sex: string | null };
     premium: { monthly_total: number; paid_total: number; currency: string };
     companies: Company[];
+    contract_list?: Company[];
     coverages: BeforeCoverage[];
   };
   final: {
@@ -57,14 +58,13 @@ type AnalyzeResult = {
 const GROUP_ORDER = [
   "사망",
   "후유장해",
-  "간병/치매",
   "암",
   "뇌/심장",
-  "실손의료비",
   "수술",
-  "입원",
+  "입원일당",
+  "실손의료비",
+  "상해",
   "운전자",
-  "골절",
   "배상책임",
   "화재",
   "기타",
@@ -90,6 +90,16 @@ function formatCoverageAmount(value: number | null | undefined): string {
 
 function formatWon(value: number | null | undefined): string {
   return value == null ? "-" : `${value.toLocaleString("ko-KR")}원`;
+}
+
+function formatPremium(value: number | null | undefined): string {
+  return value == null ? "미제공" : `${value.toLocaleString("ko-KR")}원`;
+}
+
+function formatPeriod(company: Company): string {
+  const pay = company.pay_years ? `${company.pay_years}년납` : "납입기간 미제공";
+  const maturity = company.maturity ? `${company.maturity} 만기` : "만기 미제공";
+  return `${pay} · ${maturity}`;
 }
 
 function StatusBadge({ status }: { status: string | null }) {
@@ -391,14 +401,15 @@ export default function CoverageRemodel() {
             {showBefore && (
               <div className="border-t border-line px-6 py-5">
                 <div className="mb-4 grid gap-3 md:grid-cols-2">
-                  {result.before.companies.map((company) => (
+                  {(result.before.contract_list || result.before.companies).map((company) => (
                     <div key={company.idx} className="rounded-card border border-line bg-canvas px-4 py-3">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="font-bold text-ink-900">{company.insurer || `계약 ${company.idx}`}</p>
                           <p className="mt-1 text-xs text-ink-soft">{company.product || "상품명 확인 필요"}</p>
+                          <p className="mt-1 text-[11px] font-semibold text-ink-soft">{formatPeriod(company)}</p>
                         </div>
-                        <p className="shrink-0 text-sm font-extrabold text-ink-900">{formatWon(company.monthly_premium)}</p>
+                        <p className="shrink-0 text-sm font-extrabold text-ink-900">{formatPremium(company.monthly_premium)}</p>
                       </div>
                       {company.remark && <p className="mt-2 text-xs font-semibold text-amber-700">{company.remark}</p>}
                     </div>

@@ -50,6 +50,17 @@ def _num(cell, value, fmt="#,##0"):
     cell.border = _BORDER
 
 
+def _premium_label(value) -> str:
+    return f"{int(value):,}원" if isinstance(value, (int, float)) else "미제공"
+
+
+def _period_label(contract: dict) -> str:
+    years = contract.get("pay_years")
+    if years:
+        return f"{years}년납"
+    return "미제공"
+
+
 def _sheet_final(ws, final: dict, before: dict) -> None:
     ws.title = "최종 보장진단"
     prem = (final.get("premium") or before.get("premium") or {})
@@ -98,12 +109,34 @@ def _sheet_final(ws, final: dict, before: dict) -> None:
 
 
 def _sheet_before(ws, before: dict) -> None:
-    companies = before.get("companies", [])  # 월납 내림차순(백엔드 정렬)
+    companies = before.get("contract_list") or before.get("companies", [])  # 월납 내림차순(백엔드 정렬)
     coverages = before.get("coverages", [])
     ws["A1"] = "회사별 세부 (전)"
     ws["A1"].font = Font(bold=True, size=14, color=INK)
 
     r = 3
+    contract_headers = ["번호", "회사명", "상품명", "납입기간", "만기", "월보험료", "비고"]
+    for col, h in enumerate(contract_headers, start=1):
+        _hdr(ws.cell(row=r, column=col), h)
+    r += 1
+    for co in companies:
+        values = [
+            co.get("idx"),
+            co.get("insurer") or "미제공",
+            co.get("product") or "미제공",
+            _period_label(co),
+            co.get("maturity") or "미제공",
+            _premium_label(co.get("monthly_premium")),
+            co.get("remark") or "",
+        ]
+        for col, value in enumerate(values, start=1):
+            cell = ws.cell(row=r, column=col, value=value)
+            cell.border = _BORDER
+            cell.alignment = Alignment(horizontal="center" if col in (1, 4, 5, 6) else "left", vertical="center", wrap_text=True)
+            cell.font = Font(color=INK if col in (1, 2, 3) else GRAY_TX, size=9)
+        r += 1
+
+    r += 2
     _hdr(ws.cell(row=r, column=1), "대분류")
     _hdr(ws.cell(row=r, column=2), "담보")
     _hdr(ws.cell(row=r, column=3), "합산/대표")
@@ -122,29 +155,15 @@ def _sheet_before(ws, before: dict) -> None:
             _num(ws.cell(row=r, column=j), by.get(str(co.get("idx"))))
         r += 1
 
-    # 하단 계약 비고
-    r += 1
-    note = ws.cell(row=r, column=1, value="계약 비고")
-    note.font = Font(bold=True, color=INK, size=10)
-    r += 1
-    for co in companies:
-        parts = [f"{co.get('insurer') or '계약'} {co.get('idx')}"]
-        if co.get("product"):
-            parts.append(str(co["product"]))
-        if co.get("pay_years"):
-            parts.append(f"{co['pay_years']}년납" + (f"/{co.get('maturity')}" if co.get("maturity") else ""))
-        if co.get("monthly_premium") is not None:
-            parts.append(f"월 {int(co['monthly_premium']):,}원")
-        if co.get("remark"):
-            parts.append(str(co["remark"]))
-        ws.cell(row=r, column=1, value=" · ".join(parts)).font = Font(color=GRAY_TX, size=9)
-        ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=max(3, 3 + len(companies) - 1))
-        r += 1
-
-    ws.column_dimensions["A"].width = 12
-    ws.column_dimensions["B"].width = 22
     for j in range(3, 4 + len(companies)):
         ws.column_dimensions[get_column_letter(j)].width = 14
+    ws.column_dimensions["A"].width = 12
+    ws.column_dimensions["B"].width = 18
+    ws.column_dimensions["C"].width = 28
+    ws.column_dimensions["D"].width = 12
+    ws.column_dimensions["E"].width = 12
+    ws.column_dimensions["F"].width = 14
+    ws.column_dimensions["G"].width = 22
     ws.freeze_panes = "D4"
 
 

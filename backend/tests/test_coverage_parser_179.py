@@ -162,7 +162,7 @@ def test_amount_tokenizer():
 
 def test_mapping_37_12_rep():
     assert STANDARD_COUNT == 37
-    assert len(GROUP12) == 12
+    assert len(GROUP12) == 11
     reps = [n for (n, _, _, a) in KB_COVERAGES if a == AGG_REP]
     assert reps == ["상해입원의료비", "상해통원의료비", "질병입원의료비",
                     "질병통원의료비", "3대비급여실손", "가족/일상/자녀배상"]
@@ -236,7 +236,7 @@ def test_ildang_sum_and_silson_rep():
 
 def test_all_37_present_and_matrix_columns():
     raw, before, _ = _build()
-    assert len(before["coverages"]) == 37
+    assert len(before["coverages"]) == 35
     # 매트릭스 열 = 계약 6
     ncol = max(len(v["by_company"]) for v in raw["matrix"].values())
     assert ncol == 6, ncol

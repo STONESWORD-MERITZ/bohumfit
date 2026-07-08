@@ -6,14 +6,21 @@ import re
 from typing import Optional
 
 from .amount import extract_cells, extract_diag_cells, parse_amount, parse_won, years_to_months, diag_status
-from .constants import KB_FORMAT_HINTS, ROLE_MARKERS, classify_extra, match_coverage, match_coverage_span
+from .constants import (
+    KB_FORMAT_HINTS,
+    KNOWN_INSURERS,
+    ROLE_MARKERS,
+    classify_extra,
+    match_coverage,
+    match_coverage_span,
+)
 
 CONTRACT_LINE_RE = re.compile(
     r"(?P<date>\d{4}-\d{2}-\d{2})\s+"
     r"(?P<cycle>월납|연납|일시납)\s+"
-    r"(?P<years>\d+\s*년)\s+"
+    r"(?:(?P<years>\d+\s*년)\s+)?"
     r"(?P<maturity>종신|\d+\s*세|\d{4})\s+"
-    r"(?P<won>[\d,]+\s*원)"
+    r"(?P<won>[\d,]+\s*원|보험료\s*미제공|보험료미제공|미제공)"
 )
 CONTRACT_PREFIX_RE = re.compile(r"^\s*(?P<idx>\d+)\s+(?P<insurer>\S+)\s*(?P<product>.*)$")
 CUSTOMER_RE = re.compile(r"(?P<name>\S+)\s*\(\s*(?P<age>\d+)\s*세\s*,\s*(?P<sex>남자|여자)\s*\)")
@@ -28,6 +35,70 @@ class KBFormatError(ValueError):
 
 def _clean(text: str | None) -> str:
     return re.sub(r"\s+", " ", text or "").strip()
+
+
+def _despace(text: str | None) -> str:
+    return "".join((text or "").split())
+
+
+def _strip_despace_fragment(text: str, fragment: str) -> str:
+    compact = ""
+    positions: list[int] = []
+    for pos, ch in enumerate(text):
+        if ch.isspace():
+            continue
+        positions.append(pos)
+        compact += ch
+    target = _despace(fragment)
+    start = compact.find(target)
+    if start < 0:
+        return text
+    end = start + len(target) - 1
+    return _clean(text[: positions[start]] + " " + text[positions[end] + 1 :])
+
+
+_KNOWN_INSURERS_BY_LEN = sorted(KNOWN_INSURERS, key=lambda value: len(_despace(value)), reverse=True)
+
+
+def _known_insurer_in(text: str) -> str | None:
+    compact = _despace(text)
+    for insurer in _KNOWN_INSURERS_BY_LEN:
+        if _despace(insurer) in compact:
+            return insurer
+    return None
+
+
+def _fallback_insurer(value: str) -> str | None:
+    value = _clean(value)
+    if not value:
+        return None
+    if re.search(r"(손보|화재|생명|해상|손해보험|생명보험)$", value):
+        return value
+    return None
+
+
+def _contract_prefix_source(lines: list[str], row_idx: int, row_prefix: str, used: set[int] | None = None) -> str:
+    row_match = CONTRACT_PREFIX_RE.search(row_prefix)
+    if row_match and _clean(row_match.group("product")):
+        return _clean(row_prefix)
+    prefix: list[str] = []
+    for j in range(row_idx - 1, max(row_idx - 5, -1), -1):
+        if used and j in used:
+            continue
+        prev = _clean(lines[j])
+        if not prev:
+            continue
+        if CONTRACT_LINE_RE.search(prev):
+            break
+        if any(stop in prev for stop in ("충청GA", "기준담보", "계약리스트")):
+            break
+        prefix.insert(0, prev)
+        if CONTRACT_PREFIX_RE.search(prev):
+            break
+    if row_match:
+        return _clean(" ".join([_clean(row_prefix), *prefix]))
+    prefix.append(_clean(row_prefix))
+    return _clean(" ".join(prefix))
 
 
 def classify_page(lines: list[str]) -> Optional[str]:
@@ -84,33 +155,37 @@ def parse_contract_list(lines: list[str]) -> list[dict]:
     used_continuations: set[int] = set()
     for i, line in enumerate(lines):
         m = CONTRACT_LINE_RE.search(line)
-        pm = CONTRACT_PREFIX_RE.search(line[: m.start()] if m else "")
-        if not m or not pm:
+        if not m:
             continue
-        parts: list[str] = []
-        j = i - 1
-        before: list[str] = []
-        while j >= 0 and j not in used_continuations and _is_product_continuation(lines[j]):
-            before.append(_clean(lines[j]))
-            used_continuations.add(j)
-            j -= 1
-        parts.extend(reversed(before))
+        prefix_source = _contract_prefix_source(lines, i, line[: m.start()], used_continuations)
+        pm = CONTRACT_PREFIX_RE.search(prefix_source)
+        if not pm:
+            continue
         row_product = _clean(pm.group("product"))
-        if row_product:
-            parts.append(row_product)
+        after_parts: list[str] = []
         j = i + 1
         if j < len(lines) and j not in used_continuations and _is_product_continuation(lines[j]):
-            parts.append(_clean(lines[j]))
+            after_parts.append(_clean(lines[j]))
             used_continuations.add(j)
+        insurer = _known_insurer_in(" ".join([prefix_source, *after_parts])) or _fallback_insurer(pm.group("insurer"))
+        if insurer and _despace(pm.group("insurer")) == _despace(insurer):
+            product = row_product
+        elif insurer:
+            product = _strip_despace_fragment(prefix_source, insurer)
+            product = re.sub(r"^\s*\d+\s+", "", product)
+        else:
+            product = row_product
+        product = _clean(" ".join([product, *after_parts]))
+        years = m.group("years")
         contracts.append(
             {
                 "idx": int(pm.group("idx")),
-                "insurer": pm.group("insurer"),
-                "product": _clean(" ".join(parts)) or None,
+                "insurer": insurer,
+                "product": product or None,
                 "contract_date": m.group("date"),
                 "pay_cycle": m.group("cycle"),
-                "pay_years": int(re.sub(r"\D", "", m.group("years"))),
-                "pay_months": years_to_months(m.group("years")),
+                "pay_years": int(re.sub(r"\D", "", years)) if years else None,
+                "pay_months": years_to_months(years) if years else None,
                 "maturity": m.group("maturity").replace(" ", ""),
                 "monthly_premium": parse_won(m.group("won")),
             }
@@ -161,6 +236,41 @@ def parse_matrix(pages_lines: list[list[str]]) -> dict:
         if col_indices:
             next_fallback_idx = max(next_fallback_idx, max(col_indices) + 1)
     return acc
+
+
+def _matrix_contract_indices(matrix: dict) -> set[int]:
+    out: set[int] = set()
+    for row in matrix.values():
+        for key in row.get("by_company", {}):
+            try:
+                out.add(int(key))
+            except (TypeError, ValueError):
+                continue
+    return out
+
+
+def _ensure_contracts_for_matrix_columns(contracts: list[dict], matrix: dict) -> list[dict]:
+    existing = {int(c["idx"]) for c in contracts if c.get("idx") is not None}
+    missing = sorted(_matrix_contract_indices(matrix) - existing)
+    if not missing:
+        return contracts
+    completed = list(contracts)
+    for idx in missing:
+        completed.append(
+            {
+                "idx": idx,
+                "insurer": None,
+                "product": None,
+                "contract_date": None,
+                "pay_cycle": None,
+                "pay_years": None,
+                "pay_months": None,
+                "maturity": None,
+                "monthly_premium": None,
+                "remark": "보험료 미제공",
+            }
+        )
+    return sorted(completed, key=lambda c: c["idx"])
 
 
 def parse_diagnosis(lines: list[str]) -> dict:
@@ -276,6 +386,8 @@ def parse_document(pdf_bytes: bytes) -> dict:
 
     contracts = parse_contract_list(contracts_lines) if contracts_lines else []
     matrix = parse_matrix(matrix_pages) if matrix_pages else {}
+    if contracts and matrix:
+        contracts = _ensure_contracts_for_matrix_columns(contracts, matrix)
     diagnosis = parse_diagnosis(diagnosis_lines) if diagnosis_lines else {}
     notes, extra = parse_detail_pages(detail_pages, contracts) if detail_pages else ({}, {})
 
@@ -284,9 +396,12 @@ def parse_document(pdf_bytes: bytes) -> dict:
     if not matrix:
         warnings.append("p6~7 상품별 가입현황 매트릭스를 찾지 못했습니다.")
     if contracts and matrix:
-        ncol = max((len(v["by_company"]) for v in matrix.values()), default=0)
-        if ncol != len(contracts):
-            warnings.append(f"매트릭스 열({ncol})과 계약 수({len(contracts)})가 다릅니다.")
+        contract_indices = {int(c["idx"]) for c in contracts if c.get("idx") is not None}
+        matrix_indices = _matrix_contract_indices(matrix)
+        if matrix_indices != contract_indices:
+            warnings.append(
+                f"매트릭스 열({len(matrix_indices)})과 계약 수({len(contract_indices)})가 다릅니다."
+            )
 
     return {
         "customer": customer,
