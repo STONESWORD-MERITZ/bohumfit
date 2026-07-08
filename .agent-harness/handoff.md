@@ -1,3 +1,244 @@
+## 2026-07-08 Codex Resync — Cowork 마운트 truncation 안전 재동기화
+
+Owner flow: Human -> Codex Windows | Current owner: Human(stash 내용 확인/복원·폐기 결정)
+
+### Read-only Snapshot (before stash)
+- Working directory: `C:\Users\18_rk\BOHUMFIT`
+- Destructive commands not run: no `git reset --hard`, no `git clean -fd`, no reclone/delete.
+
+`git status --short`
+```text
+ M .agent-harness/decisions.md
+ M .agent-harness/handoff.md
+ M .agent-harness/locks.md
+ M .agent-harness/tasks/README.md
+ M .agent-harness/tasks/TEMPLATE.md
+ M AGENTS.md
+?? .agent-harness/tasks/BOHUMFIT-030-medication-days-badge-mismatch.md
+?? .agent-harness/tasks/BOHUMFIT-031-med-badge-header-align.md
+?? .agent-harness/tasks/BOHUMFIT-032-med-window-5y.md
+?? .agent-harness/tasks/BOHUMFIT-033-nhis-history-parser.md
+?? .agent-harness/tasks/BOHUMFIT-034-question-restructure.md
+?? .agent-harness/tasks/BOHUMFIT-035-insurance-conservative-deductible.md
+?? .agent-harness/tasks/BOHUMFIT-036-disclosure-pdf-q1q5.md
+?? .agent-harness/tasks/BOHUMFIT-037-q4q5-ai-diagnosis.md
+?? .agent-harness/tasks/BOHUMFIT-038-ai-q2-only-q5-deterministic.md
+?? .agent-harness/tasks/BOHUMFIT-039-q5-codelist-11disease-gap.md
+?? .agent-harness/tasks/BOHUMFIT-039-q5-codelist-rename-insurance.md
+?? .agent-harness/tasks/BOHUMFIT-040-general-dept-exclude.md
+?? .agent-harness/tasks/BOHUMFIT-045.md
+?? .agent-harness/tasks/BOHUMFIT-068-subscription-schema.md
+?? .agent-harness/tasks/BOHUMFIT-090-kakao-copy-window-fix.md
+?? .agent-harness/tasks/BOHUMFIT-102-internal-plan-check.md
+?? .agent-harness/tasks/BOHUMFIT-108-handle-new-user-role-audit.md
+?? .agent-harness/tasks/BOHUMFIT-109-subscription-role-check.md
+?? .agent-harness/tasks/BOHUMFIT-148-audit-report.md
+?? .agent-harness/tasks/BOHUMFIT-148-site-audit-upgrade-plan.md
+?? .agent-harness/tasks/BOHUMFIT-195-consulting-compare-group-header.md
+?? backend/tests/test_q3_real_pattern_regression.py
+?? backend/tests/test_subscription_schema.py
+?? brand/apple-touch-icon-180.png
+?? brand/favicon-16.png
+?? brand/favicon-32.png
+?? brand/favicon.ico
+?? brand/fithere-logo-192.png
+?? brand/fithere-logo-512.png
+?? brand/fithere-logo-currentcolor.svg
+?? brand/fithere-logo.svg
+?? "brand/\353\246\254\353\270\214\353\236\234\353\224\251_\352\265\254\355\230\204_\355\224\204\353\241\254\355\224\204\355\212\270.md"
+?? guide-images/
+?? pamphlet/
+?? tmp/
+?? "\352\261\264\352\260\225\353\263\264\355\227\230 \353\263\221\353\240\245 \354\241\260\355\232\214.pptx"
+?? "\353\263\221\353\240\245/"
+?? "\353\263\264\355\227\230\355\225\217_\353\246\254\355\224\214\353\240\233_A4_\354\226\221\353\251\264.html"
+?? "\353\263\264\355\227\230\355\225\217_\353\246\254\355\224\214\353\240\233_A4_\354\226\221\353\251\264.pdf"
+?? "\353\263\264\355\227\230\355\225\217_\353\246\254\355\224\214\353\240\233_A4_\354\226\221\353\251\264.pptx"
+?? "\353\263\264\355\227\230\355\225\217_\355\214\234\355\224\214\353\240\233_\354\266\234\354\262\230\353\252\251\353\241\235.md"
+?? "\354\213\254\355\217\211\354\233\220 \354\236\220\353\243\214 \353\213\244\354\232\264\353\241\234\353\223\234.pptx"
+```
+
+`git stash list`
+```text
+(no output)
+```
+
+`git log --oneline -3`
+```text
+01d8b3c feat(BOHUMFIT-194): 컨설팅 리포트·화면 6단계 순서 재편(진단 세부 말미·특약별/회사별 분리·제안서 업로드 슬롯)
+30cfafe docs(BOHUMFIT-193): 신규 가입제안서 PDF 파싱 + 통합치료비 레지스트리 조사 명세(전제 191 반영)
+38d2bbe docs(BOHUMFIT-192): 표지 프로필 연동·GA 대리점·CI 로고 재구축 설계 명세
+```
+
+`git diff --stat`
+```text
+ .agent-harness/decisions.md      | 16 +++++++++++++++-
+ .agent-harness/handoff.md        | 30 ++++++++++++++++++++++++++++++
+ .agent-harness/locks.md          |  1 +
+ .agent-harness/tasks/README.md   |  8 ++++++--
+ .agent-harness/tasks/TEMPLATE.md | 11 +++++++++--
+ AGENTS.md                        |  5 +++++
+ 6 files changed, 66 insertions(+), 5 deletions(-)
+warning: in the working copy of '.agent-harness/decisions.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.agent-harness/handoff.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.agent-harness/tasks/README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of '.agent-harness/tasks/TEMPLATE.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'AGENTS.md', LF will be replaced by CRLF the next time Git touches it
+```
+
+`git rev-parse HEAD origin/main`
+```text
+01d8b3c909e02443b5f5e58aa1f30f7cc215cbdf
+01d8b3c909e02443b5f5e58aa1f30f7cc215cbdf
+```
+
+### Preservation Stash
+- Command: `git stash push -u -m "pre-resync-20260708"`
+- Result: `Saved working directory and index state On main: pre-resync-20260708`
+- Stash intentionally left in place for Human inspection.
+
+`git stash list --date=local -n 5`
+```text
+stash@{Wed Jul 8 19:30:46 2026}: On main: pre-resync-20260708
+```
+
+`git stash show --name-status --include-untracked "stash@{0}"`
+```text
+M	.agent-harness/decisions.md
+M	.agent-harness/handoff.md
+M	.agent-harness/locks.md
+A	.agent-harness/tasks/BOHUMFIT-030-medication-days-badge-mismatch.md
+A	.agent-harness/tasks/BOHUMFIT-031-med-badge-header-align.md
+A	.agent-harness/tasks/BOHUMFIT-032-med-window-5y.md
+A	.agent-harness/tasks/BOHUMFIT-033-nhis-history-parser.md
+A	.agent-harness/tasks/BOHUMFIT-034-question-restructure.md
+A	.agent-harness/tasks/BOHUMFIT-035-insurance-conservative-deductible.md
+A	.agent-harness/tasks/BOHUMFIT-036-disclosure-pdf-q1q5.md
+A	.agent-harness/tasks/BOHUMFIT-037-q4q5-ai-diagnosis.md
+A	.agent-harness/tasks/BOHUMFIT-038-ai-q2-only-q5-deterministic.md
+A	.agent-harness/tasks/BOHUMFIT-039-q5-codelist-11disease-gap.md
+A	.agent-harness/tasks/BOHUMFIT-039-q5-codelist-rename-insurance.md
+A	.agent-harness/tasks/BOHUMFIT-040-general-dept-exclude.md
+A	.agent-harness/tasks/BOHUMFIT-045.md
+A	.agent-harness/tasks/BOHUMFIT-068-subscription-schema.md
+A	.agent-harness/tasks/BOHUMFIT-090-kakao-copy-window-fix.md
+A	.agent-harness/tasks/BOHUMFIT-102-internal-plan-check.md
+A	.agent-harness/tasks/BOHUMFIT-108-handle-new-user-role-audit.md
+A	.agent-harness/tasks/BOHUMFIT-109-subscription-role-check.md
+A	.agent-harness/tasks/BOHUMFIT-148-audit-report.md
+A	.agent-harness/tasks/BOHUMFIT-148-site-audit-upgrade-plan.md
+A	.agent-harness/tasks/BOHUMFIT-195-consulting-compare-group-header.md
+M	.agent-harness/tasks/README.md
+M	.agent-harness/tasks/TEMPLATE.md
+M	AGENTS.md
+A	backend/tests/test_q3_real_pattern_regression.py
+A	backend/tests/test_subscription_schema.py
+A	brand/apple-touch-icon-180.png
+A	brand/favicon-16.png
+A	brand/favicon-32.png
+A	brand/favicon.ico
+A	brand/fithere-logo-192.png
+A	brand/fithere-logo-512.png
+A	brand/fithere-logo-currentcolor.svg
+A	brand/fithere-logo.svg
+A	"brand/\353\246\254\353\270\214\353\236\234\353\224\251_\352\265\254\355\230\204_\355\224\204\353\241\254\355\224\204\355\212\270.md"
+A	guide-images/hira-1-menu.png
+A	guide-images/hira-2-login.png
+A	guide-images/hira-3-basic.png
+A	guide-images/hira-4-detail.png
+A	guide-images/hira-5-prescription.png
+A	guide-images/hira-6-auto-basic.png
+A	guide-images/hira-7-auto-detail.png
+A	guide-images/nhis-1-search.png
+A	guide-images/nhis-2-keyword.png
+A	guide-images/nhis-3-service.png
+A	guide-images/nhis-4-overview.png
+A	guide-images/nhis-5-result.png
+A	pamphlet/front_check-1.png
+A	pamphlet/prev-1.png
+A	pamphlet/prev-2.png
+A	pamphlet/pv2-1.png
+A	pamphlet/pv2-2.png
+A	pamphlet/qr.png
+A	pamphlet/qr_news.png
+A	pamphlet/v3prev-1.png
+A	pamphlet/v3prev-2.png
+A	pamphlet/v4prev-1.png
+A	pamphlet/v4prev-2.png
+A	pamphlet/v5back-2.png
+A	pamphlet/v5f2-1.png
+A	pamphlet/v5front-1.png
+A	"pamphlet/\353\263\264\355\227\2303\354\242\205\354\240\220\352\262\200_\353\222\267\353\251\264.png"
+A	"pamphlet/\353\263\264\355\227\2303\354\242\205\354\240\220\352\262\200_\354\225\236\353\251\264.png"
+A	"pamphlet/\353\263\264\355\227\2303\354\242\205\354\240\220\352\262\200_\355\214\234\355\224\214\353\240\233.pptx"
+A	"pamphlet/\353\263\264\355\227\230\354\240\220\352\262\200_\353\246\254\355\224\214\353\246\277_A4\354\226\221\353\251\264.html"
+A	"pamphlet/\353\263\264\355\227\230\354\240\220\352\262\200_\353\246\254\355\224\214\353\246\277_A4\354\226\221\353\251\264.pdf"
+A	"pamphlet/\353\263\264\355\227\230\355\225\217_\353\246\254\355\224\214\353\240\233_A4_\354\226\221\353\251\264_v2.html"
+A	"pamphlet/\353\263\264\355\227\230\355\225\217_\353\246\254\355\224\214\353\240\233_A4_\354\226\221\353\251\264_v2.pdf"
+A	"pamphlet/\353\263\264\355\227\230\355\225\217_\353\246\254\355\224\214\353\240\233_A4_\354\226\221\353\251\264_v3.html"
+A	"pamphlet/\353\263\264\355\227\230\355\225\217_\353\246\254\355\224\214\353\240\233_A4_\354\226\221\353\251\264_v3.pdf"
+A	"pamphlet/\353\263\264\355\227\230\355\225\217_\353\246\254\355\224\214\353\240\233_A4_\354\226\221\353\251\264_v4.html"
+A	"pamphlet/\353\263\264\355\227\230\355\225\217_\353\246\254\355\224\214\353\240\233_A4_\354\226\221\353\251\264_v4.pdf"
+A	"pamphlet/\353\263\264\355\227\230\355\225\217_\353\246\254\355\224\214\353\240\233_A4_\354\226\221\353\251\264_v5.html"
+A	"pamphlet/\353\263\264\355\227\230\355\225\217_\353\246\254\355\224\214\353\240\233_A4_\354\226\221\353\251\264_v5.pdf"
+A	"pamphlet/\353\263\264\355\227\230\355\225\217_\353\246\254\355\224\214\353\240\233_A4_\354\226\221\353\251\264_v6.html"
+A	"pamphlet/\353\263\264\355\227\230\355\225\217_\353\246\254\355\224\214\353\240\233_A4_\354\226\221\353\251\264_v6.pdf"
+A	"pamphlet/\353\263\264\355\227\230\355\225\217_\353\246\254\355\224\214\353\240\233_A4_\354\226\221\353\251\264_v7.html"
+A	"pamphlet/\353\263\264\355\227\230\355\225\217_\353\246\254\355\224\214\353\240\233_A4_\354\226\221\353\251\264_v7.pdf"
+A	tmp/db-sheet.jpg
+A	tmp/hanwha-sheet.jpg
+A	tmp/kb-sheet.jpg
+A	"\352\261\264\352\260\225\353\263\264\355\227\230 \353\263\221\353\240\245 \354\241\260\355\232\214.pptx"
+A	"\353\263\221\353\240\245/\354\235\264\353\257\274\352\267\234 \353\263\221\353\240\245 16-17.pdf"
+A	"\353\263\221\353\240\245/\354\235\264\353\257\274\352\267\234 \353\263\221\353\240\245 17-18.pdf"
+A	"\353\263\221\353\240\245/\354\235\264\353\257\274\352\267\234 \353\263\221\353\240\245 18-19.pdf"
+A	"\353\263\221\353\240\245/\354\235\264\353\257\274\352\267\234 \353\263\221\353\240\245 19-20.pdf"
+A	"\353\263\221\353\240\245/\354\235\264\353\257\274\352\267\234 \353\263\221\353\240\245 20-21.pdf"
+A	"\353\263\221\353\240\245/\354\235\264\353\257\274\352\267\234_\352\270\260\353\263\270\354\247\204\353\243\214\354\240\225\353\263\264.pdf"
+A	"\353\263\221\353\240\245/\354\235\264\353\257\274\352\267\234_\352\270\260\353\263\270\354\247\204\353\243\214\354\240\225\353\263\264_\354\236\220\353\217\231\354\260\250.pdf"
+A	"\353\263\221\353\240\245/\354\235\264\353\257\274\352\267\234_\354\204\270\353\266\200\354\247\204\353\243\214\354\240\225\353\263\264.pdf"
+A	"\353\263\221\353\240\245/\354\235\264\353\257\274\352\267\234_\354\204\270\353\266\200\354\247\204\353\243\214\354\240\225\353\263\264_\354\236\220\353\217\231\354\260\250.pdf"
+A	"\353\263\221\353\240\245/\354\235\264\353\257\274\352\267\234_\354\262\230\353\260\251\354\247\204\353\243\214\354\240\225\353\263\264.pdf"
+A	"\353\263\264\355\227\230\355\225\217_\353\246\254\355\224\214\353\240\233_A4_\354\226\221\353\251\264.html"
+A	"\353\263\264\355\227\230\355\225\217_\353\246\254\355\224\214\353\240\233_A4_\354\226\221\353\251\264.pdf"
+A	"\353\263\264\355\227\230\355\225\217_\353\246\254\355\224\214\353\240\233_A4_\354\226\221\353\251\264.pptx"
+A	"\353\263\264\355\227\230\355\225\217_\355\214\234\355\224\214\353\240\233_\354\266\234\354\262\230\353\252\251\353\241\235.md"
+A	"\354\213\254\355\217\211\354\233\220 \354\236\220\353\243\214 \353\213\244\354\232\264\353\241\234\353\223\234.pptx"
+```
+
+### Resync Decision
+- After stash, `git status --short` returned no output and `git status --short --branch` returned `## main...origin/main`.
+- `HEAD` and `origin/main` stayed identical:
+```text
+01d8b3c909e02443b5f5e58aa1f30f7cc215cbdf
+01d8b3c909e02443b5f5e58aa1f30f7cc215cbdf
+```
+- Main files have no null bytes and match their `HEAD` blob hashes:
+```text
+src/pages/CoverageRemodel.tsx	lines=1525	nulls=0	bytes=72344
+backend/coverage/export_excel.py	lines=498	nulls=0	bytes=24125
+backend/coverage/export_pdf.py	lines=434	nulls=0	bytes=24988
+backend/coverage/parser.py	lines=357	nulls=0	bytes=14912
+backend/coverage/constants.py	lines=153	nulls=0	bytes=6012
+backend/coverage/amount.py	lines=64	nulls=0	bytes=2182
+
+src/pages/CoverageRemodel.tsx	worktree=3754775c620df5337b636faaa235cdbd4019616d	HEAD=3754775c620df5337b636faaa235cdbd4019616d	match=True
+backend/coverage/export_excel.py	worktree=4193262d4736b6146e4b56cd71620c3ef9a91cff	HEAD=4193262d4736b6146e4b56cd71620c3ef9a91cff	match=True
+backend/coverage/export_pdf.py	worktree=3e86a10140c508b9bd5046111cd152d36d3059e6	HEAD=3e86a10140c508b9bd5046111cd152d36d3059e6	match=True
+```
+- 판정: Windows 원본은 `origin/main`과 일치하고 주요 파일도 `HEAD` 객체와 동일하므로 재클론/강제 체크아웃 불필요. Cowork 문제는 Windows 원본 손상이 아니라 샌드박스 마운트뷰 truncation으로 보는 것이 타당하며, 다음 Cowork 세션에서 마운트를 새로 잡게 하는 방향이 충분함.
+- `git checkout --force origin/main`은 실행하지 않음.
+
+### Verification
+- [x] `git status --short` — clean before this handoff docs edit.
+- [x] `git rev-parse HEAD origin/main` — both `01d8b3c909e02443b5f5e58aa1f30f7cc215cbdf`.
+- [x] `cd backend; python -m pytest -q` — 548 passed, 7 skipped in 69.77s.
+- [x] Main file line/null/hash checks — no null bytes, worktree hashes match `HEAD`.
+
+### Next
+- Human: `stash@{Wed Jul 8 19:30:46 2026}: On main: pre-resync-20260708` 내용을 확인하고 필요한 항목만 복원하거나 폐기 결정.
+- Human/Cowork: 다음 Cowork 세션에서 샌드박스 재시작/새 마운트로 truncation 재현 여부 확인.
+
 ## 2026-07-08 Codex BOHUMFIT-194 — 컨설팅 리포트·화면 6단계 순서 재편
 
 Owner flow: Claude Chat -> Codex | Current owner: Human
