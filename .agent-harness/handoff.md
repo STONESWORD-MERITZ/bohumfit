@@ -10595,4 +10595,4 @@ Owner flow: Human -> Codex Windows | Current owner: Human(배포 확인)
 ### Notes
 - `backend/pipeline/` 무접촉.
 - 실 PDF/엑셀/추출물/PII 저장·커밋 없음. `stash@{0}` 무접촉.
-- 구현 커밋 해시는 push 후 최종 응답에 기록.
+- 구현 커밋: `a18f311`
