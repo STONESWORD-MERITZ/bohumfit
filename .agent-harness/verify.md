@@ -16,6 +16,12 @@ For UI changes, also run the app locally and do a browser smoke test:
 npm run dev
 ```
 
+Backend pytest baseline:
+
+```text
+544 passed, 8 skipped
+```
+
 ## 수동 확인 체크리스트
 
 - [ ] (태스크별 수동 확인 항목을 여기에 기록)
