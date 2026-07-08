@@ -1,3 +1,32 @@
+## 2026-07-08 Codex BOHUMFIT-186 Windows implementation/revalidation
+
+Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Human
+
+### Changed
+- Current HEAD already contains the BOHUMFIT-186 after-recalculation path (`backend/coverage/consulting.py`, `/coverage/consulting/after`, `test_coverage_after_186.py`) and later BOHUMFIT-187/188 follow-up work. Codex did **not** regress or remove 187/188 UI/code.
+- Added `.agent-harness/tasks/BOHUMFIT-186-after-recalculation.md` to document the 186 boundary: existing-contract keep/cancel, premium adjustment, coverage reduce/increase/remove, same aggregation/diagnosis path.
+- `CLAUDE.md`: backend pytest baseline updated to `544 passed, 8 skipped` for the current tree.
+
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` — pass
+- [x] `npx tsc -p tsconfig.node.json --noEmit` — pass
+- [x] `npm run build` — pass (existing Vite chunk-size warning only)
+- [x] `npm test` — 15 passed
+- [x] `cd backend && python -m pytest -q` — 544 passed, 8 skipped
+- [x] `cd backend && python -m pytest -q tests/test_coverage_after_186.py -vv` — 7 passed
+- [x] Real PDF smoke (memory only): `문건주님 kb보장분석 제안서.pdf` → before baseline monthly `573,227`, paid `181,984,128`, `상해사망 550,000,000`, `일반암 100,000,000`. Plan = contract idx `6` cancel + contract idx `2` `상해사망` reduce to `100,000,000` → after monthly `239,627`, paid `121,936,128`, `상해사망 250,000,000`, status `충분`, delta monthly `-333,600`, warnings `0`.
+
+### Notes
+- Attempted `npm run lint`; it fails in pre-existing out-of-scope files (`src/hooks/useCountUp.ts`, `src/pages/Disclosure.tsx`, `History.tsx`, `Home.tsx`) due React lint rules (`set-state-in-effect`, `purity`). No BOHUMFIT-186 files are implicated, and no lint-only fixes were made.
+- Because the working tree is already beyond 186 (`BOHUMFIT-187/188` committed at HEAD), Codex preserved later functionality rather than forcing a 186-only rollback.
+- Real PDF/PII/output files were not staged. Smoke used in-memory bytes only.
+
+### Commit
+- Pending at handoff write time; final hash in Codex response after scoped docs/baseline commit.
+
+### Next
+- Human: `/coverage-compare` or current coverage remodeling screen에서 실제 로그인 세션으로 유지/해지·감액·신규제안 흐름을 육안 확인.
+
 ## 2026-07-08 Codex BOHUMFIT-188 Windows implementation
 
 Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Human

@@ -293,7 +293,7 @@ src/                        React 19 · TypeScript · Vite (Vercel 배포)
 ### 검증 게이트 (변경 후 필수)
 
 - 백엔드: `cd backend && python -m pytest -q`
-  - 현재 기준선(BOHUMFIT-182~184 반영): `529 passed, 8 skipped`
+  - 현재 기준선(BOHUMFIT-186~188 반영): `544 passed, 8 skipped`
 - 프런트 타입체크: `npx tsc -p tsconfig.app.json --noEmit` 및 `tsconfig.node.json`
 - 빌드: `npm run build`
 - 배포: `main` 브랜치 푸시 시 Vercel(프런트)·Railway(백엔드) 자동 배포.
