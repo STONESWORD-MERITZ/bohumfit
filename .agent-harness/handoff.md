@@ -99,6 +99,35 @@ Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Codex → BOHUMFIT-1
 ### Next
 - Codex: BOHUMFIT-190 유지/해지 전용(배서 감액/증액 제거) 구현으로 진행.
 
+## 2026-07-08 Cowork BOHUMFIT-192 — 표지 프로필 연동·GA 대리점·CI 로고 재구축 설계(조사 전용·코드 0)
+
+Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Human(스키마·GA출처·로고정책 결정) → Codex(문서 커밋)
+
+### Changed (전부 문서, 코드 0)
+- `.agent-harness/tasks/BOHUMFIT-192-profile-ga-logo-spec.md` (신규) — S0 현행 파악 / S1 프로필 연동 / S2 GA 목록 관리 / S3 CI 로고 / S4 구현 분할 설계 명세.
+- `.agent-harness/tasks/BOHUMFIT-192-human-decisions.md` (신규) — Human 결정 필요 목록(스키마 변경·GA 목록 출처·로고 제공 정책·표지 데이터 소스 방식 등).
+- `.agent-harness/tasks/BOHUMFIT-192-packet-193-profile-schema.md` (신규) — 패킷: profiles 스키마 확장(Human 승인 게이트) + 프로필 편집 UI + 표지 자동채움.
+- `.agent-harness/tasks/BOHUMFIT-192-packet-194-ga-select.md` (신규) — 패킷: GA 마스터 테이블 + 설계사 GA 선택 UI + 신규 GA 추가 운영.
+- `.agent-harness/tasks/BOHUMFIT-192-packet-195-logo-upload.md` (신규) — 패킷: GA CI 로고 업로드/스토리지 + 표지 슬롯 연동 + 텍스트 폴백.
+- `.agent-harness/locks.md` — 192 Released 1줄 추가.
+
+### Verified (조사, 코드 게이트 불필요)
+- src/·backend/ **무접촉**. 현행은 HEAD `1f5b498` 기준 파일 열람(Read/grep)으로만 조사.
+- S0 확정: profiles = {id, role(customer/internal), phone, phone_verified} + (base display 컬럼은 대시보드 생성분·마이그레이션 미포함). 프로필 편집 UI 부재. Signup은 email/pw/phone(휴대폰 인증은 현재 클라 목업)만 수집 — 설계사명·소속(GA)·연락처 저장소 없음.
+- S0 확정: `/coverage/export/pdf`는 verify_jwt(user_id 확보) + analysis payload(before/final) → `export_pdf.py`가 서버 렌더(no-store·PII 미저장). 현재 표지 없음, 헤더는 BohumFit 브랜드(logo-mark "ㅍ"+워드마크)+고객명/작성일만.
+- S0 확정: 백엔드는 service-role admin 클라(`_get_supabase_admin`, 빌링 게이트가 이미 profiles.role 조회) 보유 → 표지 자동채움을 서버측 profiles 조회로 안전 구현 가능(클라 입력 신뢰 불필요).
+- S0 확정: Supabase Storage 버킷 사용처 0(로고 업로드는 신규 스토리지 패턴 도입). 기존 로고는 repo 정적 파일(backend/assets/brand, brand/, public/).
+
+### Notes
+- ★191 표지는 아직 HEAD·git log에 없음(로그는 188에서 끝, 189~191은 병렬 Codex 배치). 본 명세는 병렬로 만들어질 표지가 **소비할 데이터/슬롯 계약**으로 설계했고, 191 구현체 확정 시 슬롯 필드명 대조 필요(패킷 195에 대조 체크 명시).
+- ★공유 Supabase 인스턴스(BOHUMFIT/FitHere): profiles 스키마 변경은 **두 앱에 동시 영향** → 반드시 Human 승인 게이트(패킷 193). role='internal'=설계사, 카카오 email NULL→auth.users JOIN 주의 명세 반영.
+- ★CI 로고 IP: 각 GA 등록상표 → 웹 수집·재현 금지. "각 GA 정식 제공 파일 업로드만" 정책으로 설계(S3). 저작권/상표 리스크·미보유 시 텍스트 폴백 명세.
+- 189 active lock(constants.py·CoverageRemodel.tsx) 범위 파일 무접촉 — 문서만 추가. Codex는 병렬 189~191 배치와 handoff/locks 꼬리 병합 충돌 여부 확인.
+
+### Next
+- Human: BOHUMFIT-192-human-decisions.md의 결정 항목(①profiles 스키마 확장 승인 ②GA 목록 초기 출처·관리 주체 ③로고 제공/저장 정책) 확정.
+- Codex: 문서 5종 stage/commit/push(`docs(BOHUMFIT-192): 표지 프로필 연동·GA 대리점·CI 로고 재구축 설계 명세`). 코드 게이트 불필요. 병렬 189~191과 handoff/locks 꼬리 무결성 Windows 확인.
+
 ## 2026-07-08 Codex — 160 컨설팅 시리즈(182~188) 완료, 기준선 544/8 확정
 
 ## 2026-07-08 Codex BOHUMFIT-186 Windows implementation/revalidation
