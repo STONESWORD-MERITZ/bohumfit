@@ -32,7 +32,7 @@ Owner flow: Human -> Codex Windows | Current owner: Human(배포 확인)
 - `backend/pipeline/` 무접촉.
 - 실 PDF/엑셀/추출물/PII 저장·커밋 없음.
 - 추가로 실행한 `npm run lint`는 기존 범위 외 React Compiler lint 오류(`useCountUp.ts`, `Disclosure.tsx`, `History.tsx`, `Home.tsx`)로 실패. 193 검증 게이트에는 포함하지 않음.
-- 구현 커밋: 푸시 완료 후 Codex 최종 응답 기준
+- 구현 커밋: `a26de77`
 
 ### Next
 - Human: 배포 후 `/coverage-compare`에서 ③ 신규제안 PDF 업로드→④ 특약별/⑤ 회사별 [후] 데이터 표시를 실제 브라우저로 확인.
@@ -113,7 +113,7 @@ Owner flow: Human -> Codex Windows | Current owner: Human(완료 확인)
 ### Notes
 - `backend/pipeline/` 무접촉.
 - 실 PDF/Excel/PII 산출물 저장·커밋 없음.
-- 구현 커밋: 푸시 완료 후 Codex 최종 응답 기준 (`feat(BOHUMFIT-195): ④특약별 전후 비교표 그룹 헤더 정렬(전/후 대칭·대분류 라인 맞춤)`)
+- 구현 커밋: `661b415` (`feat(BOHUMFIT-195): ④특약별 전후 비교표 그룹 헤더 정렬(전/후 대칭·대분류 라인 맞춤)`)
 
 ### Next
 - Human: `/coverage-compare`에서 실제 로그인 세션으로 ④ 화면/PDF/Excel 헤더 대칭을 육안 확인.
