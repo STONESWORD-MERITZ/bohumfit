@@ -10575,3 +10575,24 @@ Owner flow: Human -> Codex Windows | Current owner: Human
 
 
 
+## 2026-07-09 BOHUMFIT-193 follow-up - KB 보장분석 계약리스트 보험사 줄분리 파싱 보정
+
+Owner flow: Human -> Codex Windows | Current owner: Human(배포 확인)
+
+### Result
+- 이상범 KB 보장분석 PDF에서 메리츠화재가 `메리츠화`/`재`로 줄분리되고, 현대해상 실손 행이 `월납` 없이 `보험료미제공`으로 내려와 흥국생명 행까지 오염되던 계약리스트 파싱 문제를 보정.
+- `backend/coverage/parser.py`: 계약 행 정규식의 납입주기 optional 처리, 알려진 보험사명 prefix/suffix 결합, index-only 행의 앞 상품명 복원 로직 추가.
+- `backend/tests/test_coverage_parser_179.py`: 분리 보험사명 + 보험료미제공 행 + 미등록 보험사명 fallback 회귀 2건 추가.
+
+### Verified
+- 실제 PDF read-only smoke: warning 0, 월보험료 합계 `96,000`, 메리츠화재 `35,070`, 흥국생명 `10,950`, 보험료미제공 현대해상 실손 행 유지.
+- `python -m pytest backend\tests\test_coverage_parser_179.py -q`: `13 passed`.
+- `cd backend; python -m pytest -q`: `561 passed, 8 skipped`.
+- `npx tsc -p tsconfig.app.json --noEmit`: 통과.
+- `npx tsc -p tsconfig.node.json --noEmit`: 통과.
+- `npm run build`: 통과. 기존 Vite chunk-size warning만 출력.
+
+### Notes
+- `backend/pipeline/` 무접촉.
+- 실 PDF/엑셀/추출물/PII 저장·커밋 없음. `stash@{0}` 무접촉.
+- 구현 커밋 해시는 push 후 최종 응답에 기록.

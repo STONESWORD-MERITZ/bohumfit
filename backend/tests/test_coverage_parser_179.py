@@ -188,6 +188,54 @@ def test_parse_contracts_and_premiums():
     assert contracts[0]["insurer"] == "KB손보" and contracts[2]["insurer"] == "한화손보"
 
 
+def test_contract_list_handles_split_insurer_and_missing_premium_rows():
+    lines = [
+        "      1   KB\uc190\ubcf4                            2026-04-27 \uc6d4\ub0a9   20\ub144   100\uc138    20,940\uc6d0   ",
+        "          KB \uae08\ucabd\uac19\uc740 \ud76c\ub9dd\ud50c\ub7ec\uc2a4 \uac74\uac15\ubcf4\ud5d8",
+        "          \uba54\ub9ac\uce20\ud654  (\ubb34) \uba54\ub9ac\uce20 \ub610 \uac78\ub824\ub3c4 \ub610 \ubc1b\ub294 \uc554\ubcf4\ud5d8(\uc5f0\ub9cc...",
+        "      2                                   2026-04-25 \uc6d4\ub0a9   20\ub144   100\uc138    35,070\uc6d0   ",
+        "          \uc7ac     \uae30\ud615)2601",
+        "          \ubb34\ubc30\ub2f9\ud37c\ud399\ud2b8\uace8\ub4dc\uc885\ud569\ubcf4\ud5d8(Hi1804)2\uc885\uae30 \ubcf8\ud50c\ub79c",
+        "      3   \ud604\ub300\ud574\uc0c1                            2018-05-31 \uc6d4\ub0a9   20\ub144   100\uc138    27,640\uc6d0   ",
+        "          \ubcf8\ud50c\ub79c",
+        "          \ubb34\ubc30\ub2f9\uc2e4\uc190\uc758\ub8cc\ube44\ubcf4\uc7a5\ubcf4\ud5d8(\uac31\uc2e0",
+        "      4   \ud604\ub300\ud574\uc0c1                            2018-05-31       0\ub144   41\uc138     \ubcf4\ud5d8\ub8cc\ubbf8\uc81c\uacf5    ",
+        "          \ud615)(Hi1810)\uae30\ubcf8\ub0a9\uc785\ud615\ud50c\ub79c",
+        "          (\ubb34)\ub354\ub4dc\ub9bcStage\uc554\ubcf4\ud5d8(1\uc885-\uc21c\uc218\ubcf4\uc7a5,\ucd5c\ucd08 \uacc4\uc57d)",
+        "      5   \ud765\uad6d\uc0dd\uba85                            2018-05-18 \uc6d4\ub0a9   10\ub144   36\uc138     10,950\uc6d0   ",
+        "      6   AIA\uc0dd\uba85                           2020-09-11 \uc6d4\ub0a9   10\ub144   38\uc138      1,400\uc6d0   ",
+    ]
+
+    contracts = {contract["idx"]: contract for contract in parse_contract_list(lines)}
+
+    assert len(contracts) == 6
+    assert contracts[2]["insurer"] == "\uba54\ub9ac\uce20\ud654\uc7ac"
+    assert contracts[2]["monthly_premium"] == 35070
+    assert "\ub610 \uac78\ub824\ub3c4" in contracts[2]["product"]
+    assert contracts[4]["insurer"] == "\ud604\ub300\ud574\uc0c1"
+    assert contracts[4]["pay_cycle"] is None
+    assert contracts[4]["monthly_premium"] is None
+    assert "\uc2e4\uc190\uc758\ub8cc\ube44" in contracts[4]["product"]
+    assert contracts[5]["insurer"] == "\ud765\uad6d\uc0dd\uba85"
+    assert "\ub354\ub4dc\ub9bcStage" in contracts[5]["product"]
+    assert contracts[5]["monthly_premium"] == 10950
+    assert sum(contract["monthly_premium"] or 0 for contract in contracts.values()) == 96000
+
+
+def test_contract_list_keeps_unknown_insurers_from_becoming_placeholders():
+    lines = [
+        "      1   \uc0c8\ub86c\uc0dd\uba85   \uc0c8\ub86c \uac74\uac15\ubcf4\ud5d8       2024-01-01 \uc6d4\ub0a9 20\ub144 100\uc138 12,345\uc6d0",
+        "      2   \ub2e4\uc628\ud654\uc7ac   \ub2e4\uc628 \uc2e4\uc190\ubcf4\ud5d8       2024-01-02       0\ub144 45\uc138 \ubcf4\ud5d8\ub8cc\ubbf8\uc81c\uacf5",
+    ]
+
+    contracts = parse_contract_list(lines)
+
+    assert [contract["insurer"] for contract in contracts] == ["\uc0c8\ub86c\uc0dd\uba85", "\ub2e4\uc628\ud654\uc7ac"]
+    assert contracts[0]["monthly_premium"] == 12345
+    assert contracts[1]["pay_cycle"] is None
+    assert contracts[1]["monthly_premium"] is None
+
+
 def _build():
     raw = {
         "customer": {"name": "홍길동", "age": 33, "sex": "남"},

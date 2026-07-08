@@ -17,7 +17,7 @@ from .constants import (
 
 CONTRACT_LINE_RE = re.compile(
     r"(?P<date>\d{4}-\d{2}-\d{2})\s+"
-    r"(?P<cycle>월납|연납|일시납)\s+"
+    r"(?:(?P<cycle>월납|연납|일시납)\s+)?"
     r"(?:(?P<years>\d+\s*년)\s+)?"
     r"(?P<maturity>종신|\d+\s*세|\d{4})\s+"
     r"(?P<won>[\d,]+\s*원|보험료\s*미제공|보험료미제공|미제공)"
@@ -57,6 +57,21 @@ def _strip_despace_fragment(text: str, fragment: str) -> str:
     return _clean(text[: positions[start]] + " " + text[positions[end] + 1 :])
 
 
+def _strip_leading_despace_fragment(text: str, fragment: str) -> str:
+    compact = ""
+    positions: list[int] = []
+    for pos, ch in enumerate(text):
+        if ch.isspace():
+            continue
+        positions.append(pos)
+        compact += ch
+    target = _despace(fragment)
+    if not target or not compact.startswith(target):
+        return _clean(text)
+    end = len(target) - 1
+    return _clean(text[positions[end] + 1 :])
+
+
 _KNOWN_INSURERS_BY_LEN = sorted(KNOWN_INSURERS, key=lambda value: len(_despace(value)), reverse=True)
 
 
@@ -75,6 +90,23 @@ def _fallback_insurer(value: str) -> str | None:
     if re.search(r"(손보|화재|생명|해상|손해보험|생명보험)$", value):
         return value
     return None
+
+
+def _split_known_insurer(row_insurer: str, after_parts: list[str]) -> tuple[str | None, list[str]]:
+    left = _despace(row_insurer)
+    if not left:
+        return None, after_parts
+    for insurer in _KNOWN_INSURERS_BY_LEN:
+        compact = _despace(insurer)
+        if not compact.startswith(left) or compact == left:
+            continue
+        suffix = compact[len(left) :]
+        for idx, part in enumerate(after_parts):
+            if _despace(part).startswith(suffix):
+                updated = list(after_parts)
+                updated[idx] = _strip_leading_despace_fragment(part, suffix)
+                return insurer, updated
+    return None, after_parts
 
 
 def _contract_prefix_source(lines: list[str], row_idx: int, row_prefix: str, used: set[int] | None = None) -> str:
@@ -98,6 +130,9 @@ def _contract_prefix_source(lines: list[str], row_idx: int, row_prefix: str, use
     if row_match:
         return _clean(" ".join([_clean(row_prefix), *prefix]))
     prefix.append(_clean(row_prefix))
+    idx_only = re.fullmatch(r"\s*(\d+)\s*", row_prefix or "")
+    if idx_only and prefix:
+        return _clean(" ".join([idx_only.group(1), *prefix[:-1]]))
     return _clean(" ".join(prefix))
 
 
@@ -167,8 +202,11 @@ def parse_contract_list(lines: list[str]) -> list[dict]:
         if j < len(lines) and j not in used_continuations and _is_product_continuation(lines[j]):
             after_parts.append(_clean(lines[j]))
             used_continuations.add(j)
-        insurer = _known_insurer_in(" ".join([prefix_source, *after_parts])) or _fallback_insurer(pm.group("insurer"))
-        if insurer and _despace(pm.group("insurer")) == _despace(insurer):
+        split_insurer, after_parts = _split_known_insurer(pm.group("insurer"), after_parts)
+        insurer = split_insurer or _known_insurer_in(" ".join([prefix_source, *after_parts])) or _fallback_insurer(pm.group("insurer"))
+        if split_insurer:
+            product = row_product
+        elif insurer and _despace(pm.group("insurer")) == _despace(insurer):
             product = row_product
         elif insurer:
             product = _strip_despace_fragment(prefix_source, insurer)
