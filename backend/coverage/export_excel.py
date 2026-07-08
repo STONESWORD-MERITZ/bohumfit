@@ -170,7 +170,7 @@ def _sheet_proposals(ws, plan: dict) -> None:
     ws.title = "③ 신규제안"
     ws["A1"] = "③ 신규가입 제안서"
     ws["A1"].font = Font(bold=True, size=14, color=INK)
-    ws["A2"] = "PDF 업로드 슬롯은 BOHUMFIT-193 파서 연결 전까지 수기 입력 경로와 연결됩니다."
+    ws["A2"] = "가입제안서 PDF 파싱 결과와 수기 보완값을 함께 표시합니다."
     ws["A2"].font = Font(color=GRAY_TX, size=9)
     headers = ["번호", "보험사", "상품명", "월보험료", "납입개월", "만기", "수기 입력 담보"]
     r = 4
@@ -255,7 +255,7 @@ def _sheet_final(ws, final: dict, before: dict) -> None:
 
 
 def _sheet_before(ws, before: dict, title: str = "회사별 세부 (전)") -> None:
-    companies = before.get("contract_list") or before.get("companies", [])  # 월납 내림차순(백엔드 정렬)
+    companies = before.get("contract_list") or before.get("companies", [])  # 보험사 가나다순(백엔드 정렬)
     coverages = before.get("coverages", [])
     ws["A1"] = title
     ws["A1"].font = Font(bold=True, size=14, color=INK)

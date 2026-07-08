@@ -265,3 +265,28 @@ Current owner: **Human**(집계·분해·유지계약 정책 결정) → 이후 
 - `.agent-harness/tasks/BOHUMFIT-193-newproposal-parse-registry-ui-spec.md` · `handoff.md` · `locks.md` (src/·backend/ stage 없음, PDF·추출물 stage 금지)
 - 커밋: `docs(BOHUMFIT-193): 신규 가입제안서 PDF 파싱 + 통합치료비 레지스트리 조사 명세(전제 191 반영)`
 - ★번호 충돌은 BOHUMFIT-193 재번호로 반영 완료.
+
+---
+
+## Codex Windows 구현 결과 (2026-07-08)
+
+- 신규 모듈: `backend/coverage/proposal_registry.py`, `backend/coverage/proposal_parser.py`
+  - 회사별 신규 가입제안서 PDF/텍스트를 `consulting_plan.proposals` 형태로 변환.
+  - PDF/추출 텍스트는 저장하지 않고 요청 메모리에서만 사용.
+  - 회사 정렬은 보험사 가나다순으로 확정.
+- API: `POST /coverage/proposals/parse`
+  - 로그인 JWT 필요, PDF 확장자/시그니처/개별·총 용량 검증.
+  - 실패 시 기존 수기 신규제안 경로가 유지되도록 프런트에서 폴백.
+- 집계 연결: `build_after_analysis`
+  - 표준 KB 37행에 없는 제안서 전용 담보도 `group12`/`agg` 메타가 있으면 [후]에 추가.
+  - 기존 [전] 파서와 동일한 회사 내부 대표값/회사 간 합산 경로를 사용.
+- UI: `CoverageRemodel.tsx`
+  - ③ 신규 가입제안서 슬롯에 PDF 업로드→파싱→수기 보완 연결.
+  - 수기 입력 경로는 유지.
+- 회귀:
+  - 합성 5종: 보험료 합계 `162,154`, 회사순서 `KB손해보험 → 메리츠화재×3 → 미래에셋생명`, bundle/K-B 특정값 검증.
+  - 실 5종 후보: 보험료 합계 `162,154`, warning 0.
+  - 실 문건주 [전] + 실 5종 [후] 메모리 스모크: [전] `573,227 / 181,984,128` 유지, [후] 월납 `735,381`(`+162,154`).
+- Notes:
+  - 자동차사고부상은 실제 운전자 PDF 원문상 `14급 30만원`으로 확인. 기존 조사 메모의 `자부상500`은 대표값 후보였으나, 최종 구현은 확정 규칙인 `14급 기준`을 따름.
+  - 실 PDF/엑셀/추출물/PII는 저장·커밋하지 않음.

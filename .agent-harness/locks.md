@@ -4,9 +4,8 @@ Use this file to record active Codex file ownership during a task.
 
 ## Active
 
-없음
-
 ### Released
+- 2026-07-08 `BOHUMFIT-193` - Codex - 완료. 신규 가입제안서 PDF 파서/레지스트리/후 재계산 연결 구현. Scope: `backend/coverage/*`, `backend/main.py` route wire-up, `src/pages/CoverageRemodel.tsx`, 회귀 테스트/task/handoff. 검증: tsc app/node, npm build, npm test `15 passed`, backend pytest `559 passed, 8 skipped`, 193 -vv `2 passed`, 194+193 `5 passed`. 실 5종 후보 메모리 스모크 보험료 합계 `162,154`·warning 0, 문건주 [전] `573,227/181,984,128` 유지 + [후] 월납 `735,381`. 실PDF/PII 미스테이지.
 - 2026-07-08 `BOHUMFIT-195` - Codex - 완료. ④ 특약별 전후 비교표를 전/후 2단 그룹 헤더로 정렬(화면 thead only, PDF 8칸 행, Excel D:E/F:G 병합). 값·집계·상태 판정·189/190/191/194 회귀 변경 없음. 검증: 195 -vv 3 passed, 188/191/194/195 회귀 13 passed, tsc app/node, build, backend pytest `551 passed, 7 skipped`, 문건주 기준 합성 메모리 스모크(573,227·181,984,128·상해사망 5.5억) 통과. `backend/pipeline/` 무접촉, 실PDF/PII 미스테이지.
 - 2026-07-08 `BOHUMFIT-194` - Codex - 완료. 컨설팅 리포트·화면 6단계 순서 재편(①표지→②전계약 유지/해지→③신규가입 제안서 슬롯/수기→④특약별 전후→⑤회사별 전후→⑥전 진단 세부). 유지/해지 select 제거 후 인라인 체크, 193 파서 구현 없이 업로드 슬롯/TODO만 추가. PDF/Excel 동일 순서, Excel 기준선 6시트. 검증: tsc app/node, build, backend pytest `554 passed, 8 skipped`, 194 -vv 3 passed, 181/188/191 회귀 11 passed, synthetic PDF bytes 생성 성공. `backend/pipeline/` 무접촉, 실 PDF/PII 미스테이지.
 - 2026-07-08 `BOHUMFIT-193`(newproposal-parse-registry-ui) - Cowork - **완료**(조사·설계 전용, 코드 0). 회사별 신규 가입제안서 파싱 + 통합치료비 레지스트리 + 전/후/최종 UI 조사 명세. ★사용자 업로드 실 PDF 5종(이상범, 내부 비공개) pdfplumber 실측 → 골든 【후】표 역추적(보험료 162,154 일치·약 85% 담보 정확 재현, bundle 분해/미래유사암/KB특정Ⅱ/자부상은 약관·Human). 산출: `tasks/BOHUMFIT-193-newproposal-parse-registry-ui-spec.md`. ★번호 충돌 해소: 기존 `BOHUMFIT-182-company-wrap-count`(커밋 `5ee593c`)와 충돌 회피 위해 이번 신규 명세는 193으로 재번호. ★현행 정합: 저장소 191까지 진행(패킷 "181" 전제와 상이), STEP UI는 185~191 기구현 → 명세 신규 기여=PDF 파싱+레지스트리. src/·backend 무접촉, PDF/PII 미스테이지. Codex: 문서만 stage/commit/push(코드 게이트 불필요).

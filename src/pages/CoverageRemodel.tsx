@@ -76,6 +76,9 @@ type ProposalCoverageDraft = {
   id: string;
   kbName: string;
   amount: string;
+  kbGroup?: string;
+  group12?: string;
+  agg?: string;
 };
 
 type ProposalDraft = {
@@ -105,7 +108,35 @@ type ProposalPlan = {
   pay_cycle: string;
   pay_months: number | null;
   maturity?: string;
-  coverages: { kb_name: string; amount: number | null }[];
+  coverages: { kb_name: string; amount: number | null; kb_group?: string; group12?: string; agg?: string }[];
+};
+
+type ParsedProposalCoverage = {
+  kb_name: string;
+  amount: number | null;
+  kb_group?: string;
+  group12?: string;
+  agg?: string;
+  source?: string;
+};
+
+type ParsedProposal = {
+  proposal_id: string;
+  insurer?: string;
+  product?: string;
+  monthly_premium: number | null;
+  pay_months: number | null;
+  maturity?: string | null;
+  coverages: ParsedProposalCoverage[];
+  filename?: string;
+};
+
+type ParsedProposalResponse = {
+  proposals: ParsedProposal[];
+  warnings?: string[];
+  premium?: { monthly_total?: number; currency?: string };
+  premium_total?: number;
+  count?: number;
 };
 
 type ConsultingPlanV1 = {
@@ -217,6 +248,27 @@ function makeProposal(): ProposalDraft {
     payMonths: "",
     maturity: "",
     coverages: [{ id: `${id}-C1`, kbName: "", amount: "" }],
+  };
+}
+
+function draftFromParsedProposal(proposal: ParsedProposal, index: number): ProposalDraft {
+  const id = proposal.proposal_id || `P${index + 1}`;
+  const coverages = (proposal.coverages || []).map((coverage, coverageIndex) => ({
+    id: `${id}-C${coverageIndex + 1}`,
+    kbName: coverage.kb_name || "",
+    amount: coverage.amount == null ? "" : String(coverage.amount),
+    kbGroup: coverage.kb_group,
+    group12: coverage.group12,
+    agg: coverage.agg,
+  }));
+  return {
+    id,
+    insurer: proposal.insurer || "",
+    product: proposal.product || proposal.filename || "",
+    monthlyPremium: proposal.monthly_premium == null ? "" : String(proposal.monthly_premium),
+    payMonths: proposal.pay_months == null ? "" : String(proposal.pay_months),
+    maturity: proposal.maturity || "",
+    coverages: coverages.length ? coverages : [{ id: `${id}-C1`, kbName: "", amount: "" }],
   };
 }
 
@@ -377,9 +429,16 @@ function groupComparisonValues(rows: ComparisonRow[]) {
 
 function sortCompanies(companies: Company[]): Company[] {
   return [...companies].sort((left, right) => {
-    if (left.monthly_premium == null && right.monthly_premium != null) return 1;
-    if (left.monthly_premium != null && right.monthly_premium == null) return -1;
-    return (right.monthly_premium || 0) - (left.monthly_premium || 0) || keyOf(left.idx).localeCompare(keyOf(right.idx));
+    const leftInsurer = left.insurer || "";
+    const rightInsurer = right.insurer || "";
+    if (leftInsurer !== rightInsurer) return leftInsurer < rightInsurer ? -1 : 1;
+    const leftProduct = left.product || "";
+    const rightProduct = right.product || "";
+    if (leftProduct !== rightProduct) return leftProduct < rightProduct ? -1 : 1;
+    const leftId = keyOf(left.idx);
+    const rightId = keyOf(right.idx);
+    if (leftId !== rightId) return leftId < rightId ? -1 : 1;
+    return 0;
   });
 }
 
@@ -519,6 +578,9 @@ function buildConsultingPlan(
           .map((coverage) => ({
             kb_name: coverage.kbName,
             amount: toNumberOrNull(coverage.amount),
+            kb_group: coverage.kbGroup,
+            group12: coverage.group12,
+            agg: coverage.agg,
           })),
       }))
       .filter((proposal) => proposal.monthly_premium != null || proposal.coverages.length > 0),
@@ -548,6 +610,8 @@ function buildAfterResult(
   }
 
   const proposalAmounts: Record<string, Record<string, number | null>> = {};
+  const proposalMeta: Record<string, Pick<BeforeCoverage, "kb_name" | "kb_group" | "group12" | "agg">> = {};
+  const knownCoverages = new Set(analysis.before.coverages.map((coverage) => coverage.kb_name));
   let paidUnknown = false;
   for (const [index, proposal] of plan.proposals.entries()) {
     const proposalId = proposal.proposal_id || `P${index + 1}`;
@@ -570,8 +634,18 @@ function buildAfterResult(
     afterCompanies.push(proposalCompany);
     for (const coverage of proposal.coverages) {
       if (!coverage.kb_name) continue;
+      if (!knownCoverages.has(coverage.kb_name) && coverage.group12 && coverage.agg) {
+        proposalMeta[coverage.kb_name] ||= {
+          kb_name: coverage.kb_name,
+          kb_group: coverage.kb_group || coverage.group12,
+          group12: coverage.group12,
+          agg: coverage.agg,
+        };
+      }
       if (!proposalAmounts[coverage.kb_name]) proposalAmounts[coverage.kb_name] = {};
-      proposalAmounts[coverage.kb_name][proposalId] = coverage.amount;
+      const currentAmount = proposalAmounts[coverage.kb_name][proposalId];
+      proposalAmounts[coverage.kb_name][proposalId] =
+        currentAmount == null || coverage.amount == null ? coverage.amount : Math.max(currentAmount, coverage.amount);
     }
   }
 
@@ -589,6 +663,15 @@ function buildAfterResult(
       enrolled: Object.values(byCompany).some((amount) => amount != null),
     };
   });
+  for (const [kbName, meta] of Object.entries(proposalMeta)) {
+    const byCompany = proposalAmounts[kbName] || {};
+    afterCoverages.push({
+      ...meta,
+      by_company: byCompany,
+      summary: aggregateCoverageValues(byCompany, meta.agg),
+      enrolled: Object.values(byCompany).some((amount) => amount != null),
+    });
+  }
 
   const monthlyTotal = afterCompanies.reduce((sum, company) => sum + (company.monthly_premium || 0), 0);
   const paidTotal = paidUnknown ? null : afterCompanies.reduce((sum, company) => sum + (company.paid_total || 0), 0);
@@ -684,6 +767,8 @@ export default function CoverageRemodel() {
   const [decisions, setDecisions] = useState<Record<string, ContractDecision>>({});
   const [proposals, setProposals] = useState<ProposalDraft[]>([]);
   const [proposalFileNames, setProposalFileNames] = useState<string[]>([]);
+  const [proposalParsing, setProposalParsing] = useState(false);
+  const [proposalParseNotes, setProposalParseNotes] = useState<string[]>([]);
   const [reportCover, setReportCover] = useState<ReportCoverDraft>(() => makeReportCover());
   const [showBefore, setShowBefore] = useState(false);
   const [exporting, setExporting] = useState<"" | "excel" | "pdf">("");
@@ -694,7 +779,26 @@ export default function CoverageRemodel() {
   const comparisonValueGroups = useMemo(() => groupComparisonValues(afterResult?.comparison.coverages || []), [afterResult]);
   const statusSummary = useMemo(() => statusCounts(result?.final.coverages || []), [result]);
   const afterStatusSummary = useMemo(() => statusCounts(afterResult?.after.final.coverages || []), [afterResult]);
-  const coverageOptions = useMemo(() => result?.before.coverages || [], [result]);
+  const coverageOptions = useMemo(() => {
+    const options = [...(result?.before.coverages || [])];
+    const seen = new Set(options.map((coverage) => coverage.kb_name));
+    for (const proposal of proposals) {
+      for (const coverage of proposal.coverages) {
+        if (!coverage.kbName || seen.has(coverage.kbName)) continue;
+        options.push({
+          kb_name: coverage.kbName,
+          kb_group: coverage.kbGroup || coverage.group12 || "신규제안",
+          group12: coverage.group12 || "기타",
+          agg: coverage.agg || "sum",
+          summary: null,
+          by_company: {},
+          enrolled: false,
+        });
+        seen.add(coverage.kbName);
+      }
+    }
+    return options;
+  }, [result, proposals]);
 
   async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -711,6 +815,7 @@ export default function CoverageRemodel() {
     setDecisions({});
     setProposals([]);
     setProposalFileNames([]);
+    setProposalParseNotes([]);
     setReportCover(makeReportCover());
     setFileName(file.name);
     try {
@@ -859,13 +964,51 @@ export default function CoverageRemodel() {
     setAfterResult(buildAfterResult(result, decisions, proposals));
   }
 
-  function handleProposalSlotUpload(event: ChangeEvent<HTMLInputElement>) {
+  async function handleProposalSlotUpload(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files || []);
     setProposalFileNames(files.map((file) => file.name));
-    // TODO(BOHUMFIT-193): connect this slot to the newproposal PDF parser/registry.
-    // BOHUMFIT-194 intentionally keeps the current manual proposal path as the source of truth.
-    if (files.length > 0 && proposals.length === 0) {
-      addProposal();
+    setProposalParseNotes([]);
+    if (files.length === 0) return;
+    const token = session?.access_token;
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+    setProposalParsing(true);
+    setError("");
+    try {
+      const formData = new FormData();
+      files.forEach((file) => formData.append("files", file));
+      const response = await fetch(`${API_BASE}/coverage/proposals/parse`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.detail || "신규 가입제안서 파싱에 실패했습니다. 수기로 보완해 주세요.");
+      }
+      const payload = (await response.json()) as ParsedProposalResponse;
+      const parsed = (payload.proposals || []).map(draftFromParsedProposal);
+      if (parsed.length > 0) {
+        setProposals(parsed);
+        if (result) {
+          setAfterResult(buildAfterResult(result, decisions, parsed));
+        } else {
+          setAfterResult(null);
+        }
+      }
+      const notes = [...(payload.warnings || [])];
+      const monthlyTotal = payload.premium?.monthly_total ?? payload.premium_total;
+      if (monthlyTotal != null) notes.unshift(`파싱된 월보험료 합계 ${monthlyTotal.toLocaleString()}원`);
+      setProposalParseNotes(notes);
+    } catch (parseError) {
+      setProposalParseNotes([parseError instanceof Error ? parseError.message : "신규 가입제안서 파싱 중 오류가 발생했습니다."]);
+      setProposals((current) => (current.length > 0 ? current : [makeProposal()]));
+      setAfterResult(null);
+    } finally {
+      setProposalParsing(false);
+      event.target.value = "";
     }
   }
 
@@ -1115,7 +1258,7 @@ export default function CoverageRemodel() {
               <div>
                 <h2 className="ko-heading text-lg font-bold text-ink-900">③ 신규가입 제안서</h2>
                 <p className="mt-1 text-xs text-ink-soft">
-                  가입제안서 업로드 슬롯을 준비하고, 이번 단계에서는 아래 수기 입력값을 비교에 연결합니다.
+                  회사별 가입제안서 PDF를 자동 파싱해 아래 신규 제안 카드에 채웁니다. 파싱이 부족하면 수기로 보완할 수 있습니다.
                 </p>
               </div>
               <button
@@ -1129,17 +1272,27 @@ export default function CoverageRemodel() {
 
             <label className="mt-5 flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-card border-2 border-dashed border-accent-200 bg-accent-50 px-4 py-5 text-center hover:border-accent-400">
               <UploadCloud size={26} className="text-accent-700" aria-hidden="true" />
-              <span className="mt-2 text-sm font-bold text-accent-800">신규 가입제안서 PDF 업로드 슬롯</span>
-              <span className="mt-1 text-xs text-ink-soft">BOHUMFIT-193 파서 연결 전까지는 수기 입력으로 반영합니다.</span>
+              <span className="mt-2 text-sm font-bold text-accent-800">
+                {proposalParsing ? "신규 가입제안서 파싱 중..." : "신규 가입제안서 PDF 업로드"}
+              </span>
+              <span className="mt-1 text-xs text-ink-soft">파싱 결과는 수기 입력 카드로 들어오며, 전후 비교 계산에 바로 반영됩니다.</span>
               <input
                 type="file"
                 accept="application/pdf"
                 multiple
                 className="hidden"
+                disabled={proposalParsing}
                 onChange={handleProposalSlotUpload}
-                aria-label="신규 가입제안서 PDF 업로드 슬롯"
+                aria-label="신규 가입제안서 PDF 업로드"
               />
             </label>
+            {proposalParseNotes.length > 0 && (
+              <div className="mt-3 rounded-[8px] border border-line bg-canvas px-4 py-3 text-[12px] text-ink-700">
+                {proposalParseNotes.slice(0, 4).map((note, index) => (
+                  <p key={`${note}-${index}`}>{note}</p>
+                ))}
+              </div>
+            )}
             {proposalFileNames.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-2">
                 {proposalFileNames.map((name) => (

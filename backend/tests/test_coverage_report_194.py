@@ -40,8 +40,7 @@ def test_pdf_report_uses_six_step_order() -> None:
     positions = [html.index(marker) for marker in markers]
     assert positions == sorted(positions)
     assert "해지" in html
-    assert "PDF 업로드 슬롯" in html
-    assert "BOHUMFIT-193" in html
+    assert "신규 가입제안서 PDF 파싱 결과" in html
 
 
 def test_pdf_splits_rider_and_company_comparison_pages() -> None:
@@ -73,6 +72,6 @@ def test_excel_uses_same_six_step_sheet_order() -> None:
     compare_values = [cell.value for row in workbook["④ 전후 특약별"].iter_rows() for cell in row if cell.value is not None]
 
     assert "해지" in contract_values
-    assert "PDF 업로드 슬롯은 BOHUMFIT-193 파서 연결 전까지 수기 입력 경로와 연결됩니다." in proposal_values
+    assert "가입제안서 PDF 파싱 결과와 수기 보완값을 함께 표시합니다." in proposal_values
     assert "④ 최종 전 VS 후 - 특약별 보장 비교" in compare_values
     assert -20_000 in compare_values

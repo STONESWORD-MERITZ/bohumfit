@@ -48,7 +48,7 @@ def _analysis() -> dict:
 
 def test_before_payload_promotes_contract_list_with_missing_premium() -> None:
     before = _analysis()["before"]
-    contract = before["contract_list"][1]
+    contract = before["contract_list"][0]
 
     assert contract["insurer"] == "DB손보"
     assert contract["monthly_premium"] is None
@@ -69,9 +69,9 @@ def test_excel_before_sheet_has_contract_list_block() -> None:
         "월보험료",
         "비고",
     ]
-    assert ws.cell(5, 2).value == "DB손보"
-    assert ws.cell(5, 6).value == "미제공"
-    assert ws.cell(5, 7).value == "보험료 미제공"
+    assert ws.cell(4, 2).value == "DB손보"
+    assert ws.cell(4, 6).value == "미제공"
+    assert ws.cell(4, 7).value == "보험료 미제공"
 
 
 def test_pdf_html_has_contract_list_block() -> None:

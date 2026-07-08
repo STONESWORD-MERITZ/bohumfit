@@ -207,11 +207,11 @@ def test_premium_totals():
     assert before["premium"]["paid_total"] == 181_984_128
 
 
-def test_companies_sorted_desc():
+def test_companies_sorted_by_insurer_name():
     _, before, _ = _build()
-    prem = [c["monthly_premium"] for c in before["companies"]]
-    assert prem == sorted(prem, reverse=True)
-    assert prem[0] == 333600 and prem[-1] == 10000
+    insurers = [c["insurer"] for c in before["companies"]]
+    assert insurers == ["KB손보", "KB손보", "삼성생명", "삼성화재", "삼성화재", "한화손보"]
+    assert before["companies"][0]["monthly_premium"] == 101463
 
 
 def _cov(before, name):

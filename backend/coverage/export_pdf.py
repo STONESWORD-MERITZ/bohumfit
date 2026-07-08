@@ -378,7 +378,7 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
         proposal_rows.append('<tr><td colspan="6" class="empty">수기 입력된 신규 제안이 없습니다.</td></tr>')
     proposal_section = f"""
 <h2>③ 신규가입 제안서</h2>
-<div class="proposal-slot">신규 가입제안서 PDF 업로드 슬롯 · 실제 PDF 파싱은 BOHUMFIT-193에서 연결</div>
+<div class="proposal-slot">신규 가입제안서 PDF 파싱 결과 · 필요 시 수기 보완 가능</div>
 <table class="contract-list"><thead><tr><th>번호</th><th>보험사</th><th>상품명</th><th class="num">월보험료</th><th>만기</th><th>수기 입력 담보</th></tr></thead>
 <tbody>{''.join(proposal_rows)}</tbody></table>
 """

@@ -28,7 +28,12 @@ import httpx
 
 from analyzer import run_analysis, AnalysisError, SERVER_ANALYZE_DEADLINE_SECONDS
 from pipeline.coverage_parser import parse_coverage_pdf  # BOHUMFIT-114
-from coverage.service import analyze_kb_coverage, KBFormatError  # BOHUMFIT-179 (KB 신정원 제안서 파서·격리 모듈)
+from coverage.service import (  # BOHUMFIT-179/193 (KB [전] 파서·신규제안 파서 격리 모듈)
+    KBFormatError,
+    ProposalParseError,
+    analyze_kb_coverage,
+    parse_newproposal_files,
+)
 from coverage.consulting import build_after_result  # BOHUMFIT-186 (컨설팅 후 설계 재계산)
 from coverage.export_excel import build_workbook_bytes  # BOHUMFIT-181 (엑셀 내보내기)
 from coverage.export_pdf import generate_coverage_pdf   # BOHUMFIT-181 (PDF 내보내기)
@@ -1333,6 +1338,61 @@ async def coverage_analyze(
     finally:
         del data
     return result
+
+
+# ── 회사별 신규 가입제안서 → 컨설팅 [후] 신규제안 (BOHUMFIT-193) ───────────────
+@app.post("/coverage/proposals/parse")
+@limiter.limit("20/minute")
+async def coverage_proposals_parse(
+    request: Request,
+    files: list[UploadFile] = File(..., description="회사별 신규 가입제안서 PDF 목록"),
+    user_id: str = Depends(verify_jwt),
+):
+    """BOHUMFIT-193: 회사별 가입제안서 PDF → [후] 재계산용 신규제안 목록.
+
+    - 응답 = {proposals, premium.monthly_total, warnings, metadata}.
+    - 실제 PDF/추출 텍스트는 서버에 저장하지 않고 요청 처리 후 폐기한다.
+    - 기존 BOHUMFIT-114/179 파서와 ``backend/pipeline``에는 연결하지 않는다.
+    """
+    if not files:
+        raise HTTPException(status_code=400, detail="신규 가입제안서 PDF를 1개 이상 업로드해 주세요.")
+    if len(files) > MAX_FILE_COUNT:
+        raise HTTPException(status_code=413, detail=f"PDF는 최대 {MAX_FILE_COUNT}개까지 업로드할 수 있습니다.")
+
+    payload: list[tuple[str, bytes]] = []
+    total_size = 0
+    try:
+        for file in files:
+            fname = file.filename or "proposal.pdf"
+            if not fname.lower().endswith(".pdf"):
+                raise HTTPException(status_code=400, detail="PDF 파일만 업로드할 수 있어요.")
+            data = await file.read()
+            if not data:
+                raise HTTPException(status_code=400, detail="빈 파일입니다.")
+            if len(data) > MAX_FILE_SIZE:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"개별 PDF 크기는 {MAX_FILE_SIZE // (1024 * 1024)}MB를 넘을 수 없습니다.",
+                )
+            if b"%PDF-" not in data[:1024]:
+                raise HTTPException(status_code=400, detail="올바른 PDF 파일이 아니에요.")
+            total_size += len(data)
+            payload.append((fname, data))
+        if total_size > MAX_TOTAL_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"전체 PDF 합계 크기는 {MAX_TOTAL_SIZE // (1024 * 1024)}MB를 넘을 수 없습니다.",
+            )
+        return await asyncio.to_thread(parse_newproposal_files, payload)
+    except HTTPException:
+        raise
+    except ProposalParseError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.exception("coverage proposal parse failed: %s", e)
+        raise HTTPException(status_code=500, detail="신규 가입제안서 파싱에 실패했습니다. 수기로 보완해 주세요.")
+    finally:
+        del payload
 
 
 # ── 보장분석 리모델링표 내보내기 (BOHUMFIT-181) ────────────────────────────────

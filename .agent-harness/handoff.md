@@ -1,3 +1,43 @@
+﻿## 2026-07-08 BOHUMFIT-193 — 신규 가입제안서 PDF 파싱 + 후 재계산 연결 완료
+
+Owner flow: Human -> Codex Windows | Current owner: Human(배포 확인)
+
+### Changed
+- `backend/coverage/proposal_registry.py`: 회사별 신규제안 담보 레지스트리/실측 fallback/직접 추출 규칙.
+- `backend/coverage/proposal_parser.py`: 가입제안서 PDF·텍스트 파서, 통합치료비 bundle 분해, 회사 가나다순 정렬, 14급 자부상 기준.
+- `backend/coverage/aggregator.py`, `backend/coverage/compare.py`, `backend/coverage/service.py`: 회사 가나다순 정렬, 제안서 전용 담보 메타 기반 [후] 재계산, parser service entry.
+- `backend/main.py`: `POST /coverage/proposals/parse` 추가(JWT, PDF/용량 검증, 미저장).
+- `src/pages/CoverageRemodel.tsx`: ③ 신규 가입제안서 슬롯 PDF 업로드→자동 파싱→수기 보완 연결.
+- `backend/tests/test_coverage_proposal_parse_193.py`: 합성 5종 실측 구조 회귀.
+- `backend/tests/test_coverage_contract_list_184.py`, `backend/tests/test_coverage_report_194.py`: 193 정렬/문구 변화에 따른 회귀 기대값 갱신.
+- `CLAUDE.md`, `.agent-harness/tasks/BOHUMFIT-193-newproposal-parse-registry-ui-spec.md`, `.agent-harness/locks.md`
+
+### Verified
+- `npx tsc -p tsconfig.app.json --noEmit`: 통과.
+- `npx tsc -p tsconfig.node.json --noEmit`: 통과.
+- `npm run build`: 통과. 기존 Vite chunk-size warning만 출력.
+- `npm test`: `15 passed`.
+- `cd backend; python -m pytest -q`: `559 passed, 8 skipped`.
+- `cd backend; python -m pytest -q tests/test_coverage_proposal_parse_193.py -vv`: `2 passed`.
+- `cd backend; python -m pytest -q tests/test_coverage_report_194.py tests/test_coverage_proposal_parse_193.py -vv`: `5 passed`.
+- `git diff --check`: 통과(LF→CRLF warning만 출력).
+
+### Real PDF Smoke
+- 실 5종 가입제안서 후보 메모리 파싱: 보험료 합계 `162,154`, 회사순서 `KB손해보험 → 메리츠화재×3 → 미래에셋생명`, warning 0.
+- 실측 주요값: 미래 일반암 `100,000,000`, 미래 유사암 `20,000,000`, KB 특정Ⅱ `50,000,000`, KB 특정Ⅰ/부정맥 `20,000,000`, 또또암 암수술 `17,500,000`, 표적 `80,500,000`, 방사선 `20,500,000`.
+- 자동차사고부상은 실제 운전자 PDF 원문상 `14급 300,000`으로 확인. 기존 조사 메모의 `자부상500`과 충돌하나 최종 구현은 사용자 확정 규칙인 `14급 기준`을 따름.
+- 실 문건주 [전] + 실 5종 [후] 메모리 스모크: [전] 월납 `573,227`, 총납입 `181,984,128` 유지. [후] 월납 `735,381`, 증감 `+162,154`. ④/⑤에 소비되는 [후] coverages/companies payload 채워짐.
+
+### Notes
+- `backend/pipeline/` 무접촉.
+- 실 PDF/엑셀/추출물/PII 저장·커밋 없음.
+- 추가로 실행한 `npm run lint`는 기존 범위 외 React Compiler lint 오류(`useCountUp.ts`, `Disclosure.tsx`, `History.tsx`, `Home.tsx`)로 실패. 193 검증 게이트에는 포함하지 않음.
+- 구현 커밋: 푸시 완료 후 Codex 최종 응답 기준
+
+### Next
+- Human: 배포 후 `/coverage-compare`에서 ③ 신규제안 PDF 업로드→④ 특약별/⑤ 회사별 [후] 데이터 표시를 실제 브라우저로 확인.
+- Human: 자부상 대표값을 “14급 30만원”으로 최종 승인할지, 별도 사업 규칙으로 “500만원 대표값”을 쓸지 결정.
+
 ## 2026-07-08 Codex - stash regression tests committed
 
 Owner flow: Human -> Codex Windows | Current owner: Human
@@ -73,7 +113,7 @@ Owner flow: Human -> Codex Windows | Current owner: Human(완료 확인)
 ### Notes
 - `backend/pipeline/` 무접촉.
 - 실 PDF/Excel/PII 산출물 저장·커밋 없음.
-- 구현 커밋: `661b415` (`feat(BOHUMFIT-195): ④특약별 전후 비교표 그룹 헤더 정렬(전/후 대칭·대분류 라인 맞춤)`)
+- 구현 커밋: 푸시 완료 후 Codex 최종 응답 기준 (`feat(BOHUMFIT-195): ④특약별 전후 비교표 그룹 헤더 정렬(전/후 대칭·대분류 라인 맞춤)`)
 
 ### Next
 - Human: `/coverage-compare`에서 실제 로그인 세션으로 ④ 화면/PDF/Excel 헤더 대칭을 육안 확인.
@@ -10532,3 +10572,6 @@ Owner flow: Human -> Codex Windows | Current owner: Human
 
 ### Next
 - Human: stash 잔재 유지/정리 여부 결정.
+
+
+

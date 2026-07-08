@@ -60,9 +60,13 @@ def _normalize_decisions(plan: dict, warnings: list[str]) -> dict[str, dict]:
     return decisions
 
 
-def _company_sort_key(company: dict) -> tuple[bool, int, str]:
-    premium = company.get("monthly_premium")
-    return (premium is None, -(premium or 0), str(company.get("idx") or ""))
+def _company_sort_key(company: dict) -> tuple[bool, str, str, str]:
+    return (
+        not bool(company.get("insurer")),
+        str(company.get("insurer") or ""),
+        str(company.get("product") or ""),
+        str(company.get("idx") or ""),
+    )
 
 
 def apply_consulting_plan(before: dict, plan: dict | None) -> dict:

@@ -81,8 +81,9 @@ def _sort_contracts(contracts: list[dict]) -> list[dict]:
     return sorted(
         contracts,
         key=lambda contract: (
-            contract.get("monthly_premium") is None,
-            -(contract.get("monthly_premium") or 0),
+            not bool(contract.get("insurer")),
+            str(contract.get("insurer") or ""),
+            str(contract.get("product") or ""),
             _contract_id(contract.get("idx")),
         ),
     )
@@ -272,6 +273,7 @@ def build_after_analysis(analysis: dict, plan: dict | None = None) -> dict:
 
     proposal_contracts = []
     proposal_values: defaultdict[str, dict[str, int | None]] = defaultdict(dict)
+    proposal_meta: dict[str, dict] = {}
     known_coverages = {row.get("kb_name") for row in before.get("coverages", [])}
     for seq, proposal in enumerate(plan.get("proposals", []), start=1):
         proposal_id = _contract_id(proposal.get("proposal_id") or f"P{seq}") or f"P{seq}"
@@ -304,14 +306,27 @@ def build_after_analysis(analysis: dict, plan: dict | None = None) -> dict:
         proposal_contracts.append(contract)
         for coverage in proposal.get("coverages", []):
             kb_name = coverage.get("kb_name")
-            if kb_name not in known_coverages:
-                warnings.append(f"신규제안 {proposal_id}의 미매핑 담보 {kb_name or '-'}는 제외했습니다.")
-                continue
             amount = _to_int(coverage.get("amount"))
             if amount is None or amount < 0:
                 warnings.append(f"신규제안 {proposal_id}의 담보 {kb_name} 금액이 없어 제외했습니다.")
                 continue
-            proposal_values[kb_name][proposal_id] = amount
+            if kb_name not in known_coverages:
+                group12 = coverage.get("group12")
+                agg = coverage.get("agg")
+                if not group12 or not agg:
+                    warnings.append(f"신규제안 {proposal_id}의 미매핑 담보 {kb_name or '-'}는 제외했습니다.")
+                    continue
+                proposal_meta.setdefault(
+                    kb_name,
+                    {
+                        "kb_name": kb_name,
+                        "kb_group": coverage.get("kb_group") or group12,
+                        "group12": group12,
+                        "agg": agg,
+                    },
+                )
+            current = proposal_values[kb_name].get(proposal_id)
+            proposal_values[kb_name][proposal_id] = amount if current is None else max(current, amount)
 
     after_companies = _sort_contracts(after_companies + proposal_contracts)
     after_coverages = []
@@ -328,6 +343,15 @@ def build_after_analysis(analysis: dict, plan: dict | None = None) -> dict:
             **deepcopy(row),
             "summary": summary,
             "by_company": by_company,
+            "enrolled": any(value is not None for value in by_company.values()),
+        })
+    for kb_name, meta in sorted(proposal_meta.items(), key=lambda item: (_group_key(item[1].get("group12")), item[0])):
+        by_company = proposal_values.get(kb_name, {})
+        summary = aggregate_coverage_values(by_company, meta.get("agg"))
+        after_coverages.append({
+            **deepcopy(meta),
+            "summary": summary,
+            "by_company": dict(by_company),
             "enrolled": any(value is not None for value in by_company.values()),
         })
 

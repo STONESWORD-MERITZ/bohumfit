@@ -33,8 +33,12 @@ def _remark(note: dict | None):
 
 
 def _company_sort_key(contract: dict):
-    premium = contract.get("monthly_premium")
-    return (premium is None, -(premium or 0), contract.get("idx") or 9999)
+    return (
+        not bool(contract.get("insurer")),
+        str(contract.get("insurer") or ""),
+        str(contract.get("product") or ""),
+        str(contract.get("idx") or ""),
+    )
 
 
 def build_before(raw: dict) -> dict:
