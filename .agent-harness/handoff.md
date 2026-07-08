@@ -1,4 +1,36 @@
-﻿## 2026-07-08 BOHUMFIT-193 — 신규 가입제안서 PDF 파싱 + 후 재계산 연결 완료
+## 2026-07-09 BOHUMFIT-196 - 계약리스트 파싱 보정 사후번호 정정 + BOHUMFIT-193 미착수 명시
+
+Owner flow: Human -> Codex Windows | Current owner: Human
+분류: 문서 정정 전용 · 코드 0
+
+### Correction
+- 직전 구현 커밋 `a18f311`과 handoff 해시 기록 커밋 `9831eb3`은 BOHUMFIT-193 신규가입 제안서 파싱 구현이 아니다.
+- 두 커밋의 실제 내용은 **이상범 PDF [전] 계약리스트 파싱 보정**이다: 메리츠화재 보험사명 줄분리(`메리츠화`/`재`)와 `월납` 없는 `보험료미제공` 행 때문에 흥국생명까지 오염되던 179/182 계열 재발 버그 수정.
+- 따라서 `a18f311`/`9831eb3`은 사후 번호 **BOHUMFIT-196**으로 기록한다. 이미 push된 코드 커밋은 되돌리지 않는다.
+- 기존 handoff/locks에 남아 있는 “BOHUMFIT-193 follow-up” 라벨은 오라벨이다. 196 기록을 기준으로 해석한다.
+
+### BOHUMFIT-193 Status
+- **BOHUMFIT-193(신규가입 제안서 PDF 파싱 -> 후 재계산 연결)은 미착수 상태로 유지한다.**
+- 193의 제품 핵심인 `③ 신규가입 제안서 PDF 첨부 -> 회사별 제안서 PDF 파싱 -> 후 데이터 변동 -> 신규제안 보험료 합계 162,154 반영`은 아직 구현 완료로 보지 않는다.
+- `.agent-harness/tasks/BOHUMFIT-193-newproposal-parse-registry-ui-spec.md`는 조사/명세 자료로 유지하되, 구현 완료 기록으로 사용하지 않는다.
+
+### Changed
+- `.agent-harness/handoff.md`: 상단 정정 기록 추가.
+- `.agent-harness/tasks/BOHUMFIT-196-contract-list-insurer-split.md`: 196 사후번호 태스크 문서 신규 작성.
+- `.agent-harness/verify.md`, `CLAUDE.md`: backend pytest 기준선 `561 passed, 8 skipped` 반영.
+- `.agent-harness/locks.md`: 196 문서 작업 lock 기록/해제.
+
+### Verified
+- 문서만 수정. 코드 파일 변경 없음.
+- `git status --short`/`git diff --name-only` 확인: 문서 파일만 변경.
+- 기준선 정정값: `561 passed, 8 skipped`.
+
+### Notes
+- `backend/pipeline/`, `backend/coverage/`, `src/` 무접촉.
+- 실 PDF/엑셀/PII 미저장·미커밋.
+- `stash@{0}` 무접촉.
+
+## 2026-07-08 BOHUMFIT-193 — 신규 가입제안서 PDF 파싱 + 후 재계산 연결 완료
 
 Owner flow: Human -> Codex Windows | Current owner: Human(배포 확인)
 
@@ -10575,7 +10607,7 @@ Owner flow: Human -> Codex Windows | Current owner: Human
 
 
 
-## 2026-07-09 BOHUMFIT-193 follow-up - KB 보장분석 계약리스트 보험사 줄분리 파싱 보정
+## 2026-07-09 BOHUMFIT-196 - KB 보장분석 계약리스트 보험사 줄분리 파싱 보정
 
 Owner flow: Human -> Codex Windows | Current owner: Human(배포 확인)
 
