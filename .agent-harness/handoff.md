@@ -20,16 +20,16 @@ Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Human
 - [x] `python -m pytest backend\tests\test_coverage_compare_188.py -vv` — 4 passed
 - [x] `python -m pytest backend\tests\test_coverage_parser_182.py backend\tests\test_coverage_group_183.py backend\tests\test_coverage_contract_list_184.py -q` — 11 passed
 - [x] Real PDF smoke (memory only): `문건주님 kb보장분석 제안서.pdf` → 신규제안 payload → Excel bytes and PDF bytes generated. Monthly delta +25,000, paid delta +6,000,000, sheet set `최종 보장진단/전 회사별세부/후 회사별세부/전후 비교/컨설팅 요약`, PDF `%PDF` 609,512 bytes. 문건주 원본은 부족/미가입 0개라 improved_count 0이 정상.
-- [x] Dev server HTTP smoke: `http://127.0.0.1:5173/coverage-compare` and `/` returned 200 with SPA root. `agent-browser` CLI/browser MCP unavailable in this session, so visual browser automation was not run.
+- [x] Dev server HTTP smoke: `http://127.0.0.1:5174/coverage-compare` returned 200 with SPA root. `agent-browser` CLI/browser MCP unavailable in this session, so visual browser automation was not run.
 
 ### Notes
 - `pipeline/` 무접촉. `[전]` parser 기준선과 182~184 regression 유지.
 - FIT v1.1 색상 확인: PDF HTML에 `#084734` 존재, 구 브랜드색 `#15663D/#2E6B3E/#145C2A` 없음. 188 PDF test에서 면책 문구 확인.
 - Real PDF/PII/output files were not staged. Smoke used in-memory bytes only.
-- Git cannot embed a commit's own final hash inside that same commit. Final commit hash is reported by Codex final response after commit/push.
+- Implementation commit pushed to `origin/main`: `db19334`.
 
 ### Commit
-- Pending at handoff write time; final hash in Codex response.
+- `db19334` `feat(BOHUMFIT-188): 컨설팅 전 VS 후 비교 + 최종 정리(화면·엑셀·PDF)`
 
 ### Next
 - Human: 배포 후 `/coverage-compare`에서 실제 로그인 세션으로 문건주 PDF 업로드, 신규제안 입력, 엑셀/PDF 다운로드 UI 육안 확인.
