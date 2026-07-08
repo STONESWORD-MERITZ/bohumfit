@@ -40,7 +40,7 @@ Owner flow: Human -> Codex Windows | Current owner: Human(완료 확인)
 ### Notes
 - `backend/pipeline/` 무접촉.
 - 실 PDF/Excel/PII 산출물 저장·커밋 없음.
-- 커밋 해시는 커밋 생성 후 Codex final에서 확정 기록한다(자기 커밋 해시는 같은 커밋 내부에 확정값으로 기록 불가).
+- 구현 커밋: `661b415` (`feat(BOHUMFIT-195): ④특약별 전후 비교표 그룹 헤더 정렬(전/후 대칭·대분류 라인 맞춤)`)
 
 ### Next
 - Human: `/coverage-compare`에서 실제 로그인 세션으로 ④ 화면/PDF/Excel 헤더 대칭을 육안 확인.
@@ -10467,3 +10467,35 @@ Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Human
 
 ### Next
 - Human: 배포 후 `/coverage-compare`에서 문건주 KB PDF로 유지/해지 + 신규가입 제안 1건 입력 후 [후] 부족담보 개선·월납 증감·엑셀/PDF 출력 육안 확인.
+## 2026-07-08 Codex — stash 회귀 테스트 2종 정식 편입
+
+Owner flow: Human -> Codex Windows | Current owner: Human
+
+### Changed
+- `backend/tests/test_q3_real_pattern_regression.py`
+- `backend/tests/test_subscription_schema.py`
+- `.agent-harness/verify.md`
+- `CLAUDE.md`
+- `.agent-harness/handoff.md`
+
+### Verified
+- `git stash list` 확인: `stash@{0}: On main: pre-resync-20260708` 존재.
+- `git checkout "stash@{0}^3" -- backend/tests/test_q3_real_pattern_regression.py backend/tests/test_subscription_schema.py`
+  - 두 테스트 파일만 복원. stash 전체 apply/pop/drop 미실행.
+- `cd backend; python -m pytest -q`
+```text
+557 passed, 8 skipped in 81.60s
+```
+- `cd backend; python -m pytest -q tests/test_q3_real_pattern_regression.py tests/test_subscription_schema.py`
+```text
+6 passed, 1 skipped in 2.65s
+```
+- `backend/pipeline` 및 `backend/coverage` 구현 diff 없음 확인.
+
+### Notes
+- Human 요청 기준선은 `554 passed, 8 skipped`였으나 Windows 실측은 `557 passed, 8 skipped`로 확인됨. 허위 기준선 기록을 피하기 위해 `verify.md`와 `CLAUDE.md`는 실측 기준선 `557/8`로 갱신.
+- `stash@{0}`는 drop 금지 요청에 따라 그대로 보존. audit md, FITHERE 계열, brand/guide/pamphlet 등 잔재는 stash에 남겨둠.
+- PII/PDF/엑셀 파일 stage 없음.
+
+### Next
+- Human: stash 잔재 유지/정리 여부 결정.
