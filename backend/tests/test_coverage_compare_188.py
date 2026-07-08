@@ -171,14 +171,12 @@ def test_excel_adds_after_compare_and_summary_sheets() -> None:
     result = build_after_analysis(_analysis(), _plan())
     workbook = load_workbook(io.BytesIO(build_workbook_bytes(result)))
 
-    assert workbook.sheetnames == ["최종 보장진단", "전 회사별세부", "후 회사별세부", "전후 비교", "컨설팅 요약"]
-    compare = workbook["전후 비교"]
+    assert workbook.sheetnames == ["① 표지", "② 전 계약", "③ 신규제안", "④ 전후 특약별", "⑤ 전후 회사별", "⑥ 전 진단세부"]
+    compare = workbook["④ 전후 특약별"]
     values = [cell.value for row in compare.iter_rows() for cell in row if cell.value is not None]
     assert "미가입 -> 충분" in values
     assert "부족 -> 충분" in values
     assert -20_000 in values
-    summary = workbook["컨설팅 요약"]
-    assert summary["B9"].value == 2
 
 
 def test_pdf_html_adds_customer_compare_page_with_brand_and_disclaimer() -> None:

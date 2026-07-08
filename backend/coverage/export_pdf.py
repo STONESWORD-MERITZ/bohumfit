@@ -148,7 +148,7 @@ def _cover_html(analysis: dict, generated_date: str) -> str:
     <span class="cover-word">BohumFit<small>보험핏</small></span>
   </div>
   <div class="cover-title">
-    <p>FIT 보장분석</p>
+    <p>① 표지 · FIT 보장분석</p>
     <h1>보장분석 리포트</h1>
   </div>
   <div class="cover-grid">
@@ -174,6 +174,13 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
     cover_page = _cover_html(analysis, gen)
     cover_payload = analysis.get("report_cover") if isinstance(analysis.get("report_cover"), dict) else {}
     mask_names = (customer.get("name"), cover_payload.get("customer_name") if cover_payload else None)
+    plan = analysis.get("consulting_plan") if isinstance(analysis.get("consulting_plan"), dict) else {}
+    canceled_ids = {
+        str(item.get("contract_idx"))
+        for item in plan.get("existing", [])
+        if isinstance(item, dict) and item.get("disposition") == "cancel"
+    }
+    proposal_plan = [item for item in plan.get("proposals", []) if isinstance(item, dict)] if plan else []
 
     # [최종] 담보 그룹 순서
     fcovs = sorted(final.get("coverages", []), key=lambda c: _grp_key(c.get("group12", "")))
@@ -240,16 +247,28 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
                 f'<td class="nm">{_esc(c.get("kb_name"))}</td>'
                 f'<td class="num strong">{_fmt_krw(c.get("summary"))}</td>{cells}</tr>'
             )
+        after_contract_rows = []
+        for co in after_companies:
+            after_contract_rows.append(
+                "<tr>"
+                f"<td>{_esc(co.get('idx'))}</td>"
+                f"<td>{_esc(co.get('consulting_status') or '유지')}</td>"
+                f"<td>{_esc(co.get('insurer') or '미제공')}</td>"
+                f"<td class=\"nm\">{_esc(co.get('product') or '미제공')}</td>"
+                f"<td>{_esc(_period_label(co))}</td>"
+                f"<td>{_esc(co.get('maturity') or '미제공')}</td>"
+                f"<td class=\"num\">{_esc(_premium_label(co.get('monthly_premium')))}</td>"
+                "</tr>"
+            )
         after_section = f"""
-<h2>컨설팅 후 보장진단</h2>
+<h2>⑤ 최종 전 VS 후 — 회사별 보장 세부</h2>
 <div class="cards">
   <div class="card"><div class="k">후 월납 보험료</div><div class="v">{_won(after_prem.get('monthly_total'))}</div></div>
   <div class="card"><div class="k">후 총납입</div><div class="v">{_won(after_prem.get('paid_total'))}</div></div>
 </div>
-<table><thead><tr><th>대분류</th><th>담보</th><th class="num">권장</th><th class="num">가입</th><th class="num">과부족</th><th>준비</th></tr></thead>
-<tbody>{''.join(after_final_rows)}</tbody></table>
-<h2>회사별 세부 (후)</h2>
-<table><thead><tr><th>대분류</th><th>담보</th><th class="num">합산/대표</th>{after_comp_head}</tr></thead>
+<table class="contract-list"><thead><tr><th>번호</th><th>구분</th><th>회사명</th><th>상품명</th><th>납입기간</th><th>만기</th><th class="num">월보험료</th></tr></thead>
+<tbody>{''.join(after_contract_rows)}</tbody></table>
+<table><thead><tr><th>대분류</th><th>담보</th><th class="num">후 합산/대표</th>{after_comp_head}</tr></thead>
 <tbody>{''.join(after_rows)}</tbody></table>
 """
 
@@ -274,9 +293,7 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
             group_rows.append('<tr><td colspan="5" class="empty">대분류별 확대 변화가 없습니다.</td></tr>')
         compare_rows = []
         for row in comparison.get("coverages", []):
-            if not (row.get("improved") or row.get("worsened")):
-                continue
-            cls = "good" if row.get("improved") else "warn"
+            cls = "good" if row.get("improved") else "warn" if row.get("worsened") else ""
             compare_rows.append(
                 f'<tr><td class="grp">{_esc(row.get("group12"))}</td>'
                 f'<td class="nm">{_esc(row.get("kb_name"))}</td>'
@@ -287,7 +304,8 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
         if not compare_rows:
             compare_rows.append('<tr><td colspan="5" class="empty">상태 변화가 큰 담보가 없습니다.</td></tr>')
         comparison_section = f"""
-<h2>컨설팅 전 VS 후 요약</h2>
+<h2>④ 최종 전 VS 후 — 특약별 보장 비교</h2>
+<h3>컨설팅 전 VS 후 요약</h3>
 <div class="cards">
   <div class="card highlight"><div class="k">월납입보험료</div><div class="v">{_won(cp.get('before_monthly'))} → {_won(cp.get('after_monthly'))}</div><div class="delta {'good' if isinstance(delta_monthly, (int, float)) and delta_monthly < 0 else 'warn' if delta_monthly else ''}">{_delta_won(delta_monthly)}</div></div>
   <div class="card"><div class="k">총납입보험료</div><div class="v">{_won(cp.get('before_paid_total'))} → {_won(cp.get('after_paid_total'))}</div><div class="delta {'good' if isinstance(delta_paid, (int, float)) and delta_paid < 0 else 'warn' if delta_paid else ''}">{_delta_won(delta_paid)}</div></div>
@@ -296,12 +314,28 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
 <h3>대분류별 보장 변화</h3>
 <table><thead><tr><th>대분류</th><th class="num">전 보장금액</th><th class="num">후 보장금액</th><th class="num">증감</th><th class="num">개선</th></tr></thead>
 <tbody>{''.join(group_rows)}</tbody></table>
-<h3>개선 담보</h3>
+<h3>특약별 보장 비교 · 개선 담보</h3>
 <table><thead><tr><th>대분류</th><th>담보</th><th class="num">전</th><th class="num">후</th><th>상태 변화</th></tr></thead>
 <tbody>{''.join(compare_rows)}</tbody></table>
 """
+    contract_rows = []
     notes = []
     for co in companies:
+        is_cancelled = str(co.get("idx")) in canceled_ids
+        status = "해지" if is_cancelled else "유지"
+        row_class = ' class="cancelled"' if is_cancelled else ""
+        contract_rows.append(
+            f"<tr{row_class}>"
+            f"<td>{_esc(co.get('idx'))}</td>"
+            f"<td><span class=\"status-chip {'warn-bg' if is_cancelled else 'good-bg'}\">{status}</span></td>"
+            f"<td>{_esc(co.get('insurer') or '미제공')}</td>"
+            f"<td class=\"nm\">{_esc(co.get('product') or '미제공')}</td>"
+            f"<td>{_esc(_period_label(co))}</td>"
+            f"<td>{_esc(co.get('maturity') or '미제공')}</td>"
+            f"<td class=\"num\">{_esc(_premium_label(co.get('monthly_premium')))}</td>"
+            f"<td>{_esc(_mask_known_names(co.get('remark'), *mask_names))}</td>"
+            "</tr>"
+        )
         notes.append(
             "<tr>"
             f"<td>{_esc(co.get('idx'))}</td>"
@@ -313,6 +347,33 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
             f"<td>{_esc(_mask_known_names(co.get('remark'), *mask_names))}</td>"
             "</tr>"
         )
+
+    proposal_rows = []
+    for index, proposal in enumerate(proposal_plan, start=1):
+        coverages = proposal.get("coverages") or []
+        coverage_label = ", ".join(
+            f"{_esc(item.get('kb_name'))} {_fmt_krw(item.get('amount'))}"
+            for item in coverages
+            if isinstance(item, dict) and item.get("kb_name")
+        )
+        proposal_rows.append(
+            "<tr>"
+            f"<td>P{index}</td>"
+            f"<td>{_esc(proposal.get('insurer') or '신규제안')}</td>"
+            f"<td class=\"nm\">{_esc(proposal.get('product') or '상품명 미입력')}</td>"
+            f"<td class=\"num\">{_esc(_premium_label(proposal.get('monthly_premium')))}</td>"
+            f"<td>{_esc(proposal.get('maturity') or '-')}</td>"
+            f"<td class=\"nm\">{coverage_label or '-'}</td>"
+            "</tr>"
+        )
+    if not proposal_rows:
+        proposal_rows.append('<tr><td colspan="6" class="empty">수기 입력된 신규 제안이 없습니다.</td></tr>')
+    proposal_section = f"""
+<h2>③ 신규가입 제안서</h2>
+<div class="proposal-slot">신규 가입제안서 PDF 업로드 슬롯 · 실제 PDF 파싱은 BOHUMFIT-193에서 연결</div>
+<table class="contract-list"><thead><tr><th>번호</th><th>보험사</th><th>상품명</th><th class="num">월보험료</th><th>만기</th><th>수기 입력 담보</th></tr></thead>
+<tbody>{''.join(proposal_rows)}</tbody></table>
+"""
 
     cust = ""
     if customer.get("name"):
@@ -365,6 +426,11 @@ td.st {{ text-align: center; }}
 .good {{ color: {EMERALD}; font-weight: 800; text-align: center; }}
 .warn {{ color: {AMBER}; font-weight: 800; text-align: center; }}
 .empty {{ text-align: center; color: {GRAY}; }}
+.cancelled td {{ color: {GRAY}; text-decoration: line-through; }}
+.status-chip {{ display: inline-block; border-radius: 10px; padding: 1px 8px; font-size: 8pt; font-weight: 800; }}
+.good-bg {{ color: {EMERALD}; background: {EMERALD_SOFT}; }}
+.warn-bg {{ color: {AMBER}; background: {AMBER_SOFT}; }}
+.proposal-slot {{ border: 1px dashed {EMERALD}; border-radius: 8px; background: {EMERALD_SOFT}; color: {EMERALD}; padding: 8px 10px; margin-bottom: 8px; font-size: 8.5pt; font-weight: 800; text-align: center; }}
 .notes {{ margin-top: 8px; font-size: 8pt; color: {GRAY}; }}
 .notes li {{ list-style: none; margin: 1px 0; }}
 .contract-list th, .contract-list td {{ font-size: 8.3pt; }}
@@ -379,22 +445,27 @@ td.st {{ text-align: center; }}
 </div>
 <h1>보장분석 리모델링표</h1>
 
-<h2>최종 보장진단</h2>
+<h2>② 컨설팅 전 계약 — 유지/해지</h2>
+<table class="contract-list"><thead><tr><th>번호</th><th>처리</th><th>회사명</th><th>상품명</th><th>납입기간</th><th>만기</th><th class="num">월보험료</th><th>비고</th></tr></thead>
+<tbody>{''.join(contract_rows)}</tbody></table>
+
+{proposal_section}
+{comparison_section}
+{after_section}
+
+<h2>⑥ 컨설팅 전 진단 세부</h2>
 <div class="cards">
-  <div class="card"><div class="k">월 납입보험료 합계</div><div class="v">{_won(prem.get('monthly_total'))}</div></div>
-  <div class="card"><div class="k">총 납입액(만기까지)</div><div class="v">{_won(prem.get('paid_total'))}</div></div>
+  <div class="card"><div class="k">전 월 납입보험료 합계</div><div class="v">{_won(prem.get('monthly_total'))}</div></div>
+  <div class="card"><div class="k">전 총 납입액(만기까지)</div><div class="v">{_won(prem.get('paid_total'))}</div></div>
 </div>
 <table><thead><tr><th>대분류</th><th>담보</th><th class="num">권장</th><th class="num">가입</th><th class="num">과부족</th><th>준비</th></tr></thead>
 <tbody>{''.join(final_rows)}</tbody></table>
 
-<h2>회사별 세부 (전)</h2>
+<h3>컨설팅 전 회사별 가입 현황</h3>
 <table class="contract-list"><thead><tr><th>번호</th><th>회사명</th><th>상품명</th><th>납입기간</th><th>만기</th><th class="num">월보험료</th><th>비고</th></tr></thead>
 <tbody>{''.join(notes)}</tbody></table>
 <table><thead><tr><th>대분류</th><th>담보</th><th class="num">합산/대표</th>{comp_head}</tr></thead>
 <tbody>{''.join(before_rows)}</tbody></table>
-
-{after_section}
-{comparison_section}
 
 <p class="disclaimer">본 리모델링표는 업로드한 KB 신정원 보장분석 제안서를 기준으로 정리한 참고용 자료입니다. 실제 보장 내용·보험금 지급 여부는 각 보험사 약관과 증권을 따르며, 본 자료는 보험 모집·중개·상품추천·가입권유를 목적으로 하지 않습니다.</p>
 </body></html>"""

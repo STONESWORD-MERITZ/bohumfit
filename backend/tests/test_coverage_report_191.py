@@ -57,7 +57,7 @@ def test_pdf_comparison_has_three_axes_and_group_expansion() -> None:
 
 def test_excel_compare_sheet_includes_before_after_premium_and_group_summary() -> None:
     workbook = load_workbook(io.BytesIO(build_workbook_bytes(_report())))
-    compare = workbook["전후 비교"]
+    compare = workbook["④ 전후 특약별"]
     values = [cell.value for row in compare.iter_rows() for cell in row if cell.value is not None]
 
     for label in ("전 월납", "후 월납", "월납 증감", "전 총납입", "후 총납입", "총납입 증감"):

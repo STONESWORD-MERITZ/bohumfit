@@ -62,6 +62,19 @@ def _period_label(contract: dict) -> str:
     return "미제공"
 
 
+def _mask_name(name: str | None) -> str:
+    raw = "".join(str(name or "").split())
+    if not raw:
+        return ""
+    if "*" in raw:
+        return raw
+    if len(raw) == 1:
+        return raw
+    if len(raw) == 2:
+        return f"{raw[0]}*"
+    return f"{raw[0]}*{raw[-1]}"
+
+
 def _group_value_summary(comparison: dict) -> list[dict]:
     groups: dict[str, dict] = {}
     for row in comparison.get("coverages", []):
@@ -77,6 +90,121 @@ def _group_value_summary(comparison: dict) -> list[dict]:
         if item["delta_value"] or item["improved_count"]:
             rows.append(item)
     return sorted(rows, key=lambda item: _grp_key(item.get("group12")))
+
+
+def _consulting_plan(analysis: dict) -> dict:
+    plan = analysis.get("consulting_plan")
+    return plan if isinstance(plan, dict) else {}
+
+
+def _sheet_cover(ws, analysis: dict) -> None:
+    ws.title = "① 표지"
+    cover = analysis.get("report_cover") if isinstance(analysis.get("report_cover"), dict) else {}
+    ws["A1"] = "① 표지"
+    ws["A1"].font = Font(bold=True, size=14, color=INK)
+    rows = [
+        ("고객명", _mask_name(cover.get("customer_name"))),
+        ("보험나이", cover.get("insurance_age")),
+        ("상령일", cover.get("age_change_date")),
+        ("소속(GA)", cover.get("ga_name")),
+        ("설계사명", cover.get("planner_name")),
+        ("작성일자", cover.get("written_date")),
+        ("GA 로고", "슬롯 준비"),
+    ]
+    r = 3
+    for label, value in rows:
+        ws.cell(row=r, column=1, value=label).font = Font(bold=True, color=GRAY_TX, size=9)
+        ws.cell(row=r, column=1).border = _BORDER
+        ws.cell(row=r, column=2, value=value or "-").font = Font(color=INK, size=10)
+        ws.cell(row=r, column=2).border = _BORDER
+        r += 1
+    ws.column_dimensions["A"].width = 16
+    ws.column_dimensions["B"].width = 28
+
+
+def _sheet_contract_decisions(ws, before: dict, plan: dict) -> None:
+    ws.title = "② 전 계약"
+    ws["A1"] = "② 컨설팅 전 계약 - 유지/해지"
+    ws["A1"].font = Font(bold=True, size=14, color=INK)
+    canceled = {
+        str(item.get("contract_idx"))
+        for item in plan.get("existing", [])
+        if isinstance(item, dict) and item.get("disposition") == "cancel"
+    }
+    headers = ["번호", "처리", "회사명", "상품명", "납입기간", "만기", "월보험료", "비고"]
+    r = 3
+    for col, header in enumerate(headers, start=1):
+        _hdr(ws.cell(row=r, column=col), header)
+    r += 1
+    for co in before.get("contract_list") or before.get("companies", []):
+        is_cancel = str(co.get("idx")) in canceled
+        values = [
+            co.get("idx"),
+            "해지" if is_cancel else "유지",
+            co.get("insurer") or "미제공",
+            co.get("product") or "미제공",
+            _period_label(co),
+            co.get("maturity") or "미제공",
+            co.get("monthly_premium"),
+            co.get("remark") or "",
+        ]
+        for col, value in enumerate(values, start=1):
+            cell = ws.cell(row=r, column=col, value=value)
+            cell.border = _BORDER
+            cell.alignment = Alignment(horizontal="right" if col == 7 else "center" if col in (1, 2, 5, 6) else "left", vertical="center", wrap_text=True)
+            if col == 7 and isinstance(value, (int, float)):
+                cell.number_format = '#,##0"원"'
+            if is_cancel:
+                cell.font = Font(color=GRAY_TX, strike=True, size=9)
+            elif col == 2:
+                cell.fill = PatternFill("solid", fgColor=EMERALD_SOFT)
+                cell.font = Font(bold=True, color=EMERALD)
+            else:
+                cell.font = Font(color=INK if col in (3, 4) else GRAY_TX, size=9)
+        r += 1
+    for col, width in enumerate((10, 10, 16, 24, 12, 12, 14, 24), start=1):
+        ws.column_dimensions[get_column_letter(col)].width = width
+
+
+def _sheet_proposals(ws, plan: dict) -> None:
+    ws.title = "③ 신규제안"
+    ws["A1"] = "③ 신규가입 제안서"
+    ws["A1"].font = Font(bold=True, size=14, color=INK)
+    ws["A2"] = "PDF 업로드 슬롯은 BOHUMFIT-193 파서 연결 전까지 수기 입력 경로와 연결됩니다."
+    ws["A2"].font = Font(color=GRAY_TX, size=9)
+    headers = ["번호", "보험사", "상품명", "월보험료", "납입개월", "만기", "수기 입력 담보"]
+    r = 4
+    for col, header in enumerate(headers, start=1):
+        _hdr(ws.cell(row=r, column=col), header)
+    r += 1
+    proposals = [item for item in plan.get("proposals", []) if isinstance(item, dict)]
+    if not proposals:
+        ws.cell(row=r, column=1, value="수기 입력된 신규 제안이 없습니다.").border = _BORDER
+    for index, proposal in enumerate(proposals, start=1):
+        coverage_label = ", ".join(
+            f"{item.get('kb_name')} {item.get('amount'):,}" if isinstance(item.get("amount"), (int, float)) else str(item.get("kb_name"))
+            for item in proposal.get("coverages", [])
+            if isinstance(item, dict) and item.get("kb_name")
+        )
+        values = [
+            proposal.get("proposal_id") or f"P{index}",
+            proposal.get("insurer") or "신규제안",
+            proposal.get("product") or "상품명 미입력",
+            proposal.get("monthly_premium"),
+            proposal.get("pay_months"),
+            proposal.get("maturity") or "-",
+            coverage_label or "-",
+        ]
+        for col, value in enumerate(values, start=1):
+            cell = ws.cell(row=r, column=col, value=value)
+            cell.border = _BORDER
+            cell.alignment = Alignment(horizontal="right" if col in (4, 5) else "left", vertical="center", wrap_text=True)
+            if col == 4 and isinstance(value, (int, float)):
+                cell.number_format = '#,##0"원"'
+            cell.font = Font(color=INK if col in (2, 3, 7) else GRAY_TX, size=9)
+        r += 1
+    for col, width in enumerate((10, 16, 24, 14, 12, 12, 36), start=1):
+        ws.column_dimensions[get_column_letter(col)].width = width
 
 
 def _sheet_final(ws, final: dict, before: dict) -> None:
@@ -185,8 +313,55 @@ def _sheet_before(ws, before: dict, title: str = "회사별 세부 (전)") -> No
     ws.freeze_panes = "D4"
 
 
+def _sheet_before_diagnosis(ws, final: dict, before: dict) -> None:
+    ws.title = "⑥ 전 진단세부"
+    prem = final.get("premium") or before.get("premium") or {}
+    ws["A1"] = "⑥ 컨설팅 전 진단 세부"
+    ws["A1"].font = Font(bold=True, size=14, color=INK)
+    ws.merge_cells("A1:F1")
+    ws["A2"] = "전 월납 보험료 합계"
+    ws["B2"] = prem.get("monthly_total")
+    ws["D2"] = "전 총 납입 예정액"
+    ws["E2"] = prem.get("paid_total")
+    for c in ("B2", "E2"):
+        ws[c].number_format = '#,##0"원"'
+        ws[c].font = Font(bold=True, color=INK)
+    for c in ("A2", "D2"):
+        ws[c].font = Font(color=GRAY_TX, size=9)
+
+    r = 4
+    headers = ["대분류", "담보", "권장", "가입", "과부족", "준비"]
+    for i, h in enumerate(headers, start=1):
+        _hdr(ws.cell(row=r, column=i), h)
+    r += 1
+    for c in sorted(final.get("coverages", []), key=lambda row: _grp_key(row.get("group12", ""))):
+        ws.cell(row=r, column=1, value=c.get("group12")).border = _BORDER
+        ws.cell(row=r, column=1).font = Font(color=GRAY_TX, size=9)
+        name_cell = ws.cell(row=r, column=2, value=c.get("kb_name"))
+        name_cell.border = _BORDER
+        name_cell.font = Font(color=INK, size=10)
+        _num(ws.cell(row=r, column=3), c.get("recommended"))
+        _num(ws.cell(row=r, column=4), c.get("value"))
+        gap = c.get("gap")
+        gap_cell = ws.cell(row=r, column=5)
+        _num(gap_cell, gap)
+        if isinstance(gap, (int, float)):
+            gap_cell.font = Font(color=(AMBER_TX if gap < 0 else EMERALD if gap > 0 else GRAY_TX))
+        status = c.get("status")
+        status_cell = ws.cell(row=r, column=6, value=status or "-")
+        status_cell.border = _BORDER
+        status_cell.alignment = Alignment(horizontal="center", vertical="center")
+        if status in _STATUS_FILL:
+            status_cell.fill = PatternFill("solid", fgColor=_STATUS_FILL[status])
+            status_cell.font = Font(bold=True, color=(EMERALD if status == "충분" else AMBER_TX if status == "부족" else GRAY_TX))
+        r += 1
+    for col, width in zip("ABCDEF", (12, 24, 14, 14, 14, 10)):
+        ws.column_dimensions[col].width = width
+    ws.freeze_panes = "A5"
+
+
 def _sheet_compare(ws, comparison: dict) -> None:
-    ws["A1"] = "전후 비교"
+    ws["A1"] = "④ 최종 전 VS 후 - 특약별 보장 비교"
     ws["A1"].font = Font(bold=True, size=14, color=INK)
     premium = comparison.get("premium") or {}
     premium_rows = [
@@ -238,6 +413,10 @@ def _sheet_compare(ws, comparison: dict) -> None:
     for c in ("B2", "D2", "F2", "B3", "D3", "F3"):
         ws[c].number_format = '#,##0"원"'
         ws[c].font = Font(bold=True, color=INK)
+    for c in ("F2", "F3"):
+        value = ws[c].value
+        if isinstance(value, (int, float)):
+            ws[c].font = Font(bold=True, color=(EMERALD if value < 0 else AMBER_TX if value > 0 else GRAY_TX))
 
     headers = ["대분류", "담보", "권장", "전 가입", "후 가입", "전 상태", "후 상태", "상태 변화", "증감", "개선"]
     for col, header in enumerate(headers, start=1):
@@ -357,13 +536,18 @@ def build_workbook_bytes(analysis: dict) -> bytes:
     after = analysis.get("after") or {}
     after_before = after.get("before") or {}
     comparison = ensure_comparison(analysis)
+    plan = _consulting_plan(analysis)
     wb = Workbook()
-    _sheet_final(wb.active, final, before)
-    _sheet_before(wb.create_sheet("전 회사별세부"), before)
     if after_before and comparison:
-        _sheet_before(wb.create_sheet("후 회사별세부"), after_before, "회사별 세부 (후)")
-        _sheet_compare(wb.create_sheet("전후 비교"), comparison)
-        _sheet_summary(wb.create_sheet("컨설팅 요약"), comparison, analysis.get("consulting_plan"))
+        _sheet_cover(wb.active, analysis)
+        _sheet_contract_decisions(wb.create_sheet("② 전 계약"), before, plan)
+        _sheet_proposals(wb.create_sheet("③ 신규제안"), plan)
+        _sheet_compare(wb.create_sheet("④ 전후 특약별"), comparison)
+        _sheet_before(wb.create_sheet("⑤ 전후 회사별"), after_before, "⑤ 최종 전 VS 후 - 회사별 보장 세부")
+        _sheet_before_diagnosis(wb.create_sheet("⑥ 전 진단세부"), final, before)
+    else:
+        _sheet_final(wb.active, final, before)
+        _sheet_before(wb.create_sheet("전 회사별세부"), before)
     bio = io.BytesIO()
     wb.save(bio)
     return bio.getvalue()

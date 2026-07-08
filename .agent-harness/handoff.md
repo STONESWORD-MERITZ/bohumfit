@@ -1,3 +1,36 @@
+## 2026-07-08 Codex BOHUMFIT-194 — 컨설팅 리포트·화면 6단계 순서 재편
+
+Owner flow: Claude Chat -> Codex | Current owner: Human
+
+### Changed
+- `src/pages/CoverageRemodel.tsx`: 화면 흐름을 ①표지 → ②컨설팅 전 계약 유지/해지 → ③신규가입 제안서 → ④특약별 전후 비교 → ⑤회사별 전후 세부 → ⑥컨설팅 전 진단 세부 순서로 재배치. 유지/해지는 select 제거 후 계약 카드 인라인 체크로 변경, 해지 badge/취소선 유지. ③ 신규가입 제안서 PDF 업로드 슬롯 추가 + 현행 수기 입력 경로 연결, `BOHUMFIT-193` TODO만 남김(파서 구현 없음).
+- `backend/coverage/export_pdf.py`: PDF 본문 순서를 같은 6단계로 재편. ④ 특약별 보장 비교와 ⑤ 회사별 보장 세부를 분리하고, ⑥ 컨설팅 전 진단 세부를 말미 참고 섹션으로 이동. 절감액 강조 유지.
+- `backend/coverage/export_excel.py`: 컨설팅 결과가 있는 경우 Excel 시트 순서를 `① 표지`, `② 전 계약`, `③ 신규제안`, `④ 전후 특약별`, `⑤ 전후 회사별`, `⑥ 전 진단세부`로 정렬. 기본 [전] 단독 export는 기존 2시트 유지.
+- `backend/tests/test_coverage_report_194.py` 신규. 188/191 Excel sheet order 회귀 기대값 갱신.
+- `.agent-harness/tasks/BOHUMFIT-194-consulting-report-six-step-order.md` 신규. `.agent-harness/verify.md`, `CLAUDE.md` backend pytest 기준선 `554 passed, 8 skipped`로 갱신.
+
+### Verified
+- [x] `python -m py_compile backend\coverage\export_pdf.py backend\coverage\export_excel.py` — pass
+- [x] `cd backend; python -m pytest tests/test_coverage_report_194.py -vv` — 3 passed
+- [x] `cd backend; python -m pytest tests/test_coverage_report_191.py tests/test_coverage_compare_188.py tests/test_coverage_export_181.py -q` — 11 passed
+- [x] `npx tsc -p tsconfig.app.json --noEmit` — pass
+- [x] `npx tsc -p tsconfig.node.json --noEmit` — pass
+- [x] `npm run build` — pass (기존 Vite chunk-size warning only)
+- [x] `cd backend; python -m pytest -q` — 554 passed, 8 skipped
+- [x] Synthetic PDF memory smoke — 합성 188/194 리포트로 PDF bytes `582,153` 생성 성공. Poppler wrapper 내부 경로 문제로 PNG 렌더는 미수행, 산출물은 삭제.
+
+### Notes
+- `backend/pipeline/` 무접촉. 193 파서 신규 구현 없음(업로드 슬롯/TODO만).
+- 189 대분류 순서·190 유지/해지 계산·191 표지/마스킹·[전] 파싱 계산 경로 유지.
+- 실 PDF·실 엑셀·고객명 원문·PII 산출물 미저장/미스테이지.
+- 워킹트리에 기존 unrelated dirty/untracked 문서·브랜드·pamphlet 파일이 많아 194 범위만 scoped stage 필요.
+
+### Commit
+- Pending at handoff write time; final hash is reported by Codex after scoped commit/push.
+
+### Next
+- Human: `/coverage-compare`에서 실제 로그인 세션으로 문건주 → 표지 → 유지/해지 체크 → 제안서 슬롯/수기입력 → 전후 특약별 → 전후 회사별 → 전 진단 세부 순서와 PDF/Excel 순서를 육안 확인.
+
 ## 2026-07-08 Cowork BOHUMFIT-193 — 신규 가입제안서 파싱 + 통합치료비 레지스트리 + 전/후/최종 UI 조사 명세(조사 전용·코드 0)
 
 Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Human(집계·분해·유지계약 결정) → Codex(문서 커밋)

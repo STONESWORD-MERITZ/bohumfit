@@ -1,5 +1,5 @@
 import { useMemo, useState, type ChangeEvent } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, UploadCloud } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import ConsentGate from "../components/ConsentGate";
 import { useAuth } from "../lib/auth-context";
@@ -683,6 +683,7 @@ export default function CoverageRemodel() {
   const [afterResult, setAfterResult] = useState<CoverageAfterResponse | null>(null);
   const [decisions, setDecisions] = useState<Record<string, ContractDecision>>({});
   const [proposals, setProposals] = useState<ProposalDraft[]>([]);
+  const [proposalFileNames, setProposalFileNames] = useState<string[]>([]);
   const [reportCover, setReportCover] = useState<ReportCoverDraft>(() => makeReportCover());
   const [showBefore, setShowBefore] = useState(false);
   const [exporting, setExporting] = useState<"" | "excel" | "pdf">("");
@@ -709,6 +710,7 @@ export default function CoverageRemodel() {
     setAfterResult(null);
     setDecisions({});
     setProposals([]);
+    setProposalFileNames([]);
     setReportCover(makeReportCover());
     setFileName(file.name);
     try {
@@ -857,6 +859,16 @@ export default function CoverageRemodel() {
     setAfterResult(buildAfterResult(result, decisions, proposals));
   }
 
+  function handleProposalSlotUpload(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files || []);
+    setProposalFileNames(files.map((file) => file.name));
+    // TODO(BOHUMFIT-193): connect this slot to the newproposal PDF parser/registry.
+    // BOHUMFIT-194 intentionally keeps the current manual proposal path as the source of truth.
+    if (files.length > 0 && proposals.length === 0) {
+      addProposal();
+    }
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 md:px-6">
       <header className="mb-6">
@@ -913,7 +925,7 @@ export default function CoverageRemodel() {
         <>
           <section className="mt-6">
             <div className="flex flex-col gap-1">
-              <h2 className="ko-heading text-lg font-bold text-ink-900">고객용 리포트 표지</h2>
+              <h2 className="ko-heading text-lg font-bold text-ink-900">① 표지</h2>
             </div>
             <div className="mt-3 grid gap-4 lg:grid-cols-[1.35fr_0.85fr]">
               <div className="rounded-card border border-line bg-white p-5">
@@ -1036,112 +1048,13 @@ export default function CoverageRemodel() {
           </section>
 
           <section className="mt-6 rounded-card border border-line bg-white p-6">
-            <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-              <div>
-                <h2 className="ko-heading text-lg font-bold text-ink-900">컨설팅 전 진단</h2>
-                <p className="mt-1 text-xs text-ink-soft">{DISCLAIMER}</p>
-              </div>
-              <div className="flex flex-col items-start gap-2 md:items-end">
-                {result.before.customer.name && (
-                  <p className="text-sm font-semibold text-ink-700">고객명 {result.before.customer.name}</p>
-                )}
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void exportFile("excel")}
-                    disabled={exporting !== ""}
-                    className="button-text rounded-btn border border-line-strong bg-white px-4 py-2 text-[13px] font-bold text-ink-800 hover:bg-ink-50 disabled:opacity-50"
-                  >
-                    {exporting === "excel" ? "엑셀 생성 중" : "엑셀 저장"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void exportFile("pdf")}
-                    disabled={exporting !== ""}
-                    className="button-text rounded-btn border border-line-strong bg-white px-4 py-2 text-[13px] font-bold text-ink-800 hover:bg-ink-50 disabled:opacity-50"
-                  >
-                    {exporting === "pdf" ? "PDF 생성 중" : "PDF 저장"}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <MetricCard label="월납 보험료 합계" value={formatWon(result.before.premium.monthly_total)} />
-              <MetricCard label="총 납입 예정액" value={formatWon(result.before.premium.paid_total)} />
-              <MetricCard
-                label="부족 / 미가입 담보"
-                value={`${statusSummary[STATUS_SHORT]} / ${statusSummary[STATUS_MISSING]}`}
-                tone="warn"
-              />
-            </div>
-
-            <div className="mt-5 space-y-5">
-              {finalGroups.map(({ group, rows }) => (
-                <div key={group}>
-                  <h3 className="ko-heading mb-2 text-sm font-bold text-ink-900">{group}</h3>
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[560px] text-[13px]">
-                      <thead>
-                        <tr className="border-b border-line text-left text-ink-500">
-                          <th className="py-2 pr-2">담보</th>
-                          <th className="px-2 py-2 text-right">권장</th>
-                          <th className="px-2 py-2 text-right">가입</th>
-                          <th className="px-2 py-2 text-right">과부족</th>
-                          <th className="py-2 pl-2 text-center">상태</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map((coverage) => (
-                          <tr key={`${coverage.group12}-${coverage.kb_name}`} className="border-b border-line/60">
-                            <td className="break-keep py-1.5 pr-2 font-semibold text-ink-800">{coverage.kb_name}</td>
-                            <td className="px-2 py-1.5 text-right text-ink-soft">
-                              {formatCoverageAmount(coverage.recommended)}
-                            </td>
-                            <td className="px-2 py-1.5 text-right text-ink-900">{formatCoverageAmount(coverage.value)}</td>
-                            <td
-                              className={`px-2 py-1.5 text-right font-semibold ${
-                                coverage.gap == null
-                                  ? "text-ink-400"
-                                  : coverage.gap < 0
-                                    ? "text-amber-700"
-                                    : coverage.gap > 0
-                                      ? "text-accent-700"
-                                      : "text-ink-500"
-                              }`}
-                            >
-                              {coverage.gap == null
-                                ? "-"
-                                : `${coverage.gap > 0 ? "+" : coverage.gap < 0 ? "-" : ""}${formatCoverageAmount(Math.abs(coverage.gap))}`}
-                            </td>
-                            <td className="py-1.5 pl-2 text-center">
-                              <StatusBadge status={coverage.status} />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="mt-6 rounded-card border border-line bg-white p-6">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
-                <h2 className="ko-heading text-lg font-bold text-ink-900">컨설팅 후 입력</h2>
+                <h2 className="ko-heading text-lg font-bold text-ink-900">② 컨설팅 전 계약 — 유지/해지</h2>
                 <p className="mt-1 text-xs text-ink-soft">
-                  기존 계약은 유지·해지만 선택하고 신규 제안을 함께 반영합니다.
+                  기존 계약은 목록에서 바로 유지·해지를 체크합니다.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={recalculateAfter}
-                className="button-text rounded-btn bg-accent-600 px-4 py-2 text-[13px] font-bold text-white hover:bg-accent-700"
-              >
-                전후 비교 계산
-              </button>
             </div>
 
             <div className="mt-5 grid gap-4 lg:grid-cols-2">
@@ -1174,21 +1087,20 @@ export default function CoverageRemodel() {
                         </p>
                       </div>
                     </div>
-                    <div className="mt-4">
-                      <label className="text-[12px] font-semibold text-ink-700">
-                        처리
-                        <select
-                          className="mt-1 w-full rounded-[8px] border border-line bg-white px-3 py-2 text-sm"
-                          value={decision.disposition}
+                    <div className="mt-4 flex items-center justify-between gap-3 rounded-[8px] border border-line bg-white px-3 py-2">
+                      <span className="text-[12px] font-semibold text-ink-700">처리</span>
+                      <label className="inline-flex items-center gap-2 text-sm font-bold text-ink-800">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 accent-accent-700"
+                          checked={isCanceled}
                           onChange={(event) =>
                             updateContractDecision(company.idx, {
-                              disposition: event.target.value as ContractDecision["disposition"],
+                              disposition: event.target.checked ? "cancel" : "keep",
                             })
                           }
-                        >
-                          <option value="keep">유지</option>
-                          <option value="cancel">해지</option>
-                        </select>
+                        />
+                        해지
                       </label>
                     </div>
                   </article>
@@ -1196,9 +1108,51 @@ export default function CoverageRemodel() {
               })}
             </div>
 
+          </section>
+
+          <section className="mt-6 rounded-card border border-line bg-white p-6">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h2 className="ko-heading text-lg font-bold text-ink-900">③ 신규가입 제안서</h2>
+                <p className="mt-1 text-xs text-ink-soft">
+                  가입제안서 업로드 슬롯을 준비하고, 이번 단계에서는 아래 수기 입력값을 비교에 연결합니다.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={recalculateAfter}
+                className="button-text rounded-btn bg-accent-600 px-4 py-2 text-[13px] font-bold text-white hover:bg-accent-700"
+              >
+                전후 비교 계산
+              </button>
+            </div>
+
+            <label className="mt-5 flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-card border-2 border-dashed border-accent-200 bg-accent-50 px-4 py-5 text-center hover:border-accent-400">
+              <UploadCloud size={26} className="text-accent-700" aria-hidden="true" />
+              <span className="mt-2 text-sm font-bold text-accent-800">신규 가입제안서 PDF 업로드 슬롯</span>
+              <span className="mt-1 text-xs text-ink-soft">BOHUMFIT-193 파서 연결 전까지는 수기 입력으로 반영합니다.</span>
+              <input
+                type="file"
+                accept="application/pdf"
+                multiple
+                className="hidden"
+                onChange={handleProposalSlotUpload}
+                aria-label="신규 가입제안서 PDF 업로드 슬롯"
+              />
+            </label>
+            {proposalFileNames.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {proposalFileNames.map((name) => (
+                  <span key={name} className="rounded-full bg-ink-100 px-3 py-1 text-[12px] font-semibold text-ink-700">
+                    {name}
+                  </span>
+                ))}
+              </div>
+            )}
+
             <div className="mt-6">
               <div className="flex items-center justify-between gap-3">
-                <h3 className="ko-heading text-base font-bold text-ink-900">신규 제안</h3>
+                <h3 className="ko-heading text-base font-bold text-ink-900">수기 입력</h3>
                 <button
                   type="button"
                   onClick={addProposal}
@@ -1316,12 +1270,13 @@ export default function CoverageRemodel() {
           </section>
 
           {afterResult && (
+            <>
             <section className="mt-6 rounded-card border border-line bg-white p-6">
               <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
                 <div>
-                  <h2 className="ko-heading text-lg font-bold text-ink-900">컨설팅 전 VS 후 최종 정리</h2>
+                  <h2 className="ko-heading text-lg font-bold text-ink-900">④ 최종 전 VS 후 — 특약별 보장 비교</h2>
                   <p className="mt-1 text-xs text-ink-soft">
-                    고객에게 현재 보험이 어떻게 개선됐는지 보여주는 비교 요약입니다.
+                    월납 보험료 절감과 담보 단위 보장 변화를 함께 확인합니다.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -1345,28 +1300,31 @@ export default function CoverageRemodel() {
               </div>
 
               <div className="mt-4 grid gap-3 sm:grid-cols-4">
-                <MetricCard label="월납 증감" value={formatDeltaWon(afterResult.comparison.premium.delta_monthly)} />
-                <MetricCard label="총 납입 증감" value={formatDeltaWon(afterResult.comparison.premium.delta_paid_total)} />
+                <MetricCard label="전 월납" value={formatWon(afterResult.comparison.premium.before_monthly)} />
+                <MetricCard label="후 월납" value={formatWon(afterResult.comparison.premium.after_monthly)} />
+                <MetricCard
+                  label="절감액"
+                  value={formatDeltaWon(afterResult.comparison.premium.delta_monthly)}
+                  tone={afterResult.comparison.premium.delta_monthly < 0 ? "good" : "warn"}
+                />
                 <MetricCard
                   label="부족·미가입 → 충분"
                   value={`${afterResult.comparison.summary.improved_count}개`}
                   tone="good"
                 />
-                <MetricCard
-                  label="후 부족 / 미가입"
-                  value={`${afterStatusSummary[STATUS_SHORT]} / ${afterStatusSummary[STATUS_MISSING]}`}
-                  tone={afterStatusSummary[STATUS_SHORT] + afterStatusSummary[STATUS_MISSING] > 0 ? "warn" : "good"}
-                />
               </div>
 
               <div className="mt-4 rounded-[8px] bg-accent-50 px-4 py-3 text-[13px] font-semibold text-accent-800">
-                미가입→충분 {afterResult.comparison.summary.missing_to_sufficient}개 · 부족→충분{" "}
-                {afterResult.comparison.summary.short_to_sufficient}개
+                월납 {formatDeltaWon(afterResult.comparison.premium.delta_monthly)} · 총납입{" "}
+                {formatDeltaWon(afterResult.comparison.premium.delta_paid_total)} · 미가입→충분{" "}
+                {afterResult.comparison.summary.missing_to_sufficient}개 · 부족→충분{" "}
+                {afterResult.comparison.summary.short_to_sufficient}개 · 후 부족/미가입{" "}
+                {afterStatusSummary[STATUS_SHORT]} / {afterStatusSummary[STATUS_MISSING]}
               </div>
 
               {comparisonValueGroups.length > 0 && (
                 <div className="mt-5">
-                  <h3 className="ko-heading mb-2 text-sm font-bold text-ink-900">대분류별 보장 변화</h3>
+                  <h3 className="ko-heading mb-2 text-sm font-bold text-ink-900">대분류별 보장 변화 요약</h3>
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[640px] text-[12px]">
                       <thead>
@@ -1462,21 +1420,152 @@ export default function CoverageRemodel() {
                 ))}
               </div>
             </section>
+
+            <section className="mt-6 rounded-card border border-line bg-white p-6">
+              <div>
+                <h2 className="ko-heading text-lg font-bold text-ink-900">⑤ 최종 전 VS 후 — 회사별 보장 세부</h2>
+                <p className="mt-1 text-xs text-ink-soft">유지 계약과 신규 제안을 합친 후 기준 계약 단위 보장입니다.</p>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {afterResult.after.before.companies.map((company) => (
+                  <div key={company.idx} className="rounded-card border border-line bg-canvas px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-bold text-ink-900">{company.insurer || `계약 ${company.idx}`}</p>
+                        <p className="mt-1 text-xs text-ink-soft">{company.product || "상품명 확인 필요"}</p>
+                        <p className="mt-1 text-[11px] font-semibold text-ink-soft">{formatPeriod(company)}</p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <span className="rounded-full bg-accent-50 px-2 py-0.5 text-[11px] font-bold text-accent-700">
+                          {company.consulting_status || "유지"}
+                        </span>
+                        <p className="mt-2 text-sm font-extrabold text-ink-900">
+                          {formatPremium(company.monthly_premium)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-5 overflow-x-auto">
+                <table className="w-full min-w-[720px] text-[12px]">
+                  <thead>
+                    <tr className="border-b border-line text-ink-500">
+                      <th className="py-2 pr-2 text-left">담보</th>
+                      <th className="px-2 py-2 text-right">후 합산</th>
+                      {afterResult.after.before.companies.map((company) => (
+                        <th key={company.idx} className="px-2 py-2 text-right">
+                          {company.insurer || `계약 ${company.idx}`}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {afterResult.after.before.coverages.map((coverage) => (
+                      <tr key={coverage.kb_name} className="border-b border-line/60">
+                        <td className="break-keep py-1.5 pr-2 font-semibold text-ink-800">{coverage.kb_name}</td>
+                        <td className="px-2 py-1.5 text-right font-semibold text-ink-900">
+                          {formatCoverageAmount(coverage.summary)}
+                        </td>
+                        {afterResult.after.before.companies.map((company) => (
+                          <td key={company.idx} className="px-2 py-1.5 text-right text-ink-soft">
+                            {formatCoverageAmount(coverage.by_company[keyOf(company.idx)])}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+            </>
           )}
 
-          <section className="mt-6 rounded-card border border-line bg-white">
+          <section className="mt-6 rounded-card border border-line bg-white p-6">
+            <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h2 className="ko-heading text-lg font-bold text-ink-900">⑥ 컨설팅 전 진단 세부</h2>
+                <p className="mt-1 text-xs text-ink-soft">{DISCLAIMER}</p>
+              </div>
+              {result.before.customer.name && (
+                <p className="text-sm font-semibold text-ink-700">고객명 {result.before.customer.name}</p>
+              )}
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <MetricCard label="전 월납 보험료 합계" value={formatWon(result.before.premium.monthly_total)} />
+              <MetricCard label="전 총 납입 예정액" value={formatWon(result.before.premium.paid_total)} />
+              <MetricCard
+                label="전 부족 / 미가입 담보"
+                value={`${statusSummary[STATUS_SHORT]} / ${statusSummary[STATUS_MISSING]}`}
+                tone="warn"
+              />
+            </div>
+
+            <div className="mt-5 space-y-5">
+              {finalGroups.map(({ group, rows }) => (
+                <div key={group}>
+                  <h3 className="ko-heading mb-2 text-sm font-bold text-ink-900">{group}</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[560px] text-[13px]">
+                      <thead>
+                        <tr className="border-b border-line text-left text-ink-500">
+                          <th className="py-2 pr-2">담보</th>
+                          <th className="px-2 py-2 text-right">권장</th>
+                          <th className="px-2 py-2 text-right">가입</th>
+                          <th className="px-2 py-2 text-right">과부족</th>
+                          <th className="py-2 pl-2 text-center">상태</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map((coverage) => (
+                          <tr key={`${coverage.group12}-${coverage.kb_name}`} className="border-b border-line/60">
+                            <td className="break-keep py-1.5 pr-2 font-semibold text-ink-800">{coverage.kb_name}</td>
+                            <td className="px-2 py-1.5 text-right text-ink-soft">
+                              {formatCoverageAmount(coverage.recommended)}
+                            </td>
+                            <td className="px-2 py-1.5 text-right text-ink-900">{formatCoverageAmount(coverage.value)}</td>
+                            <td
+                              className={`px-2 py-1.5 text-right font-semibold ${
+                                coverage.gap == null
+                                  ? "text-ink-400"
+                                  : coverage.gap < 0
+                                    ? "text-amber-700"
+                                    : coverage.gap > 0
+                                      ? "text-accent-700"
+                                      : "text-ink-500"
+                              }`}
+                            >
+                              {coverage.gap == null
+                                ? "-"
+                                : `${coverage.gap > 0 ? "+" : coverage.gap < 0 ? "-" : ""}${formatCoverageAmount(Math.abs(coverage.gap))}`}
+                            </td>
+                            <td className="py-1.5 pl-2 text-center">
+                              <StatusBadge status={coverage.status} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+            </div>
+
             <button
               type="button"
               onClick={() => setShowBefore((value) => !value)}
               aria-expanded={showBefore}
-              className="flex w-full items-center justify-between gap-2 px-6 py-4 text-left"
+              className="mt-6 flex w-full items-center justify-between gap-2 rounded-card border border-line bg-canvas px-4 py-3 text-left"
             >
-              <span className="ko-heading text-lg font-bold text-ink-900">회사별 가입 현황 [전]</span>
+              <span className="ko-heading text-base font-bold text-ink-900">컨설팅 전 회사별 가입 현황</span>
               <span className="text-sm font-semibold text-accent-700">{showBefore ? "접기" : "펼치기"}</span>
             </button>
 
             {showBefore && (
-              <div className="border-t border-line px-6 py-5">
+              <div className="mt-4">
                 <div className="mb-4 grid gap-3 md:grid-cols-2">
                   {companies.map((company) => (
                     <div key={company.idx} className="rounded-card border border-line bg-canvas px-4 py-3">
@@ -1499,7 +1588,7 @@ export default function CoverageRemodel() {
                       <tr className="border-b border-line text-ink-500">
                         <th className="py-2 pr-2 text-left">담보</th>
                         <th className="px-2 py-2 text-right">합산</th>
-                        {result.before.companies.map((company) => (
+                        {companies.map((company) => (
                           <th key={company.idx} className="px-2 py-2 text-right">
                             {company.insurer || `계약 ${company.idx}`}
                           </th>
@@ -1513,7 +1602,7 @@ export default function CoverageRemodel() {
                           <td className="px-2 py-1.5 text-right font-semibold text-ink-900">
                             {formatCoverageAmount(coverage.summary)}
                           </td>
-                          {result.before.companies.map((company) => (
+                          {companies.map((company) => (
                             <td key={company.idx} className="px-2 py-1.5 text-right text-ink-soft">
                               {formatCoverageAmount(coverage.by_company[keyOf(company.idx)])}
                             </td>
