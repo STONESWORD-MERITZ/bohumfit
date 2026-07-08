@@ -114,7 +114,7 @@ def _plan() -> dict:
         "version": 1,
         "source": "coverage-remodel",
         "existing": [
-            {"contract_idx": 1, "disposition": "keep", "adjusted_monthly_premium": 90_000},
+            {"contract_idx": 1, "disposition": "keep"},
             {"contract_idx": 2, "disposition": "cancel"},
         ],
         "proposals": [
@@ -139,9 +139,9 @@ def test_after_builder_compares_monthly_paid_status_and_improvements() -> None:
     result = build_after_analysis(_analysis(), _plan())
 
     assert result["before"]["premium"]["monthly_total"] == 150_000
-    assert result["after"]["before"]["premium"]["monthly_total"] == 120_000
-    assert result["comparison"]["premium"]["delta_monthly"] == -30_000
-    assert result["comparison"]["premium"]["delta_paid_total"] == -3_600_000
+    assert result["after"]["before"]["premium"]["monthly_total"] == 130_000
+    assert result["comparison"]["premium"]["delta_monthly"] == -20_000
+    assert result["comparison"]["premium"]["delta_paid_total"] == -2_400_000
 
     after_by_name = {row["kb_name"]: row for row in result["after"]["final"]["coverages"]}
     assert after_by_name["암진단"]["status"] == "충분"
@@ -163,7 +163,7 @@ def test_compare_before_after_can_be_called_directly() -> None:
     comparison = compare_before_after(_analysis()["final"], result["after"]["final"])
 
     assert comparison["premium"]["before_monthly"] == 150_000
-    assert comparison["premium"]["after_monthly"] == 120_000
+    assert comparison["premium"]["after_monthly"] == 130_000
     assert comparison["summary"]["improved_count"] == 2
 
 
@@ -176,7 +176,7 @@ def test_excel_adds_after_compare_and_summary_sheets() -> None:
     values = [cell.value for row in compare.iter_rows() for cell in row if cell.value is not None]
     assert "미가입 -> 충분" in values
     assert "부족 -> 충분" in values
-    assert -30_000 in values
+    assert -20_000 in values
     summary = workbook["컨설팅 요약"]
     assert summary["B9"].value == 2
 

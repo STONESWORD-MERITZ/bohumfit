@@ -265,15 +265,7 @@ def build_after_analysis(analysis: dict, plan: dict | None = None) -> dict:
         if disposition != "keep":
             warnings.append(f"계약 {contract_id}의 알 수 없는 유지/해지 값은 유지로 처리했습니다.")
         updated = deepcopy(contract)
-        adjusted = _to_int(decision.get("adjusted_monthly_premium"))
-        if adjusted is not None:
-            if adjusted < 0:
-                warnings.append(f"계약 {contract_id}의 음수 보험료 조정은 제외했습니다.")
-            else:
-                updated["monthly_premium"] = adjusted
-                updated["consulting_status"] = "보험료 조정"
-        else:
-            updated["consulting_status"] = "유지"
+        updated["consulting_status"] = "유지"
         updated["paid_total"] = _paid_total(updated)
         kept_contract_ids.add(contract_id)
         after_companies.append(updated)
@@ -322,17 +314,6 @@ def build_after_analysis(analysis: dict, plan: dict | None = None) -> dict:
             proposal_values[kb_name][proposal_id] = amount
 
     after_companies = _sort_contracts(after_companies + proposal_contracts)
-    coverage_overrides: defaultdict[str, dict[str, dict]] = defaultdict(dict)
-    for contract_id, decision in decisions.items():
-        if contract_id not in kept_contract_ids:
-            continue
-        for override in decision.get("coverage_overrides") or []:
-            kb_name = override.get("kb_name")
-            if kb_name not in known_coverages:
-                warnings.append(f"계약 {contract_id}의 미매핑 담보 {kb_name or '-'} 조정은 제외했습니다.")
-                continue
-            coverage_overrides[kb_name][contract_id] = override
-
     after_coverages = []
     for row in before.get("coverages", []):
         kb_name = row.get("kb_name")
@@ -341,16 +322,6 @@ def build_after_analysis(analysis: dict, plan: dict | None = None) -> dict:
             for contract_id, amount in (row.get("by_company") or {}).items()
             if contract_id in kept_contract_ids
         }
-        for contract_id, override in coverage_overrides.get(kb_name, {}).items():
-            mode = override.get("mode") or "keep"
-            if mode == "remove":
-                by_company[contract_id] = None
-            elif mode in {"reduce", "increase"}:
-                amount = _to_int(override.get("amount"))
-                if amount is None or amount < 0:
-                    warnings.append(f"계약 {contract_id}의 담보 {kb_name} 조정 금액이 없어 제외했습니다.")
-                else:
-                    by_company[contract_id] = amount
         by_company.update(proposal_values.get(kb_name, {}))
         summary = aggregate_coverage_values(by_company, row.get("agg"))
         after_coverages.append({

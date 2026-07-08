@@ -79,74 +79,7 @@ def test_cancel_contract_excludes_premium_and_coverages_and_recalculates_status(
     assert _coverage(result["final"]["coverages"], SUM_COVERAGE)["status"] == "부족"
 
 
-def test_reduce_override_uses_same_sum_aggregation_path() -> None:
-    analysis = _analysis()
-    result = build_after(
-        analysis["before"],
-        {
-            "version": 1,
-            "source": "coverage-remodel",
-            "existing": [
-                {
-                    "contract_idx": 2,
-                    "disposition": "keep",
-                    "coverage_overrides": [{"kb_name": SUM_COVERAGE, "mode": "reduce", "amount": 50_000_000}],
-                }
-            ],
-        },
-        _diagnosis(analysis),
-    )
-
-    assert _coverage(result["before"]["coverages"], SUM_COVERAGE)["by_company"]["2"] == 50_000_000
-    assert _coverage(result["before"]["coverages"], SUM_COVERAGE)["summary"] == 150_000_000
-    assert _coverage(result["final"]["coverages"], SUM_COVERAGE)["gap"] == -100_000_000
-
-
-def test_increase_override_uses_same_sum_aggregation_path() -> None:
-    analysis = _analysis()
-    result = build_after(
-        analysis["before"],
-        {
-            "version": 1,
-            "source": "coverage-remodel",
-            "existing": [
-                {
-                    "contract_idx": 1,
-                    "disposition": "keep",
-                    "coverage_overrides": [{"kb_name": SUM_COVERAGE_2, "mode": "increase", "amount": 80_000_000}],
-                }
-            ],
-        },
-        _diagnosis(analysis),
-    )
-
-    assert _coverage(result["before"]["coverages"], SUM_COVERAGE_2)["summary"] == 130_000_000
-    assert _coverage(result["final"]["coverages"], SUM_COVERAGE_2)["status"] == "충분"
-
-
-def test_remove_override_preserves_rep_aggregation() -> None:
-    analysis = _analysis()
-    result = build_after(
-        analysis["before"],
-        {
-            "version": 1,
-            "source": "coverage-remodel",
-            "existing": [
-                {
-                    "contract_idx": 2,
-                    "disposition": "keep",
-                    "coverage_overrides": [{"kb_name": REP_COVERAGE, "mode": "remove"}],
-                }
-            ],
-        },
-        _diagnosis(analysis),
-    )
-
-    assert _coverage(result["before"]["coverages"], REP_COVERAGE)["summary"] == 10_000_000
-    assert _coverage(result["final"]["coverages"], REP_COVERAGE)["status"] == "충분"
-
-
-def test_adjusted_monthly_premium_recomputes_paid_total_without_mutating_before() -> None:
+def test_keep_plan_preserves_premium_and_coverages_without_mutating_before() -> None:
     analysis = _analysis()
     original = deepcopy(analysis["before"])
 
@@ -155,12 +88,13 @@ def test_adjusted_monthly_premium_recomputes_paid_total_without_mutating_before(
         {
             "version": 1,
             "source": "coverage-remodel",
-            "existing": [{"contract_idx": 1, "disposition": "keep", "adjusted_monthly_premium": 80_000}],
+            "existing": [{"contract_idx": 1, "disposition": "keep"}],
         },
     )
 
-    assert after["premium"]["monthly_total"] == 130_000
-    assert after["premium"]["paid_total"] == 15_600_000
+    assert after["premium"] == analysis["before"]["premium"]
+    assert _coverage(after["coverages"], SUM_COVERAGE)["summary"] == 300_000_000
+    assert _coverage(after["coverages"], REP_COVERAGE)["summary"] == 20_000_000
     assert analysis["before"] == original
 
 
@@ -174,31 +108,18 @@ def test_empty_plan_keeps_before_shape_and_build_after_result_wraps_current_resu
     assert result["comparison"]["premium"]["delta_monthly"] == 0
 
 
-def test_unknown_references_warn_and_proposals_are_deferred_to_188() -> None:
+def test_unknown_contract_warns_and_lower_level_helper_ignores_proposals() -> None:
     analysis = _analysis()
     after = apply_consulting_plan(
         analysis["before"],
         {
             "version": 1,
             "source": "coverage-remodel",
-            "existing": [
-                {
-                    "contract_idx": 99,
-                    "disposition": "cancel",
-                    "coverage_overrides": [{"kb_name": "없는담보", "mode": "reduce", "amount": 1}],
-                },
-                {
-                    "contract_idx": 1,
-                    "disposition": "keep",
-                    "coverage_overrides": [{"kb_name": "없는담보", "mode": "reduce", "amount": 1}],
-                },
-            ],
+            "existing": [{"contract_idx": 99, "disposition": "cancel"}],
             "proposals": [{"proposal_id": "proposal-1", "monthly_premium": 10_000}],
         },
     )
 
     assert any("계약 99" in warning for warning in after["warnings"])
-    assert any("알 수 없는 담보" in warning and "없는담보" in warning for warning in after["warnings"])
-    assert any("BOHUMFIT-188" in warning for warning in after["warnings"])
     assert after["premium"]["monthly_total"] == analysis["before"]["premium"]["monthly_total"]
     assert all(not str(company["idx"]).startswith("P") for company in after["companies"])

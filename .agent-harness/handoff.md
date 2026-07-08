@@ -1,3 +1,35 @@
+## 2026-07-08 Codex BOHUMFIT-190 — 컨설팅 2단계 유지/해지 전용
+
+Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Codex → BOHUMFIT-191
+
+### Changed
+- `backend/coverage/compare.py`: [후] 재계산에서 기존계약 보험료 조정과 담보 override 적용을 제거. 유지계약 + 187 신규제안만 합산.
+- `backend/coverage/consulting.py`: legacy helper도 기존계약 유지/해지만 적용하도록 축소. 감액/증액/삭제/월납 조정 mode 제거.
+- `src/pages/CoverageRemodel.tsx`: consulting plan 스키마와 클라이언트 미리보기에서 조정 필드 제거. 계약 카드 UI는 유지/해지 select만 남기고, 해지 시 badge/취소선 표시.
+- `backend/tests/test_coverage_after_186.py`: 감액/증액/삭제/보험료 조정 테스트 제거·정리.
+- `backend/tests/test_coverage_hold_cancel_190.py`, `.agent-harness/tasks/BOHUMFIT-190-hold-cancel-only.md` 신규.
+- `backend/tests/test_coverage_compare_188.py`: 전후 비교 기대값을 유지/해지 + 신규제안 기준으로 갱신.
+
+### Verified
+- [x] production grep — `coverage_overrides`, `adjusted_monthly_premium`, `CoverageOverride`, `감액`, `증액`, `담보 조정`, `조정 월납`, `보험료 조정` 없음.
+- [x] `python -m pytest backend\tests\test_coverage_after_186.py backend\tests\test_coverage_proposal_187.py backend\tests\test_coverage_compare_188.py backend\tests\test_coverage_hold_cancel_190.py -vv` — 15 passed
+- [x] `npx tsc -p tsconfig.app.json --noEmit` — pass
+- [x] `npx tsc -p tsconfig.node.json --noEmit` — pass
+- [x] `npm run build` — pass (기존 Vite chunk-size warning only)
+- [x] `cd backend && python -m pytest -q` — 548 passed, 8 skipped
+- [x] 문건주 실 PDF memory smoke — 계약 6 해지 + 유사암 신규제안 반영, [전] 월납 `573,227`/총납입 `181,984,128`, [후] 월납 `264,627`/총납입 `127,936,128`, `유사암` 부족→충분, warning 0.
+
+### Notes
+- `backend/pipeline/` 무접촉. `[전]`/189 그룹 기준선 및 187 신규제안·188 비교 경로 유지.
+- 실 PDF·엑셀·PII·산출물 미저장/미스테이지.
+- 병렬 BOHUMFIT-192 handoff/locks 기록은 190 stage에서 제외한다.
+
+### Commit
+- Pending at handoff write time; pushed feature commit hash is reported by Codex after scoped commit.
+
+### Next
+- Codex: BOHUMFIT-191 고객용 리포트 표지 + 전 VS 후 비교 구현으로 진행.
+
 ## 2026-07-08 Codex BOHUMFIT-189 — 대분류 순서 v2 + 뇌/심장 분리 + 골절 라벨 환원
 
 Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Codex → BOHUMFIT-190

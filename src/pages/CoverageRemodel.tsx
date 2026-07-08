@@ -68,12 +68,8 @@ type AnalyzeResult = {
   warnings: string[];
 };
 
-type CoverageOverrideMode = "keep" | "reduce" | "increase" | "remove";
-
 type ContractDecision = {
   disposition: "keep" | "cancel";
-  adjustedMonthlyPremium: string;
-  coverageOverrides: Record<string, { mode: CoverageOverrideMode; amount: string }>;
 };
 
 type ProposalCoverageDraft = {
@@ -109,13 +105,6 @@ type ConsultingPlanV1 = {
   existing: {
     contract_idx: number | string;
     disposition: "keep" | "cancel";
-    adjusted_monthly_premium?: number | null;
-    coverage_overrides?: {
-      kb_name: string;
-      group12?: string;
-      mode: CoverageOverrideMode;
-      amount?: number | null;
-    }[];
   }[];
   proposals: ProposalPlan[];
 };
@@ -437,26 +426,11 @@ function buildConsultingPlan(
     existing: companies.flatMap((company) => {
       const decision = decisions[keyOf(company.idx)];
       if (!decision) return [];
-      const adjusted = toNumberOrNull(decision.adjustedMonthlyPremium);
-      const coverageOverrides = Object.entries(decision.coverageOverrides)
-        .map(([kbName, override]) => {
-          if (override.mode === "keep") return null;
-          const sourceCoverage = analysis.before.coverages.find((coverage) => coverage.kb_name === kbName);
-          return {
-            kb_name: kbName,
-            group12: sourceCoverage?.group12,
-            mode: override.mode,
-            amount: override.mode === "remove" ? null : toNumberOrNull(override.amount),
-          };
-        })
-        .filter((override): override is NonNullable<typeof override> => Boolean(override));
-      if (decision.disposition === "keep" && adjusted == null && coverageOverrides.length === 0) return [];
+      if (decision.disposition === "keep") return [];
       return [
         {
           contract_idx: company.idx,
           disposition: decision.disposition,
-          adjusted_monthly_premium: adjusted,
-          coverage_overrides: coverageOverrides,
         },
       ];
     }),
@@ -493,11 +467,9 @@ function buildAfterResult(
   for (const company of sourceCompanies) {
     const decision = decisions[keyOf(company.idx)];
     if (decision?.disposition === "cancel") continue;
-    const adjusted = decision ? toNumberOrNull(decision.adjustedMonthlyPremium) : null;
     const nextCompany: Company = {
       ...company,
-      monthly_premium: adjusted ?? company.monthly_premium,
-      consulting_status: adjusted != null ? "보험료 조정" : "유지",
+      consulting_status: "유지",
     };
     nextCompany.paid_total = contractPaidTotal(nextCompany);
     keptIds.add(keyOf(company.idx));
@@ -536,17 +508,6 @@ function buildAfterResult(
     const byCompany: Record<string, number | null> = {};
     for (const [companyId, amount] of Object.entries(coverage.by_company || {})) {
       if (keptIds.has(companyId)) byCompany[companyId] = amount;
-    }
-    for (const [companyId, decision] of Object.entries(decisions)) {
-      if (!keptIds.has(companyId)) continue;
-      const override = decision.coverageOverrides[coverage.kb_name];
-      if (!override || override.mode === "keep") continue;
-      if (override.mode === "remove") {
-        byCompany[companyId] = null;
-      } else {
-        const amount = toNumberOrNull(override.amount);
-        if (amount != null) byCompany[companyId] = amount;
-      }
     }
     Object.assign(byCompany, proposalAmounts[coverage.kb_name] || {});
     const summary = aggregateCoverageValues(byCompany, coverage.agg);
@@ -741,40 +702,8 @@ export default function CoverageRemodel() {
     setDecisions((current) => {
       const previous: ContractDecision = current[key] || {
         disposition: "keep",
-        adjustedMonthlyPremium: "",
-        coverageOverrides: {},
       };
       return { ...current, [key]: { ...previous, ...patch } };
-    });
-    setAfterResult(null);
-  }
-
-  function updateCoverageOverride(
-    company: Company,
-    coverage: BeforeCoverage,
-    patch: Partial<{ mode: CoverageOverrideMode; amount: string }>,
-  ) {
-    const key = keyOf(company.idx);
-    setDecisions((current) => {
-      const previous: ContractDecision = current[key] || {
-        disposition: "keep",
-        adjustedMonthlyPremium: "",
-        coverageOverrides: {},
-      };
-      const previousOverride = previous.coverageOverrides[coverage.kb_name] || {
-        mode: "keep" as CoverageOverrideMode,
-        amount: "",
-      };
-      return {
-        ...current,
-        [key]: {
-          ...previous,
-          coverageOverrides: {
-            ...previous.coverageOverrides,
-            [coverage.kb_name]: { ...previousOverride, ...patch },
-          },
-        },
-      };
     });
     setAfterResult(null);
   }
@@ -1001,7 +930,7 @@ export default function CoverageRemodel() {
               <div>
                 <h2 className="ko-heading text-lg font-bold text-ink-900">컨설팅 후 입력</h2>
                 <p className="mt-1 text-xs text-ink-soft">
-                  유지·해지, 조정 보험료, 담보별 조정 금액과 신규 제안을 반영합니다.
+                  기존 계약은 유지·해지만 선택하고 신규 제안을 함께 반영합니다.
                 </p>
               </div>
               <button
@@ -1017,23 +946,33 @@ export default function CoverageRemodel() {
               {companies.map((company) => {
                 const decision = decisions[keyOf(company.idx)] || {
                   disposition: "keep",
-                  adjustedMonthlyPremium: "",
-                  coverageOverrides: {},
                 };
-                const companyCoverages = coverageOptions
-                  .filter((coverage) => coverage.by_company?.[keyOf(company.idx)] != null)
-                  .slice(0, 6);
+                const isCanceled = decision.disposition === "cancel";
                 return (
-                  <article key={company.idx} className="rounded-card border border-line bg-canvas p-4">
+                  <article
+                    key={company.idx}
+                    className={`rounded-card border p-4 ${
+                      isCanceled ? "border-amber-200 bg-amber-50/40" : "border-line bg-canvas"
+                    }`}
+                  >
                     <div className="flex items-start justify-between gap-3">
-                      <div>
+                      <div className={isCanceled ? "text-ink-soft line-through decoration-2" : ""}>
                         <p className="font-bold text-ink-900">{company.insurer || `계약 ${company.idx}`}</p>
                         <p className="mt-1 text-xs text-ink-soft">{company.product || "상품명 확인 필요"}</p>
                         <p className="mt-1 text-[11px] font-semibold text-ink-soft">{formatPeriod(company)}</p>
                       </div>
-                      <p className="shrink-0 text-sm font-extrabold text-ink-900">{formatPremium(company.monthly_premium)}</p>
+                      <div className="flex shrink-0 flex-col items-end gap-2">
+                        {isCanceled && (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">
+                            해지
+                          </span>
+                        )}
+                        <p className={`text-sm font-extrabold text-ink-900 ${isCanceled ? "line-through decoration-2" : ""}`}>
+                          {formatPremium(company.monthly_premium)}
+                        </p>
+                      </div>
                     </div>
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="mt-4">
                       <label className="text-[12px] font-semibold text-ink-700">
                         처리
                         <select
@@ -1049,57 +988,7 @@ export default function CoverageRemodel() {
                           <option value="cancel">해지</option>
                         </select>
                       </label>
-                      <label className="text-[12px] font-semibold text-ink-700">
-                        조정 월납 보험료
-                        <input
-                          className="mt-1 w-full rounded-[8px] border border-line bg-white px-3 py-2 text-sm"
-                          inputMode="numeric"
-                          placeholder="변동 없으면 비움"
-                          value={decision.adjustedMonthlyPremium}
-                          onChange={(event) =>
-                            updateContractDecision(company.idx, { adjustedMonthlyPremium: event.target.value })
-                          }
-                        />
-                      </label>
                     </div>
-
-                    {companyCoverages.length > 0 && (
-                      <div className="mt-4 space-y-2">
-                        <p className="text-[12px] font-bold text-ink-700">담보 조정</p>
-                        {companyCoverages.map((coverage) => {
-                          const override = decision.coverageOverrides[coverage.kb_name] || { mode: "keep", amount: "" };
-                          return (
-                            <div key={coverage.kb_name} className="grid gap-2 sm:grid-cols-[1fr_108px_120px]">
-                              <span className="truncate text-[12px] font-semibold text-ink-700" title={coverage.kb_name}>
-                                {coverage.kb_name}
-                              </span>
-                              <select
-                                className="rounded-[8px] border border-line bg-white px-2 py-1.5 text-[12px]"
-                                value={override.mode}
-                                onChange={(event) =>
-                                  updateCoverageOverride(company, coverage, {
-                                    mode: event.target.value as CoverageOverrideMode,
-                                  })
-                                }
-                              >
-                                <option value="keep">그대로</option>
-                                <option value="reduce">감액/조정</option>
-                                <option value="increase">증액/보완</option>
-                                <option value="remove">삭제</option>
-                              </select>
-                              <input
-                                className="rounded-[8px] border border-line bg-white px-2 py-1.5 text-right text-[12px]"
-                                inputMode="numeric"
-                                placeholder="금액"
-                                disabled={override.mode === "keep" || override.mode === "remove"}
-                                value={override.amount}
-                                onChange={(event) => updateCoverageOverride(company, coverage, { amount: event.target.value })}
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
                   </article>
                 );
               })}

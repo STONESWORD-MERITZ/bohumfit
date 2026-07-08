@@ -1,9 +1,9 @@
 """Consulting-plan transforms for BOHUMFIT coverage remodeling.
 
-BOHUMFIT-186 keeps the calculation path deliberately small: a consulting plan is
-applied to the existing ``before`` payload, then the ordinary ``build_final``
-diagnosis path is run again. New proposal contracts are reserved for
-BOHUMFIT-188 and are ignored with a warning in this stage.
+BOHUMFIT-190 keeps the existing-contract step deliberately small: a consulting
+plan can only keep or cancel contracts, then the ordinary ``build_final``
+diagnosis path is run again. Proposal contracts are handled by
+``compare.build_after_analysis`` through ``build_after_result``.
 """
 from __future__ import annotations
 
@@ -13,7 +13,6 @@ from typing import Any
 from .aggregator import aggregate_coverage_values, build_final
 
 VALID_DISPOSITIONS = {"keep", "cancel", "유지", "해지"}
-VALID_OVERRIDE_MODES = {"keep", "reduce", "increase", "remove"}
 STATUS_ORDER = {"미가입": 0, "부족": 1, "충분": 2}
 
 
@@ -56,8 +55,6 @@ def _normalize_decisions(plan: dict, warnings: list[str]) -> dict[str, dict]:
             disposition = "keep"
         decisions[key] = {
             "disposition": disposition,
-            "adjusted_monthly_premium": _as_int(raw.get("adjusted_monthly_premium")),
-            "coverage_overrides": raw.get("coverage_overrides") or [],
             "reason": raw.get("reason"),
         }
     return decisions
@@ -68,25 +65,17 @@ def _company_sort_key(company: dict) -> tuple[bool, int, str]:
     return (premium is None, -(premium or 0), str(company.get("idx") or ""))
 
 
-def _coverage_index(before: dict) -> set[str]:
-    return {row.get("kb_name") for row in before.get("coverages", []) if row.get("kb_name")}
-
-
 def apply_consulting_plan(before: dict, plan: dict | None) -> dict:
     """Return a before-shaped payload after applying existing-contract decisions.
 
-    Existing keep/cancel decisions and coverage overrides are applied here.
-    New proposal contracts are deliberately deferred to BOHUMFIT-188, so [후]
-    can keep the exact same aggregation and diagnosis path as [전].
+    Existing keep/cancel decisions are applied here, so [후] can keep the exact
+    same aggregation and diagnosis path as [전].
     """
     plan = plan or {}
     warnings: list[str] = []
-    if plan.get("proposals"):
-        warnings.append("신규 제안 계약은 BOHUMFIT-188 범위라 이번 [후] 계산에서 제외했습니다.")
     decisions = _normalize_decisions(plan, warnings)
     source_companies = before.get("contract_list") or before.get("companies") or []
     known_contracts = {_contract_key(company) for company in source_companies}
-    known_coverages = _coverage_index(before)
 
     for key in decisions:
         if key not in known_contracts:
@@ -99,8 +88,6 @@ def apply_consulting_plan(before: dict, plan: dict | None) -> dict:
         if decision.get("disposition") == "cancel":
             continue
         updated = deepcopy(company)
-        if decision.get("adjusted_monthly_premium") is not None:
-            updated["monthly_premium"] = decision["adjusted_monthly_premium"]
         updated["paid_total"] = _paid_total(updated)
         updated["consulting_status"] = "keep"
         updated["consulting_reason"] = decision.get("reason")
@@ -117,38 +104,11 @@ def apply_consulting_plan(before: dict, plan: dict | None) -> dict:
             if str(key) in kept_keys and value is not None
         }
 
-        for contract_key, decision in decisions.items():
-            if contract_key not in kept_keys:
-                continue
-            for override in decision.get("coverage_overrides") or []:
-                if override.get("kb_name") != kb_name:
-                    continue
-                mode = str(override.get("mode") or "keep").strip().lower()
-                if mode not in VALID_OVERRIDE_MODES:
-                    warnings.append(f"{kb_name}: mode={mode!r}은 지원하지 않아 유지했습니다.")
-                    continue
-                if mode == "keep":
-                    continue
-                if mode == "remove":
-                    by_company.pop(contract_key, None)
-                    continue
-                amount = _as_int(override.get("amount"))
-                if amount is None:
-                    warnings.append(f"{kb_name}: {contract_key}번 계약 override 금액이 유효하지 않아 무시했습니다.")
-                    continue
-                by_company[contract_key] = amount
-
         updated = deepcopy(row)
         updated["by_company"] = by_company
         updated["summary"] = aggregate_coverage_values(by_company, row.get("agg"))
         updated["enrolled"] = any(value is not None for value in by_company.values())
         coverages.append(updated)
-
-    for decision in decisions.values():
-        for override in decision.get("coverage_overrides") or []:
-            name = override.get("kb_name")
-            if name and name not in known_coverages:
-                warnings.append(f"알 수 없는 담보 {name} override는 무시했습니다.")
 
     monthly_total = sum(company.get("monthly_premium") or 0 for company in kept_companies)
     paid_values = [company.get("paid_total") for company in kept_companies if company.get("paid_total") is not None]
