@@ -1,3 +1,26 @@
+## 2026-07-08 Cowork BOHUMFIT-193 — 신규 가입제안서 파싱 + 통합치료비 레지스트리 + 전/후/최종 UI 조사 명세(조사 전용·코드 0)
+
+Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Human(집계·분해·유지계약 결정) → Codex(문서 커밋)
+
+### Changed (문서만, 코드 0)
+- `.agent-harness/tasks/BOHUMFIT-193-newproposal-parse-registry-ui-spec.md` (신규) — S0 역추적 검산 / S1 회사별 파서 어댑터 / S2 레지스트리+집계규칙+또또암 분해 / S3 STEP UI(기구현 연동) / S4 후속·Human 결정.
+- `.agent-harness/locks.md` — 193 Active 추가 후 Released 해제.
+
+### Verified (조사, 실 PDF 실측)
+- ★사용자 업로드 실 PDF 5종(이상범, 내부 비공개) pdfplumber 파싱 성공 → 골든 【후】표 역추적. **보험료 합계 162,154 정확 일치**(종합56,950+또또암35,070+운전자12,320+미래36,874+KB20,940).
+- 실측 ✓ 재현: 상해사망 12,100(종합10,000+미래2,000+KB100)·상해후유3% 10,100(종합10,000+KB100)·뇌혈관 4,000(종합대표1,000+KB3,000)·허혈성 2,000(종합대표1,000+KB1,000)·N종수술 1~5종 2열(종합+미래 합산)·상해수술100·질병수술20·골절진단30·깁스50·가족일상배상10,000·운전자 형사합의20,000/변호사500/벌금3,000/6주미만1,000. 약 85% 담보 정확 재현.
+- ⚠약관/Human 필요(담보·cap은 실측): 통합치료비 bundle 분해값(암수술1,750·표적8,050·방사선2,050·뇌혈관수술2,000·심장수술2,000; 또또암 68/78/82/172/174·종합151 cap 확인, sub-rate 약관 필요) · 또또암 암진단 4,900↔5,000 · 미래 유사암 포함여부 · KB 특정Ⅱ/부정맥 매핑 · 자부상 500 대표 · 가족일상배상 대표/합산.
+
+### Notes
+- ★현행 정합: 저장소는 **HEAD/handoff 191까지 진행**(패킷 전제 "181 완료"와 상이). STEP 전/유지·해지/신규제안/후/최종 UI는 **185~191에 상당 기구현**(186/187/188/190/191). 본 명세의 신규 기여 = **회사별 실제 가입제안서 PDF 파싱(현 STEP3 수기 입력) + 통합치료비 레지스트리+집계규칙**. S3은 기구현(`CoverageRemodel.tsx`·`consulting.py`·`compare.py`) 위 연동으로 재정의(041/043은 과거 번호).
+- ★번호 충돌 해소: `BOHUMFIT-182-company-wrap-count`(커밋 `5ee593c`) 이미 존재 → 이번 조사 산출물은 `BOHUMFIT-193` / `BOHUMFIT-193-newproposal-parse-registry-ui-spec.md`로 재번호.
+- ★PII: 실 PDF·추출물 stage/commit 금지. 명세에 이름·주민번호·설계번호 미기재, 담보 구조만.
+- src/·backend 무접촉. 병렬 189~191 배치는 완료(handoff 반영), 코드 범위 무충돌.
+
+### Next
+- Human: S4 결정 6건(회사 컬럼순서·bundle sub금액 출처·통합치료비 뇌심 귀속·자부상 대표·유지계약 입력경로·S0 플래그 해소).
+- Codex: 문서만 stage/commit/push(`docs(BOHUMFIT-193): 신규 가입제안서 PDF 파싱 + 통합치료비 레지스트리 조사 명세(전제 191 반영)`). 코드 게이트 불필요. PDF/PII 미스테이지.
+
 ## 2026-07-08 Codex BOHUMFIT-191 — 고객용 리포트 표지 + 전 VS 후 비교
 
 Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Human
