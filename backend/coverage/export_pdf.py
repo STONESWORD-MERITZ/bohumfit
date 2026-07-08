@@ -11,6 +11,7 @@ from __future__ import annotations
 import html as _html
 from datetime import datetime
 
+from .compare import ensure_comparison
 from .constants import GROUP13
 
 EMERALD = "#084734"
@@ -69,6 +70,10 @@ def _esc(s) -> str:
 def build_coverage_html(analysis: dict, generated_at: datetime | None = None) -> str:
     before = analysis.get("before", {}) or {}
     final = analysis.get("final", {}) or {}
+    after = analysis.get("after") or {}
+    after_before = after.get("before") or {}
+    after_final = after.get("final") or {}
+    comparison = ensure_comparison(analysis)
     prem = final.get("premium") or before.get("premium") or {}
     customer = before.get("customer") or {}
     companies = before.get("contract_list") or before.get("companies", [])
@@ -106,6 +111,82 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
             f'<td class="nm">{_esc(c.get("kb_name"))}</td>'
             f'<td class="num strong">{_fmt_krw(c.get("summary"))}</td>{cells}</tr>'
         )
+
+    after_section = ""
+    if after_before and after_final:
+        after_prem = after_final.get("premium") or after_before.get("premium") or {}
+        after_final_rows = []
+        for c in sorted(after_final.get("coverages", []), key=lambda row: _grp_key(row.get("group12", ""))):
+            st = c.get("status")
+            color, bg = _STATUS.get(st, (GRAY, GRAY_SOFT))
+            gap = c.get("gap")
+            gap_txt = "-" if gap is None else (("+" if gap > 0 else "−" if gap < 0 else "") + _fmt_krw(abs(gap)))
+            gap_color = AMBER if (isinstance(gap, (int, float)) and gap < 0) else EMERALD if (isinstance(gap, (int, float)) and gap > 0) else GRAY
+            after_final_rows.append(
+                f'<tr><td class="grp">{_esc(c.get("group12"))}</td>'
+                f'<td class="nm">{_esc(c.get("kb_name"))}</td>'
+                f'<td class="num">{_fmt_krw(c.get("recommended"))}</td>'
+                f'<td class="num strong">{_fmt_krw(c.get("value"))}</td>'
+                f'<td class="num" style="color:{gap_color}">{gap_txt}</td>'
+                f'<td class="st"><span class="badge" style="color:{color};background:{bg}">{_esc(st) or "-"}</span></td></tr>'
+            )
+        after_companies = after_before.get("contract_list") or after_before.get("companies", [])
+        after_comp_head = "".join(
+            f'<th class="num">{_esc(co.get("insurer") or "계약")} {_esc(co.get("idx"))}<br><span class="sub">{_won(co.get("monthly_premium"))}</span></th>'
+            for co in after_companies
+        )
+        after_rows = []
+        for c in sorted(after_before.get("coverages", []), key=lambda row: _grp_key(row.get("group12", ""))):
+            by = c.get("by_company", {})
+            cells = "".join(f'<td class="num">{_fmt_krw(by.get(str(co.get("idx"))))}</td>' for co in after_companies)
+            after_rows.append(
+                f'<tr><td class="grp">{_esc(c.get("group12"))}</td>'
+                f'<td class="nm">{_esc(c.get("kb_name"))}</td>'
+                f'<td class="num strong">{_fmt_krw(c.get("summary"))}</td>{cells}</tr>'
+            )
+        after_section = f"""
+<h2>컨설팅 후 보장진단</h2>
+<div class="cards">
+  <div class="card"><div class="k">후 월납 보험료</div><div class="v">{_won(after_prem.get('monthly_total'))}</div></div>
+  <div class="card"><div class="k">후 총납입</div><div class="v">{_won(after_prem.get('paid_total'))}</div></div>
+</div>
+<table><thead><tr><th>대분류</th><th>담보</th><th class="num">권장</th><th class="num">가입</th><th class="num">과부족</th><th>준비</th></tr></thead>
+<tbody>{''.join(after_final_rows)}</tbody></table>
+<h2>회사별 세부 (후)</h2>
+<table><thead><tr><th>대분류</th><th>담보</th><th class="num">합산/대표</th>{after_comp_head}</tr></thead>
+<tbody>{''.join(after_rows)}</tbody></table>
+"""
+
+    comparison_section = ""
+    if comparison:
+        cp = comparison.get("premium") or {}
+        cs = comparison.get("summary") or {}
+        delta_monthly = cp.get("delta_monthly")
+        delta_paid = cp.get("delta_paid_total")
+        compare_rows = []
+        for row in comparison.get("coverages", []):
+            if not (row.get("improved") or row.get("worsened")):
+                continue
+            cls = "good" if row.get("improved") else "warn"
+            compare_rows.append(
+                f'<tr><td class="grp">{_esc(row.get("group12"))}</td>'
+                f'<td class="nm">{_esc(row.get("kb_name"))}</td>'
+                f'<td class="num">{_fmt_krw(row.get("before_value"))}</td>'
+                f'<td class="num strong">{_fmt_krw(row.get("after_value"))}</td>'
+                f'<td class="{cls}">{_esc(row.get("status_change"))}</td></tr>'
+            )
+        if not compare_rows:
+            compare_rows.append('<tr><td colspan="5" class="empty">상태 변화가 큰 담보가 없습니다.</td></tr>')
+        comparison_section = f"""
+<h2>컨설팅 전 VS 후 요약</h2>
+<div class="cards">
+  <div class="card"><div class="k">월납 증감</div><div class="v">{_won(delta_monthly)}</div></div>
+  <div class="card"><div class="k">총납입 증감</div><div class="v">{_won(delta_paid)}</div></div>
+  <div class="card"><div class="k">부족·미가입 → 충분</div><div class="v">{int(cs.get('improved_count') or 0)}개</div></div>
+</div>
+<table><thead><tr><th>대분류</th><th>담보</th><th class="num">전</th><th class="num">후</th><th>상태 변화</th></tr></thead>
+<tbody>{''.join(compare_rows)}</tbody></table>
+"""
     notes = []
     for co in companies:
         notes.append(
@@ -149,6 +230,9 @@ td.num {{ text-align: right; }}
 td.strong {{ font-weight: 800; color: {INK}; }}
 td.st {{ text-align: center; }}
 .badge {{ display: inline-block; border-radius: 10px; padding: 1px 8px; font-size: 8pt; font-weight: 700; }}
+.good {{ color: {EMERALD}; font-weight: 800; text-align: center; }}
+.warn {{ color: {AMBER}; font-weight: 800; text-align: center; }}
+.empty {{ text-align: center; color: {GRAY}; }}
 .notes {{ margin-top: 8px; font-size: 8pt; color: {GRAY}; }}
 .notes li {{ list-style: none; margin: 1px 0; }}
 .contract-list th, .contract-list td {{ font-size: 8.3pt; }}
@@ -175,6 +259,9 @@ td.st {{ text-align: center; }}
 <tbody>{''.join(notes)}</tbody></table>
 <table><thead><tr><th>대분류</th><th>담보</th><th class="num">합산/대표</th>{comp_head}</tr></thead>
 <tbody>{''.join(before_rows)}</tbody></table>
+
+{after_section}
+{comparison_section}
 
 <p class="disclaimer">본 리모델링표는 업로드한 KB 신정원 보장분석 제안서를 기준으로 정리한 참고용 자료입니다. 실제 보장 내용·보험금 지급 여부는 각 보험사 약관과 증권을 따르며, 본 자료는 보험 모집·중개·상품추천·가입권유를 목적으로 하지 않습니다.</p>
 </body></html>"""

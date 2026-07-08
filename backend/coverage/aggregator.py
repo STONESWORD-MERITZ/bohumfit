@@ -7,11 +7,15 @@ from .constants import AGG_SUM, EXTRA_LABEL_GROUP, GROUP13, GROUP_ETC, GROUP_EXC
 from .schema import before_coverage, final_coverage
 
 
-def _aggregate(by_company: dict, agg: str):
+def aggregate_coverage_values(by_company: dict, agg: str):
     vals = [v for v in by_company.values() if v is not None]
     if not vals:
         return None
     return sum(vals) if agg == AGG_SUM else max(vals)
+
+
+def _aggregate(by_company: dict, agg: str):
+    return aggregate_coverage_values(by_company, agg)
 
 
 def _paid(contract: dict):

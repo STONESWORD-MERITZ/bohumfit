@@ -9839,3 +9839,34 @@ Owner flow: Claude Chat -> Codex | Current owner: Human / next Cowork task autho
 
 ### Next
 - Human / Claude Chat — use `BOHUMFIT-185-after-engine-spec.md` to packetize BOHUMFIT-186 backend after-model implementation, then proceed 187 UI, 188 proposals, 189 comparison, 190 export.
+## 2026-07-08 Codex BOHUMFIT-187 컨설팅 3단계 신규가입 제안 추가
+
+Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Human
+
+### Changed
+- `backend/coverage/consulting.py`: 신규가입 제안 계약을 [후] 재계산 경로에 합류. 제안 보험료/납입기간/담보별 가입금액을 기존 유지계약과 같은 집계·진단 경로로 처리.
+- `backend/coverage/compare.py`: [전]/[후] 비교 요약 유틸. 187 응답/내보내기 보조로 포함(전후 비교표 고도화는 후속 범위).
+- `backend/coverage/aggregator.py`: `aggregate_coverage_values` 공개 함수 추가.
+- `backend/coverage/export_excel.py`, `backend/coverage/export_pdf.py`: consulting result가 포함된 payload의 [후] 세부/비교/요약 출력 지원.
+- `backend/main.py`: `/coverage/consulting/after` endpoint 추가.
+- `src/pages/CoverageRemodel.tsx`: 유지/해지·보험료 조정과 신규가입 제안 수기 입력, [후] 재계산, 개선 요약 UI 연결.
+- `backend/tests/test_coverage_after_186.py`: 187 이후 신규제안 합류 동작에 맞게 회귀 기대값 갱신.
+- `backend/tests/test_coverage_proposal_187.py`: 신규제안 보험료/총납입/담보 개선/해지 공존/미매핑 경고 회귀 4건 추가.
+- `.agent-harness/tasks/BOHUMFIT-187-coverage-proposals.md`: task packet 추가.
+
+### Verified
+- [x] `npx tsc -p tsconfig.app.json --noEmit` -> pass
+- [x] `npx tsc -p tsconfig.node.json --noEmit` -> pass
+- [x] `npm run build` -> pass (기존 Vite chunk-size warning only)
+- [x] `cd backend && python -m pytest tests/test_coverage_proposal_187.py -vv` -> 4 passed
+- [x] `cd backend && python -m pytest tests/test_coverage_proposal_187.py tests/test_coverage_after_186.py -vv` -> 11 passed
+- [x] `cd backend && python -m pytest -q` -> 544 passed, 8 skipped
+
+### Notes
+- 현 HEAD 기준 BOHUMFIT-186 커밋이 별도 visible 상태가 아니었고, 로컬 작업트리에 186 기반 consulting/export 변경이 남아 있었다. 187은 해당 기반을 포함해 [후] 신규제안 합류까지 완결했다.
+- `compare.py`와 export 확장은 187 결과를 화면/다운로드에 전달하기 위한 보조 유틸이다. 제품 레벨 전후 비교표 고도화(188)는 별도 범위로 남긴다.
+- 실 PDF 문건주 스모크는 로컬 UI 수동 업로드까지는 수행하지 못했고, 합성 회귀에서 유지/해지 + 신규제안 1건에 따른 부족담보 개선·월납 증감을 검증했다.
+- PII/PDF/보장분석 원본 파일은 stage 금지 유지.
+
+### Next
+- Human: 배포 후 `/coverage-compare`에서 문건주 KB PDF로 유지/해지 + 신규가입 제안 1건 입력 후 [후] 부족담보 개선·월납 증감·엑셀/PDF 출력 육안 확인.

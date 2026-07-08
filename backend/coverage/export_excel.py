@@ -13,6 +13,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
+from .compare import ensure_comparison
 from .constants import GROUP13
 
 # FIT v1.1 (openpyxl ARGB, 앞 FF=불투명)
@@ -108,10 +109,10 @@ def _sheet_final(ws, final: dict, before: dict) -> None:
     ws.freeze_panes = "A5"
 
 
-def _sheet_before(ws, before: dict) -> None:
+def _sheet_before(ws, before: dict, title: str = "회사별 세부 (전)") -> None:
     companies = before.get("contract_list") or before.get("companies", [])  # 월납 내림차순(백엔드 정렬)
     coverages = before.get("coverages", [])
-    ws["A1"] = "회사별 세부 (전)"
+    ws["A1"] = title
     ws["A1"].font = Font(bold=True, size=14, color=INK)
 
     r = 3
@@ -167,13 +168,146 @@ def _sheet_before(ws, before: dict) -> None:
     ws.freeze_panes = "D4"
 
 
+def _sheet_compare(ws, comparison: dict) -> None:
+    ws["A1"] = "전후 비교"
+    ws["A1"].font = Font(bold=True, size=14, color=INK)
+    premium = comparison.get("premium") or {}
+    ws["A2"] = "월납 증감"
+    ws["B2"] = premium.get("delta_monthly")
+    ws["D2"] = "총납입 증감"
+    ws["E2"] = premium.get("delta_paid_total")
+    for c in ("B2", "E2"):
+        ws[c].number_format = '#,##0"원"'
+        ws[c].font = Font(bold=True, color=INK)
+    for c in ("A2", "D2"):
+        ws[c].font = Font(color=GRAY_TX, size=9)
+
+    headers = ["대분류", "담보", "권장", "전 가입", "후 가입", "전 상태", "후 상태", "상태 변화", "증감", "개선"]
+    r = 4
+    for col, header in enumerate(headers, start=1):
+        _hdr(ws.cell(row=r, column=col), header)
+    r += 1
+    for row in comparison.get("coverages", []):
+        values = [
+            row.get("group12"),
+            row.get("kb_name"),
+            row.get("recommended"),
+            row.get("before_value"),
+            row.get("after_value"),
+            row.get("before_status"),
+            row.get("after_status"),
+            row.get("status_change"),
+            row.get("delta_value"),
+            "개선" if row.get("improved") else "",
+        ]
+        for col, value in enumerate(values, start=1):
+            cell = ws.cell(row=r, column=col, value=value)
+            cell.border = _BORDER
+            cell.alignment = Alignment(
+                horizontal="right" if col in (3, 4, 5, 9) else "center" if col in (6, 7, 8, 10) else "left",
+                vertical="center",
+                wrap_text=True,
+            )
+            if col in (3, 4, 5, 9) and isinstance(value, (int, float)):
+                cell.number_format = '#,##0'
+            if col == 10 and value:
+                cell.fill = PatternFill("solid", fgColor=EMERALD_SOFT)
+                cell.font = Font(bold=True, color=EMERALD)
+            elif col in (6, 7):
+                status = str(value or "")
+                if status in _STATUS_FILL:
+                    cell.fill = PatternFill("solid", fgColor=_STATUS_FILL[status])
+                    cell.font = Font(bold=True, color=(EMERALD if status == "충분" else AMBER_TX if status == "부족" else GRAY_TX))
+            else:
+                cell.font = Font(color=INK if col == 2 else GRAY_TX, size=9)
+        r += 1
+
+    widths = (12, 22, 14, 14, 14, 10, 10, 16, 14, 8)
+    for col, width in enumerate(widths, start=1):
+        ws.column_dimensions[get_column_letter(col)].width = width
+    ws.freeze_panes = "A5"
+
+
+def _sheet_summary(ws, comparison: dict, plan: dict | None = None) -> None:
+    ws["A1"] = "컨설팅 요약"
+    ws["A1"].font = Font(bold=True, size=14, color=INK)
+    premium = comparison.get("premium") or {}
+    summary = comparison.get("summary") or {}
+    rows = [
+        ("전 월납", premium.get("before_monthly")),
+        ("후 월납", premium.get("after_monthly")),
+        ("월납 증감", premium.get("delta_monthly")),
+        ("전 총납입", premium.get("before_paid_total")),
+        ("후 총납입", premium.get("after_paid_total")),
+        ("총납입 증감", premium.get("delta_paid_total")),
+        ("부족·미가입 → 충분", summary.get("improved_count")),
+        ("미가입 → 충분", summary.get("missing_to_sufficient")),
+        ("부족 → 충분", summary.get("short_to_sufficient")),
+    ]
+    r = 3
+    for label, value in rows:
+        ws.cell(row=r, column=1, value=label).font = Font(color=GRAY_TX, size=9)
+        ws.cell(row=r, column=1).border = _BORDER
+        _num(ws.cell(row=r, column=2), value)
+        r += 1
+
+    r += 1
+    _hdr(ws.cell(row=r, column=1), "대분류")
+    _hdr(ws.cell(row=r, column=2), "전 부족")
+    _hdr(ws.cell(row=r, column=3), "후 부족")
+    _hdr(ws.cell(row=r, column=4), "전 미가입")
+    _hdr(ws.cell(row=r, column=5), "후 미가입")
+    _hdr(ws.cell(row=r, column=6), "개선 수")
+    r += 1
+    for group in summary.get("by_group12", []):
+        before_counts = group.get("before_status_counts") or {}
+        after_counts = group.get("after_status_counts") or {}
+        values = [
+            group.get("group12"),
+            before_counts.get("부족", 0),
+            after_counts.get("부족", 0),
+            before_counts.get("미가입", 0),
+            after_counts.get("미가입", 0),
+            group.get("improved_count", 0),
+        ]
+        for col, value in enumerate(values, start=1):
+            cell = ws.cell(row=r, column=col, value=value)
+            cell.border = _BORDER
+            cell.alignment = Alignment(horizontal="right" if col > 1 else "left", vertical="center")
+        r += 1
+
+    r += 1
+    _hdr(ws.cell(row=r, column=1), "구분")
+    _hdr(ws.cell(row=r, column=2), "내용")
+    r += 1
+    for item in (comparison.get("improvements") or []) + (comparison.get("cautions") or []):
+        ws.cell(row=r, column=1, value=item.get("level")).border = _BORDER
+        ws.cell(row=r, column=2, value=item.get("message")).border = _BORDER
+        r += 1
+    if plan and plan.get("notes"):
+        for note in plan.get("notes", []):
+            ws.cell(row=r, column=1, value=note.get("scope") or "memo").border = _BORDER
+            ws.cell(row=r, column=2, value=note.get("message") or "").border = _BORDER
+            r += 1
+
+    for col, width in zip("ABCDEF", (18, 18, 12, 12, 12, 10)):
+        ws.column_dimensions[col].width = width
+
+
 def build_workbook_bytes(analysis: dict) -> bytes:
     """[전]/[최종] dict → xlsx 바이트."""
     before = analysis.get("before", {}) or {}
     final = analysis.get("final", {}) or {}
+    after = analysis.get("after") or {}
+    after_before = after.get("before") or {}
+    comparison = ensure_comparison(analysis)
     wb = Workbook()
     _sheet_final(wb.active, final, before)
     _sheet_before(wb.create_sheet("전 회사별세부"), before)
+    if after_before and comparison:
+        _sheet_before(wb.create_sheet("후 회사별세부"), after_before, "회사별 세부 (후)")
+        _sheet_compare(wb.create_sheet("전후 비교"), comparison)
+        _sheet_summary(wb.create_sheet("컨설팅 요약"), comparison, analysis.get("consulting_plan"))
     bio = io.BytesIO()
     wb.save(bio)
     return bio.getvalue()

@@ -4,12 +4,11 @@ Use this file to record active Codex file ownership during a task.
 
 ## Active
 
-- 2026-07-07 `BOHUMFIT-185` - Codex - consulting-after spec docs only
-- 2026-07-07 `BOHUMFIT-182` - Cowork - 편집 중. parser.py·aggregator.py·schema.py(필요시)·tests/test_coverage_parser_182.py. 회사명 wrap 결합·[전] 열==계약수(BOP 보험료미제공 포함). pipeline 무접촉·집계값 회귀 금지.
-- 2026-07-07 `BOHUMFIT-183` - Cowork - 편집 중. constants.py·aggregator.py·export_excel.py·export_pdf.py·CoverageRemodel.tsx·tests/test_coverage_group_183.py. 대분류 재편(순서·간병 이동·치매 제외·골절→상해). 담보 집계값 불변.
-- 2026-07-07 `BOHUMFIT-184` - Cowork - 편집 중. parser.py·schema.py·aggregator.py·export_excel.py·export_pdf.py·CoverageRemodel.tsx·tests/test_coverage_contract_list_184.py. [전] 보유 계약 리스트. 집계값 불변.
+없음
 
 ### Released
+- 2026-07-08 `BOHUMFIT-187` - Codex - consulting stage 3 proposals verified and released.
+- 2026-07-07 `BOHUMFIT-182/183/184` - Cowork - **코드 구현 보류(명세 산출)**. ⚠마운트 뷰 손상(coverage/parser.py·constants.py·amount.py null 패딩 truncation, constants import 불가) → 손상 파일 편집 시 정상 Windows 원본 오염 위험 → 안전 원칙상 Cowork 미편집. 산출: tasks/BOHUMFIT-182(회사명 wrap+BOP 열/계약수 정합)·183(대분류 재편: 순서·간병→입원일당·치매 제외·골절→상해+화상)·184([전] 계약 리스트) 구현-준비 명세 3종. S0 실사(김대휘 BOP "보험료미제공" 확인·현행 constants group12·문건주 회귀 기준선). Codex: 마운트 재동기화 또는 Windows 원본에 182→183→184 구현·테스트·커밋. PII 미커밋.
 - 2026-07-06 `BOHUMFIT-181` - Cowork - 완료(160 마지막). 보장분석 리모델링표 엑셀/PDF 내보내기. 신규 backend/coverage/export_excel.py(2시트 openpyxl)·export_pdf.py(FIT v1.1 HTML+html_to_pdf_bytes 재사용) + main.py 라우터 2종(/coverage/export/excel·pdf, 분석JSON 입력·파일명·no-store)+import+헬퍼3 + requirements openpyxl==3.1.5 + CoverageRemodel 다운로드 버튼/핸들러 + test_coverage_export_181(4). 검증: coverage 22 passed(179:11+179b:7+181:4)·엑셀 왕복(573,227·181,984,128·담보·기타·비고)·PDF-HTML(에메랄드·구브랜드0·값·ㅍ)·파일명 sanitize·main.py 삽입블록 AST OK. 157/179파서/고지의무/CoverageRemodel 렌더 무접촉. ⚠마운트 truncation(main.py·CoverageRemodel)→Codex Windows tsc/py_compile 필수. 신규 dep openpyxl→pip install. PDF 실렌더=Codex 로컬 playwright. 기준선 514→518 예상(npm 15 유지). PII 미저장.
 - 2026-07-06 `BOHUMFIT-180` - Cowork - 완료(프런트). 보장분석 리모델링표 화면 + 라우트 재편. 신규 `src/pages/CoverageRemodel.tsx`(KB PDF→/coverage/analyze→[최종] 13대분류 과부족 색상 + [전] 회사별 매트릭스·계피 비고·펼침, ConsentGate·PII 미저장). App.tsx: /coverage-compare→ProtectedRoute(CoverageRemodel), /coverage 라우트·import 제거. NAV 무편집. 검증: CoverageRemodel 파싱0·gray/라임/그린티0·죽은링크0. ★Step0 실사=두 라우트 모두 실동작(엑셀 전/후 도구·114 PDF 비교) → C방식으로 접근불가. ★파일 미삭제(보존)—Human 확인 후 Codex git rm. ⚠App.tsx 마운트 truncation(L125 절단)→TS false-fail, 편집은 균형(grep). Codex: Windows tsc/build/npm test·실화면 스모크·Human 확인·커밋/푸시. backend 무접촉.
 - 2026-07-06 `BOHUMFIT-179b` - Cowork - 완료(A방식 패스1). 179 파서 확장: 기타(13번째) 대분류 + 계약 특이사항 비고(계피). constants(GROUP_ETC·EXTRA_PATTERNS·classify_extra)·parser(detail 역할·parse_detail_pages)·schema(remark)·aggregator(기타 append·계피 비고·GROUP13). main.py 무변경. test_179b 신규. 179+179b **18 passed**(/tmp·마운트)·py_compile OK. ★179 회귀 무결(573,227·181,984,128·상해사망5.5억·일반암1억, 37 기본형 유지·기타만 append). 기타 N대수술비4090만·화상6000만·양성종양폴립30만·상급종합일당120만. 계피 동일/상이 감지. Codex: 실 PDF 패스2(삼성 계피 포맷·wrap·추가 비표준 담보)·pytest(496→503 예상)·커밋. PII 미커밋. ※179b 시작 시 active lock 미기재(단일 세션 무충돌)—프로토콜 참고.

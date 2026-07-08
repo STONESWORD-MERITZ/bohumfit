@@ -29,6 +29,7 @@ import httpx
 from analyzer import run_analysis, AnalysisError, SERVER_ANALYZE_DEADLINE_SECONDS
 from pipeline.coverage_parser import parse_coverage_pdf  # BOHUMFIT-114
 from coverage.service import analyze_kb_coverage, KBFormatError  # BOHUMFIT-179 (KB 신정원 제안서 파서·격리 모듈)
+from coverage.consulting import build_after_result  # BOHUMFIT-186 (컨설팅 후 설계 재계산)
 from coverage.export_excel import build_workbook_bytes  # BOHUMFIT-181 (엑셀 내보내기)
 from coverage.export_pdf import generate_coverage_pdf   # BOHUMFIT-181 (PDF 내보내기)
 # BOHUMFIT-097: 번호 중복 hard-block 제거로 phone_guard 미사용(스펙 완화). 모듈은 보존.
@@ -1406,6 +1407,25 @@ async def coverage_export_pdf(
             "Cache-Control": "no-store",
         },
     )
+
+
+@app.post("/coverage/consulting/after")
+@limiter.limit("20/minute")
+async def coverage_consulting_after(
+    request: Request,
+    payload: dict = Body(..., description="analysis + consulting_plan"),
+    user_id: str = Depends(verify_jwt),
+):
+    """BOHUMFIT-186: [전] 분석 결과와 컨설팅 플랜으로 [후] 설계를 재계산한다."""
+    analysis = payload.get("analysis") if isinstance(payload.get("analysis"), dict) else payload
+    plan = payload.get("consulting_plan") or payload.get("plan") or {}
+    if not isinstance(analysis, dict) or "before" not in analysis or "final" not in analysis:
+        raise HTTPException(status_code=400, detail="분석 결과(before/final)가 필요합니다.")
+    try:
+        return await asyncio.to_thread(build_after_result, analysis, plan)
+    except Exception as e:
+        logger.exception("coverage consulting after failed: %s", e)
+        raise HTTPException(status_code=500, detail="후 설계 재계산에 실패했습니다.")
 
 
 @app.post("/api/analyze")
