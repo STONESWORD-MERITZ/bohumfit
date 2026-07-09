@@ -1,3 +1,30 @@
+## 2026-07-09 BOHUMFIT-199 - 보험사 링크 완전판매 모니터링 추가
+
+Owner flow: Human -> Codex Windows | Current owner: Human(배포 확인)
+Commit: see final BOHUMFIT-199 commit in `git log --oneline -1`
+
+### Changed
+- `src/pages/InsuranceLinks.tsx`: 보험사 링크 데이터에 `monitoringUrl`/`monitoringNote`를 추가하고 카드 액션에 `완전판매` 버튼을 연결. 상세보기에는 완전판매 모니터링 URL과 조사 비고를 표시.
+- 손해/생명보험 38개 항목은 URL을 제공하고, 공제회사 6개 항목은 일반 보험사 신계약 완전판매 모니터링 대상과 성격이 달라 비고-only로 유지.
+- 페이지 설명과 하단 안내에 완전판매/신계약 모니터링 및 로그인·본인인증/청약 후 대기 가능성을 명시.
+- `backend/tests/test_insurance_links_monitoring_199.py`: 44개 항목 수량, 38개 보험사 URL, 6개 공제회사 비고-only, 대표 공식 URL, 화면 버튼 연결을 소스 회귀 테스트로 고정.
+- `.agent-harness/tasks/BOHUMFIT-199-insurance-links-monitoring.md`, `.agent-harness/verify.md`, `CLAUDE.md`, `.agent-harness/locks.md`.
+
+### Verified
+- `python -m pytest backend\tests\test_insurance_links_monitoring_199.py -q`: `1 passed`.
+- `npx tsc -p tsconfig.app.json --noEmit`: 통과.
+- `npx tsc -p tsconfig.node.json --noEmit`: 통과.
+- `npm test`: `15 passed`.
+- `npm run build`: 통과. 기존 Vite chunk-size warning만 출력.
+- Vite route smoke: `http://127.0.0.1:5182/insurance-links` 200 및 root div 확인 후 서버 종료.
+- `cd backend; python -m pytest -q`: `563 passed, 8 skipped`.
+- `git diff --check`: 통과. LF/CRLF warning만 출력.
+
+### Notes
+- 공식 검색으로 일부 URL을 재확인: 한화생명 신계약모니터링, 교보생명 모니터링 대상 계약 목록, 삼성화재/DB손해보험/AIG/NH농협손해보험 완전판매모니터링 등.
+- 공개 직접 URL이 확인되지 않는 보험사는 공식 홈페이지/로그인 경유 URL과 “공개 직접 URL 미확인” 비고를 함께 남김.
+- `backend/pipeline/` 무접촉. 실 PDF/엑셀/PII staged 없음.
+
 ## 2026-07-09 BOHUMFIT-198 - 핵심 보장금액 접힘 UI + 컨설팅 전 진단 세부 제거
 
 Owner flow: Human -> Codex Windows | Current owner: Human(배포 확인)
