@@ -20,69 +20,52 @@ def _report() -> dict:
     return build_after_analysis(_analysis(), _plan())
 
 
-def test_screen_per_rider_table_uses_two_level_before_after_header() -> None:
+def test_screen_per_rider_table_focuses_on_coverage_amounts() -> None:
     source = Path(__file__).resolve().parents[2] / "src" / "pages" / "CoverageRemodel.tsx"
     text = source.read_text(encoding="utf-8")
     head = text.split("comparisonGroups.map", 1)[1].split("<tbody>", 1)[0]
 
-    assert re.search(r'<th\s+rowSpan=\{2\}[^>]*>\s*담보\s*</th>', head)
-    assert re.search(r'<th\s+colSpan=\{2\}[^>]*>\s*전\s*</th>', head)
-    assert re.search(r'<th\s+colSpan=\{2\}[^>]*>\s*후\s*</th>', head)
-    assert re.search(r'<th\s+rowSpan=\{2\}[^>]*>\s*증감\s*</th>', head)
-    assert re.search(r'<th\s+rowSpan=\{2\}[^>]*>\s*변화\s*</th>', head)
-    assert head.count(">가입</th>") == 2
-    assert head.count(">상태</th>") == 2
+    assert "전 보장금액" in head
+    assert "후 보장금액" in head
+    assert re.search(r">\s*증감\s*</th>", head)
+    assert ">상태</th>" not in head
+    assert ">변화</th>" not in head
 
 
-def test_pdf_per_rider_compare_table_groups_before_after_and_keeps_eight_cells() -> None:
+def test_pdf_per_rider_compare_table_focuses_on_coverage_amounts() -> None:
     html = build_coverage_html(_report())
-    section = html.split("특약별 보장 비교 · 개선 담보", 1)[1].split("</table>", 1)[0]
+    section = html.split("특약별 보장금액 비교", 1)[1].split("</table>", 1)[0]
 
-    assert '<th rowspan="2">대분류</th>' in section
-    assert '<th rowspan="2">담보</th>' in section
-    assert '<th colspan="2">전</th>' in section
-    assert '<th colspan="2">후</th>' in section
-    assert '<th rowspan="2" class="num">증감</th>' in section
-    assert '<th rowspan="2">변화</th>' in section
+    assert "<th>대분류</th>" in section
+    assert "<th>담보</th>" in section
+    assert '<th class="num">전 보장금액</th>' in section
+    assert '<th class="num">후 보장금액</th>' in section
+    assert '<th class="num">증감</th>' in section
 
     rows = re.findall(r"<tr><td.*?</tr>", section, re.S)
     row = next(item for item in rows if ">수술비</td>" in item)
-    assert row.count("<td") == 8
-    assert "부족" in row
-    assert "충분" in row
+    assert row.count("<td") == 5
     assert "+1,000만" in row
-    assert "부족 -&gt; 충분" in row
+    assert "부족" not in row
+    assert "충분" not in row
 
 
-def test_excel_compare_sheet_groups_before_after_columns_and_reorders_values() -> None:
+def test_excel_compare_sheet_uses_amount_columns_only() -> None:
     workbook = load_workbook(io.BytesIO(build_workbook_bytes(_report())))
     sheet = workbook["④ 전후 특약별"]
     header_row = next(
         row
         for row in range(1, sheet.max_row + 1)
-        if sheet.cell(row=row, column=4).value == "전" and sheet.cell(row=row, column=6).value == "후"
+        if sheet.cell(row=row, column=3).value == "전 보장금액" and sheet.cell(row=row, column=4).value == "후 보장금액"
     )
-    merged = {str(cell_range) for cell_range in sheet.merged_cells.ranges}
-
-    assert f"D{header_row}:E{header_row}" in merged
-    assert f"F{header_row}:G{header_row}" in merged
-    assert f"B{header_row}:B{header_row + 1}" in merged
-    assert f"H{header_row}:H{header_row + 1}" in merged
-    assert f"I{header_row}:I{header_row + 1}" in merged
-    assert sheet.cell(header_row + 1, 4).value == "가입"
-    assert sheet.cell(header_row + 1, 5).value == "상태"
-    assert sheet.cell(header_row + 1, 6).value == "가입"
-    assert sheet.cell(header_row + 1, 7).value == "상태"
 
     surgery = next(row for row in sheet.iter_rows(values_only=True) if row[1] == "수술비")
-    assert surgery[:9] == (
+    assert surgery[:5] == (
         "수술",
         "수술비",
+        10_000_000,
         20_000_000,
         10_000_000,
-        "부족",
-        20_000_000,
-        "충분",
-        10_000_000,
-        "부족 -> 충분",
     )
+    assert "부족" not in surgery
+    assert "충분" not in surgery

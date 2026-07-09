@@ -174,8 +174,10 @@ def test_excel_adds_after_compare_and_summary_sheets() -> None:
     assert workbook.sheetnames == ["① 표지", "② 전 계약", "③ 신규제안", "④ 전후 특약별", "⑤ 전후 회사별", "⑥ 전 진단세부"]
     compare = workbook["④ 전후 특약별"]
     values = [cell.value for row in compare.iter_rows() for cell in row if cell.value is not None]
-    assert "미가입 -> 충분" in values
-    assert "부족 -> 충분" in values
+    assert "전 보장금액" in values
+    assert "후 보장금액" in values
+    assert "미가입 -> 충분" not in values
+    assert "부족 -> 충분" not in values
     assert -20_000 in values
 
 
@@ -183,8 +185,8 @@ def test_pdf_html_adds_customer_compare_page_with_brand_and_disclaimer() -> None
     html = build_coverage_html(build_after_analysis(_analysis(), _plan()))
 
     assert "컨설팅 전 VS 후 요약" in html
-    assert "부족·미가입 → 충분" in html
-    assert "2개" in html
+    assert "특약별 보장금액 비교" in html
+    assert "부족·미가입 → 충분" not in html
     assert "보험 모집·중개·상품추천·가입권유" in html
     assert "#084734" in html
     for old in ("#15663D", "#2E6B3E", "#145C2A"):

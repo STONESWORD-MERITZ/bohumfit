@@ -52,8 +52,8 @@ def test_pdf_splits_rider_and_company_comparison_pages() -> None:
     assert rider_pos < company_pos < detail_pos
     assert "월납입보험료" in html
     assert "20,000원 절감" in html
-    assert "특약별 보장 비교 · 개선 담보" in html
-    assert "후 합산/대표" in html
+    assert "특약별 보장금액 비교" in html
+    assert "후 보장금액" in html
 
 
 def test_excel_uses_same_six_step_sheet_order() -> None:
@@ -72,6 +72,6 @@ def test_excel_uses_same_six_step_sheet_order() -> None:
     compare_values = [cell.value for row in workbook["④ 전후 특약별"].iter_rows() for cell in row if cell.value is not None]
 
     assert "해지" in contract_values
-    assert "가입제안서 PDF 파싱 결과와 수기 보완값을 함께 표시합니다." in proposal_values
+    assert "가입제안서 PDF 파싱 결과와 핵심 보장금액을 함께 표시합니다." in proposal_values
     assert "④ 최종 전 VS 후 - 특약별 보장 비교" in compare_values
     assert -20_000 in compare_values

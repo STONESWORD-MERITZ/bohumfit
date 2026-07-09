@@ -51,7 +51,7 @@ def test_pdf_comparison_has_three_axes_and_group_expansion() -> None:
     assert "총납입보험료" in html
     assert "2,400,000원 절감" in html
     assert "대분류별 보장 변화" in html
-    assert "개선 담보" in html
+    assert "특약별 보장금액 비교" in html
     assert "암진단" in html and "수술비" in html
 
 

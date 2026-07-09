@@ -1,3 +1,27 @@
+## 2026-07-09 BOHUMFIT-197 - 리포트 보장금액 중심 레이아웃 정리
+
+Owner flow: Human -> Codex Windows | Current owner: Human(배포 확인)
+
+### Changed
+- `src/pages/CoverageRemodel.tsx`: ③ 신규가입 제안서 수기 입력 표현을 `핵심 보장금액` 중심으로 변경. ④ 특약별 비교에서 상태/변화 컬럼 제거 후 전/후 보장금액/증감만 표시. ⑤ 회사별 세부 매트릭스 헤더를 회사명 행 + 월보험료 행으로 분리.
+- `backend/coverage/export_pdf.py`: PDF ③/④/⑤ 동일 구조 반영, 섹션별 구분선/여백 추가, 표지 높이 조정으로 빈 페이지 제거.
+- `backend/coverage/export_excel.py`: ③ 핵심 보장금액 문구, ④ 금액 중심 컬럼, ⑤ 회사명/보험료 2행 헤더 반영.
+- `backend/tests/test_coverage_compare_188.py`, `test_coverage_report_191.py`, `test_coverage_report_194.py`, `test_coverage_report_195.py`: 새 레이아웃 회귀 기대값 갱신.
+- `.agent-harness/tasks/BOHUMFIT-197-report-amount-focused-layout.md`, `.agent-harness/locks.md`.
+
+### Verified
+- `python -m pytest backend\tests\test_coverage_report_191.py backend\tests\test_coverage_report_194.py backend\tests\test_coverage_report_195.py backend\tests\test_coverage_compare_188.py -q`: `13 passed`.
+- `npx tsc -p tsconfig.app.json --noEmit`: 통과.
+- `npx tsc -p tsconfig.node.json --noEmit`: 통과.
+- `npm run build`: 통과. 기존 Vite chunk-size warning만 출력.
+- `cd backend; python -m pytest -q`: `561 passed, 8 skipped`.
+- PDF visual smoke: 임시 합성 리포트 PDF 생성 후 Poppler PNG 렌더 확인. 빈 페이지 없음, ③ 핵심 보장금액, ④ 금액 중심 특약표, ⑤ 회사명/보험료 분리 헤더 확인.
+
+### Notes
+- `backend/pipeline/` 무접촉.
+- 실 PDF/엑셀/PII 저장·커밋 없음.
+- `tmp/pdfs/coverage_layout_check*` 임시 PDF/PNG는 삭제 완료.
+
 ## 2026-07-09 BOHUMFIT-196 - 계약리스트 파싱 보정 사후번호 정정 + BOHUMFIT-193 미착수 명시
 
 Owner flow: Human -> Codex Windows | Current owner: Human

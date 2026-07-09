@@ -778,7 +778,6 @@ export default function CoverageRemodel() {
   const comparisonGroups = useMemo(() => groupComparisonRows(afterResult?.comparison.coverages || []), [afterResult]);
   const comparisonValueGroups = useMemo(() => groupComparisonValues(afterResult?.comparison.coverages || []), [afterResult]);
   const statusSummary = useMemo(() => statusCounts(result?.final.coverages || []), [result]);
-  const afterStatusSummary = useMemo(() => statusCounts(afterResult?.after.final.coverages || []), [afterResult]);
   const coverageOptions = useMemo(() => {
     const options = [...(result?.before.coverages || [])];
     const seen = new Set(options.map((coverage) => coverage.kb_name));
@@ -1275,7 +1274,7 @@ export default function CoverageRemodel() {
               <span className="mt-2 text-sm font-bold text-accent-800">
                 {proposalParsing ? "신규 가입제안서 파싱 중..." : "신규 가입제안서 PDF 업로드"}
               </span>
-              <span className="mt-1 text-xs text-ink-soft">파싱 결과는 수기 입력 카드로 들어오며, 전후 비교 계산에 바로 반영됩니다.</span>
+              <span className="mt-1 text-xs text-ink-soft">파싱 결과는 핵심 보장금액 카드로 들어오며, 전후 비교 계산에 바로 반영됩니다.</span>
               <input
                 type="file"
                 accept="application/pdf"
@@ -1305,7 +1304,7 @@ export default function CoverageRemodel() {
 
             <div className="mt-6">
               <div className="flex items-center justify-between gap-3">
-                <h3 className="ko-heading text-base font-bold text-ink-900">수기 입력</h3>
+                <h3 className="ko-heading text-base font-bold text-ink-900">핵심 보장금액</h3>
                 <button
                   type="button"
                   onClick={addProposal}
@@ -1379,7 +1378,7 @@ export default function CoverageRemodel() {
                                 updateProposalCoverage(proposal.id, coverage.id, { kbName: event.target.value })
                               }
                             >
-                              <option value="">보완 담보 선택</option>
+                              <option value="">핵심 담보 선택</option>
                               {coverageOptions.map((option) => (
                                 <option key={option.kb_name} value={option.kb_name}>
                                   {option.group12} · {option.kb_name}
@@ -1412,7 +1411,7 @@ export default function CoverageRemodel() {
                           className="inline-flex items-center gap-1 rounded-btn border border-line-strong bg-white px-3 py-2 text-[12px] font-bold text-ink-800 hover:bg-ink-50"
                         >
                           <Plus size={14} aria-hidden="true" />
-                          담보 추가
+                          보장금액 추가
                         </button>
                       </div>
                     </article>
@@ -1452,7 +1451,7 @@ export default function CoverageRemodel() {
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-4">
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <MetricCard label="전 월납" value={formatWon(afterResult.comparison.premium.before_monthly)} />
                 <MetricCard label="후 월납" value={formatWon(afterResult.comparison.premium.after_monthly)} />
                 <MetricCard
@@ -1460,19 +1459,11 @@ export default function CoverageRemodel() {
                   value={formatDeltaWon(afterResult.comparison.premium.delta_monthly)}
                   tone={afterResult.comparison.premium.delta_monthly < 0 ? "good" : "warn"}
                 />
-                <MetricCard
-                  label="부족·미가입 → 충분"
-                  value={`${afterResult.comparison.summary.improved_count}개`}
-                  tone="good"
-                />
               </div>
 
               <div className="mt-4 rounded-[8px] bg-accent-50 px-4 py-3 text-[13px] font-semibold text-accent-800">
                 월납 {formatDeltaWon(afterResult.comparison.premium.delta_monthly)} · 총납입{" "}
-                {formatDeltaWon(afterResult.comparison.premium.delta_paid_total)} · 미가입→충분{" "}
-                {afterResult.comparison.summary.missing_to_sufficient}개 · 부족→충분{" "}
-                {afterResult.comparison.summary.short_to_sufficient}개 · 후 부족/미가입{" "}
-                {afterStatusSummary[STATUS_SHORT]} / {afterStatusSummary[STATUS_MISSING]}
+                {formatDeltaWon(afterResult.comparison.premium.delta_paid_total)}
               </div>
 
               {comparisonValueGroups.length > 0 && (
@@ -1486,7 +1477,6 @@ export default function CoverageRemodel() {
                           <th className="px-2 py-2 text-right">전 보장금액</th>
                           <th className="px-2 py-2 text-right">후 보장금액</th>
                           <th className="px-2 py-2 text-right">증감</th>
-                          <th className="py-2 pl-2 text-right">개선</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1508,9 +1498,6 @@ export default function CoverageRemodel() {
                             >
                               {formatCoverageDeltaAmount(group.deltaValue)}
                             </td>
-                            <td className="py-1.5 pl-2 text-right font-semibold text-accent-700">
-                              {group.improvedCount}개
-                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -1524,30 +1511,13 @@ export default function CoverageRemodel() {
                   <div key={group}>
                     <h3 className="ko-heading mb-2 text-sm font-bold text-ink-900">{group}</h3>
                     <div className="overflow-x-auto">
-                      <table className="w-full min-w-[840px] text-[12px]">
+                      <table className="w-full min-w-[640px] text-[12px]">
                         <thead>
                           <tr className="border-b border-line text-left text-ink-500">
-                            <th rowSpan={2} className="py-2 pr-2 align-middle">
-                              담보
-                            </th>
-                            <th colSpan={2} className="px-2 py-2 text-center">
-                              전
-                            </th>
-                            <th colSpan={2} className="px-2 py-2 text-center">
-                              후
-                            </th>
-                            <th rowSpan={2} className="px-2 py-2 text-right align-middle">
-                              증감
-                            </th>
-                            <th rowSpan={2} className="py-2 pl-2 text-center align-middle">
-                              변화
-                            </th>
-                          </tr>
-                          <tr className="border-b border-line text-ink-500">
-                            <th className="px-2 py-2 text-right">가입</th>
-                            <th className="px-2 py-2 text-center">상태</th>
-                            <th className="px-2 py-2 text-right">가입</th>
-                            <th className="px-2 py-2 text-center">상태</th>
+                            <th className="py-2 pr-2">담보</th>
+                            <th className="px-2 py-2 text-right">전 보장금액</th>
+                            <th className="px-2 py-2 text-right">후 보장금액</th>
+                            <th className="py-2 pl-2 text-right">증감</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1555,28 +1525,11 @@ export default function CoverageRemodel() {
                             <tr key={`${coverage.group12}-${coverage.kb_name}`} className="border-b border-line/60">
                               <td className="break-keep py-1.5 pr-2 font-semibold text-ink-800">{coverage.kb_name}</td>
                               <td className="px-2 py-1.5 text-right">{formatCoverageAmount(coverage.before_value)}</td>
-                              <td className="px-2 py-1.5 text-center">
-                                <StatusBadge status={coverage.before_status} />
-                              </td>
                               <td className="px-2 py-1.5 text-right font-semibold text-ink-900">
                                 {formatCoverageAmount(coverage.after_value)}
                               </td>
-                              <td className="px-2 py-1.5 text-center">
-                                <StatusBadge status={coverage.after_status} />
-                              </td>
-                              <td className="px-2 py-1.5 text-right">{formatCoverageDeltaAmount(coverage.delta_value)}</td>
-                              <td className="py-1.5 pl-2 text-center">
-                                <span
-                                  className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                                    coverage.improved
-                                      ? "bg-accent-50 text-accent-700"
-                                      : coverage.worsened
-                                        ? "bg-amber-50 text-amber-700"
-                                        : "bg-ink-100 text-ink-500"
-                                  }`}
-                                >
-                                  {coverage.status_change}
-                                </span>
+                              <td className="py-1.5 pl-2 text-right">
+                                {formatCoverageDeltaAmount(coverage.delta_value)}
                               </td>
                             </tr>
                           ))}
@@ -1620,11 +1573,18 @@ export default function CoverageRemodel() {
                 <table className="w-full min-w-[720px] text-[12px]">
                   <thead>
                     <tr className="border-b border-line text-ink-500">
-                      <th className="py-2 pr-2 text-left">담보</th>
-                      <th className="px-2 py-2 text-right">후 합산</th>
+                      <th rowSpan={2} className="py-2 pr-2 text-left align-middle">담보</th>
+                      <th rowSpan={2} className="px-2 py-2 text-right align-middle">후 보장금액</th>
                       {afterResult.after.before.companies.map((company) => (
                         <th key={company.idx} className="px-2 py-2 text-right">
                           {company.insurer || `계약 ${company.idx}`}
+                        </th>
+                      ))}
+                    </tr>
+                    <tr className="border-b border-line text-ink-500">
+                      {afterResult.after.before.companies.map((company) => (
+                        <th key={company.idx} className="px-2 py-2 text-right text-[11px] font-semibold text-accent-700">
+                          {formatPremium(company.monthly_premium)}
                         </th>
                       ))}
                     </tr>
@@ -1753,11 +1713,18 @@ export default function CoverageRemodel() {
                   <table className="w-full min-w-[720px] text-[12px]">
                     <thead>
                       <tr className="border-b border-line text-ink-500">
-                        <th className="py-2 pr-2 text-left">담보</th>
-                        <th className="px-2 py-2 text-right">합산</th>
+                        <th rowSpan={2} className="py-2 pr-2 text-left align-middle">담보</th>
+                        <th rowSpan={2} className="px-2 py-2 text-right align-middle">보장금액</th>
                         {companies.map((company) => (
                           <th key={company.idx} className="px-2 py-2 text-right">
                             {company.insurer || `계약 ${company.idx}`}
+                          </th>
+                        ))}
+                      </tr>
+                      <tr className="border-b border-line text-ink-500">
+                        {companies.map((company) => (
+                          <th key={company.idx} className="px-2 py-2 text-right text-[11px] font-semibold text-accent-700">
+                            {formatPremium(company.monthly_premium)}
                           </th>
                         ))}
                       </tr>

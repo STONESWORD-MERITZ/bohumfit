@@ -170,16 +170,16 @@ def _sheet_proposals(ws, plan: dict) -> None:
     ws.title = "③ 신규제안"
     ws["A1"] = "③ 신규가입 제안서"
     ws["A1"].font = Font(bold=True, size=14, color=INK)
-    ws["A2"] = "가입제안서 PDF 파싱 결과와 수기 보완값을 함께 표시합니다."
+    ws["A2"] = "가입제안서 PDF 파싱 결과와 핵심 보장금액을 함께 표시합니다."
     ws["A2"].font = Font(color=GRAY_TX, size=9)
-    headers = ["번호", "보험사", "상품명", "월보험료", "납입개월", "만기", "수기 입력 담보"]
+    headers = ["번호", "보험사", "상품명", "월보험료", "납입개월", "만기", "핵심 보장금액"]
     r = 4
     for col, header in enumerate(headers, start=1):
         _hdr(ws.cell(row=r, column=col), header)
     r += 1
     proposals = [item for item in plan.get("proposals", []) if isinstance(item, dict)]
     if not proposals:
-        ws.cell(row=r, column=1, value="수기 입력된 신규 제안이 없습니다.").border = _BORDER
+        ws.cell(row=r, column=1, value="신규 제안이 없습니다.").border = _BORDER
     for index, proposal in enumerate(proposals, start=1):
         coverage_label = ", ".join(
             f"{item.get('kb_name')} {item.get('amount'):,}" if isinstance(item.get("amount"), (int, float)) else str(item.get("kb_name"))
@@ -283,13 +283,15 @@ def _sheet_before(ws, before: dict, title: str = "회사별 세부 (전)") -> No
         r += 1
 
     r += 2
-    _hdr(ws.cell(row=r, column=1), "대분류")
-    _hdr(ws.cell(row=r, column=2), "담보")
-    _hdr(ws.cell(row=r, column=3), "합산/대표")
+    header_row = r
+    for col, header in ((1, "대분류"), (2, "담보"), (3, "보장금액")):
+        ws.merge_cells(start_row=header_row, start_column=col, end_row=header_row + 1, end_column=col)
+        _hdr(ws.cell(row=header_row, column=col), header)
     for j, co in enumerate(companies, start=4):
         label = f"{co.get('insurer') or '계약'} {co.get('idx')}"
-        _hdr(ws.cell(row=r, column=j), label)
-    r += 1
+        _hdr(ws.cell(row=header_row, column=j), label)
+        _hdr(ws.cell(row=header_row + 1, column=j), _premium_label(co.get("monthly_premium")), EMERALD_SOFT, EMERALD)
+    r += 2
 
     for c in sorted(coverages, key=lambda x: (_grp_key(x.get("group12", "")),)):
         ws.cell(row=r, column=1, value=c.get("group12")).font = Font(color=GRAY_TX, size=9)
@@ -385,7 +387,7 @@ def _sheet_compare(ws, comparison: dict) -> None:
     r = 5
     ws.cell(row=r, column=1, value="대분류별 보장 변화").font = Font(bold=True, color=INK, size=11)
     r += 1
-    for col, header in enumerate(["대분류", "전 보장금액", "후 보장금액", "증감", "개선 수"], start=1):
+    for col, header in enumerate(["대분류", "전 보장금액", "후 보장금액", "증감"], start=1):
         _hdr(ws.cell(row=r, column=col), header)
     r += 1
     for group in _group_value_summary(comparison):
@@ -394,7 +396,6 @@ def _sheet_compare(ws, comparison: dict) -> None:
             group.get("before_value"),
             group.get("after_value"),
             group.get("delta_value"),
-            group.get("improved_count"),
         ]
         for col, value in enumerate(values, start=1):
             cell = ws.cell(row=r, column=col, value=value)
@@ -419,58 +420,34 @@ def _sheet_compare(ws, comparison: dict) -> None:
             ws[c].font = Font(bold=True, color=(EMERALD if value < 0 else AMBER_TX if value > 0 else GRAY_TX))
 
     header_row = r
-    for col, header in ((1, "대분류"), (2, "담보"), (3, "권장"), (8, "증감"), (9, "변화")):
-        ws.merge_cells(start_row=header_row, start_column=col, end_row=header_row + 1, end_column=col)
+    for col, header in enumerate(["대분류", "담보", "전 보장금액", "후 보장금액", "증감"], start=1):
         _hdr(ws.cell(row=header_row, column=col), header)
-
-    ws.merge_cells(start_row=header_row, start_column=4, end_row=header_row, end_column=5)
-    _hdr(ws.cell(row=header_row, column=4), "전")
-    ws.merge_cells(start_row=header_row, start_column=6, end_row=header_row, end_column=7)
-    _hdr(ws.cell(row=header_row, column=6), "후")
-    for col, header in ((4, "가입"), (5, "상태"), (6, "가입"), (7, "상태")):
-        _hdr(ws.cell(row=header_row + 1, column=col), header)
-    r += 2
+    r += 1
     for row in comparison.get("coverages", []):
         values = [
             row.get("group12"),
             row.get("kb_name"),
-            row.get("recommended"),
             row.get("before_value"),
-            row.get("before_status"),
             row.get("after_value"),
-            row.get("after_status"),
             row.get("delta_value"),
-            row.get("status_change"),
         ]
         for col, value in enumerate(values, start=1):
             cell = ws.cell(row=r, column=col, value=value)
             cell.border = _BORDER
             cell.alignment = Alignment(
-                horizontal="right" if col in (3, 4, 6, 8) else "center" if col in (5, 7, 9) else "left",
+                horizontal="right" if col in (3, 4, 5) else "left",
                 vertical="center",
                 wrap_text=True,
             )
-            if col in (3, 4, 6, 8) and isinstance(value, (int, float)):
+            if col in (3, 4, 5) and isinstance(value, (int, float)):
                 cell.number_format = '#,##0'
-            if col == 9 and value:
-                if row.get("improved"):
-                    cell.fill = PatternFill("solid", fgColor=EMERALD_SOFT)
-                    cell.font = Font(bold=True, color=EMERALD)
-                elif row.get("worsened"):
-                    cell.fill = PatternFill("solid", fgColor=AMBER_SOFT)
-                    cell.font = Font(bold=True, color=AMBER_TX)
-                else:
-                    cell.font = Font(color=GRAY_TX, size=9)
-            elif col in (5, 7):
-                status = str(value or "")
-                if status in _STATUS_FILL:
-                    cell.fill = PatternFill("solid", fgColor=_STATUS_FILL[status])
-                    cell.font = Font(bold=True, color=(EMERALD if status == "충분" else AMBER_TX if status == "부족" else GRAY_TX))
+            if col == 5 and isinstance(value, (int, float)):
+                cell.font = Font(color=(EMERALD if value > 0 else AMBER_TX if value < 0 else GRAY_TX), size=9)
             else:
                 cell.font = Font(color=INK if col == 2 else GRAY_TX, size=9)
         r += 1
 
-    widths = (12, 22, 14, 14, 10, 14, 10, 14, 16)
+    widths = (12, 22, 16, 16, 14)
     for col, width in enumerate(widths, start=1):
         ws.column_dimensions[get_column_letter(col)].width = width
     ws.freeze_panes = "A5"
