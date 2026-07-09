@@ -1,3 +1,29 @@
+## 2026-07-09 BOHUMFIT-200 - 완전판매 모니터링 링크 전수 검수 및 경로 안내 개선
+
+Owner flow: Human -> Codex Windows | Current owner: Human(배포 확인)
+Commit: see final BOHUMFIT-200 commit in `git log --oneline -1`
+
+### Changed
+- `src/pages/InsuranceLinks.tsx`: 완전판매 모니터링 링크를 `direct/auth/path/none`으로 분류하는 BOHUMFIT-200 검수표를 추가하고, 기존 BOHUMFIT-199 기본 URL을 런타임에서 보정하도록 연결.
+- 한화생명은 모바일 신계약 모니터링 direct URL, 흥국화재는 PC 완전판매모니터링 동의 URL, KDB생명은 해피콜 셀프체크 URL로 교체.
+- DB손해보험은 인증 게이트 URL로 보정하고, 신한라이프/ABL생명은 사이버창구 로그인 진입점 + 메뉴 경로로 보정.
+- 메리츠화재, 한화손해보험, 흥국생명, 동양생명, DB생명 등 공개 direct URL 미확인 항목은 카드 버튼을 `경로 안내`로 표시하고 상세보기/카드 본문에 실제 이동 경로를 노출.
+- `backend/tests/test_insurance_links_monitoring_199.py`: 44개 보험사/공제 항목, direct 16/auth 2/path 20/none 6 분류, 대표 보정 URL, 주요 경로 안내 문구를 회귀 테스트로 고정.
+- `.agent-harness/tasks/BOHUMFIT-200-insurance-monitoring-link-audit.md`, `.agent-harness/locks.md`.
+
+### Verified
+- `python -m pytest backend\tests\test_insurance_links_monitoring_199.py -q`: `1 passed`.
+- `npx tsc -p tsconfig.app.json --noEmit`: 통과.
+- `npx tsc -p tsconfig.node.json --noEmit`: 통과.
+- `npm test`: `15 passed`.
+- `npm run build`: 통과. 기존 Vite chunk-size warning만 출력.
+- Browser smoke: `http://127.0.0.1:5173/insurance-links` 렌더, 오류 오버레이 없음, console error 0, `경로 안내`/신한라이프/DB생명 경로 문구 표시 확인.
+- `cd backend; python -m pytest -q`: `563 passed, 8 skipped`.
+
+### Notes
+- 공식 deep link가 고객별 인증/세션 정책으로 막힌 보험사는 억지로 direct로 표시하지 않고 `경로 안내`로 구분했다.
+- `backend/pipeline/` 무접촉. 실 PDF/엑셀/PII staged 없음.
+
 ## 2026-07-09 BOHUMFIT-199 - 보험사 링크 완전판매 모니터링 추가
 
 Owner flow: Human -> Codex Windows | Current owner: Human(배포 확인)

@@ -12,6 +12,7 @@ type InsType = "손해보험" | "생명보험";
 // BOHUMFIT-129: 공제회사 카테고리 추가. 탭/배지는 category 기준(없으면 type로 폴백).
 type Category = "손해보험" | "생명보험" | "공제회사";
 type Browser = "Edge" | "Chrome" | "무관";
+type MonitoringAccess = "direct" | "auth" | "path" | "none";
 
 type Insurer = {
   type: InsType;
@@ -33,6 +34,8 @@ type Insurer = {
   claimDocNote?: string;       // BOHUMFIT-147: 필요서류 비고(예: "PDF", "모바일 페이지")
   monitoringUrl?: string;      // BOHUMFIT-199: 완전판매/신계약 모니터링 URL
   monitoringNote?: string;     // BOHUMFIT-199: 완전판매 모니터링 비고
+  monitoringAccess?: MonitoringAccess; // BOHUMFIT-200: direct/auth/path/none 구분
+  monitoringPath?: string;     // BOHUMFIT-200: 메인/로그인 이동 시 실제 메뉴 경로
   browser?: Browser;           // 권장 브라우저
   lastVerifiedDate?: string;   // 최종확인일
   claimFaxSub?: string;        // 보조 청구팩스
@@ -84,6 +87,190 @@ const INSURANCE_DATA: Insurer[] = [
   { type: "손해보험", category: "공제회사", name: "과학기술인공제회", monitoringNote: "공제회사 항목은 일반 보험사 신계약 완전판매 모니터링 공개 URL 대상과 성격이 달라 직접 링크 없음.", system_url: "확인 필요", terms_url: "확인 필요", fax: "확인 필요", fax_note: "공식 홈페이지 대표 고객센터 확인. 보험금/급여금 청구 양식 및 전용 팩스번호는 추가 확인 필요", status: "공식확인", fax_type: "unknown", displayOrder: 45, customerCenter: "1577-0789 / 1433-23", incallNumber: "확인 필요", helpdeskNumber: "확인 필요", claimFormUrl: "확인 필요", browser: "확인 필요" as Browser, lastVerifiedDate: "2026-06-25", claimFaxSub: "" },
   { type: "손해보험", category: "공제회사", name: "소방공제회", monitoringNote: "공제회사 항목은 일반 보험사 신계약 완전판매 모니터링 공개 URL 대상과 성격이 달라 직접 링크 없음.", system_url: "확인 필요", terms_url: "확인 필요", fax: "02-430-7459", fax_note: "공식 서식자료실 기준 급여금 청구서 및 대표 팩스 02-430-7459 확인", status: "공식확인", fax_type: "fixed", displayOrder: 46, customerCenter: "02-407-7119", incallNumber: "확인 필요", helpdeskNumber: "확인 필요", claimFormUrl: "https://www.focu.or.kr/center/archive.do", browser: "확인 필요" as Browser, lastVerifiedDate: "2026-06-25", claimFaxSub: "" },
 ];
+
+type MonitoringAudit = Partial<Pick<Insurer, "monitoringUrl" | "monitoringNote" | "monitoringPath">> & {
+  monitoringAccess: MonitoringAccess;
+};
+
+// BOHUMFIT-200: 199에서 채운 기본 링크를 실제 진입 검수 결과로 보정한다.
+// 직접 진입이 막히는 보험사는 메인/로그인 링크를 유지하되 상세 경로를 같이 보여준다.
+const MONITORING_AUDIT: Record<string, MonitoringAudit> = {
+  메리츠화재: {
+    monitoringAccess: "path",
+    monitoringNote: "공개 모니터링 deep link 미확인. 본인인증 후 계약관리 메뉴에서 완전판매 모니터링으로 이동.",
+    monitoringPath: "본인인증/로그인 > 계약관리 또는 고객지원 > 완전판매 모니터링",
+  },
+  삼성화재: { monitoringAccess: "direct" },
+  DB손해보험: {
+    monitoringAccess: "auth",
+    monitoringUrl: "https://ir.idbins.com/FWMYCV0436.do?rUrl=/FWMYCV0438.do",
+    monitoringNote: "완전판매모니터링 인증 게이트. 인증 후 대상 계약 화면으로 이동.",
+    monitoringPath: "본인인증 > 완전판매모니터링 대상계약 확인",
+  },
+  KB손해보험: {
+    monitoringAccess: "direct",
+    monitoringUrl: "https://www.kbinsure.co.kr/CG110020001.ec",
+    monitoringNote: "완전판매 모니터링 공식 페이지. 브라우저가 메인으로 전환되면 주소창에 유지된 메뉴코드 확인.",
+  },
+  현대해상: { monitoringAccess: "direct" },
+  한화손해보험: {
+    monitoringAccess: "path",
+    monitoringNote: "공개 direct URL 미확인. 홈페이지/앱 로그인 후 MY한화 계약체결지원 메뉴에서 확인.",
+    monitoringPath: "MY한화 > 계약체결지원 > 완전판매모니터링",
+  },
+  롯데손해보험: { monitoringAccess: "direct" },
+  MG손해보험: { monitoringAccess: "direct" },
+  흥국화재: {
+    monitoringAccess: "direct",
+    monitoringUrl: "https://www.heungkukfire.co.kr/CNW/fullSalesAgree.do",
+    monitoringNote: "완전판매 모니터링 개인정보 수집/이용 동의 공식 페이지.",
+  },
+  농협손해보험: { monitoringAccess: "direct" },
+  하나손해보험: {
+    monitoringAccess: "path",
+    monitoringNote: "로그인 후 계약관리/완전판매모니터링 메뉴 접근.",
+    monitoringPath: "로그인 > 계약관리 또는 고객센터 > 완전판매모니터링",
+  },
+  캐롯손해보험: {
+    monitoringAccess: "path",
+    monitoringNote: "공개 direct URL 미확인. 공식 사이트 또는 앱의 계약관리 경유.",
+    monitoringPath: "로그인 > 내 보험/계약관리 > 해피콜 또는 완전판매 확인",
+  },
+  AXA손해보험: {
+    monitoringAccess: "path",
+    monitoringNote: "공개 direct URL 미확인. 공식 사이트 로그인 후 계약관리 경유.",
+    monitoringPath: "로그인 > 계약관리 > 해피콜/완전판매 확인",
+  },
+  AIG손해보험: { monitoringAccess: "direct" },
+  악사다이렉트: {
+    monitoringAccess: "path",
+    monitoringNote: "AXA손해보험과 동일 경로. 공개 direct URL 미확인.",
+    monitoringPath: "AXA 로그인 > 계약관리 > 해피콜/완전판매 확인",
+  },
+  더케이손해보험: {
+    monitoringAccess: "path",
+    monitoringNote: "하나손해보험 전환 이력. 현행 하나손해보험 로그인 경로로 확인.",
+    monitoringPath: "하나손해보험 로그인 > 계약관리 > 완전판매모니터링",
+  },
+  삼성화재해상: { monitoringAccess: "direct" },
+  삼성생명: {
+    monitoringAccess: "path",
+    monitoringNote: "제도 안내 페이지는 확인되나 고객별 모니터링은 로그인 후 경유.",
+    monitoringPath: "로그인 > 마이페이지/계약관리 > 완전판매 모니터링",
+  },
+  한화생명: {
+    monitoringAccess: "direct",
+    monitoringUrl: "https://m.hanwhalife.com/main/insurance/newContMon/IN_NWMO000_P01000.do",
+    monitoringNote: "신계약 모니터링 공식 모바일 페이지. 본인 확인 후 대상계약 확인.",
+    monitoringPath: "본인 확인 > 대상계약 확인 > 모니터링 진행",
+  },
+  교보생명: { monitoringAccess: "direct" },
+  신한라이프: {
+    monitoringAccess: "path",
+    monitoringUrl: "https://cyber.shinhanlife.co.kr/",
+    monitoringNote: "대표 홈페이지는 메인으로 열림. 사이버창구 로그인 후 해피콜결과조회 메뉴로 이동.",
+    monitoringPath: "사이버창구 로그인 > 보험계약조회 > 해피콜결과조회",
+  },
+  흥국생명: {
+    monitoringAccess: "path",
+    monitoringNote: "공개 direct URL 미확인. 모바일/앱 로그인 후 계약조회 또는 해피콜 메뉴로 이동.",
+    monitoringPath: "모바일/앱 로그인 > 계약조회/계약관리 > 해피콜 결과 조회 또는 완전판매 모니터링",
+  },
+  동양생명: {
+    monitoringAccess: "path",
+    monitoringNote: "공개 direct URL 미확인. 사이버창구/모바일창구 로그인 후 계약관리 메뉴에서 확인.",
+    monitoringPath: "사이버창구/모바일창구 로그인 > 계약관리 > 신계약 해피콜/완전판매 확인",
+  },
+  ABL생명: {
+    monitoringAccess: "path",
+    monitoringUrl: "https://cyber.abllife.co.kr/",
+    monitoringNote: "모바일 세부 URL은 로그인으로 전환됨. 사이버센터 로그인 후 모니터링 메뉴 이동.",
+    monitoringPath: "사이버센터 로그인 > 계약관리 > 해피콜/완전판매 모니터링",
+  },
+  DB생명: {
+    monitoringAccess: "path",
+    monitoringNote: "공개 direct URL 미확인. 고객창구 로그인 또는 고객센터에서 해피콜/완전판매 확인.",
+    monitoringPath: "고객창구 로그인 > 계약관리 > 해피콜/완전판매 확인 또는 1588-3131 문의",
+  },
+  KB라이프생명: { monitoringAccess: "direct" },
+  푸본현대생명: {
+    monitoringAccess: "path",
+    monitoringNote: "공개 direct URL 미확인. 홈페이지/모바일창구 로그인 후 계약관리 경유.",
+    monitoringPath: "로그인 > 계약관리 > 해피콜/완전판매 확인",
+  },
+  하나생명: {
+    monitoringAccess: "path",
+    monitoringNote: "공개 direct URL 미확인. 홈페이지 로그인 후 소비자보호/계약관리 경유.",
+    monitoringPath: "로그인 > 계약관리 또는 소비자보호 > 해피콜/완전판매 확인",
+  },
+  NH농협생명: { monitoringAccess: "direct" },
+  미래에셋생명: { monitoringAccess: "direct" },
+  AIA생명: {
+    monitoringAccess: "auth",
+    monitoringNote: "AIA+ 로그인 선택 페이지. 인증 후 완전판매해피콜 화면으로 이동.",
+    monitoringPath: "AIA+ 로그인/인증 > 완전판매해피콜",
+  },
+  처브라이프: {
+    monitoringAccess: "path",
+    monitoringNote: "공개 direct URL 미확인. 사이버고객센터 로그인 후 계약관리 경유.",
+    monitoringPath: "사이버고객센터 로그인 > 계약관리 > 해피콜/완전판매 확인",
+  },
+  라이나생명: { monitoringAccess: "direct" },
+  카디프생명: {
+    monitoringAccess: "path",
+    monitoringNote: "공개 direct URL 미확인. 공식 사이트 로그인 후 계약관리 경유.",
+    monitoringPath: "로그인 > 계약관리 > 해피콜/완전판매 확인",
+  },
+  BNP파리바카디프생명: {
+    monitoringAccess: "path",
+    monitoringNote: "카디프생명과 동일. 공개 direct URL 미확인.",
+    monitoringPath: "로그인 > 계약관리 > 해피콜/완전판매 확인",
+  },
+  KDB생명: {
+    monitoringAccess: "direct",
+    monitoringUrl: "https://www.kdblife.com/scrId/INLNB004M01P.do",
+    monitoringNote: "해피콜 셀프체크 공식 페이지.",
+  },
+  iM라이프: {
+    monitoringAccess: "path",
+    monitoringNote: "공개 direct URL 미확인. 사이버창구/스마트폰 해피콜 경유.",
+    monitoringPath: "사이버창구 로그인 > 계약관리 > 스마트폰 해피콜/완전판매 확인",
+  },
+  교보라이프플래닛: {
+    monitoringAccess: "path",
+    monitoringNote: "공개 direct URL 미확인. 온라인 계약관리 경유.",
+    monitoringPath: "로그인 > 내 보험/계약관리 > 해피콜/완전판매 확인",
+  },
+  교직원공제회: {
+    monitoringAccess: "none",
+    monitoringPath: "공제회사 항목은 일반 보험사 신계약 완전판매 모니터링 공개 URL 대상과 성격이 달라 직접 링크 없음",
+  },
+  새마을금고중앙회: {
+    monitoringAccess: "none",
+    monitoringPath: "공제회사 항목은 일반 보험사 신계약 완전판매 모니터링 공개 URL 대상과 성격이 달라 직접 링크 없음",
+  },
+  군인공제회: {
+    monitoringAccess: "none",
+    monitoringPath: "공제회사 항목은 일반 보험사 신계약 완전판매 모니터링 공개 URL 대상과 성격이 달라 직접 링크 없음",
+  },
+  경찰공제회: {
+    monitoringAccess: "none",
+    monitoringPath: "공제회사 항목은 일반 보험사 신계약 완전판매 모니터링 공개 URL 대상과 성격이 달라 직접 링크 없음",
+  },
+  과학기술인공제회: {
+    monitoringAccess: "none",
+    monitoringPath: "공제회사 항목은 일반 보험사 신계약 완전판매 모니터링 공개 URL 대상과 성격이 달라 직접 링크 없음",
+  },
+  소방공제회: {
+    monitoringAccess: "none",
+    monitoringPath: "공제회사 항목은 일반 보험사 신계약 완전판매 모니터링 공개 URL 대상과 성격이 달라 직접 링크 없음",
+  },
+};
+
+const applyMonitoringAudit = (ins: Insurer): Insurer => {
+  const audit = MONITORING_AUDIT[ins.name];
+  return audit ? { ...ins, ...audit } : ins;
+};
 
 // BOHUMFIT-131: 배지 의미 매핑(Badge variant). 손해=info·생명=success·공제=outline / 상태별.
 const CATEGORY_VARIANT: Record<Category, BadgeVariant> = {
@@ -158,6 +345,27 @@ function InsurerCard({ ins }: { ins: Insurer }) {
   const hasClaimForm = isExternalUrl(ins.claimFormUrl);
   const hasClaimDoc = isExternalUrl(ins.claimDocUrl); // BOHUMFIT-147: 필요서류 안내
   const hasMonitoringUrl = isExternalUrl(ins.monitoringUrl); // BOHUMFIT-199: 완전판매 모니터링
+  const monitoringAccess = ins.monitoringAccess ?? (hasMonitoringUrl ? "direct" : "none");
+  const monitoringAccessLabel: Record<MonitoringAccess, string> = {
+    direct: "직접 진입",
+    auth: "인증 필요",
+    path: "경로 안내",
+    none: "링크 없음",
+  };
+  const monitoringButtonLabel = monitoringAccess === "path" ? "경로 안내" : "완전판매";
+
+  const handleMonitoring = () => {
+    if (!openUrl(ins.monitoringUrl)) {
+      showToast("완전판매 모니터링 링크 확인이 필요합니다.", "warning");
+      return;
+    }
+    if (monitoringAccess === "auth") {
+      showToast("본인인증 또는 로그인 후 모니터링 대상계약으로 이동합니다.", "info");
+    }
+    if (monitoringAccess === "path") {
+      showToast("메인/로그인 화면으로 열리면 상세보기의 모니터링 경로를 따라가 주세요.", "info");
+    }
+  };
 
   const handleFax = () => {
     if (ins.fax_type === "virtual") {
@@ -225,9 +433,7 @@ function InsurerCard({ ins }: { ins: Insurer }) {
         </button>
         <button
           type="button"
-          onClick={() => {
-            if (!openUrl(ins.monitoringUrl)) showToast("완전판매 모니터링 링크 확인이 필요합니다.", "warning");
-          }}
+          onClick={handleMonitoring}
           disabled={!hasMonitoringUrl}
           aria-disabled={!hasMonitoringUrl}
           title={ins.monitoringNote || undefined}
@@ -237,7 +443,7 @@ function InsurerCard({ ins }: { ins: Insurer }) {
               : "cursor-not-allowed bg-ink-100 text-ink-400"
           }`}
         >
-          완전판매
+          {monitoringButtonLabel}
         </button>
         <button
           type="button"
@@ -292,7 +498,12 @@ function InsurerCard({ ins }: { ins: Insurer }) {
       )}
       {ins.monitoringNote && (
         <p className="ko-text mt-1.5 text-[11px] font-medium text-ink-400">
-          완전판매: {ins.monitoringNote}
+          완전판매({monitoringAccessLabel[monitoringAccess]}): {ins.monitoringNote}
+        </p>
+      )}
+      {ins.monitoringPath && monitoringAccess !== "direct" && (
+        <p className="ko-text mt-1.5 text-[11px] font-semibold text-accent-700">
+          모니터링 경로: {ins.monitoringPath}
         </p>
       )}
 
@@ -335,9 +546,12 @@ function InsurerCard({ ins }: { ins: Insurer }) {
               <ContactRow label="인콜 모니터링" value={ins.incallNumber} />
               <ContactRow label="전산 헬프데스크" value={ins.helpdeskNumber} />
               <ContactRow label="완전판매 모니터링" value={ins.monitoringUrl} />
+              <ContactRow label="모니터링 경로" value={ins.monitoringPath} />
             </div>
             {ins.monitoringNote && (
-              <p className="mt-1.5 text-[11px] leading-5 text-ink-400">완전판매: {ins.monitoringNote}</p>
+              <p className="mt-1.5 text-[11px] leading-5 text-ink-400">
+                완전판매({monitoringAccessLabel[monitoringAccess]}): {ins.monitoringNote}
+              </p>
             )}
           </div>
           <div>
@@ -374,6 +588,7 @@ export default function InsuranceLinks() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return INSURANCE_DATA
+      .map(applyMonitoringAudit)
       .filter((ins) => {
         if (tab !== "전체" && catOf(ins) !== tab) return false;
         if (q && !ins.name.toLowerCase().includes(q)) return false;
