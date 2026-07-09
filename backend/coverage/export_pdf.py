@@ -21,15 +21,7 @@ INK_BODY = "#1E293B"
 GRAY = "#6D747D"
 AMBER = "#B45309"
 AMBER_SOFT = "#FBEEDD"
-GRAY_SOFT = "#F1F1F1"
 LINE = "#E8E8E4"
-
-_STATUS = {
-    "충분": (EMERALD, EMERALD_SOFT),
-    "부족": (AMBER, AMBER_SOFT),
-    "미가입": (GRAY, GRAY_SOFT),
-}
-
 
 def _fmt_krw(n) -> str:
     if n is None:
@@ -162,12 +154,10 @@ def _cover_html(analysis: dict, generated_date: str) -> str:
 
 def build_coverage_html(analysis: dict, generated_at: datetime | None = None) -> str:
     before = analysis.get("before", {}) or {}
-    final = analysis.get("final", {}) or {}
     after = analysis.get("after") or {}
     after_before = after.get("before") or {}
     after_final = after.get("final") or {}
     comparison = ensure_comparison(analysis)
-    prem = final.get("premium") or before.get("premium") or {}
     customer = before.get("customer") or {}
     companies = before.get("contract_list") or before.get("companies", [])
     gen = generated_at.strftime("%Y-%m-%d") if generated_at else ""
@@ -182,61 +172,9 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
     }
     proposal_plan = [item for item in plan.get("proposals", []) if isinstance(item, dict)] if plan else []
 
-    # [최종] 담보 그룹 순서
-    fcovs = sorted(final.get("coverages", []), key=lambda c: _grp_key(c.get("group12", "")))
-    final_rows = []
-    for c in fcovs:
-        st = c.get("status")
-        color, bg = _STATUS.get(st, (GRAY, GRAY_SOFT))
-        gap = c.get("gap")
-        gap_txt = "-" if gap is None else (("+" if gap > 0 else "−" if gap < 0 else "") + _fmt_krw(abs(gap)))
-        gap_color = AMBER if (isinstance(gap, (int, float)) and gap < 0) else EMERALD if (isinstance(gap, (int, float)) and gap > 0) else GRAY
-        final_rows.append(
-            f'<tr><td class="grp">{_esc(c.get("group12"))}</td>'
-            f'<td class="nm">{_esc(c.get("kb_name"))}</td>'
-            f'<td class="num">{_fmt_krw(c.get("recommended"))}</td>'
-            f'<td class="num strong">{_fmt_krw(c.get("value"))}</td>'
-            f'<td class="num" style="color:{gap_color}">{gap_txt}</td>'
-            f'<td class="st"><span class="badge" style="color:{color};background:{bg}">{_esc(st) or "-"}</span></td></tr>'
-        )
-
-    # [전] 회사별 매트릭스
-    comp_name_head = "".join(
-        f'<th class="num company-name">{_esc(co.get("insurer") or "계약")} {_esc(co.get("idx"))}</th>'
-        for co in companies
-    )
-    comp_premium_head = "".join(
-        f'<th class="num company-premium">{_won(co.get("monthly_premium"))}</th>'
-        for co in companies
-    )
-    before_rows = []
-    for c in sorted(before.get("coverages", []), key=lambda x: _grp_key(x.get("group12", ""))):
-        by = c.get("by_company", {})
-        cells = "".join(f'<td class="num">{_fmt_krw(by.get(str(co.get("idx"))))}</td>' for co in companies)
-        before_rows.append(
-            f'<tr><td class="grp">{_esc(c.get("group12"))}</td>'
-            f'<td class="nm">{_esc(c.get("kb_name"))}</td>'
-            f'<td class="num strong">{_fmt_krw(c.get("summary"))}</td>{cells}</tr>'
-        )
-
     after_section = ""
     if after_before and after_final:
         after_prem = after_final.get("premium") or after_before.get("premium") or {}
-        after_final_rows = []
-        for c in sorted(after_final.get("coverages", []), key=lambda row: _grp_key(row.get("group12", ""))):
-            st = c.get("status")
-            color, bg = _STATUS.get(st, (GRAY, GRAY_SOFT))
-            gap = c.get("gap")
-            gap_txt = "-" if gap is None else (("+" if gap > 0 else "−" if gap < 0 else "") + _fmt_krw(abs(gap)))
-            gap_color = AMBER if (isinstance(gap, (int, float)) and gap < 0) else EMERALD if (isinstance(gap, (int, float)) and gap > 0) else GRAY
-            after_final_rows.append(
-                f'<tr><td class="grp">{_esc(c.get("group12"))}</td>'
-                f'<td class="nm">{_esc(c.get("kb_name"))}</td>'
-                f'<td class="num">{_fmt_krw(c.get("recommended"))}</td>'
-                f'<td class="num strong">{_fmt_krw(c.get("value"))}</td>'
-                f'<td class="num" style="color:{gap_color}">{gap_txt}</td>'
-                f'<td class="st"><span class="badge" style="color:{color};background:{bg}">{_esc(st) or "-"}</span></td></tr>'
-            )
         after_companies = after_before.get("contract_list") or after_before.get("companies", [])
         after_comp_name_head = "".join(
             f'<th class="num company-name">{_esc(co.get("insurer") or "계약")} {_esc(co.get("idx"))}</th>'
@@ -333,7 +271,6 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
 </section>
 """
     contract_rows = []
-    notes = []
     for co in companies:
         is_cancelled = str(co.get("idx")) in canceled_ids
         status = "해지" if is_cancelled else "유지"
@@ -342,17 +279,6 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
             f"<tr{row_class}>"
             f"<td>{_esc(co.get('idx'))}</td>"
             f"<td><span class=\"status-chip {'warn-bg' if is_cancelled else 'good-bg'}\">{status}</span></td>"
-            f"<td>{_esc(co.get('insurer') or '미제공')}</td>"
-            f"<td class=\"nm\">{_esc(co.get('product') or '미제공')}</td>"
-            f"<td>{_esc(_period_label(co))}</td>"
-            f"<td>{_esc(co.get('maturity') or '미제공')}</td>"
-            f"<td class=\"num\">{_esc(_premium_label(co.get('monthly_premium')))}</td>"
-            f"<td>{_esc(_mask_known_names(co.get('remark'), *mask_names))}</td>"
-            "</tr>"
-        )
-        notes.append(
-            "<tr>"
-            f"<td>{_esc(co.get('idx'))}</td>"
             f"<td>{_esc(co.get('insurer') or '미제공')}</td>"
             f"<td class=\"nm\">{_esc(co.get('product') or '미제공')}</td>"
             f"<td>{_esc(_period_label(co))}</td>"
@@ -473,25 +399,6 @@ td.st {{ text-align: center; }}
 {proposal_section}
 {comparison_section}
 {after_section}
-
-<section class="report-section">
-<h2>⑥ 컨설팅 전 진단 세부</h2>
-<div class="cards">
-  <div class="card"><div class="k">전 월 납입보험료 합계</div><div class="v">{_won(prem.get('monthly_total'))}</div></div>
-  <div class="card"><div class="k">전 총 납입액(만기까지)</div><div class="v">{_won(prem.get('paid_total'))}</div></div>
-</div>
-<table><thead><tr><th>대분류</th><th>담보</th><th class="num">권장</th><th class="num">가입</th><th class="num">과부족</th><th>준비</th></tr></thead>
-<tbody>{''.join(final_rows)}</tbody></table>
-
-<h3>컨설팅 전 회사별 가입 현황</h3>
-<table class="contract-list"><thead><tr><th>번호</th><th>회사명</th><th>상품명</th><th>납입기간</th><th>만기</th><th class="num">월보험료</th><th>비고</th></tr></thead>
-<tbody>{''.join(notes)}</tbody></table>
-<table><thead>
-<tr><th rowspan="2">대분류</th><th rowspan="2">담보</th><th rowspan="2" class="num">보장금액</th>{comp_name_head}</tr>
-<tr>{comp_premium_head}</tr>
-</thead>
-<tbody>{''.join(before_rows)}</tbody></table>
-</section>
 
 <p class="disclaimer">본 리모델링표는 업로드한 KB 신정원 보장분석 제안서를 기준으로 정리한 참고용 자료입니다. 실제 보장 내용·보험금 지급 여부는 각 보험사 약관과 증권을 따르며, 본 자료는 보험 모집·중개·상품추천·가입권유를 목적으로 하지 않습니다.</p>
 </body></html>"""

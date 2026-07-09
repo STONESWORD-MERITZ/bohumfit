@@ -1,3 +1,30 @@
+## 2026-07-09 BOHUMFIT-198 - 핵심 보장금액 접힘 UI + 컨설팅 전 진단 세부 제거
+
+Owner flow: Human -> Codex Windows | Current owner: Human(배포 확인)
+
+### Changed
+- `src/pages/CoverageRemodel.tsx`: ③ `핵심 보장금액` 제안 카드를 기본 접힘 요약 카드로 변경. 파싱 결과는 접힘, 수기 추가/파싱 실패 fallback은 펼침 상태로 시작. ④ 대분류별/특약별 전후 보장금액 표에 고정 컬럼 폭(`table-fixed`/`colgroup`) 적용. ⑥ `컨설팅 전 진단 세부` 화면 섹션 제거.
+- `backend/coverage/export_pdf.py`: ⑥ 진단 세부 HTML 섹션과 미사용 상태/과부족 행 계산 제거. PDF는 ①~⑤ 구조만 출력.
+- `backend/coverage/export_excel.py`: ⑥ `전 진단세부` 시트 생성 및 전용 함수 제거.
+- `backend/tests/test_coverage_export_181.py`, `test_coverage_compare_188.py`, `test_coverage_report_194.py`, `test_coverage_report_195.py`: ①~⑤ 리포트 구조, 접힘 UI, 고정 컬럼, ⑥ 제거 기대값 반영.
+- `.agent-harness/tasks/BOHUMFIT-198-proposal-collapse-remove-before-diagnosis.md`, `.agent-harness/verify.md`, `CLAUDE.md`, `.agent-harness/locks.md`.
+
+### Verified
+- `python -m pytest backend\tests\test_coverage_export_181.py backend\tests\test_coverage_report_194.py backend\tests\test_coverage_report_195.py backend\tests\test_coverage_compare_188.py -q`: `15 passed`.
+- `npm test`: `15 passed`.
+- `npx tsc -p tsconfig.app.json --noEmit`: 통과.
+- `npx tsc -p tsconfig.node.json --noEmit`: 통과.
+- `npm run build`: 통과. 기존 Vite chunk-size warning만 출력.
+- Vite dev smoke: `http://127.0.0.1:5181/coverage-compare` 응답 200 및 `<div id="root">` 확인 후 서버 종료.
+- `cd backend; python -m pytest -q`: `562 passed, 8 skipped`.
+- `git diff --check`: 통과(LF→CRLF warning만 출력).
+- PDF visual smoke: 합성 리포트 PDF 생성 후 Poppler PNG 렌더 3페이지 확인. ②/③/④/⑤만 표시, ⑥ 섹션 없음, ④/⑤ 표 잘림·겹침 없음. 임시 PDF/PNG 삭제 완료.
+
+### Notes
+- `backend/pipeline/` 무접촉.
+- 실 PDF/엑셀/PII 저장·커밋 없음.
+- Poppler 번들에 `pdftotext.exe`가 없어 텍스트 추출 확인은 생략. HTML 테스트가 ⑥ 미포함을 검증하고 PNG 렌더로 시각 확인함.
+
 ## 2026-07-09 BOHUMFIT-197 - 리포트 보장금액 중심 레이아웃 정리
 
 Owner flow: Human -> Codex Windows | Current owner: Human(배포 확인)

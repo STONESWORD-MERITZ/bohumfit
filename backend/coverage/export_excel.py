@@ -315,53 +315,6 @@ def _sheet_before(ws, before: dict, title: str = "회사별 세부 (전)") -> No
     ws.freeze_panes = "D4"
 
 
-def _sheet_before_diagnosis(ws, final: dict, before: dict) -> None:
-    ws.title = "⑥ 전 진단세부"
-    prem = final.get("premium") or before.get("premium") or {}
-    ws["A1"] = "⑥ 컨설팅 전 진단 세부"
-    ws["A1"].font = Font(bold=True, size=14, color=INK)
-    ws.merge_cells("A1:F1")
-    ws["A2"] = "전 월납 보험료 합계"
-    ws["B2"] = prem.get("monthly_total")
-    ws["D2"] = "전 총 납입 예정액"
-    ws["E2"] = prem.get("paid_total")
-    for c in ("B2", "E2"):
-        ws[c].number_format = '#,##0"원"'
-        ws[c].font = Font(bold=True, color=INK)
-    for c in ("A2", "D2"):
-        ws[c].font = Font(color=GRAY_TX, size=9)
-
-    r = 4
-    headers = ["대분류", "담보", "권장", "가입", "과부족", "준비"]
-    for i, h in enumerate(headers, start=1):
-        _hdr(ws.cell(row=r, column=i), h)
-    r += 1
-    for c in sorted(final.get("coverages", []), key=lambda row: _grp_key(row.get("group12", ""))):
-        ws.cell(row=r, column=1, value=c.get("group12")).border = _BORDER
-        ws.cell(row=r, column=1).font = Font(color=GRAY_TX, size=9)
-        name_cell = ws.cell(row=r, column=2, value=c.get("kb_name"))
-        name_cell.border = _BORDER
-        name_cell.font = Font(color=INK, size=10)
-        _num(ws.cell(row=r, column=3), c.get("recommended"))
-        _num(ws.cell(row=r, column=4), c.get("value"))
-        gap = c.get("gap")
-        gap_cell = ws.cell(row=r, column=5)
-        _num(gap_cell, gap)
-        if isinstance(gap, (int, float)):
-            gap_cell.font = Font(color=(AMBER_TX if gap < 0 else EMERALD if gap > 0 else GRAY_TX))
-        status = c.get("status")
-        status_cell = ws.cell(row=r, column=6, value=status or "-")
-        status_cell.border = _BORDER
-        status_cell.alignment = Alignment(horizontal="center", vertical="center")
-        if status in _STATUS_FILL:
-            status_cell.fill = PatternFill("solid", fgColor=_STATUS_FILL[status])
-            status_cell.font = Font(bold=True, color=(EMERALD if status == "충분" else AMBER_TX if status == "부족" else GRAY_TX))
-        r += 1
-    for col, width in zip("ABCDEF", (12, 24, 14, 14, 14, 10)):
-        ws.column_dimensions[col].width = width
-    ws.freeze_panes = "A5"
-
-
 def _sheet_compare(ws, comparison: dict) -> None:
     ws["A1"] = "④ 최종 전 VS 후 - 특약별 보장 비교"
     ws["A1"].font = Font(bold=True, size=14, color=INK)
@@ -534,7 +487,6 @@ def build_workbook_bytes(analysis: dict) -> bytes:
         _sheet_proposals(wb.create_sheet("③ 신규제안"), plan)
         _sheet_compare(wb.create_sheet("④ 전후 특약별"), comparison)
         _sheet_before(wb.create_sheet("⑤ 전후 회사별"), after_before, "⑤ 최종 전 VS 후 - 회사별 보장 세부")
-        _sheet_before_diagnosis(wb.create_sheet("⑥ 전 진단세부"), final, before)
     else:
         _sheet_final(wb.active, final, before)
         _sheet_before(wb.create_sheet("전 회사별세부"), before)

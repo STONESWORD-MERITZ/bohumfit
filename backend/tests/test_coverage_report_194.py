@@ -26,7 +26,7 @@ def _report() -> dict:
     return report
 
 
-def test_pdf_report_uses_six_step_order() -> None:
+def test_pdf_report_uses_five_step_order() -> None:
     html = build_coverage_html(_report(), datetime(2026, 7, 8))
 
     markers = [
@@ -35,12 +35,12 @@ def test_pdf_report_uses_six_step_order() -> None:
         "③ 신규가입 제안서",
         "④ 최종 전 VS 후 — 특약별 보장 비교",
         "⑤ 최종 전 VS 후 — 회사별 보장 세부",
-        "⑥ 컨설팅 전 진단 세부",
     ]
     positions = [html.index(marker) for marker in markers]
     assert positions == sorted(positions)
     assert "해지" in html
     assert "신규 가입제안서 PDF 파싱 결과" in html
+    assert "⑥ 컨설팅 전 진단 세부" not in html
 
 
 def test_pdf_splits_rider_and_company_comparison_pages() -> None:
@@ -48,15 +48,15 @@ def test_pdf_splits_rider_and_company_comparison_pages() -> None:
 
     rider_pos = html.index("④ 최종 전 VS 후 — 특약별 보장 비교")
     company_pos = html.index("⑤ 최종 전 VS 후 — 회사별 보장 세부")
-    detail_pos = html.index("⑥ 컨설팅 전 진단 세부")
-    assert rider_pos < company_pos < detail_pos
+    assert rider_pos < company_pos
     assert "월납입보험료" in html
     assert "20,000원 절감" in html
     assert "특약별 보장금액 비교" in html
     assert "후 보장금액" in html
+    assert "컨설팅 전 진단 세부" not in html
 
 
-def test_excel_uses_same_six_step_sheet_order() -> None:
+def test_excel_uses_same_five_step_sheet_order() -> None:
     workbook = load_workbook(io.BytesIO(build_workbook_bytes(_report())))
 
     assert workbook.sheetnames == [
@@ -65,7 +65,6 @@ def test_excel_uses_same_six_step_sheet_order() -> None:
         "③ 신규제안",
         "④ 전후 특약별",
         "⑤ 전후 회사별",
-        "⑥ 전 진단세부",
     ]
     contract_values = [cell.value for row in workbook["② 전 계약"].iter_rows() for cell in row if cell.value is not None]
     proposal_values = [cell.value for row in workbook["③ 신규제안"].iter_rows() for cell in row if cell.value is not None]

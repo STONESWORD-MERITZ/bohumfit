@@ -8,8 +8,6 @@ const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").repla
 const STATUS_SUFFICIENT = "충분";
 const STATUS_SHORT = "부족";
 const STATUS_MISSING = "미가입";
-const DISCLAIMER =
-  "이 리모델링표는 업로드한 KB 보장분석 제안서 PDF를 기준으로 정리한 참고 자료입니다. 실제 보장 내용, 보험금 지급 여부, 가입 가능 여부는 각 보험사의 약관과 심사 기준에 따라 달라질 수 있습니다.";
 
 type Company = {
   idx: number | string;
@@ -221,12 +219,6 @@ const GROUP_ORDER = [
   "기타",
 ];
 
-const STATUS_CLASS: Record<string, string> = {
-  [STATUS_SUFFICIENT]: "bg-accent-50 text-accent-700",
-  [STATUS_SHORT]: "bg-amber-50 text-amber-700",
-  [STATUS_MISSING]: "bg-ink-100 text-ink-500",
-};
-
 const STATUS_RANK: Record<string, number> = {
   "": 0,
   [STATUS_MISSING]: 1,
@@ -386,18 +378,6 @@ function statusCounts(rows: FinalCoverage[]): Record<string, number> {
 
 function groupKey(group: string | null | undefined): number {
   return GROUP_ORDER.includes(group || "") ? GROUP_ORDER.indexOf(group || "") : GROUP_ORDER.length;
-}
-
-function groupFinalRows(rows: FinalCoverage[]) {
-  const grouped = new Map<string, FinalCoverage[]>();
-  for (const row of rows) {
-    const items = grouped.get(row.group12) || [];
-    items.push(row);
-    grouped.set(row.group12, items);
-  }
-  return Array.from(grouped.entries())
-    .sort(([left], [right]) => groupKey(left) - groupKey(right))
-    .map(([group, groupedRows]) => ({ group, rows: groupedRows }));
 }
 
 function groupComparisonRows(rows: ComparisonRow[]) {
@@ -724,19 +704,6 @@ function buildAfterResult(
   };
 }
 
-function StatusBadge({ status }: { status: string | null }) {
-  const className = status ? STATUS_CLASS[status] : undefined;
-  return (
-    <span
-      className={`inline-flex min-w-[54px] justify-center rounded-full px-2 py-0.5 text-[11px] font-bold ${
-        className || "bg-ink-100 text-ink-500"
-      }`}
-    >
-      {status || "-"}
-    </span>
-  );
-}
-
 function MetricCard({
   label,
   value,
@@ -766,18 +733,16 @@ export default function CoverageRemodel() {
   const [afterResult, setAfterResult] = useState<CoverageAfterResponse | null>(null);
   const [decisions, setDecisions] = useState<Record<string, ContractDecision>>({});
   const [proposals, setProposals] = useState<ProposalDraft[]>([]);
+  const [expandedProposalIds, setExpandedProposalIds] = useState<Record<string, boolean>>({});
   const [proposalFileNames, setProposalFileNames] = useState<string[]>([]);
   const [proposalParsing, setProposalParsing] = useState(false);
   const [proposalParseNotes, setProposalParseNotes] = useState<string[]>([]);
   const [reportCover, setReportCover] = useState<ReportCoverDraft>(() => makeReportCover());
-  const [showBefore, setShowBefore] = useState(false);
   const [exporting, setExporting] = useState<"" | "excel" | "pdf">("");
 
   const companies = useMemo(() => result?.before.contract_list || result?.before.companies || [], [result]);
-  const finalGroups = useMemo(() => groupFinalRows(result?.final.coverages || []), [result]);
   const comparisonGroups = useMemo(() => groupComparisonRows(afterResult?.comparison.coverages || []), [afterResult]);
   const comparisonValueGroups = useMemo(() => groupComparisonValues(afterResult?.comparison.coverages || []), [afterResult]);
-  const statusSummary = useMemo(() => statusCounts(result?.final.coverages || []), [result]);
   const coverageOptions = useMemo(() => {
     const options = [...(result?.before.coverages || [])];
     const seen = new Set(options.map((coverage) => coverage.kb_name));
@@ -813,6 +778,7 @@ export default function CoverageRemodel() {
     setAfterResult(null);
     setDecisions({});
     setProposals([]);
+    setExpandedProposalIds({});
     setProposalFileNames([]);
     setProposalParseNotes([]);
     setReportCover(makeReportCover());
@@ -893,8 +859,14 @@ export default function CoverageRemodel() {
   }
 
   function addProposal() {
-    setProposals((current) => [...current, makeProposal()]);
+    const proposal = makeProposal();
+    setProposals((current) => [...current, proposal]);
+    setExpandedProposalIds((current) => ({ ...current, [proposal.id]: true }));
     setAfterResult(null);
+  }
+
+  function toggleProposalExpanded(id: string) {
+    setExpandedProposalIds((current) => ({ ...current, [id]: !current[id] }));
   }
 
   function updateProposal(id: string, patch: Partial<ProposalDraft>) {
@@ -904,6 +876,10 @@ export default function CoverageRemodel() {
 
   function removeProposal(id: string) {
     setProposals((current) => current.filter((proposal) => proposal.id !== id));
+    setExpandedProposalIds((current) => {
+      const { [id]: _removed, ...rest } = current;
+      return rest;
+    });
     setAfterResult(null);
   }
 
@@ -991,6 +967,7 @@ export default function CoverageRemodel() {
       const parsed = (payload.proposals || []).map(draftFromParsedProposal);
       if (parsed.length > 0) {
         setProposals(parsed);
+        setExpandedProposalIds(Object.fromEntries(parsed.map((proposal) => [proposal.id, false])));
         if (result) {
           setAfterResult(buildAfterResult(result, decisions, parsed));
         } else {
@@ -1003,7 +980,11 @@ export default function CoverageRemodel() {
       setProposalParseNotes(notes);
     } catch (parseError) {
       setProposalParseNotes([parseError instanceof Error ? parseError.message : "신규 가입제안서 파싱 중 오류가 발생했습니다."]);
-      setProposals((current) => (current.length > 0 ? current : [makeProposal()]));
+      if (proposals.length === 0) {
+        const proposal = makeProposal();
+        setProposals([proposal]);
+        setExpandedProposalIds({ [proposal.id]: true });
+      }
       setAfterResult(null);
     } finally {
       setProposalParsing(false);
@@ -1321,101 +1302,155 @@ export default function CoverageRemodel() {
                 </p>
               ) : (
                 <div className="mt-3 space-y-3">
-                  {proposals.map((proposal) => (
-                    <article key={proposal.id} className="rounded-card border border-line bg-canvas p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="grid flex-1 gap-3 md:grid-cols-5">
-                          <input
-                            className="rounded-[8px] border border-line bg-white px-3 py-2 text-sm"
-                            placeholder="보험사"
-                            value={proposal.insurer}
-                            onChange={(event) => updateProposal(proposal.id, { insurer: event.target.value })}
-                          />
-                          <input
-                            className="rounded-[8px] border border-line bg-white px-3 py-2 text-sm md:col-span-2"
-                            placeholder="상품명"
-                            value={proposal.product}
-                            onChange={(event) => updateProposal(proposal.id, { product: event.target.value })}
-                          />
-                          <input
-                            className="rounded-[8px] border border-line bg-white px-3 py-2 text-sm"
-                            inputMode="numeric"
-                            placeholder="월납 보험료"
-                            value={proposal.monthlyPremium}
-                            onChange={(event) => updateProposal(proposal.id, { monthlyPremium: event.target.value })}
-                          />
-                          <input
-                            className="rounded-[8px] border border-line bg-white px-3 py-2 text-sm"
-                            inputMode="numeric"
-                            placeholder="납입개월"
-                            value={proposal.payMonths}
-                            onChange={(event) => updateProposal(proposal.id, { payMonths: event.target.value })}
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeProposal(proposal.id)}
-                          className="rounded-btn border border-line-strong bg-white p-2 text-ink-600 hover:bg-ink-50"
-                          aria-label="신규 제안 삭제"
-                          title="신규 제안 삭제"
-                        >
-                          <Trash2 size={16} aria-hidden="true" />
-                        </button>
-                      </div>
-                      <input
-                        className="mt-3 w-full rounded-[8px] border border-line bg-white px-3 py-2 text-sm"
-                        placeholder="만기 예: 100세"
-                        value={proposal.maturity}
-                        onChange={(event) => updateProposal(proposal.id, { maturity: event.target.value })}
-                      />
-                      <div className="mt-3 space-y-2">
-                        {proposal.coverages.map((coverage) => (
-                          <div key={coverage.id} className="grid gap-2 sm:grid-cols-[1fr_140px_36px]">
-                            <select
-                              className="rounded-[8px] border border-line bg-white px-3 py-2 text-sm"
-                              value={coverage.kbName}
-                              onChange={(event) =>
-                                updateProposalCoverage(proposal.id, coverage.id, { kbName: event.target.value })
-                              }
-                            >
-                              <option value="">핵심 담보 선택</option>
-                              {coverageOptions.map((option) => (
-                                <option key={option.kb_name} value={option.kb_name}>
-                                  {option.group12} · {option.kb_name}
-                                </option>
-                              ))}
-                            </select>
-                            <input
-                              className="rounded-[8px] border border-line bg-white px-3 py-2 text-right text-sm"
-                              inputMode="numeric"
-                              placeholder="가입금액"
-                              value={coverage.amount}
-                              onChange={(event) =>
-                                updateProposalCoverage(proposal.id, coverage.id, { amount: event.target.value })
-                              }
-                            />
+                  {proposals.map((proposal) => {
+                    const expanded = expandedProposalIds[proposal.id] ?? false;
+                    const filledCoverages = proposal.coverages.filter((coverage) => coverage.kbName || coverage.amount);
+                    const previewCoverages = filledCoverages.slice(0, 3);
+                    const hiddenCoverageCount = Math.max(filledCoverages.length - previewCoverages.length, 0);
+                    return (
+                      <article key={proposal.id} className="rounded-card border border-line bg-canvas p-4">
+                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-bold text-ink-900">{proposal.insurer || "보험사 미입력"}</p>
+                              <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-accent-700">
+                                {formatPremium(toNumberOrNull(proposal.monthlyPremium))}
+                              </span>
+                              <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-ink-soft">
+                                {proposal.maturity || "만기 미입력"}
+                              </span>
+                            </div>
+                            <p className="mt-1 truncate text-sm font-semibold text-ink-800">
+                              {proposal.product || "상품명 확인 필요"}
+                            </p>
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {previewCoverages.length > 0 ? (
+                                previewCoverages.map((coverage) => (
+                                  <span
+                                    key={coverage.id}
+                                    className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-ink-700"
+                                  >
+                                    {coverage.kbName || "담보 미입력"} {formatCoverageAmount(toNumberOrNull(coverage.amount))}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-[12px] text-ink-soft">핵심 보장금액을 입력해 주세요.</span>
+                              )}
+                              {hiddenCoverageCount > 0 && (
+                                <span className="rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-ink-soft">
+                                  +{hiddenCoverageCount}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
                             <button
                               type="button"
-                              onClick={() => removeProposalCoverage(proposal.id, coverage.id)}
-                              className="rounded-btn border border-line-strong bg-white p-2 text-ink-600 hover:bg-ink-50"
-                              aria-label="담보 행 삭제"
-                              title="담보 행 삭제"
+                              onClick={() => toggleProposalExpanded(proposal.id)}
+                              aria-expanded={expanded}
+                              className="rounded-btn border border-line-strong bg-white px-3 py-2 text-[12px] font-bold text-accent-700 hover:bg-ink-50"
                             >
-                              <Trash2 size={15} aria-hidden="true" />
+                              {expanded ? "접기" : "펼치기"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeProposal(proposal.id)}
+                              className="rounded-btn border border-line-strong bg-white p-2 text-ink-600 hover:bg-ink-50"
+                              aria-label="신규 제안 삭제"
+                              title="신규 제안 삭제"
+                            >
+                              <Trash2 size={16} aria-hidden="true" />
                             </button>
                           </div>
-                        ))}
-                        <button
-                          type="button"
-                          onClick={() => addProposalCoverage(proposal.id)}
-                          className="inline-flex items-center gap-1 rounded-btn border border-line-strong bg-white px-3 py-2 text-[12px] font-bold text-ink-800 hover:bg-ink-50"
-                        >
-                          <Plus size={14} aria-hidden="true" />
-                          보장금액 추가
-                        </button>
-                      </div>
-                    </article>
-                  ))}
+                        </div>
+
+                        {expanded && (
+                          <div className="mt-4 border-t border-line pt-4">
+                            <div className="grid gap-3 md:grid-cols-5">
+                              <input
+                                className="rounded-[8px] border border-line bg-white px-3 py-2 text-sm"
+                                placeholder="보험사"
+                                value={proposal.insurer}
+                                onChange={(event) => updateProposal(proposal.id, { insurer: event.target.value })}
+                              />
+                              <input
+                                className="rounded-[8px] border border-line bg-white px-3 py-2 text-sm md:col-span-2"
+                                placeholder="상품명"
+                                value={proposal.product}
+                                onChange={(event) => updateProposal(proposal.id, { product: event.target.value })}
+                              />
+                              <input
+                                className="rounded-[8px] border border-line bg-white px-3 py-2 text-sm"
+                                inputMode="numeric"
+                                placeholder="월납 보험료"
+                                value={proposal.monthlyPremium}
+                                onChange={(event) => updateProposal(proposal.id, { monthlyPremium: event.target.value })}
+                              />
+                              <input
+                                className="rounded-[8px] border border-line bg-white px-3 py-2 text-sm"
+                                inputMode="numeric"
+                                placeholder="납입개월"
+                                value={proposal.payMonths}
+                                onChange={(event) => updateProposal(proposal.id, { payMonths: event.target.value })}
+                              />
+                            </div>
+                            <input
+                              className="mt-3 w-full rounded-[8px] border border-line bg-white px-3 py-2 text-sm"
+                              placeholder="만기 예: 100세"
+                              value={proposal.maturity}
+                              onChange={(event) => updateProposal(proposal.id, { maturity: event.target.value })}
+                            />
+                            <div className="mt-3 space-y-2">
+                              {proposal.coverages.map((coverage) => (
+                                <div key={coverage.id} className="grid gap-2 sm:grid-cols-[1fr_140px_36px]">
+                                  <select
+                                    className="rounded-[8px] border border-line bg-white px-3 py-2 text-sm"
+                                    value={coverage.kbName}
+                                    onChange={(event) =>
+                                      updateProposalCoverage(proposal.id, coverage.id, { kbName: event.target.value })
+                                    }
+                                  >
+                                    <option value="">핵심 담보 선택</option>
+                                    {coverageOptions.map((option) => (
+                                      <option key={option.kb_name} value={option.kb_name}>
+                                        {option.group12} · {option.kb_name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <input
+                                    className="rounded-[8px] border border-line bg-white px-3 py-2 text-right text-sm"
+                                    inputMode="numeric"
+                                    placeholder="가입금액"
+                                    value={coverage.amount}
+                                    onChange={(event) =>
+                                      updateProposalCoverage(proposal.id, coverage.id, { amount: event.target.value })
+                                    }
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeProposalCoverage(proposal.id, coverage.id)}
+                                    className="rounded-btn border border-line-strong bg-white p-2 text-ink-600 hover:bg-ink-50"
+                                    aria-label="담보 행 삭제"
+                                    title="담보 행 삭제"
+                                  >
+                                    <Trash2 size={15} aria-hidden="true" />
+                                  </button>
+                                </div>
+                              ))}
+                              <button
+                                type="button"
+                                onClick={() => addProposalCoverage(proposal.id)}
+                                className="inline-flex items-center gap-1 rounded-btn border border-line-strong bg-white px-3 py-2 text-[12px] font-bold text-ink-800 hover:bg-ink-50"
+                              >
+                                <Plus size={14} aria-hidden="true" />
+                                보장금액 추가
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1470,7 +1505,13 @@ export default function CoverageRemodel() {
                 <div className="mt-5">
                   <h3 className="ko-heading mb-2 text-sm font-bold text-ink-900">대분류별 보장 변화 요약</h3>
                   <div className="overflow-x-auto">
-                    <table className="w-full min-w-[640px] text-[12px]">
+                    <table className="w-full min-w-[680px] table-fixed text-[12px]">
+                      <colgroup>
+                        <col className="w-[40%]" />
+                        <col className="w-[20%]" />
+                        <col className="w-[20%]" />
+                        <col className="w-[20%]" />
+                      </colgroup>
                       <thead>
                         <tr className="border-b border-line text-left text-ink-500">
                           <th className="py-2 pr-2">대분류</th>
@@ -1511,7 +1552,13 @@ export default function CoverageRemodel() {
                   <div key={group}>
                     <h3 className="ko-heading mb-2 text-sm font-bold text-ink-900">{group}</h3>
                     <div className="overflow-x-auto">
-                      <table className="w-full min-w-[640px] text-[12px]">
+                      <table className="w-full min-w-[680px] table-fixed text-[12px]">
+                        <colgroup>
+                          <col className="w-[40%]" />
+                          <col className="w-[20%]" />
+                          <col className="w-[20%]" />
+                          <col className="w-[20%]" />
+                        </colgroup>
                         <thead>
                           <tr className="border-b border-line text-left text-ink-500">
                             <th className="py-2 pr-2">담보</th>
@@ -1610,145 +1657,6 @@ export default function CoverageRemodel() {
             </>
           )}
 
-          <section className="mt-6 rounded-card border border-line bg-white p-6">
-            <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-              <div>
-                <h2 className="ko-heading text-lg font-bold text-ink-900">⑥ 컨설팅 전 진단 세부</h2>
-                <p className="mt-1 text-xs text-ink-soft">{DISCLAIMER}</p>
-              </div>
-              {result.before.customer.name && (
-                <p className="text-sm font-semibold text-ink-700">고객명 {result.before.customer.name}</p>
-              )}
-            </div>
-
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <MetricCard label="전 월납 보험료 합계" value={formatWon(result.before.premium.monthly_total)} />
-              <MetricCard label="전 총 납입 예정액" value={formatWon(result.before.premium.paid_total)} />
-              <MetricCard
-                label="전 부족 / 미가입 담보"
-                value={`${statusSummary[STATUS_SHORT]} / ${statusSummary[STATUS_MISSING]}`}
-                tone="warn"
-              />
-            </div>
-
-            <div className="mt-5 space-y-5">
-              {finalGroups.map(({ group, rows }) => (
-                <div key={group}>
-                  <h3 className="ko-heading mb-2 text-sm font-bold text-ink-900">{group}</h3>
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[560px] text-[13px]">
-                      <thead>
-                        <tr className="border-b border-line text-left text-ink-500">
-                          <th className="py-2 pr-2">담보</th>
-                          <th className="px-2 py-2 text-right">권장</th>
-                          <th className="px-2 py-2 text-right">가입</th>
-                          <th className="px-2 py-2 text-right">과부족</th>
-                          <th className="py-2 pl-2 text-center">상태</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {rows.map((coverage) => (
-                          <tr key={`${coverage.group12}-${coverage.kb_name}`} className="border-b border-line/60">
-                            <td className="break-keep py-1.5 pr-2 font-semibold text-ink-800">{coverage.kb_name}</td>
-                            <td className="px-2 py-1.5 text-right text-ink-soft">
-                              {formatCoverageAmount(coverage.recommended)}
-                            </td>
-                            <td className="px-2 py-1.5 text-right text-ink-900">{formatCoverageAmount(coverage.value)}</td>
-                            <td
-                              className={`px-2 py-1.5 text-right font-semibold ${
-                                coverage.gap == null
-                                  ? "text-ink-400"
-                                  : coverage.gap < 0
-                                    ? "text-amber-700"
-                                    : coverage.gap > 0
-                                      ? "text-accent-700"
-                                      : "text-ink-500"
-                              }`}
-                            >
-                              {coverage.gap == null
-                                ? "-"
-                                : `${coverage.gap > 0 ? "+" : coverage.gap < 0 ? "-" : ""}${formatCoverageAmount(Math.abs(coverage.gap))}`}
-                            </td>
-                            <td className="py-1.5 pl-2 text-center">
-                              <StatusBadge status={coverage.status} />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowBefore((value) => !value)}
-              aria-expanded={showBefore}
-              className="mt-6 flex w-full items-center justify-between gap-2 rounded-card border border-line bg-canvas px-4 py-3 text-left"
-            >
-              <span className="ko-heading text-base font-bold text-ink-900">컨설팅 전 회사별 가입 현황</span>
-              <span className="text-sm font-semibold text-accent-700">{showBefore ? "접기" : "펼치기"}</span>
-            </button>
-
-            {showBefore && (
-              <div className="mt-4">
-                <div className="mb-4 grid gap-3 md:grid-cols-2">
-                  {companies.map((company) => (
-                    <div key={company.idx} className="rounded-card border border-line bg-canvas px-4 py-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-bold text-ink-900">{company.insurer || `계약 ${company.idx}`}</p>
-                          <p className="mt-1 text-xs text-ink-soft">{company.product || "상품명 확인 필요"}</p>
-                          <p className="mt-1 text-[11px] font-semibold text-ink-soft">{formatPeriod(company)}</p>
-                        </div>
-                        <p className="shrink-0 text-sm font-extrabold text-ink-900">{formatPremium(company.monthly_premium)}</p>
-                      </div>
-                      {company.remark && <p className="mt-2 text-xs font-semibold text-amber-700">{company.remark}</p>}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[720px] text-[12px]">
-                    <thead>
-                      <tr className="border-b border-line text-ink-500">
-                        <th rowSpan={2} className="py-2 pr-2 text-left align-middle">담보</th>
-                        <th rowSpan={2} className="px-2 py-2 text-right align-middle">보장금액</th>
-                        {companies.map((company) => (
-                          <th key={company.idx} className="px-2 py-2 text-right">
-                            {company.insurer || `계약 ${company.idx}`}
-                          </th>
-                        ))}
-                      </tr>
-                      <tr className="border-b border-line text-ink-500">
-                        {companies.map((company) => (
-                          <th key={company.idx} className="px-2 py-2 text-right text-[11px] font-semibold text-accent-700">
-                            {formatPremium(company.monthly_premium)}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {result.before.coverages.map((coverage) => (
-                        <tr key={coverage.kb_name} className="border-b border-line/60">
-                          <td className="break-keep py-1.5 pr-2 font-semibold text-ink-800">{coverage.kb_name}</td>
-                          <td className="px-2 py-1.5 text-right font-semibold text-ink-900">
-                            {formatCoverageAmount(coverage.summary)}
-                          </td>
-                          {companies.map((company) => (
-                            <td key={company.idx} className="px-2 py-1.5 text-right text-ink-soft">
-                              {formatCoverageAmount(coverage.by_company[keyOf(company.idx)])}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </section>
         </>
       )}
     </div>

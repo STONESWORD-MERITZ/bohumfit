@@ -171,7 +171,7 @@ def test_excel_adds_after_compare_and_summary_sheets() -> None:
     result = build_after_analysis(_analysis(), _plan())
     workbook = load_workbook(io.BytesIO(build_workbook_bytes(result)))
 
-    assert workbook.sheetnames == ["① 표지", "② 전 계약", "③ 신규제안", "④ 전후 특약별", "⑤ 전후 회사별", "⑥ 전 진단세부"]
+    assert workbook.sheetnames == ["① 표지", "② 전 계약", "③ 신규제안", "④ 전후 특약별", "⑤ 전후 회사별"]
     compare = workbook["④ 전후 특약별"]
     values = [cell.value for row in compare.iter_rows() for cell in row if cell.value is not None]
     assert "전 보장금액" in values

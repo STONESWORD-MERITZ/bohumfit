@@ -68,9 +68,10 @@ def test_pdf_html_brand_and_values():
     for old in ("#15663D", "#2E6B3E", "#145C2A"):  # 구 브랜드색
         assert old not in html
     assert "BohumFit" in html and "보험핏" in html and "ㅍ" in html
-    assert "573,227" in html and "181,984,128" in html
-    assert "상해사망" in html and "N대수술비" in html
-    assert "충분" in html and "부족" in html
+    assert "삼성생명" in html and "KB Yes365" in html
+    assert "333,600원" in html and "101,463원" in html
+    assert "컨설팅 전 진단 세부" not in html
+    assert "충분" not in html and "부족" not in html
 
 
 def test_fmt_krw():

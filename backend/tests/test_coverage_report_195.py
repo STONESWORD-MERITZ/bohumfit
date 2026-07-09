@@ -25,11 +25,28 @@ def test_screen_per_rider_table_focuses_on_coverage_amounts() -> None:
     text = source.read_text(encoding="utf-8")
     head = text.split("comparisonGroups.map", 1)[1].split("<tbody>", 1)[0]
 
+    assert "table-fixed" in head
+    assert "<colgroup>" in head
     assert "전 보장금액" in head
     assert "후 보장금액" in head
     assert re.search(r">\s*증감\s*</th>", head)
     assert ">상태</th>" not in head
     assert ">변화</th>" not in head
+
+
+def test_screen_proposal_amount_editor_is_collapsed_by_default() -> None:
+    source = Path(__file__).resolve().parents[2] / "src" / "pages" / "CoverageRemodel.tsx"
+    text = source.read_text(encoding="utf-8")
+    section = text.split('h3 className="ko-heading text-base font-bold text-ink-900">핵심 보장금액', 1)[1].split(
+        "{afterResult &&", 1
+    )[0]
+
+    assert "expandedProposalIds" in section
+    assert "toggleProposalExpanded" in section
+    assert 'aria-expanded={expanded}' in section
+    assert '{expanded ? "접기" : "펼치기"}' in section
+    assert "{expanded && (" in section
+    assert "핵심 보장금액을 입력해 주세요." in section
 
 
 def test_pdf_per_rider_compare_table_focuses_on_coverage_amounts() -> None:
