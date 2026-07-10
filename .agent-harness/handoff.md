@@ -1,3 +1,24 @@
+## 2026-07-10 BOHUMFIT-BUG-198 - 이미지 PDF 안내 개선 (원본 PDF 다운로드 유도, OCR 미도입)
+
+Owner flow: Human -> Codex Windows | Current owner: Human(배포 확인)
+Commit: see final BOHUMFIT-BUG-198 commit in `git log --oneline -1`
+
+### Changed
+- `backend/pipeline/pdf_parser.py`: 이미지 PDF 판정 조건 `not (first_text or "").strip()`은 변경하지 않고, 0문자(공백 제외) PDF에만 표시되는 안내를 원인·원본 PDF 필요성·정부24/The건강보험의 `[PDF 저장/다운로드]` 경로·인쇄/캡처/사진/스캔본 비대상까지 포함하도록 개선.
+- `backend/tests/test_pdf_parser.py`: 이미지/공백 전용 PDF의 새 안내와 텍스트가 하나라도 있는 PDF의 비폴백을 고정. 익명 합성 텍스트 요양급여내역이 기존 NHIS 파서에서 정상 레코드로 분석되는 회귀 테스트를 추가.
+- `.agent-harness/tasks/BOHUMFIT-BUG-198-nhis-raster-pdf-ocr-decision.md`, `.agent-harness/handoff.md`, `.agent-harness/locks.md`.
+
+### Verified
+- `python -m pytest tests/test_pdf_parser.py -vv`: `20 passed`.
+- `python -m pytest tests/test_nhis_history.py -vv`: `9 passed`.
+- `python -m pytest -q`: `566 passed, 8 skipped` (기준선 563 + 신규 3건).
+- 실 래스터 PDF 스모크: 비식별 파일명으로 메모리에서만 읽어 0 records와 새 원본 PDF 다운로드 안내를 확인. 실명·주민번호·상병 본문은 출력·저장하지 않음.
+
+### Notes
+- S0 결론은 유지: 이 요양급여내역은 텍스트 레이어 없는 래스터 PDF이며, 기존 `parse_nhis_text`의 2행 서식 파싱은 텍스트 PDF에서는 정상 경로로 유지된다.
+- OCR은 도입하지 않았다. OCR 의존성/런타임/민감 의료정보 처리 결정은 별도 Human 승인 태스크다.
+- `backend/pipeline/`에서는 안내 문구만 변경했고 분석 로직·기존 서식 파싱·coverage 모듈·의존성은 무변경. 실 PDF·렌더 이미지·PII는 staged 없음.
+
 ## 2026-07-10 BOHUMFIT-201 - 메인 하단 지표 단순화 및 섹션 스냅 개선
 
 Owner flow: Human -> Codex Windows | Current owner: Human(배포 확인)
@@ -10799,3 +10820,23 @@ Commit: see final BOHUMFIT-203 commit in `git log --oneline -1`
 ### Notes
 - Documentation only. No Supabase console, RLS, migration, grant, application code, or PII data was accessed or changed.
 - Future shared BOHUMFIT/FitHere policy changes require low-traffic scheduling and review of both applications before execution.
+## 2026-07-10 BOHUMFIT-BUG-198 - 건강보험 요양급여내역 래스터 PDF S0 진단
+
+Owner flow: Human -> Codex Windows | Current owner: Human (OCR 도입 결정 필요)
+Status: **Human 결정 필요 - stop condition met; no code, commit, or push.**
+
+### S0 Root Cause
+- 사용자 제공 실 PDF는 5페이지이며 `pdfplumber`가 전 페이지에서 문자·단어·비공백 문자를 모두 0건 반환했다. `pdfminer`도 레이아웃 문자 0건, 페이지별 이미지 객체 2개를 확인했다. 로컬 `pdftotext`는 설치되어 있지 않다.
+- 페이지 렌더 확인 결과 표와 하트/로고 워터마크는 래스터 이미지로 구성되어 있다. 화면에서 글자가 또렷하게 보이는 것과 별개로, 현행 텍스트 기반 파서가 읽을 PDF 텍스트 레이어는 없다. 워터마크는 텍스트에 섞이는 문제가 아니라 향후 OCR 정확도에 영향을 줄 이미지 요소다.
+- 비식별 파일명으로 `parse_single_pdf`를 스모크한 결과는 `records=0` 및 현행 `이미지로만 구성된 PDF` 안내였다. 따라서 이 파일에 대한 이미지 PDF 폴백 판정은 오진단이 아니다.
+- 현행 `parse_nhis_text`는 순번/진료개시일/요양기관/상병코드/공단·본인부담금의 2행 구조를 이미 처리하지만, 추출된 텍스트를 전제로 한다. 이 문서는 텍스트 0건이라 해당 파서로 진입할 입력이 없다.
+
+### Human Decision Required
+- `pytesseract`, `pdf2image`, `tesseract` 실행 파일이 모두 없어 OCR 도입에는 신규 의존성·한국어 언어 데이터·PDF 이미지 렌더러·배포 런타임 설정이 필요하다. 사용자 stop condition에 따라 구현을 중단한다.
+- 서버 로컬 OCR을 허용할지, 외부 OCR을 쓸 경우 민감 의료정보의 전송·보관·동의·벤더 보안을 승인할지 결정이 필요하다.
+- 수용 기준은 49건 전체 행과 날짜/요양기관/상병코드/금액 추출, 워터마크 내성으로 익명 합성 픽스처에서 정해야 한다.
+
+### PII / Scope
+- 실 PDF는 저장소 밖 경로에서 read-only로 조사했고, 본문 텍스트·고객명·주민번호·상병 원문을 출력하거나 저장하지 않았다. 임시 렌더 이미지는 확인 후 삭제했다.
+- `backend/pipeline/`은 S0 read-only 조사만 했고, `backend/coverage/`를 포함한 코드·테스트·의존성·마이그레이션은 변경하지 않았다.
+- 멈춤 조건상 요청된 `fix(BOHUMFIT-198): ...` 커밋과 push는 생성하지 않았다.

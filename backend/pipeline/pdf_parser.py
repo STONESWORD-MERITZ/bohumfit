@@ -281,9 +281,11 @@ def _empty_result_message(fname: str, n_pages: int, first_text: str) -> str:
         return f"⚠️ {fname}: 페이지가 없는 빈 PDF입니다."
     if not (first_text or "").strip():
         return (
-            f"🖼️ {fname}: 이미지로만 구성된 PDF로 보입니다 (텍스트 인식 불가). "
-            f"심평원에서 '파일'로 직접 내려받은 PDF를 사용해 주세요 — "
-            f"스캔본·사진·캡처본은 분석할 수 없습니다."
+            f"🖼️ {fname}: 이 파일은 이미지로 저장된 PDF라 분석할 수 없습니다. "
+            f"같은 요양급여내역이라도 텍스트가 포함된 원본 PDF만 분석됩니다.\n"
+            f"정부24 또는 The건강보험(건강보험공단) 앱/웹에서 '요양급여내역'을 조회한 뒤 "
+            f"[PDF 저장/다운로드]로 받은 원본 파일을 업로드해 주세요.\n"
+            f"인쇄 후 PDF 저장·화면 캡처·사진·스캔본은 이미지형이라 인식되지 않습니다."
         )
     return (
         f"⚠️ {fname}: PDF는 열렸으나 인식 가능한 진료 표를 찾지 못했습니다. "

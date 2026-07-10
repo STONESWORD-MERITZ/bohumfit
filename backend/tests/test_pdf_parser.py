@@ -20,10 +20,14 @@ from pipeline.pdf_parser import (
 )
 
 
-def test_image_pdf_message_mentions_image_not_password():
-    """텍스트가 없는 PDF -> 이미지 PDF 안내, '비밀번호' 미언급."""
+def test_image_pdf_message_gives_original_download_guidance_not_password():
+    """0문자 이미지 PDF는 원본 PDF 저장 경로를 안내하고 비밀번호로 오인시키지 않는다."""
     msg = _empty_result_message("진료내역.pdf", 3, "")
-    assert "이미지" in msg
+    assert "이미지로 저장된 PDF" in msg
+    assert "텍스트가 포함된 원본 PDF" in msg
+    assert "정부24 또는 The건강보험(건강보험공단)" in msg
+    assert "[PDF 저장/다운로드]" in msg
+    assert "인쇄 후 PDF 저장·화면 캡처·사진·스캔본" in msg
     assert "비밀번호" not in msg
 
 
@@ -32,6 +36,13 @@ def test_format_mismatch_message_not_password():
     msg = _empty_result_message("기타.pdf", 2, "이건 진료내역이 아닌 일반 문서입니다")
     assert "진료 표" in msg
     assert "비밀번호" not in msg
+
+
+def test_text_present_does_not_use_image_pdf_guidance():
+    """공백 제외 문자가 하나라도 있으면 이미지 PDF 안내로 폴백하지 않는다."""
+    msg = _empty_result_message("텍스트.pdf", 2, "\n 건강보험 요양급여내역 \t")
+    assert "이미지로 저장된 PDF" not in msg
+    assert "인식 가능한 진료 표" in msg
 
 
 def test_no_pages_message():
@@ -166,6 +177,38 @@ class _FakePdf:
 
     def __exit__(self, exc_type, exc, tb):
         return False
+
+
+def test_parse_single_pdf_whitespace_only_uses_image_download_guidance(monkeypatch):
+    """공백뿐인 추출 결과만 이미지 PDF 안내 대상이다."""
+    pages = [_FakePage(" \n\t ", [])]
+    monkeypatch.setattr(pdf_parser, "_open_pdf", lambda data, password: _FakePdf(pages))
+
+    result = parse_single_pdf(BytesIO(b"%PDF-fake"), "")
+
+    assert result["records"] == []
+    assert len(result["parse_errors"]) == 1
+    assert "이미지로 저장된 PDF" in result["parse_errors"][0]
+    assert "[PDF 저장/다운로드]" in result["parse_errors"][0]
+
+
+def test_parse_single_pdf_text_nhis_keeps_existing_parser_path(monkeypatch):
+    """텍스트가 있는 익명 요양급여내역은 기존 NHIS 파서로 정상 분석한다."""
+    nhis_text = (
+        "건강보험 요양급여내역\n"
+        "2020.01.02 1 새봄의원 02-111-2222 100,000\n"
+        "1\n"
+        "외래 1 익명질환 A00 20,000\n"
+    )
+    pages = [_FakePage(nhis_text, [])]
+    monkeypatch.setattr(pdf_parser, "_open_pdf", lambda data, password: _FakePdf(pages))
+
+    result = parse_single_pdf(BytesIO(b"%PDF-fake"), "")
+
+    assert result["parse_errors"] == []
+    assert len(result["records"]) == 1
+    assert result["records"][0]["_ftype"] == "nhis"
+    assert result["records"][0]["상병코드"] == "A00"
 
 
 def test_parse_single_pdf_uses_page_local_ftype_for_later_pharma_page(monkeypatch):
