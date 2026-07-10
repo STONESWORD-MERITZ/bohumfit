@@ -10780,3 +10780,22 @@ Commit: see final BOHUMFIT-202 commit in `git log --oneline -1`
 - The environment did not expose the `agent-browser` executable, so Chrome headless plus Chrome DevTools Protocol was used for the equivalent local browser smoke. The Vite server returned HTTP 200.
 - `npm run lint` remains blocked only by pre-existing, out-of-scope errors in `src/hooks/useCountUp.ts`, `src/pages/CoverageRemodel.tsx`, `src/pages/Disclosure.tsx`, and `src/pages/History.tsx`; the two changed Home files pass targeted lint.
 - `backend/pipeline/` untouched; no PII or generated screenshots staged.
+## 2026-07-10 BOHUMFIT-203 - 데이터 접근 및 개인정보 보안 정책 문서화
+
+Owner flow: Human -> Codex Windows | Current owner: Human(정책 확인)
+Commit: see final BOHUMFIT-203 commit in `git log --oneline -1`
+
+### Changed
+- `.agent-harness/decisions.md`: `데이터 접근/개인정보 보안 정책`을 추가. default deny, `anon` 공개 조회 한정, `authenticated`/서버 쓰기, `user_id = auth.uid()` 소유자 RLS, PII/RPC 최소화, 민감 데이터 마스킹, 접근 감사 원칙을 기록.
+- `.agent-harness/decisions.md`: 신규 테이블의 RLS, 최소 anon grant, 소유자 SELECT, `anon` 파괴 권한 미부여, 민감 컬럼 검토 체크리스트를 추가.
+- `.agent-harness/decisions.md`: 2026-07-09 레드팀 F-01 대응(RLS + `is_published`, anon 파괴/민감 SELECT·INSERT 회수) 이력과 BOHUMFIT/FitHere 공유 Supabase 저트래픽·양쪽 검토 후 실행 원칙을 추가.
+- `.agent-harness/tasks/BOHUMFIT-203-data-access-privacy-policy.md`, `.agent-harness/locks.md`.
+
+### Verified
+- `git diff --check`: passed.
+- `git diff --name-only`: `.agent-harness/decisions.md`, `.agent-harness/locks.md`, BOHUMFIT-203 task only before handoff update; application code 0.
+- `rg` checks confirmed default deny, owner scope, PII/RPC, audit, checklist, F-01/`is_published`, anon destructive-permission, shared Supabase and low-traffic review wording.
+
+### Notes
+- Documentation only. No Supabase console, RLS, migration, grant, application code, or PII data was accessed or changed.
+- Future shared BOHUMFIT/FitHere policy changes require low-traffic scheduling and review of both applications before execution.

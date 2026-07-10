@@ -107,6 +107,42 @@ phone_verified는 /auth/verify-phone upsert 완료 시 true 처리.
 번호 중복 409 hard block 제거. 1인 1계정 원칙은 이메일 기준으로 유지.
 DB 부분 UNIQUE 인덱스(profiles_phone_verified_unique) 제거 필요(Human SQL).
 
+### 2026-07-10 데이터 접근/개인정보 보안 정책
+
+Decision:
+BOHUMFIT의 데이터 접근은 기본 거부(default deny)를 기준으로 설계한다. `anon` 역할은 공개 정보 조회에만 한정하고, 쓰기는 `authenticated` 사용자 또는 서버의 검증된 관리자 경로만 허용한다.
+
+Principles:
+
+- 소유자 범위: 개인 데이터 행은 기본적으로 `user_id = auth.uid()`를 만족하는 본인만 조회·변경한다. 정책은 `USING`과 `WITH CHECK` 모두에서 소유자 범위를 확인한다.
+- PII 경로 최소화: 연락처를 포함한 직접 식별 정보는 일반 목록·상세 조회에 싣지 않는다. 연결이 성사된 경우에만 권한과 목적을 검증하는 RPC 경로로 제한한다.
+- 저장 최소화와 마스킹: 민감정보는 기능에 필요한 최소 항목·최소 기간만 저장하고, 화면·로그·분석 산출물에는 원문 대신 마스킹 또는 비식별 요약을 우선한다.
+- 접근 감사: 민감 데이터 또는 연결 성사 RPC의 접근은 행위자, 대상, 동작, 결과, 시각을 기록한다. 감사 로그에는 원문 PII·민감 페이로드를 중복 저장하지 않는다.
+
+New Table Checklist:
+
+- [ ] RLS를 활성화했다.
+- [ ] `anon` grant를 공개 조회에 필요한 최소 범위로 제한했다.
+- [ ] `authenticated`의 소유자 `SELECT` 정책을 `user_id = auth.uid()` 기준으로 확인했다.
+- [ ] 쓰기 정책은 소유자 범위와 `WITH CHECK`를 확인했으며, 공개 쓰기가 필요하지 않으면 `anon`에 부여하지 않았다.
+- [ ] `anon`에는 `INSERT`·`UPDATE`·`DELETE` 등 파괴 또는 변조 권한을 부여하지 않았다.
+- [ ] 민감 컬럼의 `SELECT`·`INSERT` 노출 여부와 감사 로그 경로를 검토했다.
+
+Red-Team Response History (2026-07-09):
+
+- F-01 대응으로 RLS와 `is_published` 공개 조건을 적용해 공개 조회 범위를 게시된 데이터로 제한했다.
+- `anon`의 파괴 권한과 민감 데이터 `SELECT`/`INSERT` 권한은 회수했다.
+- 이 이력은 정책 기준 기록이며, 신규 테이블이나 정책 변경 시 위 체크리스트로 다시 검토한다.
+
+Shared Supabase Caution:
+
+BOHUMFIT와 FitHere는 Supabase 인스턴스와 일부 데이터 경계를 공유한다. RLS, grant, 테이블 정책을 바꾸면 양쪽 앱에 영향을 줄 수 있으므로 저트래픽 시간대에 적용하고, 두 앱의 호출 경로·공개 데이터·소유자 정책을 검토한 뒤 승인된 운영자가 실행한다. 변경 전후에는 양쪽 앱의 핵심 조회·쓰기 흐름을 확인한다.
+
+Impact:
+
+- 이 결정은 앞으로의 마이그레이션·RPC·Supabase 정책 검토 기준이다.
+- 이번 기록은 문서화만 수행하며, Supabase 콘솔·RLS·schema·grant를 실행 또는 변경하지 않는다.
+
 ## Template
 
 ### YYYY-MM-DD Decision Title
