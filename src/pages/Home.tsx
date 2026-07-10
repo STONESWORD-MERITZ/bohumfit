@@ -2,6 +2,7 @@
 //   기존 일반 소비자 카피("KNOW BEFORE YOU SIGN") 제거. 그린 포인트 1색 유지.
 // BOHUMFIT-080: 하단 "만든 이야기"(메리츠 지점장) 신뢰 섹션 추가(가격 CTA 위).
 import { useEffect, useRef, useState } from "react";
+import { BarChart3, FileText, ScanSearch } from "lucide-react";
 import { Link } from "react-router-dom";
 
 function StatCard({ value, label, detail }: { value: string; label: string; detail: string }) {
@@ -72,17 +73,17 @@ const STEPS = [
 
 const FEATURES = [
   {
-    icon: "🔍",
+    icon: ScanSearch,
     title: "고지의무 자동 분석",
     body: "건강체·간편심사 기준으로 고지해야 할 항목을 자동으로 추출합니다. 실수로 인한 계약 해지 리스크를 줄여드립니다.",
   },
   {
-    icon: "📊",
+    icon: BarChart3,
     title: "보장 비교분석",
     body: "가입 전·후 보장을 파일만 올리면 자동으로 비교합니다. 수작업 비교표 작성 시간을 절약하세요.",
   },
   {
-    icon: "📄",
+    icon: FileText,
     title: "고객용 리포트",
     body: "분석 결과를 고객에게 바로 전달할 수 있는 PDF 리포트로 자동 생성됩니다.",
   },
@@ -102,22 +103,21 @@ export default function Home() {
     return () => cancelAnimationFrame(raf);
   }, []);
   return (
-    <div className="bf-home-snap -mx-5 -mt-8">
+    <div className="-mx-5 -mt-8">
 
       {/* BOHUMFIT-176: 라이트 통일 서피스 — 히어로도 bg-canvas 위에 얹어 첫 화면 다크 밴드 제거.
           (174까지 히어로는 bg-ink-900 별도 섹션 → 176에서 라이트로 흡수 통합) */}
       <div className="relative z-10 bg-canvas">
 
-        {/* ── 1. HERO + 지표 1화면 묶음 (BOHUMFIT-176) ─────────────────
-            174의 min-h-[calc(100svh-3.5rem)]를 히어로 단독 → 히어로+지표 묶음 기준으로 이전(부분 롤백).
-            묶음=flex-col·높이 100svh-헤더(h-14=3.5rem). 히어로 flex-1(잔여 흡수·세로 중앙), 지표 shrink-0 하단.
-            → 노트북에서 히어로+지표(1분/99%/30초)가 한 화면(fold) 안. min-h라 모바일은 자연 확장(스크롤 허용·잘림 0). */}
-        <div className="bf-home-section flex min-h-[calc(100svh-3.5rem)] flex-col">
+        {/* ── 1. HERO + 요약 바 ───────────────────────────────────────
+            강제 화면 높이와 스냅을 쓰지 않는다. 콘텐츠 길이에 맞춰 자연스럽게 이어져
+            마지막 CTA와 푸터까지 항상 스크롤할 수 있다. */}
+        <div>
 
           {/* ── HERO (BOHUMFIT-176 다크→라이트 전환) ──────────────────
               다크(bg-ink-900·흰 텍스트·accent-400 포인트) → 라이트(canvas·잉크/본문그레이·accent-600 강조).
               대비 AA: 잉크#0A0A0A/흰 19.8:1 · 에메랄드#084734/흰 10.7:1 · 본문#1E293B/흰 14.6:1. */}
-          <section className="relative flex flex-1 items-center overflow-hidden">
+          <section className="relative overflow-hidden">
             {/* BOHUMFIT-133b dot → BOHUMFIT-176: 라이트 배경용 잉크 극연점(흰 점은 라이트서 불가시). 알파 0.04로 과하지 않게. */}
             <div
               aria-hidden
@@ -128,12 +128,10 @@ export default function Home() {
               }}
             />
             {/* BOHUMFIT-175: 와이드(2xl 1536+)에서만 컨테이너 축소·중앙(대칭 여백) — 1440 이하 완전 현행(회귀 0). 텍스트 좌정렬 유지, 블록만 중앙.
-                BOHUMFIT-176: 히어로 콘텐츠 패딩 pt-clamp(56~80)·pb-clamp(64~96) → py-clamp(24~44)로 압축.
-                근거: 묶음이 flex-1 items-center로 세로 중앙을 담당 → 기존 단독 히어로용 큰 패딩(≈80/96px)은 중복이며
-                768px 노트북에서 히어로+지표 합산이 fold를 초과시킴. 압축 후 합산 ≈656<712(768-헤더56)로 1화면 진입.
-                ※173 유동 타이포 토큰(text-fluid-*)은 무변경 — 여기서 조정한 것은 이 묶음 구간의 여백뿐(Step2 지시 범위). */}
+                BOHUMFIT-202: 히어로와 요약 바 사이를 자연스럽게 연결할 수 있도록
+                콘텐츠 기반 세로 여백을 사용한다. */}
             <div
-              className={`relative z-10 mx-auto w-full max-w-6xl px-6 py-[clamp(1.5rem,1rem+2.2vw,2.75rem)] transition-all duration-700 2xl:max-w-4xl ${
+              className={`relative z-10 mx-auto w-full max-w-6xl px-6 py-[clamp(4.5rem,4rem+3vw,7.5rem)] pb-[clamp(3rem,2rem+4vw,5rem)] transition-all duration-700 2xl:max-w-4xl ${
                 mounted ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
               }`}
             >
@@ -178,73 +176,72 @@ export default function Home() {
             </div>
           </section>
 
-          {/* BOHUMFIT-201: 하단 지표는 히어로보다 무겁지 않게 얇은 요약 바로 정리. */}
-          <section className="shrink-0 border-y border-line bg-white/70 py-4">
-            <div className="mx-auto max-w-6xl px-6">
-              <div className="grid gap-4 md:grid-cols-[10rem_1fr] md:items-center">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent-700">BohumFit</p>
-                  <p className="ko-text mt-1 text-sm font-semibold text-ink-900">상담 준비 요약</p>
+          {/* BOHUMFIT-202: 요약 바 아래 여백을 확보해 화면 바닥에 붙어 보이지 않게 한다. */}
+          <div className="pb-14 md:pb-20">
+            <section className="border-y border-line bg-white/70 py-5">
+              <div className="mx-auto max-w-6xl px-6">
+                <div className="grid gap-4 md:grid-cols-[10rem_1fr] md:items-center">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent-700">BohumFit</p>
+                    <p className="ko-text mt-1 text-sm font-semibold text-ink-900">상담 준비 요약</p>
+                  </div>
+                  <dl className="grid divide-y divide-line md:grid-cols-3 md:divide-x md:divide-y-0">
+                    {STATS.map((s) => (
+                      <StatCard key={s.label} value={s.value} label={s.label} detail={s.detail} />
+                    ))}
+                  </dl>
                 </div>
-                <dl className="grid divide-y divide-line md:grid-cols-3 md:divide-x md:divide-y-0">
-                  {STATS.map((s) => (
-                    <StatCard key={s.label} value={s.value} label={s.label} detail={s.detail} />
-                  ))}
-                </dl>
               </div>
-            </div>
-          </section>
+            </section>
+          </div>
 
         </div>
 
-        {/* ── 3. 3단계 사용 흐름 ─────────────────────────────────── */}
-        <section className="bf-home-section bf-home-panel py-24">
+        {/* ── 3. 사용 흐름 + 핵심 기능 ───────────────────────────── */}
+        <section id="features" className="scroll-mt-20 border-y border-line bg-white py-20 md:py-28">
           <div className="mx-auto max-w-6xl px-6">
-            <FadeIn className="mb-14">
+            <FadeIn className="max-w-2xl">
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent-600">How it works</p>
               <h2 className="ko-heading mt-4 text-3xl font-extrabold tracking-tight text-ink-900 md:text-4xl break-keep">
                 업로드 한 번, 3단계로 끝
               </h2>
+              <p className="ko-text mt-4 text-[15px] leading-7 text-ink-soft break-keep">
+                필요한 자료를 올리면 분석부터 고객용 리포트까지 한 흐름으로 정리됩니다.
+              </p>
             </FadeIn>
-            <div className="grid gap-6 md:grid-cols-3">
+
+            <div className="mt-10 grid divide-y divide-line border-y border-line md:grid-cols-3 md:divide-x md:divide-y-0">
               {STEPS.map((s, i) => (
-                <FadeIn key={s.no} delay={i * 120}>
-                  <div className="h-full rounded-card border border-line bg-white p-7">
-                    <span className="text-3xl font-extrabold text-accent-600">{s.no}</span>
-                    <h3 className="card-title mt-4 text-lg font-bold tracking-tight text-ink-900">{s.title}</h3>
-                    <p className="card-desc mt-2 text-[13px] leading-6 text-ink-soft break-keep">{s.body}</p>
-                  </div>
+                <FadeIn key={s.no} delay={i * 100} className="h-full px-0 py-8 md:px-8 md:first:pl-0 md:last:pr-0">
+                  <span className="text-sm font-extrabold tracking-[0.16em] text-accent-600">{s.no}</span>
+                  <h3 className="card-title mt-4 text-lg font-bold tracking-tight text-ink-900">{s.title}</h3>
+                  <p className="card-desc mt-2 text-[13px] leading-6 text-ink-soft break-keep">{s.body}</p>
                 </FadeIn>
               ))}
             </div>
-          </div>
-        </section>
 
-        {/* ── 4. 핵심 기능 3가지 ─────────────────────────────────── */}
-        <section id="features" className="bf-home-section bf-home-panel scroll-mt-20 py-24">
-          <div className="mx-auto max-w-6xl px-6">
-            <FadeIn className="mb-14">
-              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent-600">Features</p>
-              <h2 className="ko-heading mt-4 text-3xl font-extrabold tracking-tight text-ink-900 md:text-4xl break-keep">
-                설계사 업무를 줄여주는 3가지
-              </h2>
-            </FadeIn>
-            <div className="grid gap-6 md:grid-cols-3">
+            <div className="mt-14 border-t border-line pt-12 md:mt-16">
+              <FadeIn className="max-w-2xl">
+                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent-600">Features</p>
+                <h2 className="ko-heading mt-4 text-2xl font-extrabold tracking-tight text-ink-900 md:text-3xl break-keep">
+                  설계사 업무를 줄여주는 3가지
+                </h2>
+              </FadeIn>
+              <div className="mt-8 grid divide-y divide-line border-y border-line md:grid-cols-3 md:divide-x md:divide-y-0">
               {FEATURES.map((f, i) => (
-                <FadeIn key={f.title} delay={i * 100}>
-                  <div className="h-full rounded-card border border-line bg-white p-7 transition-all duration-200 hover:-translate-y-0.5 hover:border-green-200 hover:shadow-lg">
-                    <span className="text-3xl" aria-hidden>{f.icon}</span>
+                  <FadeIn key={f.title} delay={i * 100} className="h-full px-0 py-8 md:px-8 md:first:pl-0 md:last:pr-0">
+                    <f.icon aria-hidden className="h-6 w-6 text-accent-600" strokeWidth={1.8} />
                     <h3 className="card-title mt-4 text-lg font-bold tracking-tight text-ink-900">{f.title}</h3>
-                    <p className="card-desc mt-3 text-[13px] leading-6 text-ink-soft break-keep">{f.body}</p>
-                  </div>
-                </FadeIn>
+                    <p className="card-desc mt-2 text-[13px] leading-6 text-ink-soft break-keep">{f.body}</p>
+                  </FadeIn>
               ))}
+              </div>
             </div>
           </div>
         </section>
 
         {/* ── 5. 만든 이야기 (BOHUMFIT-080 신뢰 스토리) ──────────── */}
-        <section className="bf-home-section bf-home-panel bg-accent-50 py-24">
+        <section className="bg-accent-50 py-20 md:py-24">
           <div className="mx-auto max-w-6xl px-6">
             <div className="grid items-center gap-10 md:grid-cols-[1fr_auto]">
               <FadeIn>
@@ -281,7 +278,7 @@ export default function Home() {
         </section>
 
         {/* ── 6. 가격 CTA ────────────────────────────────────────── */}
-        <section className="bf-home-section bf-home-panel py-28">
+        <section className="pt-20 pb-0 md:pt-28 md:pb-0">
           <div className="mx-auto max-w-5xl px-6 text-center">
             <FadeIn>
               <h2 className="ko-heading text-3xl font-extrabold tracking-tight text-ink-900 md:text-4xl break-keep">

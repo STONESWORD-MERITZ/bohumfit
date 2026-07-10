@@ -10756,3 +10756,27 @@ Owner flow: Human -> Codex Windows | Current owner: Human(배포 확인)
 - `backend/pipeline/` 무접촉.
 - 실 PDF/엑셀/추출물/PII 저장·커밋 없음. `stash@{0}` 무접촉.
 - 구현 커밋: `a18f311`
+## 2026-07-10 BOHUMFIT-202 - 홈 자연 스크롤 및 신뢰 레이아웃 개선
+
+Owner flow: Human -> Codex Windows | Current owner: Human(배포 확인)
+Commit: see final BOHUMFIT-202 commit in `git log --oneline -1`
+
+### Changed
+- `src/pages/Home.tsx`: 홈 전용 강제 `scroll-snap`/최소 화면 높이 hook을 제거해 모든 섹션과 마지막 CTA가 콘텐츠 높이대로 이어지도록 변경.
+- `src/index.css`: BOHUMFIT-201의 데스크톱 강제 섹션 스냅 CSS를 제거.
+- `src/pages/Home.tsx`: `How it works`와 `Features`를 단일 `#features` 안내 섹션으로 통합. 카드 나열 대신 구분선 기반 3단계/3기능 정보 구조와 Lucide 아이콘을 적용.
+- `src/pages/Home.tsx`: 히어로와 `상담 준비 요약` 바의 여백을 늘리고, 마지막 CTA 하단 패딩을 없애 공통 푸터 여백과 겹치던 빈 공간을 정리.
+- `src/pages/Home.test.tsx`: 자연 스크롤 구조와 통합 안내 섹션을 고정하는 테스트로 갱신.
+
+### Verified
+- `npx tsc -p tsconfig.app.json --noEmit`: passed.
+- `npx tsc -p tsconfig.node.json --noEmit`: passed.
+- `npx eslint src/pages/Home.tsx src/pages/Home.test.tsx`: passed.
+- `npm test`: `16 passed`.
+- `npm run build`: passed; existing Vite chunk-size warning only.
+- Browser smoke on `http://127.0.0.1:5180/`: desktop hero/guide/bottom and mobile `390x844` confirmed. Desktop bottom reached `scrollY=2477/maxScrollY=2477`, with `scrollSnap=none`, no legacy snap hooks, no error overlay. Mobile has no horizontal overflow.
+
+### Notes
+- The environment did not expose the `agent-browser` executable, so Chrome headless plus Chrome DevTools Protocol was used for the equivalent local browser smoke. The Vite server returned HTTP 200.
+- `npm run lint` remains blocked only by pre-existing, out-of-scope errors in `src/hooks/useCountUp.ts`, `src/pages/CoverageRemodel.tsx`, `src/pages/Disclosure.tsx`, and `src/pages/History.tsx`; the two changed Home files pass targeted lint.
+- `backend/pipeline/` untouched; no PII or generated screenshots staged.
