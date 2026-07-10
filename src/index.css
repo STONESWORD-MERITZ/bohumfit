@@ -109,6 +109,31 @@ html, body {
   color: var(--color-ink);
 }
 
+/* BOHUMFIT-201: 메인 페이지 전용 섹션 스냅.
+   랜딩에서만 한 화면 단위로 딱 끊기게 보이고, 모바일/모션 축소 환경은 자연 스크롤을 유지한다. */
+@media (min-width: 1024px) and (prefers-reduced-motion: no-preference) {
+  html:has(.bf-home-snap) {
+    scroll-behavior: smooth;
+    scroll-snap-type: y mandatory;
+  }
+
+  .bf-home-section {
+    scroll-margin-top: 3.5rem;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+
+  .bf-home-panel {
+    display: flex;
+    min-height: calc(100svh - 3.5rem);
+    align-items: center;
+  }
+
+  .bf-home-panel > div {
+    width: 100%;
+  }
+}
+
 /* ── Home 히어로 scroll-scrub (BOHUMFIT-045 — 히어로 1곳 전용) ──────────────
    transform/opacity 만 사용. CSS scroll-driven 미지원 브라우저는 정적 표시(효과 생략),
    prefers-reduced-motion 시 전체 비활성, 모바일은 scale 약화. */

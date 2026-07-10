@@ -1,3 +1,27 @@
+## 2026-07-10 BOHUMFIT-201 - 메인 하단 지표 단순화 및 섹션 스냅 개선
+
+Owner flow: Human -> Codex Windows | Current owner: Human(배포 확인)
+Commit: see final BOHUMFIT-201 commit in `git log --oneline -1`
+
+### Changed
+- `src/pages/Home.tsx`: 히어로 하단 `1분 / 99% / 30초` 대형 카운트업 블록을 정적 compact stat bar로 단순화. 기존 큰 연녹색 면을 제거하고 `상담 준비 요약` + 3개 지표를 얇은 구분선 기반 요약 UI로 변경.
+- `src/pages/Home.tsx`: 홈 섹션에 `bf-home-snap`, `bf-home-section`, `bf-home-panel` hook class를 추가해 섹션 단위 스냅 대상 지정.
+- `src/index.css`: 데스크톱 + 모션 허용 환경에서만 홈 페이지에 `scroll-snap-type: y mandatory` 적용. 모바일/모션 축소 환경은 자연 스크롤 유지.
+- `src/pages/Home.test.tsx`: compact stat bar 문구와 홈 스냅 hook class 회귀 테스트 추가.
+- `.agent-harness/tasks/BOHUMFIT-201-home-simple-stats-section-snap.md`, `.agent-harness/locks.md`.
+
+### Verified
+- `npx tsc -p tsconfig.app.json --noEmit`: 통과.
+- `npx tsc -p tsconfig.node.json --noEmit`: 통과.
+- `npm test`: `16 passed`.
+- `npm run build`: 통과. 기존 Vite chunk-size warning 및 plugin timing warning만 출력.
+- Browser smoke: `http://127.0.0.1:5180/` 200, Chrome headless screenshot 확인.
+- `npm run lint`: 실패. 이번 변경 파일의 lint는 해결됐고, 기존 범위 밖 파일 `src/hooks/useCountUp.ts`, `src/pages/CoverageRemodel.tsx`, `src/pages/Disclosure.tsx`, `src/pages/History.tsx`의 기존 lint 오류가 남음.
+
+### Notes
+- 외부 참조 사이트 `https://hanjasan.co.kr/`는 공개 HTML 기준 KAMAC 랜딩으로 확인했으며, 효과 구현명은 번들 내부라 직접 식별되지 않음. 사용자가 말한 “딱딱 끊어짐”은 홈 섹션 스냅/풀페이지식 구분감으로 해석해 구현.
+- `backend/pipeline/` 무접촉. 실 PDF/엑셀/PII staged 없음.
+
 ## 2026-07-09 BOHUMFIT-200 - 완전판매 모니터링 링크 전수 검수 및 경로 안내 개선
 
 Owner flow: Human -> Codex Windows | Current owner: Human(배포 확인)

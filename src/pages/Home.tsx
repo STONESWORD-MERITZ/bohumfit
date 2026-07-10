@@ -4,46 +4,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
-// ── 카운트업 훅 ───────────────────────────────────────────────
-function useCountUp(target: number, duration = 1800, active = false) {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    if (!active) return;
-    const start = performance.now();
-    const tick = (now: number) => {
-      const elapsed = Math.min((now - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - elapsed, 3);
-      setCount(Math.round(eased * target));
-      if (elapsed < 1) requestAnimationFrame(tick);
-    };
-    const raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [target, duration, active]);
-  return count;
-}
-
-function StatCard({ value, suffix, label, delay }: { value: number; suffix: string; label: string; delay: number }) {
-  const [active, setActive] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const count = useCountUp(value, 1800, active);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      ([e]) => { if (e.isIntersecting) { setActive(true); obs.disconnect(); } },
-      { threshold: 0.4 },
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-
+function StatCard({ value, label, detail }: { value: string; label: string; detail: string }) {
   return (
-    <div ref={ref} className="text-center" style={{ transitionDelay: `${delay}ms` }}>
-      <p className="text-5xl font-extrabold tabular-nums tracking-tight text-ink-900 md:text-6xl">
-        {count}<span className="text-accent-600">{suffix}</span>
-      </p>
-      <p className="ko-text mt-3 text-sm leading-relaxed text-ink-soft break-keep">{label}</p>
+    <div className="flex items-center justify-between gap-4 py-4 md:block md:px-6 md:py-1">
+      <dt className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-500">{label}</dt>
+      <dd className="flex items-baseline gap-2 md:mt-1 md:block">
+        <span className="text-2xl font-extrabold tracking-tight text-ink-900 md:text-3xl">{value}</span>
+        <span className="ko-text text-[12px] leading-5 text-ink-soft md:mt-1 md:block">{detail}</span>
+      </dd>
     </div>
   );
 }
@@ -79,9 +47,9 @@ function FadeIn({ children, className = "", delay = 0 }: { children: React.React
 
 // ── 데이터 ────────────────────────────────────────────────────
 const STATS = [
-  { value: 1,  suffix: "분", label: "PDF 업로드부터 결과까지" },
-  { value: 99, suffix: "%", label: "고지의무 검출 정확도" },
-  { value: 30, suffix: "초", label: "리포트 생성 시간" },
+  { value: "1분", label: "분석 완료", detail: "PDF 업로드부터 결과까지" },
+  { value: "99%", label: "핵심 검출", detail: "고지의무 리스크 자동 정리" },
+  { value: "30초", label: "리포트 생성", detail: "상담용 PDF 준비 시간" },
 ];
 
 const STEPS = [
@@ -129,9 +97,12 @@ const PRICING = [
 export default function Home() {
   // BOHUMFIT-133b: 히어로 헤드라인 fade-in-up(페이지 로드 시 아래→위 등장).
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
   return (
-    <div className="-mx-5 -mt-8">
+    <div className="bf-home-snap -mx-5 -mt-8">
 
       {/* BOHUMFIT-176: 라이트 통일 서피스 — 히어로도 bg-canvas 위에 얹어 첫 화면 다크 밴드 제거.
           (174까지 히어로는 bg-ink-900 별도 섹션 → 176에서 라이트로 흡수 통합) */}
@@ -141,7 +112,7 @@ export default function Home() {
             174의 min-h-[calc(100svh-3.5rem)]를 히어로 단독 → 히어로+지표 묶음 기준으로 이전(부분 롤백).
             묶음=flex-col·높이 100svh-헤더(h-14=3.5rem). 히어로 flex-1(잔여 흡수·세로 중앙), 지표 shrink-0 하단.
             → 노트북에서 히어로+지표(1분/99%/30초)가 한 화면(fold) 안. min-h라 모바일은 자연 확장(스크롤 허용·잘림 0). */}
-        <div className="flex min-h-[calc(100svh-3.5rem)] flex-col">
+        <div className="bf-home-section flex min-h-[calc(100svh-3.5rem)] flex-col">
 
           {/* ── HERO (BOHUMFIT-176 다크→라이트 전환) ──────────────────
               다크(bg-ink-900·흰 텍스트·accent-400 포인트) → 라이트(canvas·잉크/본문그레이·accent-600 강조).
@@ -207,16 +178,19 @@ export default function Home() {
             </div>
           </section>
 
-          {/* ── 2. 핵심 수치 (신뢰 지표) — BOHUMFIT-176: 히어로와 1화면 묶음. py-24 → 압축 패딩(shrink-0)로 fold 안 진입.
-              BOHUMFIT-177: 배경 canvas→그린티 옅은 틴트 면(`bg-greentea/50`)으로 히어로와 은은하게 구분.
-              그린티=면 전용(텍스트/선 금지 준수). 불투명도 50%로 canvas와 블렌드=은은(진한 원색 회피).
-              배경만 추가 → box-model 불변 → 176 1화면 높이(653px) 영향 없음. hairline border는 높이 불변 위해 미적용. */}
-          <section className="shrink-0 bg-greentea/50 pt-[clamp(0.5rem,0.2rem+1.3vw,1.5rem)] pb-[clamp(2.5rem,1.9rem+2.6vw,4rem)]">
-            <div className="mx-auto max-w-5xl px-6">
-              <div className="grid gap-10 sm:grid-cols-3">
-                {STATS.map((s, i) => (
-                  <StatCard key={s.label} value={s.value} suffix={s.suffix} label={s.label} delay={i * 100} />
-                ))}
+          {/* BOHUMFIT-201: 하단 지표는 히어로보다 무겁지 않게 얇은 요약 바로 정리. */}
+          <section className="shrink-0 border-y border-line bg-white/70 py-4">
+            <div className="mx-auto max-w-6xl px-6">
+              <div className="grid gap-4 md:grid-cols-[10rem_1fr] md:items-center">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-accent-700">BohumFit</p>
+                  <p className="ko-text mt-1 text-sm font-semibold text-ink-900">상담 준비 요약</p>
+                </div>
+                <dl className="grid divide-y divide-line md:grid-cols-3 md:divide-x md:divide-y-0">
+                  {STATS.map((s) => (
+                    <StatCard key={s.label} value={s.value} label={s.label} detail={s.detail} />
+                  ))}
+                </dl>
               </div>
             </div>
           </section>
@@ -224,7 +198,7 @@ export default function Home() {
         </div>
 
         {/* ── 3. 3단계 사용 흐름 ─────────────────────────────────── */}
-        <section className="py-24">
+        <section className="bf-home-section bf-home-panel py-24">
           <div className="mx-auto max-w-6xl px-6">
             <FadeIn className="mb-14">
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent-600">How it works</p>
@@ -247,7 +221,7 @@ export default function Home() {
         </section>
 
         {/* ── 4. 핵심 기능 3가지 ─────────────────────────────────── */}
-        <section id="features" className="scroll-mt-20 py-24">
+        <section id="features" className="bf-home-section bf-home-panel scroll-mt-20 py-24">
           <div className="mx-auto max-w-6xl px-6">
             <FadeIn className="mb-14">
               <p className="text-xs font-semibold uppercase tracking-[0.25em] text-accent-600">Features</p>
@@ -270,7 +244,7 @@ export default function Home() {
         </section>
 
         {/* ── 5. 만든 이야기 (BOHUMFIT-080 신뢰 스토리) ──────────── */}
-        <section className="bg-accent-50 py-24">
+        <section className="bf-home-section bf-home-panel bg-accent-50 py-24">
           <div className="mx-auto max-w-6xl px-6">
             <div className="grid items-center gap-10 md:grid-cols-[1fr_auto]">
               <FadeIn>
@@ -307,7 +281,7 @@ export default function Home() {
         </section>
 
         {/* ── 6. 가격 CTA ────────────────────────────────────────── */}
-        <section className="py-28">
+        <section className="bf-home-section bf-home-panel py-28">
           <div className="mx-auto max-w-5xl px-6 text-center">
             <FadeIn>
               <h2 className="ko-heading text-3xl font-extrabold tracking-tight text-ink-900 md:text-4xl break-keep">
