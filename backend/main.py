@@ -61,6 +61,14 @@ IS_DEVELOPMENT = SERVICE_ENV.strip().lower() == "development"
 IS_PRODUCTION  = not IS_DEVELOPMENT
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
+HCAPTCHA_SECRET = os.environ.get("HCAPTCHA_SECRET", "").strip()
+HCAPTCHA_VERIFY_URL = "https://hcaptcha.com/siteverify"
+
+# BOHUMFIT-204 F-02: 사용자별 한도와 별도로 IP 집계 한도를 둔다.
+# 계정 다중 생성으로 분석/인증 요청을 분산하는 우회를 줄이되 기존 사용자별 throttle은 유지한다.
+PHONE_VERIFY_IP_RATE_LIMIT = "5/minute,20/hour"
+COVERAGE_ANALYZE_IP_RATE_LIMIT = "10/minute,60/hour"
+ANALYZE_IP_RATE_LIMIT = "15/minute,90/hour"
 
 _SENSITIVE_EVENT_EXACT_KEYS = {
     "_data",
@@ -241,6 +249,35 @@ def _rate_limit_handler(request: Request, exc: RateLimitExceeded):
 
 
 app.add_exception_handler(RateLimitExceeded, _rate_limit_handler)
+
+
+# ── hCaptcha (BOHUMFIT-204 F-02) ─────────────────────────────────────────────
+async def _verify_hcaptcha_token(request: Request) -> None:
+    """HCAPTCHA_SECRET 설정 환경에서만 휴대폰 인증의 hCaptcha 토큰을 검증한다."""
+    if not HCAPTCHA_SECRET:
+        return
+
+    token = (request.headers.get("x-hcaptcha-token") or "").strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="보안 확인을 완료해 주세요.")
+
+    payload = {"secret": HCAPTCHA_SECRET, "response": token}
+    remote_ip = get_remote_address(request)
+    if remote_ip:
+        payload["remoteip"] = remote_ip
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.post(HCAPTCHA_VERIFY_URL, data=payload)
+        result = response.json() if response.is_success else {}
+    except (httpx.HTTPError, ValueError):
+        logger.warning("hCaptcha verification request failed")
+        raise HTTPException(status_code=503, detail="보안 확인에 실패했습니다. 잠시 후 다시 시도해 주세요.")
+
+    if not result.get("success"):
+        logger.info("hCaptcha verification rejected")
+        raise HTTPException(status_code=400, detail="보안 확인을 다시 완료해 주세요.")
+
 
 # ── CORS ─────────────────────────────────────────────────────────────────────
 _default_origins = "https://bohumfit.ai,https://www.bohumfit.ai,http://localhost:5173,http://localhost:3000"
@@ -774,6 +811,7 @@ async def billing_status(user_id: str = Depends(verify_jwt)):
 # ── 휴대폰 본인인증 (BOHUMFIT-074 — 현재 스텁, 추후 토스 본인인증 라이브 키 후 실연동) ──
 @app.post("/auth/verify-phone")
 @limiter.limit("10/minute")
+@limiter.limit(PHONE_VERIFY_IP_RATE_LIMIT, key_func=get_remote_address)
 async def verify_phone(
     request: Request,
     payload: dict = Body(...),
@@ -784,6 +822,7 @@ async def verify_phone(
     BOHUMFIT-097: 번호 소유 확인 수준으로 완화 — 동일 번호 중복 hard-block(088 409) 제거.
       (어뷰징 방지 1인 1계정은 087 CI 기반 실연동에서 완성. ★중복 허용엔 088 DB unique index
        profiles_phone_verified_unique drop 필요 — 미적용 시 upsert가 unique 위반으로 실패함.)"""
+    await _verify_hcaptcha_token(request)
     phone = (payload.get("phone") or "").strip()
     admin = _get_supabase_admin()
     if admin is not None:
@@ -1306,6 +1345,7 @@ async def coverage_parse(
 # ── KB 신정원 보장분석 제안서 → 리모델링 [전]/[최종] (BOHUMFIT-179) ─────────────
 @app.post("/coverage/analyze")
 @limiter.limit("20/minute")
+@limiter.limit(COVERAGE_ANALYZE_IP_RATE_LIMIT, key_func=get_remote_address)
 async def coverage_analyze(
     request: Request,
     file: UploadFile = File(..., description="KB 신정원 보장분석 제안서 PDF"),
@@ -1490,6 +1530,7 @@ async def coverage_consulting_after(
 
 @app.post("/api/analyze")
 @limiter.limit("5/minute,30/hour")
+@limiter.limit(ANALYZE_IP_RATE_LIMIT, key_func=get_remote_address)
 async def analyze(
     request: Request,
     files: list[UploadFile] = File(..., description="심평원 진료 PDF"),

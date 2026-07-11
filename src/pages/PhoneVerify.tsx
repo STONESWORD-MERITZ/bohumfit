@@ -2,7 +2,9 @@
 // 현재는 UI 게이트이며, 실인증은 토스 본인인증 라이브 키 후 연동한다.
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import HCaptcha from "../components/HCaptcha";
 import { useAuth } from "../lib/auth-context";
+import { isHCaptchaEnabled } from "../lib/hcaptcha";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
@@ -14,6 +16,7 @@ export default function PhoneVerify() {
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
 
   const handleVerify = async () => {
     const digits = phone.replace(/[^0-9]/g, "");
@@ -21,13 +24,22 @@ export default function PhoneVerify() {
       setError("휴대폰 번호를 정확히 입력해 주세요.");
       return;
     }
+    if (isHCaptchaEnabled() && !captchaToken) {
+      setError("보안 확인을 완료해 주세요.");
+      return;
+    }
     setError("");
     setBusy(true);
     try {
       const token = session?.access_token;
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      };
+      if (captchaToken) headers["X-HCaptcha-Token"] = captchaToken;
       const r = await fetch(`${API_BASE}/auth/verify-phone`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ phone: digits }),
       });
       if (!r.ok) {
@@ -69,6 +81,7 @@ export default function PhoneVerify() {
             />
           </div>
           {error && <p className="mt-2 text-xs font-semibold text-red-500">{error}</p>}
+          <HCaptcha onTokenChange={setCaptchaToken} className="mt-4" />
           <button
             type="button"
             onClick={handleVerify}

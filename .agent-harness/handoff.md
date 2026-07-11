@@ -10840,3 +10840,27 @@ Status: **Human 결정 필요 - stop condition met; no code, commit, or push.**
 - 실 PDF는 저장소 밖 경로에서 read-only로 조사했고, 본문 텍스트·고객명·주민번호·상병 원문을 출력하거나 저장하지 않았다. 임시 렌더 이미지는 확인 후 삭제했다.
 - `backend/pipeline/`은 S0 read-only 조사만 했고, `backend/coverage/`를 포함한 코드·테스트·의존성·마이그레이션은 변경하지 않았다.
 - 멈춤 조건상 요청된 `fix(BOHUMFIT-198): ...` 커밋과 push는 생성하지 않았다.
+## 2026-07-11 BOHUMFIT-204 - F-02 OAuth 우선 가입 + hCaptcha + IP 레이트리밋
+
+Owner flow: Human -> Codex Windows | Current owner: Human(환경변수·Supabase OAuth CAPTCHA 정책 확인)
+Commit: see final BOHUMFIT-204 commit in `git log --oneline -1`
+
+### Changed
+- `src/pages/Login.tsx`, `Signup.tsx`: 카카오·Google OAuth를 주 경로로 배치하고 이메일 경로를 보조로 유지. 카카오 OAuth는 이메일 입력·필수 검사와 분리. `VITE_HCAPTCHA_SITEKEY`가 있을 때만 이메일 Supabase 로그인·가입에 `captchaToken`을 전달.
+- `src/components/HCaptcha.tsx`, `src/lib/hcaptcha.ts`, `PhoneVerify.tsx`: 키 조건부 hCaptcha 위젯. 키가 없으면 렌더·스크립트 로딩 없이 기존 흐름 유지. 휴대폰 인증은 `X-HCaptcha-Token` 전달.
+- `backend/main.py`: `HCAPTCHA_SECRET` 설정 시에만 hCaptcha siteverify로 휴대폰 인증 토큰을 검증. 토큰·secret 로그/응답 노출 없음. 기존 사용자별 slowapi 한도를 유지하면서 휴대폰 인증(5/min, 20/hour), KB 분석(10/min, 60/hour), 심평원 분석(15/min, 90/hour)에 IP 집계 제한 추가.
+- `backend/tests/test_f02_hcaptcha_rate_limit_204.py`, `src/components/HCaptcha.test.tsx`: secret 없음 폴백, 토큰 누락/성공/거절/네트워크 실패, IP 한도 중첩, 키 없는 위젯 미렌더 및 토큰 전달 회귀 추가.
+- `.env.example`: `HCAPTCHA_SECRET`, `VITE_HCAPTCHA_SITEKEY` 빈 템플릿만 추가. `public/.well-known/security.txt`: 개인 Gmail을 `contact@bohumfit.ai`로 교체.
+
+### Verified
+- `python -m pytest tests/test_f02_hcaptcha_rate_limit_204.py -vv`: `6 passed`.
+- `python -m pytest -q`: `572 passed, 8 skipped` (기준선 566 + 신규 6).
+- `npx tsc -p tsconfig.app.json --noEmit`, `npx tsc -p tsconfig.node.json --noEmit`, `npm test`: `18 passed`; `npm run build`: 통과. 기존 Vite chunk-size/plugin timing warning만 출력.
+- Browser smoke (empty `VITE_HCAPTCHA_SITEKEY`): `/login`, `/signup` 렌더, `/phone-verify`의 비인증 `/login` 리다이렉트 유지, hCaptcha 외부 스크립트 미로딩 확인.
+- Changed-file eslint: 통과. 전체 `npm run lint`는 범위 밖 기존 7 errors(`useCountUp`, `CoverageRemodel`, `Disclosure`, `History`)로 실패.
+
+### Notes
+- 별도 상담 연결 폼은 없어서 로그인 후 고객 연락처를 받는 유일한 표면인 휴대폰 인증에 서버 hCaptcha 검증을 적용했다.
+- `@supabase/auth-js` 2.105.1의 `signInWithOAuth`에는 `captchaToken` 옵션이 없어 URL query 우회 전달을 하지 않았다. 이메일 로그인·가입만 Supabase CAPTCHA 토큰을 공식 옵션으로 전달한다.
+- Supabase CAPTCHA/OAuth 대시보드 설정, RLS/스키마, 결제·인증 코어는 무접촉. `VITE_HCAPTCHA_SITEKEY`(Vercel)와 `HCAPTCHA_SECRET`(Railway)을 함께 설정하고, `contact@bohumfit.ai` 수신 별칭을 Human이 확인해야 한다.
+- 사용자 지정 BOHUMFIT-197은 완료된 리포트 UI 작업과 충돌하여 하네스 규칙에 따라 BOHUMFIT-204로 기록했다. 실 키·시크릿·PII·생성 산출물은 stage하지 않았다.

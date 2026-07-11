@@ -1,6 +1,8 @@
 ﻿import { useState } from "react";
 import { Link } from "react-router-dom";
+import HCaptcha from "../components/HCaptcha";
 import Logo from "../components/Logo";
+import { isHCaptchaEnabled } from "../lib/hcaptcha";
 import { supabase } from "../lib/supabase";
 
 export default function Signup() {
@@ -14,6 +16,15 @@ export default function Signup() {
   const [agreeMedical, setAgreeMedical] = useState(false);
   const [phone, setPhone] = useState("");
   const [phoneVerified, setPhoneVerified] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+
+  const requireCaptcha = () => {
+    if (isHCaptchaEnabled() && !captchaToken) {
+      setError("보안 확인을 완료해 주세요.");
+      return false;
+    }
+    return true;
+  };
 
   const requestPhoneVerify = () => {
     const digits = phone.replace(/[^0-9]/g, "");
@@ -28,15 +39,32 @@ export default function Signup() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!agreeTerms || !agreePrivacy || !agreeMedical || !phoneVerified) return;
+    if (!requireCaptcha()) return;
     setError("");
     setLoading(true);
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: captchaToken ? { captchaToken } : undefined,
+    });
     setLoading(false);
     if (error) {
       setError(error.message);
     } else {
       setDone(true);
     }
+  };
+
+  const handleOAuth = async (provider: "kakao" | "google") => {
+    if (!requireCaptcha()) return;
+    setError("");
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: window.location.origin },
+    });
+    setLoading(false);
+    if (error) setError(error.message);
   };
 
   if (done) {
@@ -63,6 +91,37 @@ export default function Signup() {
         <div className="mb-10 text-center">
           <Logo size={34} variant="light" className="mx-auto" />
           <p className="mt-2 text-sm text-ink-soft">보험핏 계정 만들기</p>
+        </div>
+
+        <section className="rounded-[8px] border border-line bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
+          <p className="text-sm font-extrabold text-ink-900">소셜 계정으로 바로 시작하기</p>
+          <p className="mt-1 text-xs leading-5 text-ink-soft">카카오 계정은 이메일 제공 여부와 관계없이 이용할 수 있습니다.</p>
+          <div className="mt-3 space-y-2">
+            <button
+              type="button"
+              onClick={() => void handleOAuth("kakao")}
+              disabled={loading}
+              className="flex w-full items-center justify-center rounded-[8px] py-3 text-sm font-bold transition-opacity hover:opacity-90 disabled:opacity-50"
+              style={{ background: "#FEE500", color: "#191919" }}
+            >
+              카카오로 계속하기
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleOAuth("google")}
+              disabled={loading}
+              className="flex w-full items-center justify-center rounded-[8px] border border-line-strong bg-white py-3 text-sm font-bold text-ink-800 transition-colors hover:bg-ink-50 disabled:opacity-50"
+            >
+              Google로 계속하기
+            </button>
+          </div>
+          <HCaptcha onTokenChange={setCaptchaToken} className="mt-4" />
+        </section>
+
+        <div className="my-6 flex items-center gap-3" aria-hidden>
+          <div className="h-px flex-1 bg-line" />
+          <span className="text-xs font-medium text-ink-400">이메일로 가입</span>
+          <div className="h-px flex-1 bg-line" />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3">

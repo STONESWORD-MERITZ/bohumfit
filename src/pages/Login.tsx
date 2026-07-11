@@ -5,7 +5,9 @@ import { supabase } from "../lib/supabase";
 import Button from "../components/ui/Button";
 import Callout from "../components/ui/Callout";
 import { TextInput } from "../components/ui/Field";
+import HCaptcha from "../components/HCaptcha";
 import Logo from "../components/Logo";
+import { isHCaptchaEnabled } from "../lib/hcaptcha";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -13,12 +15,26 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+
+  const requireCaptcha = () => {
+    if (isHCaptchaEnabled() && !captchaToken) {
+      setError("보안 확인을 완료해 주세요.");
+      return false;
+    }
+    return true;
+  };
 
   const handleEmail = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!requireCaptcha()) return;
     setError("");
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+      options: captchaToken ? { captchaToken } : undefined,
+    });
     setLoading(false);
     if (error) {
       // BOHUMFIT-097(버그3): 이메일 미확인 계정은 세션이 없어 가입화면 재유입 루프로 오인됨.
@@ -34,17 +50,23 @@ export default function Login() {
   };
 
   const handleKakao = async () => {
-    await supabase.auth.signInWithOAuth({
+    if (!requireCaptcha()) return;
+    setError("");
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: "kakao",
       options: { redirectTo: window.location.origin },
     });
+    if (error) setError(error.message);
   };
 
   const handleGoogle = async () => {
-    await supabase.auth.signInWithOAuth({
+    if (!requireCaptcha()) return;
+    setError("");
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: window.location.origin },
     });
+    if (error) setError(error.message);
   };
 
   return (
@@ -58,9 +80,15 @@ export default function Login() {
         </div>
 
         <div className="rounded-card border border-line bg-white p-6">
-          <div className="space-y-3">
+          <div>
+            <p className="text-sm font-extrabold text-ink-900">소셜 계정으로 시작하기</p>
+            <p className="mt-1 text-xs leading-5 text-ink-soft">카카오 또는 Google 계정으로 바로 로그인할 수 있습니다.</p>
+          </div>
+          <div className="mt-4 space-y-3">
             <button
+              type="button"
               onClick={handleKakao}
+              disabled={loading}
               className="flex w-full items-center justify-center rounded-btn py-3 text-sm font-semibold transition-opacity hover:opacity-90"
               style={{ background: "#FEE500", color: "#191919" }}
             >
@@ -68,16 +96,20 @@ export default function Login() {
             </button>
 
             <button
+              type="button"
               onClick={handleGoogle}
+              disabled={loading}
               className="flex w-full items-center justify-center rounded-btn border border-line-strong bg-white py-3 text-sm font-semibold text-ink-800 transition-colors hover:bg-ink-50"
             >
               Google로 시작하기
             </button>
           </div>
 
+          <HCaptcha onTokenChange={setCaptchaToken} className="mt-4" />
+
           <div className="my-6 flex items-center gap-3" aria-hidden>
             <div className="h-px flex-1 bg-line" />
-            <span className="text-caption font-medium text-ink-400">또는</span>
+            <span className="text-caption font-medium text-ink-400">이메일로 계속</span>
             <div className="h-px flex-1 bg-line" />
           </div>
 
