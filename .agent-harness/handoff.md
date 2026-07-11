@@ -10843,7 +10843,7 @@ Status: **Human 결정 필요 - stop condition met; no code, commit, or push.**
 ## 2026-07-11 BOHUMFIT-204 - F-02 OAuth 우선 가입 + hCaptcha + IP 레이트리밋
 
 Owner flow: Human -> Codex Windows | Current owner: Human(환경변수·Supabase OAuth CAPTCHA 정책 확인)
-Commit: see final BOHUMFIT-204 commit in `git log --oneline -1`
+Commit: `0c28d3a` (`feat(BOHUMFIT-204): F-02 완화 — OAuth 우선 가입 + hCaptcha 위젯 + 레이트리밋`)
 
 ### Changed
 - `src/pages/Login.tsx`, `Signup.tsx`: 카카오·Google OAuth를 주 경로로 배치하고 이메일 경로를 보조로 유지. 카카오 OAuth는 이메일 입력·필수 검사와 분리. `VITE_HCAPTCHA_SITEKEY`가 있을 때만 이메일 Supabase 로그인·가입에 `captchaToken`을 전달.
