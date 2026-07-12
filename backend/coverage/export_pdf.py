@@ -120,6 +120,7 @@ def _cover_html(analysis: dict, generated_date: str) -> str:
     if not isinstance(cover, dict):
         cover = {}
     customer_name = _mask_name(cover.get("customer_name"))
+    logo_fallback = cover.get("ga_name") or cover.get("planner_name") or ""
     fields = [
         ("고객명", customer_name),
         ("보험나이", cover.get("insurance_age")),
@@ -144,7 +145,7 @@ def _cover_html(analysis: dict, generated_date: str) -> str:
     <h1>보장분석 리포트</h1>
   </div>
   <div class="cover-grid">
-    <div class="ga-logo-slot">GA LOGO</div>
+    <div class="ga-logo-slot">{_esc(logo_fallback)}</div>
     <div class="cover-fields">{rows}</div>
   </div>
   <p class="cover-note">고객 설명용 요약 리포트 · 실제 보장 및 지급 여부는 보험사 약관과 증권을 따릅니다.</p>

@@ -109,7 +109,7 @@ def _sheet_cover(ws, analysis: dict) -> None:
         ("소속(GA)", cover.get("ga_name")),
         ("설계사명", cover.get("planner_name")),
         ("작성일자", cover.get("written_date")),
-        ("GA 로고", "슬롯 준비"),
+        ("소속 표시", cover.get("ga_name") or cover.get("planner_name")),
     ]
     r = 3
     for label, value in rows:

@@ -1,7 +1,38 @@
-## 2026-07-12 BOHUMFIT-210 - 전수 감사 리포트 + hCaptcha fail-open/lint 안전수정
+## 2026-07-12 BOHUMFIT-211 - 집계 패리티 보증 + GA/로고 placeholder 정리
 
 Owner flow: Human -> Codex Windows | Current owner: Human
 Commit: pending at handoff write time; final hash in Codex response.
+
+### Changed
+- `src/lib/coverageAfterDisplayCache.ts` 신규: `CoverageRemodel.tsx`의 프런트 `[후]` 산출 경로를 순수 display cache 모듈로 분리하고, 백엔드 `coverage.compare.build_after_analysis`가 계산 권위임을 주석으로 명시했다.
+- `src/pages/CoverageRemodel.tsx`: UI는 분리된 display cache 함수를 호출하도록 정리했다. 계산 규칙 자체는 변경하지 않았다.
+- `backend/tests/fixtures/coverage_after_parity_211.json`, `backend/tests/test_coverage_parity_211.py`, `src/lib/coverageAfterDisplayCache.test.ts`: 동일 합성 입력에 대해 백엔드 결과를 정규화해 Vitest에 전달하고 프런트 결과와 `toEqual` 비교하는 패리티 테스트를 추가했다. 케이스에는 해지 계약, 신규 제안, 합산 담보, 대표값(max) 담보, 신규 미매핑 담보가 포함된다.
+- `backend/coverage/export_pdf.py`, `backend/coverage/export_excel.py`: 고객 산출물에 `GA LOGO`, `GA 로고`, `슬롯 준비` placeholder가 노출되지 않도록 소속(GA)명 또는 설계사명 fallback으로 정리했다.
+- `.agent-harness/verify.md`, `CLAUDE.md`: backend pytest 기준선을 `593 passed, 8 skipped`로 갱신했다.
+- `.agent-harness/tasks/BOHUMFIT-211-coverage-parity-ga-placeholder.md`, `locks.md`.
+
+### Verified
+- `npx tsc -p tsconfig.app.json --noEmit` — passed.
+- `npx tsc -p tsconfig.node.json --noEmit` — passed.
+- `npm run lint` — passed.
+- `npm test` — `7` files, `25 passed`.
+- `npm run build` — passed, 기존 Vite 500kB chunk warning만 발생.
+- `cd backend && python -m pytest tests/test_coverage_parity_211.py -vv` — `1 passed`.
+- `cd backend && python -m pytest tests/test_coverage_report_191.py -vv` — `3 passed`.
+- `cd backend && python -m pytest -q` — `593 passed, 8 skipped`.
+
+### Guardrails
+- `backend/pipeline/`, DB/auth, profile schema 무접촉.
+- coverage 계산 규칙 파일(`backend/coverage/compare.py`, `aggregator.py`, parser/service/registry)은 무변경. 변경은 display cache 분리, 패리티 테스트, export 표시 정리에 한정했다.
+- PII·실 PDF·키·시크릿 미저장·미스테이지.
+
+### Notes
+- 이번 push에는 이미 로컬에 있던 BOHUMFIT-210 커밋(`7d3cc21`)도 함께 origin/main으로 올라간다.
+
+## 2026-07-12 BOHUMFIT-210 - 전수 감사 리포트 + hCaptcha fail-open/lint 안전수정
+
+Owner flow: Human -> Codex Windows | Current owner: Human
+Commit: `7d3cc21 chore(BOHUMFIT-210): 전수 감사 리포트 + hCaptcha fail-open·lint·건강 안전수정` (pushed together with BOHUMFIT-211).
 
 ### Changed
 - `.agent-harness/audit/BOHUMFIT-210-full-audit-report.md` 신규: PASS 1~4 findings, severity, Human 태스크 분리, 취지 정합 평가.

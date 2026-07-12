@@ -1,0 +1,314 @@
+{
+  "analysis": {
+    "before": {
+      "customer": {
+        "name": "테스트고객",
+        "age": 42,
+        "sex": "남"
+      },
+      "premium": {
+        "monthly_total": 170000,
+        "paid_total": 20400000,
+        "currency": "KRW"
+      },
+      "companies": [
+        {
+          "idx": 1,
+          "insurer": "가나생명",
+          "product": "기존 사망보장",
+          "contract_date": "2020-01-01",
+          "pay_cycle": "월납",
+          "pay_years": 10,
+          "pay_months": 120,
+          "maturity": "90세",
+          "monthly_premium": 100000,
+          "paid_total": 12000000,
+          "remark": null
+        },
+        {
+          "idx": 2,
+          "insurer": "다라손보",
+          "product": "해지 후보",
+          "contract_date": "2021-01-01",
+          "pay_cycle": "월납",
+          "pay_years": 10,
+          "pay_months": 120,
+          "maturity": "90세",
+          "monthly_premium": 50000,
+          "paid_total": 6000000,
+          "remark": null
+        },
+        {
+          "idx": 3,
+          "insurer": "마바손보",
+          "product": "운전자 기존",
+          "contract_date": "2022-01-01",
+          "pay_cycle": "월납",
+          "pay_years": 10,
+          "pay_months": 120,
+          "maturity": "90세",
+          "monthly_premium": 20000,
+          "paid_total": 2400000,
+          "remark": null
+        }
+      ],
+      "contract_list": [
+        {
+          "idx": 1,
+          "insurer": "가나생명",
+          "product": "기존 사망보장",
+          "contract_date": "2020-01-01",
+          "pay_cycle": "월납",
+          "pay_years": 10,
+          "pay_months": 120,
+          "maturity": "90세",
+          "monthly_premium": 100000,
+          "paid_total": 12000000,
+          "remark": null
+        },
+        {
+          "idx": 2,
+          "insurer": "다라손보",
+          "product": "해지 후보",
+          "contract_date": "2021-01-01",
+          "pay_cycle": "월납",
+          "pay_years": 10,
+          "pay_months": 120,
+          "maturity": "90세",
+          "monthly_premium": 50000,
+          "paid_total": 6000000,
+          "remark": null
+        },
+        {
+          "idx": 3,
+          "insurer": "마바손보",
+          "product": "운전자 기존",
+          "contract_date": "2022-01-01",
+          "pay_cycle": "월납",
+          "pay_years": 10,
+          "pay_months": 120,
+          "maturity": "90세",
+          "monthly_premium": 20000,
+          "paid_total": 2400000,
+          "remark": null
+        }
+      ],
+      "coverages": [
+        {
+          "kb_name": "일반사망",
+          "kb_group": "사망",
+          "group12": "사망",
+          "agg": "sum",
+          "summary": 150000000,
+          "by_company": {
+            "1": 100000000,
+            "2": 50000000,
+            "3": null
+          },
+          "enrolled": true
+        },
+        {
+          "kb_name": "암진단",
+          "kb_group": "암",
+          "group12": "암",
+          "agg": "sum",
+          "summary": null,
+          "by_company": {
+            "1": null,
+            "2": null,
+            "3": null
+          },
+          "enrolled": false
+        },
+        {
+          "kb_name": "수술비",
+          "kb_group": "수술",
+          "group12": "수술",
+          "agg": "sum",
+          "summary": 10000000,
+          "by_company": {
+            "1": 10000000,
+            "2": null,
+            "3": null
+          },
+          "enrolled": true
+        },
+        {
+          "kb_name": "자동차사고부상",
+          "kb_group": "운전자",
+          "group12": "운전자",
+          "agg": "max",
+          "summary": 300000,
+          "by_company": {
+            "1": 100000,
+            "2": 300000,
+            "3": 150000
+          },
+          "enrolled": true
+        }
+      ]
+    },
+    "final": {
+      "premium": {
+        "monthly_total": 170000,
+        "paid_total": 20400000,
+        "currency": "KRW"
+      },
+      "coverages": [
+        {
+          "group12": "사망",
+          "kb_name": "일반사망",
+          "agg": "sum",
+          "value": 150000000,
+          "recommended": 200000000,
+          "gap": -50000000,
+          "status": "부족"
+        },
+        {
+          "group12": "암",
+          "kb_name": "암진단",
+          "agg": "sum",
+          "value": null,
+          "recommended": 50000000,
+          "gap": -50000000,
+          "status": "미가입"
+        },
+        {
+          "group12": "수술",
+          "kb_name": "수술비",
+          "agg": "sum",
+          "value": 10000000,
+          "recommended": 20000000,
+          "gap": -10000000,
+          "status": "부족"
+        },
+        {
+          "group12": "운전자",
+          "kb_name": "자동차사고부상",
+          "agg": "max",
+          "value": 300000,
+          "recommended": 200000,
+          "gap": 100000,
+          "status": "충분"
+        }
+      ],
+      "rollup_by_group12": []
+    },
+    "warnings": []
+  },
+  "decisions": {
+    "2": {
+      "disposition": "cancel"
+    }
+  },
+  "proposals": [
+    {
+      "id": "manual-1",
+      "insurer": "나눔손보",
+      "product": "합성 보완 제안",
+      "monthlyPremium": "30000",
+      "payMonths": "120",
+      "maturity": "100세",
+      "coverages": [
+        {
+          "id": "manual-1-C1",
+          "kbName": "일반사망",
+          "amount": "80000000",
+          "kbGroup": "사망",
+          "group12": "사망",
+          "agg": "sum"
+        },
+        {
+          "id": "manual-1-C2",
+          "kbName": "암진단",
+          "amount": "50000000",
+          "kbGroup": "암",
+          "group12": "암",
+          "agg": "sum"
+        },
+        {
+          "id": "manual-1-C3",
+          "kbName": "수술비",
+          "amount": "10000000",
+          "kbGroup": "수술",
+          "group12": "수술",
+          "agg": "sum"
+        },
+        {
+          "id": "manual-1-C4",
+          "kbName": "자동차사고부상",
+          "amount": "200000",
+          "kbGroup": "운전자",
+          "group12": "운전자",
+          "agg": "max"
+        },
+        {
+          "id": "manual-1-C5",
+          "kbName": "표적항암치료비",
+          "amount": "80000000",
+          "kbGroup": "암",
+          "group12": "암",
+          "agg": "max"
+        }
+      ]
+    }
+  ],
+  "plan": {
+    "version": 1,
+    "source": "coverage-remodel",
+    "existing": [
+      {
+        "contract_idx": 2,
+        "disposition": "cancel"
+      }
+    ],
+    "proposals": [
+      {
+        "proposal_id": "P1",
+        "insurer": "나눔손보",
+        "product": "합성 보완 제안",
+        "monthly_premium": 30000,
+        "pay_cycle": "월납",
+        "pay_months": 120,
+        "maturity": "100세",
+        "coverages": [
+          {
+            "kb_name": "일반사망",
+            "amount": 80000000,
+            "kb_group": "사망",
+            "group12": "사망",
+            "agg": "sum"
+          },
+          {
+            "kb_name": "암진단",
+            "amount": 50000000,
+            "kb_group": "암",
+            "group12": "암",
+            "agg": "sum"
+          },
+          {
+            "kb_name": "수술비",
+            "amount": 10000000,
+            "kb_group": "수술",
+            "group12": "수술",
+            "agg": "sum"
+          },
+          {
+            "kb_name": "자동차사고부상",
+            "amount": 200000,
+            "kb_group": "운전자",
+            "group12": "운전자",
+            "agg": "max"
+          },
+          {
+            "kb_name": "표적항암치료비",
+            "amount": 80000000,
+            "kb_group": "암",
+            "group12": "암",
+            "agg": "max"
+          }
+        ]
+      }
+    ]
+  }
+}

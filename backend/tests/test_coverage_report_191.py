@@ -33,7 +33,8 @@ def test_pdf_cover_renders_fit_original_cover_fields_and_masks_customer() -> Non
 
     assert "보장분석 리포트" in html
     assert "FIT 보장분석" in html
-    assert "GA LOGO" in html
+    assert "GA LOGO" not in html
+    assert '<div class="ga-logo-slot">리뷰온에셋</div>' in html
     assert "홍*동" in html
     assert "홍길동" not in html
     for value in ("45세", "2026-08-01", "리뷰온에셋", "김설계", "2026-07-08"):
@@ -57,6 +58,12 @@ def test_pdf_comparison_has_three_axes_and_group_expansion() -> None:
 
 def test_excel_compare_sheet_includes_before_after_premium_and_group_summary() -> None:
     workbook = load_workbook(io.BytesIO(build_workbook_bytes(_report())))
+    cover_values = [cell.value for row in workbook["① 표지"].iter_rows() for cell in row if cell.value is not None]
+    assert "GA 로고" not in cover_values
+    assert "슬롯 준비" not in cover_values
+    assert "소속 표시" in cover_values
+    assert "리뷰온에셋" in cover_values
+
     compare = workbook["④ 전후 특약별"]
     values = [cell.value for row in compare.iter_rows() for cell in row if cell.value is not None]
 
