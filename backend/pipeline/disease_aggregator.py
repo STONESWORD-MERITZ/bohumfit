@@ -28,6 +28,7 @@ from .helpers import (
     get_val,
     nhis_surg_keywords,
     normalize_code,
+    normalize_ingredient,
     parse_date,
     row_is_junk,
     test_keywords,
@@ -58,7 +59,34 @@ def new_disease():
         "first_date": "2099-12-31", "latest_date": "2000-01-01",
         "diag_code": "", "name": "", "has_pharma": False,
         "_pharma_seen": set(),
+        # BOHUMFIT-205: 약품명 → 성분명(처방조제 '성분명' 컬럼) 원문 매핑.
+        #   detect_drug_changes 가 동일 성분 브랜드 전환(제네릭 교체)을 '새 약'으로 오탐하지 않게 한다.
+        "drug_ingredient_map": {},
+        # BOHUMFIT-205: 약품별 마지막 확인 처방일. 3개월 구간의 일시 기록과 현재 확인 약을 재대조한다.
+        "drug_last_seen_dates": {},
     }
+
+
+def _record_drug_exposure(
+    disease: dict,
+    drug: str,
+    clean_date: str,
+    days_ago: int,
+    ingredient: str,
+) -> None:
+    """Keep the narrow drug-change inputs needed for the 90-day confirmation."""
+    if not drug:
+        return
+    if days_ago <= 90:
+        disease["drug_names_in_90"].add(drug)
+    else:
+        disease["drug_names_before_90"].add(drug)
+    if ingredient:
+        disease.setdefault("drug_ingredient_map", {})[drug] = ingredient
+    if clean_date:
+        seen_dates = disease.setdefault("drug_last_seen_dates", {})
+        if clean_date >= seen_dates.get(drug, ""):
+            seen_dates[drug] = clean_date
 
 
 def _norm_provider_name(value: str | None) -> str:
@@ -470,6 +498,9 @@ def build_disease_stats(
                     continue
                 s["_pharma_seen"].add(_seen_key)
 
+                # BOHUMFIT-205: 처방조제 '성분명' 확보 — 동일 성분 브랜드 전환 오탐 방지용.
+                _ingredient_str = (get_val(row, ["성분명", "성분"]) or "").strip()
+
                 _target_groups = []
                 for _ck, _cs in disease_stats.items():
                     if not _cs.get("diag_code") or _ck.startswith("PHARMA|"):
@@ -491,10 +522,9 @@ def build_disease_stats(
                             _episode_map[_episode_key] = max(_episode_map.get(_episode_key, 0), m_days)
                         _drug = name_str.strip()
                         if _drug:
-                            if days_ago <= 90:
-                                _ts["drug_names_in_90"].add(_drug)
-                            else:
-                                _ts["drug_names_before_90"].add(_drug)
+                            _record_drug_exposure(
+                                _ts, _drug, clean_date, days_ago, _ingredient_str,
+                            )
                     continue
 
                 s["has_pharma"] = True
@@ -507,8 +537,9 @@ def build_disease_stats(
                     _episode_map[_episode_key] = max(_episode_map.get(_episode_key, 0), m_days)
                 drug = name_str.strip()
                 if drug:
-                    if days_ago <= 90: s["drug_names_in_90"].add(drug)
-                    else: s["drug_names_before_90"].add(drug)
+                    _record_drug_exposure(
+                        s, drug, clean_date, days_ago, _ingredient_str,
+                    )
             elif ftype == "nhis":
                 # BOHUMFIT-033: 공단 요양급여내역 = 5~10년 입원·수술'의심' 전용.
                 #  - 5년 이내(심평원 담당)는 반영하지 않는다(경계: clean_date >= 5년 → 스킵).
@@ -748,6 +779,44 @@ def build_disease_stats(
     return disease_stats, cross_surgery_hints, date_warnings, raw_entries, dict(lines_by_file)  # BOHUMFIT-043
 
 
+def _medication_token(drug: str, ingredient_map: dict) -> tuple[str, float]:
+    """Return a conservative medication identity for the current-confirmation check."""
+    base, dose = extract_drug_info(drug)
+    ingredient = normalize_ingredient(ingredient_map.get(drug, ""))
+    identity = f"ingredient:{ingredient}" if ingredient else f"name:{base}"
+    return identity, dose
+
+
+def _current_confirmation_matches_before(disease: dict, drugs_before_90: set) -> bool:
+    """True only when the latest confirmed prescription set exactly matches pre-90-day drugs.
+
+    A temporary record inside the 90-day window must not make an unchanged current regimen
+    a disclosure candidate. Missing or ambiguous latest data stays reportable by design.
+    """
+    seen_dates = disease.get("drug_last_seen_dates", {}) or {}
+    valid_dates = [
+        seen_date
+        for seen_date in seen_dates.values()
+        if isinstance(seen_date, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", seen_date)
+    ]
+    if not valid_dates:
+        return False
+
+    latest_date = max(valid_dates)
+    current_drugs = {
+        drug
+        for drug, seen_date in seen_dates.items()
+        if seen_date == latest_date and drug
+    }
+    if not current_drugs:
+        return False
+
+    ingredient_map = disease.get("drug_ingredient_map", {}) or {}
+    current_tokens = {_medication_token(drug, ingredient_map) for drug in current_drugs}
+    before_tokens = {_medication_token(drug, ingredient_map) for drug in drugs_before_90}
+    return current_tokens == before_tokens
+
+
 def detect_drug_changes(disease_stats: dict, today: datetime) -> list[dict]:
     """3개월 이내 처방약 변경 감지."""
     drug_change_summary: list[dict] = []
@@ -766,9 +835,59 @@ def detect_drug_changes(disease_stats: dict, today: datetime) -> list[dict]:
         stopped_drugs   = norm_before_90 - norm_in_90
         new_drugs       = norm_in_90 - norm_before_90
         continued_drugs = norm_in_90 & norm_before_90
-
         dose_increased = []
         dose_decreased = []
+
+        # BOHUMFIT-205: 동일 성분(성분명 기준) 브랜드 전환은 약 변경이 아니다.
+        #   심평원 처방조제의 '성분명'으로 브랜드 키를 성분 키에 매핑해,
+        #   3개월 이내 '새 약'이 실은 이전 복용약과 같은 성분(제네릭·상품명 교체)이면
+        #   new/stopped 에서 제외하고 계속 복용으로 본다.
+        #   (예: 디스펩틴정→모사프리엠정 = 모사프리드시트르산염수화물 동일 → 변경 아님)
+        #   성분명이 없는 데이터(기본진료 유래 등)는 기존 브랜드 키 판정 그대로 둔다.
+        _ing_map = s.get("drug_ingredient_map", {}) or {}
+        if _ing_map and (new_drugs or stopped_drugs):
+            def _ings_by_base(drugs: set) -> dict[str, set]:
+                out: dict[str, set] = {}
+                for _d in drugs:
+                    _ing = normalize_ingredient(_ing_map.get(_d, ""))
+                    if _ing:
+                        out.setdefault(extract_drug_info(_d)[0], set()).add(_ing)
+                return out
+            _ings_in     = _ings_by_base(drugs_in_90)
+            _ings_before = _ings_by_base(drugs_before_90)
+            _ings_in_all     = {i for v in _ings_in.values() for i in v}
+            _ings_before_all = {i for v in _ings_before.values() for i in v}
+
+            _same_ingredient_new = set()
+            for nd in new_drugs:
+                if not (_ings_in.get(nd) and _ings_in[nd] <= _ings_before_all):
+                    continue
+                _same_ingredient_new.add(nd)
+                _matched_before_bases = [
+                    bd for bd, bd_ingredients in _ings_before.items()
+                    if _ings_in[nd] & bd_ingredients
+                ]
+                _before_doses = [info_before_90.get(bd, 0) for bd in _matched_before_bases]
+                _before_dose = max(_before_doses, default=0)
+                _after_dose = info_in_90.get(nd, 0)
+                # Same ingredient does not mean same regimen: retain a brand change that
+                # also increases the confirmed dose as an escalation disclosure candidate.
+                # Salt/hydrate notation can express the same active dose as e.g. 5mg vs
+                # 5.29mg. Treat sub-10% variance as the same regimen; material increases
+                # remain disclosure candidates.
+                if _before_dose > 0 and _after_dose > _before_dose * 1.1:
+                    dose_increased.append(f"{nd} ({_before_dose}→{_after_dose})")
+                elif _before_dose > 0 and _after_dose < _before_dose / 1.1:
+                    dose_decreased.append(f"{nd} ({_before_dose}→{_after_dose})")
+            if _same_ingredient_new:
+                new_drugs = new_drugs - _same_ingredient_new
+                continued_drugs = continued_drugs | _same_ingredient_new
+            # 반대 방향: 이전 브랜드가 사라졌어도 같은 성분을 계속 복용 중이면 '중단' 아님.
+            stopped_drugs = {
+                sd for sd in stopped_drugs
+                if not (_ings_before.get(sd) and _ings_before[sd] <= _ings_in_all)
+            }
+
         for drug_name in continued_drugs:
             dose_before = info_before_90.get(drug_name, 0)
             dose_after  = info_in_90.get(drug_name, 0)
@@ -779,6 +898,11 @@ def detect_drug_changes(disease_stats: dict, today: datetime) -> list[dict]:
                     dose_decreased.append(f"{drug_name} ({dose_before}→{dose_after})")
 
         has_change = bool(new_drugs or dose_increased)
+        # BOHUMFIT-205: 90일 안의 일시 처방으로 후보가 생겼어도, 가장 최근 확인 처방이
+        # 90일 이전 복용약과 성분/용량까지 같으면 실제 약변경이 아니므로 고지 대상에서 제외한다.
+        # 최신 확인 정보가 없거나 새 성분·증량이면 False가 되어 기존 민감도를 유지한다.
+        if has_change and _current_confirmation_matches_before(s, drugs_before_90):
+            continue
         if has_change or stopped_drugs:
             if new_drugs and stopped_drugs:
                 change_type = "약 종류 변경"

@@ -317,7 +317,6 @@ _DRUG_SUFFIX_RE = re.compile(
     r'|구강붕해정|설하정|츄어블정|패치|주사|크림|겔|연고|점안액|점비액)\s*$',
     flags=re.IGNORECASE
 )
-_DRUG_PAREN_RE = re.compile(r'\([^)]*\)')
 _DRUG_MAKER_RE = re.compile(
     r'(한미|대웅|유한|종근당|동아|일동|보령|녹십자|삼성|JW|CJ|GSK|화이자|노바티스'
     r'|아스트라제네카|사노피|MSD|릴리|바이엘|로슈|한국|제일|경동|환인|명인|광동'
@@ -325,23 +324,63 @@ _DRUG_MAKER_RE = re.compile(
     flags=re.IGNORECASE
 )
 _DOSE_UNIT_TO_MG = {"mg": 1.0, "g": 1000.0, "mcg": 0.001, "ug": 0.001, "iu": 0.001, "ml": 1.0}
+# BOHUMFIT-205: 한글 용량 단위 표기(예: '가나칸정50밀리그램')도 영문 단위와 동일하게 키에서 제거해
+#   같은 약이 표기 방식(50mg vs 50밀리그램)에 따라 다른 키로 갈라지는 것을 막는다.
+#   '10/10밀리그램' 같은 복합 용량 표기도 통째로 제거한다.
+_DRUG_DOSE_TOKEN_RE = re.compile(
+    r'\d+(?:\.\d+)?(?:/\d+(?:\.\d+)?)?\s*'
+    r'(mg|mcg|ml|g|ug|IU|밀리그램|밀리그람|미리그램|미리그람|밀리리터|그램|그람)',
+    flags=re.IGNORECASE,
+)
+
+
+def _strip_parens_balanced(text: str) -> str:
+    """BOHUMFIT-205: 중첩·불균형 괄호 제거.
+
+    심평원 PDF 약품명은 셀 줄바꿈으로 괄호가 중첩되거나 조각날 수 있다
+    (예: '가스티렌정(애엽95%에탄올연조엑스(20→1))', '모티리톤정_(현호색·견우자(5:1)…').
+    기존 단일 패스 `\\([^)]*\\)` 는 중첩 괄호에서 잔재(')', '50%에탄올…')를 남겨
+    같은 약이 서로 다른 정규화 키가 되고, 3개월 약 변경 감지가 '새 약 추가'로 오탐했다.
+    안쪽 괄호부터 반복 제거한 뒤, 짝이 안 맞는 여는 괄호 이후 꼬리와 잔여 닫는 괄호를 정리한다.
+    """
+    prev = None
+    while prev != text:
+        prev = text
+        text = re.sub(r'\([^()]*\)', '', text)
+    text = re.sub(r'\(.*$', '', text)   # 짝 잃은 여는 괄호 이후 꼬리 절단
+    return text.replace(')', '')        # 잔여 닫는 괄호 제거
 
 
 @functools.lru_cache(maxsize=1024)
 def extract_drug_info(name: str):
-    dose_match = re.search(r'(\d+(?:\.\d+)?)\s*(mg|mcg|ml|g|ug|IU)', name, flags=re.IGNORECASE)
+    # BOHUMFIT-205: PDF 셀 줄바꿈이 이름 중간에 임의 공백을 삽입한다('휴록스정(록소프로펜 나트륨…').
+    #   공백 위치가 페이지마다 달라 같은 약이 다른 키·다른 용량으로 갈라지므로 먼저 공백을 접는다.
+    compact = re.sub(r'\s+', '', str(name or ''))
+    dose_match = re.search(r'(\d+(?:\.\d+)?)\s*(mg|mcg|ml|g|ug|IU)', compact, flags=re.IGNORECASE)
     if dose_match:
         raw_dose = float(dose_match.group(1))
         unit = dose_match.group(2).lower()
         dose = raw_dose * _DOSE_UNIT_TO_MG.get(unit, 1.0)
     else:
         dose = 0.0
-    base = re.sub(r'\d+(\.\d+)?\s*(mg|mcg|ml|g|ug|IU)', '', name, flags=re.IGNORECASE)
-    base = _DRUG_PAREN_RE.sub('', base)
+    base = _DRUG_DOSE_TOKEN_RE.sub('', compact)
+    base = _strip_parens_balanced(base)   # BOHUMFIT-205: 중첩 괄호 잔재 방지(기존 _DRUG_PAREN_RE 단일 패스 대체)
     base = _DRUG_SUFFIX_RE.sub('', base)
     base = _DRUG_MAKER_RE.sub('', base)
     base = re.sub(r'[\s\-_/·]+', '', base).lower().strip()
     return base, dose
+
+
+def normalize_ingredient(text: str) -> str:
+    """BOHUMFIT-205: 처방조제 '성분명' 정규화 — 동일 성분 판별 키.
+
+    줄바꿈 공백·괄호 별칭('(as loxoprofen sodium)')·구두점을 제거하고 소문자로 접는다.
+    성분명이 같으면 브랜드(상품명)가 달라도 같은 약으로 본다(제네릭 전환은 약 변경 아님).
+    """
+    t = re.sub(r'\s+', '', str(text or '')).lower()
+    t = _strip_parens_balanced(t)
+    t = re.sub(r'[\s\-_/·,.;:%()\[\]]+', '', t)
+    return t
 
 
 @functools.lru_cache(maxsize=256)

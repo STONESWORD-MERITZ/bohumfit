@@ -363,12 +363,33 @@ def _kakao_item(item: dict) -> str:
     kind = "(한방)" if any(k in hosp_str for k in ["한의원", "한방", "한의"]) else "(양방)"
 
     inpatient = item.get("inpatient") or 0
-    if inpatient > 0:
-        visit_str = f"입원{inpatient}일"
+    # BOHUMFIT-205: 입원은 회차별(입원 개시일 ~ 종료일 / 일수)로 각각 표기한다.
+    #   기존 한 줄(최초 진료일 ~ 최종 진료일 / 입원N일)은 여러 회 입원이 하나의 장기 입원처럼
+    #   읽혀 입원 일수·기간 혼동을 유발했다(사용자 건의). periods 없으면 기존 형식 폴백.
+    _periods = [
+        p for p in (item.get("inpatient_periods") or [])
+        if isinstance(p, dict) and _s(p.get("start"))
+    ]
+    if inpatient > 0 and _periods:
+        _lines = []
+        for p in sorted(_periods, key=lambda x: _s(x.get("start"))):
+            st, en = _s(p.get("start")), _s(p.get("end"))
+            try:
+                dd = int(p.get("days") or 0)
+            except (TypeError, ValueError):
+                dd = 0
+            p_date = f"{st} ~ {en}" if en and en != st else st
+            p_days = f"입원{dd}일" if dd > 0 else "입원"
+            _lines.append(f"{p_date} / {p_days} / {code_clean} / {kind}{_s(item.get('name'))}\n")
+        line1 = "".join(_lines)
+        if len(_periods) >= 2:
+            line1 += f"→ 입원 총 {len(_periods)}회 · 합산 {inpatient}일\n"
     else:
-        visit_str = f"통원{item.get('visit') or 1}회"
-
-    line1 = f"{date_str} / {visit_str} / {code_clean} / {kind}{_s(item.get('name'))}\n"
+        if inpatient > 0:
+            visit_str = f"입원{inpatient}일"
+        else:
+            visit_str = f"통원{item.get('visit') or 1}회"
+        line1 = f"{date_str} / {visit_str} / {code_clean} / {kind}{_s(item.get('name'))}\n"
 
     surgeries = item.get("surgeries") or []
     suspected_names = _kakao_values(item.get("surgery_suspected"))

@@ -60,8 +60,11 @@ type SummaryItem = {
   inpatient_periods?: { start: string; end: string; days: number }[];
   surgery_count?: number;
   surgeries: string[];
+  surgery_dates?: string[];
   procedures?: string[];
+  procedure_dates?: string[];
   surgery_suspected?: string[];
+  surgery_suspected_dates?: string[];
   surgery_suspected_grade?: string;  // BOHUMFIT-033: 공단 수술의심 등급(강/약/"")
   insurance_only?: boolean;          // BOHUMFIT-039: 직장·항문(Q5만)→실손 가입 시에만 고지
   treatment_ongoing?: boolean | null;
@@ -215,6 +218,40 @@ function extractQNumber(qTitle: string): string {
 function cleanQTitle(qTitle: string): string {
   return qTitle.replace(/^\[.*?\]\s*/, "");
 }
+
+// BOHUMFIT-205: 기준일(ISO)에서 N 달력연도 전 날짜 — backend _subtract_years 와 동일하게
+//   2/29 → 비윤년이면 2/28 로 보정한다. 창 경계는 백엔드 관례와 같이 포함(>=).
+function subYearsIso(iso: string, years: number): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || "");
+  if (!m) return "";
+  const y = Number(m[1]) - years;
+  const mo = Number(m[2]);
+  const lastDay = new Date(y, mo, 0).getDate();
+  const d = Math.min(Number(m[3]), lastDay);
+  return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+// BOHUMFIT-205: 결과 조회용 기간 필터다. 실제 고지문항별 기간과 서버 판정은 바꾸지 않는다.
+// 날짜가 전혀 없으면 누락 표시를 피하기 위해 유지하고, 하나라도 창 안이면 표시한다.
+export function resultItemInWindow(item: SummaryItem, cutoffIso: string): boolean {
+  const starts = (item.inpatient_periods ?? []).map((p) => p.start).filter(Boolean);
+  const surgD = item.surgery_dates ?? [];
+  const suspD = item.surgery_suspected_dates ?? [];
+  const procD = item.procedure_dates ?? [];
+  const all = [
+    item.first_date,
+    item.latest_date,
+    item.first_diagnosis_date,
+    ...starts,
+    ...surgD,
+    ...procD,
+    ...suspD,
+  ].filter(Boolean);
+  if (all.length === 0) return true;
+  return all.some((d) => d >= cutoffIso);
+}
+
+const RESULT_WINDOW_YEAR_OPTIONS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0] as const;
 
 function getMetricVisibility(item: SummaryItem, qNum: string, isEasy: boolean) {
   const detail = item.detail || "";
@@ -410,6 +447,24 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
             {item.last_hospital && <span className="truncate text-ink-soft">{item.last_hospital}</span>}
           </div>
         )}
+        {/* BOHUMFIT-205: 입원 회차별(개시일~종료일/일수) 개별 표시 — 진료기간(최초~최종)과의 혼동 방지.
+            진료기간은 통원 포함 전체 범위, 입원기간은 실제 입원 회차. */}
+        {(item.inpatient_periods?.length ?? 0) > 0 && (
+          <div className="flex items-start gap-2">
+            <span className="shrink-0 text-ink-soft">입원기간</span>
+            <span className="flex min-w-0 flex-col gap-0.5">
+              {[...(item.inpatient_periods ?? [])]
+                .sort((a, b) => (a.start || "").localeCompare(b.start || ""))
+                .map((p, i) => (
+                  <span key={`${p.start}-${i}`} className="font-medium text-ink">
+                    {p.start}
+                    {p.end && p.end !== p.start ? ` ~ ${p.end}` : ""}
+                    {p.days > 0 ? ` (${p.days}일)` : ""}
+                  </span>
+                ))}
+            </span>
+          </div>
+        )}
         {item.first_diagnosis_date && (
           <div className="flex items-center gap-2">
             <span className="shrink-0 text-ink-soft">최초진단</span>
@@ -496,18 +551,25 @@ function DisclosureSection({
   label,
   mode,
   isEasy = false,
+  referenceDate = "",
 }: {
   reports: Record<string, SummaryItem[]>;
   memo: string;
   label: string;
   mode: AudienceMode;
   isEasy?: boolean;
+  referenceDate?: string;
 }) {
   const [memoOpen, setMemoOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  // BOHUMFIT-205: 10~0년은 결과를 확인하는 클라이언트 필터다.
+  // 상품별 실제 고지문항의 법적 기간과 서버 판정, 복사문, PDF는 바꾸지 않는다.
+  const [resultWindowYears, setResultWindowYears] = useState<number>(10);
   const { showToast } = useToast(); // BOHUMFIT-131
   const copy = modeCopy[mode];
   const hasItems = Object.keys(reports).length > 0;
+  const resultWindowCutoffIso = referenceDate ? subYearsIso(referenceDate, resultWindowYears) : "";
+  const resultWindowActive = resultWindowYears < 10 && !!resultWindowCutoffIso;
 
   const handleCopy = () => {
     void navigator.clipboard.writeText(memo);
@@ -542,6 +604,33 @@ function DisclosureSection({
 
       {hasItems ? (
         <div data-tour="cards" className="space-y-4">
+          <section className="rounded-[8px] border border-line bg-ink-50 px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-ink">결과 조회기간</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-ink-soft">
+                  기준일({referenceDate || "미확인"})부터 선택 기간의 기록만 확인합니다.
+                </p>
+              </div>
+              <label className="flex shrink-0 items-center gap-1.5 text-xs text-ink-soft">
+                <span className="sr-only">결과 조회기간</span>
+                <select
+                  value={resultWindowYears}
+                  onChange={(e) => setResultWindowYears(Number(e.target.value))}
+                  aria-label="결과 조회기간 선택"
+                  disabled={!referenceDate}
+                  className="rounded-[8px] border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {RESULT_WINDOW_YEAR_OPTIONS.map((y) => (
+                    <option key={y} value={y}>{y}년</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <p className="mt-2 text-[11px] leading-relaxed text-amber-700">
+              확인용 조회입니다. 실제 고지 대상은 상품별 청약서 문항 기간과 인수 기준으로 판단하며, 이 선택으로 고지 판정·복사문·PDF 내용은 바뀌지 않습니다.
+            </p>
+          </section>
           {Object.entries(reports).map(([qTitle, items]) => {
             const qNum = extractQNumber(qTitle);
             const sortByDate = (arr: SummaryItem[]) => [...arr].sort((a, b) => {
@@ -551,20 +640,34 @@ function DisclosureSection({
               return (b.first_date || "").localeCompare(a.first_date || "");
             });
             // BOHUMFIT-168: 추가검사·재검사 소견([B]) 분리 제거 — 결과 항목만 그대로 렌더.
-            const normalItems = sortByDate(items);
+            const allItems = sortByDate(items);
+            const normalItems = resultWindowActive
+              ? allItems.filter((it) => resultItemInWindow(it, resultWindowCutoffIso))
+              : allItems;
+            const hiddenCount = allItems.length - normalItems.length;
             return (
               <section key={qTitle} className="overflow-hidden rounded-[8px] bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
-                <div className="flex items-center gap-2.5 border-b border-line px-5 py-3.5">
+                <div className="flex flex-wrap items-center gap-2.5 border-b border-line px-5 py-3.5">
                   <Badge variant={Q_VARIANT[qNum] ?? "default"} className="shrink-0">{qNum}</Badge>
                   <h3 className="text-sm font-bold text-ink">{cleanQTitle(qTitle)}</h3>
                 </div>
-                {normalItems.length > 0 && (
+                {resultWindowActive && (
+                  <div className="border-b border-line bg-amber-50 px-5 py-2 text-[11px] leading-relaxed text-amber-700">
+                    기준일({referenceDate})로부터 {resultWindowYears}년 이내(경계일 포함) 기록만 표시 중
+                    {hiddenCount > 0 ? ` (창 밖 ${hiddenCount}건 숨김)` : ""}입니다.
+                  </div>
+                )}
+                {normalItems.length > 0 ? (
                   <div className="divide-y divide-line">
                     {normalItems.map((item, idx) => (
                       <DiseaseCard key={`${item.code}-${idx}`} item={item} qNum={qNum} isEasy={isEasy} />
                     ))}
                   </div>
-                )}
+                ) : resultWindowActive ? (
+                  <div className="px-5 py-4 text-xs text-ink-soft">
+                    {resultWindowYears}년 이내 기록이 없습니다. (10년 기준 {allItems.length}건은 조회기간을 늘리면 표시됩니다)
+                  </div>
+                ) : null}
               </section>
             );
           })}
@@ -1271,6 +1374,7 @@ export function ResultView({
               label={`${activeLabel} ${copy.emptyTitle}`}
               mode={mode}
               isEasy={productTab === "easy"}
+              referenceDate={referenceDate}
             />
           )}
         </div>

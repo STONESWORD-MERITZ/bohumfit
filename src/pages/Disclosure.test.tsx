@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import Disclosure from "./Disclosure";
+import Disclosure, { resultItemInWindow } from "./Disclosure";
 
 vi.mock("../lib/auth-context", () => ({
   useAuth: () => ({
@@ -136,5 +136,26 @@ describe("Disclosure guided tour", () => {
     await waitFor(() => {
       expect(screen.getByText("전체 병력 요약").closest("button")).toHaveTextContent("펼치기");
     });
+  });
+});
+
+describe("BOHUMFIT-205 result window", () => {
+  it("uses any available result date for the 10-to-0-year confirmation filter", () => {
+    const olderItem = {
+      first_date: "2014-07-10",
+      latest_date: "2014-07-10",
+      first_diagnosis_date: "2014-07-10",
+      inpatient_periods: [],
+      surgery_dates: [],
+      procedure_dates: [],
+      surgery_suspected_dates: [],
+    } as unknown as Parameters<typeof resultItemInWindow>[0];
+    const recentProcedureItem = {
+      ...olderItem,
+      procedure_dates: ["2026-07-10"],
+    } as unknown as Parameters<typeof resultItemInWindow>[0];
+
+    expect(resultItemInWindow(olderItem, "2021-07-10")).toBe(false);
+    expect(resultItemInWindow(recentProcedureItem, "2021-07-10")).toBe(true);
   });
 });
