@@ -1,3 +1,37 @@
+## 2026-07-12 BOHUMFIT-206 - "1인 1계정"(SMS OTP + 번호 유일성) 설계 명세 [조사·설계 전용, 코드 0]
+
+Owner flow: Claude Chat -> Cowork(조사·설계) -> Codex(문서 커밋) | Current owner: Codex
+
+### Changed
+- `.agent-harness/tasks/BOHUMFIT-206-one-account-per-person-spec.md` 신규(유일 산출물). src/·backend/ 무접촉(읽기만).
+- `.agent-harness/handoff.md`, `.agent-harness/locks.md`.
+
+### Verified
+- 문서 태스크 — 빌드·테스트 게이트 불필요(마크다운 정합만). S0 실사는 저장소 읽기 전용으로 수행
+  (Cowork는 마운트 git 금지 — HEAD 대조는 Codex가 커밋 전 확인 권장).
+- S0 핵심 실사: ① 목업 2곳 — `Signup.tsx` L29-37(클라 전용, 서버 미전송)·`/auth/verify-phone`(무검증 마킹,
+  예외 삼킴 silent-success 결함 포함), ② profiles.phone/phone_verified + 088 부분 unique 인덱스 SQL 존재하나
+  097 drop 요청의 실행 여부 불명(DB 확인 쿼리 명세에 포함), ③ SMS/Twilio 연동 코드·env 0건,
+  phone provider·autoconfirm은 대시보드 영역(Human 확인), ④ 서버 API는 verify_jwt만 — phone_verified
+  서버측 강제 부재(JWT만으로 API 직접 호출 가능 = 무한계정 어뷰징 성립 지점), ⑤ 087 CI/PASS 조사 문서와 접합점 연결.
+
+### Notes
+- 설계 요지: S1 OTP는 Supabase Phone(phone_change verifyOtp, autoconfirm OFF) 1안 + 커스텀(국내 SMS) 2안 —
+  최종은 Twilio 한국 발신 비용·규제 견적 후 Human 결정. S2 유일성은 단기 profiles 부분 unique(088 재활성) +
+  장기 verified_phones(method/ci_hash 확장) 제안, ★공유 Supabase(FitHere) 경계 확인 필수. S3 경로별 강제는
+  게이트 일원화(가입 화면 목업 제거) + 신규 `require_verified_phone` 서버 의존성. S4 PASS 접합점 고정.
+  S5 분할 207(OTP)→208(유니크)→209(서버 강제) 순서 고정(역순 시 번호 선점 어뷰징·기존 사용자 잠금 리스크).
+- ★[스펙 변경 예고]: 097 완화(중복 hard-block 제거·이메일 기준 1인1계정)의 재강화 — 구현 태스크에서
+  "[스펙 변경]" 표기 + decisions.md 동시 기록 필요. 스키마·비용·카카오 OTP 여부·PASS 시점은 Human 게이트.
+- 이 세션은 Cowork 환경(요청 표기는 "Codex Windows"였으나 조사·설계·문서 산출은 Cowork가 수행 —
+  선례 178/192/193과 동일). git 확인·커밋·푸시만 Codex 몫.
+- 명세의 S0는 205 커밋(`daeb60d`) 이전 워킹트리 기준 실사 — 205는 인증 파일 무접촉이라 결론 불변.
+
+### Next
+- Human: 명세 §Human 결정 필요 목록 7건 검토(특히 FitHere 공유 경계·SMS 제공자 견적·088 인덱스 현존 확인).
+- Codex: `git status --short -uall` 확인 → 문서 3개(태스크/handoff/locks)만 stage →
+  `docs(BOHUMFIT-206): 1인 1계정(SMS OTP + 번호 유일성) 설계 명세` 커밋 → push.
+
 ## 2026-07-12 BOHUMFIT-205 - 입원 회차별 표기 + 결과 조회기간 10~0년 + 약변경 3개월 2차확인
 
 Owner flow: Cowork -> Codex Windows | Current owner: Human (deployment / real-data confirmation)
