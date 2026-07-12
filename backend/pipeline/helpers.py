@@ -484,10 +484,16 @@ def _inpatient_periods_in_range(stat: dict, since_dt) -> list[dict]:
             continue
         days = int(period.get("days") or 0)
         end = str(period.get("end") or "") or _add_days(start, days)
+        # BOHUMFIT-213: 표시용 근거(병의원명) 보존 — 같은 회차의 중복 행에서 비어있지 않은 값 우선.
+        hosp = str(period.get("hospital") or "").strip()
         key = (start, end)
         prev = seen.get(key)
         if prev is None or days > int(prev.get("days") or 0):
-            seen[key] = {"start": start, "end": end, "days": days}
+            if not hosp and prev is not None:
+                hosp = str(prev.get("hospital") or "")
+            seen[key] = {"start": start, "end": end, "days": days, "hospital": hosp}
+        elif hosp and not str(prev.get("hospital") or ""):
+            prev["hospital"] = hosp
     return sorted(seen.values(), key=lambda x: (x["start"], x["end"]))
 
 

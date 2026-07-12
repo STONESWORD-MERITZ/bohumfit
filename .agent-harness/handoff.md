@@ -1,3 +1,63 @@
+## 2026-07-13 BOHUMFIT-213 - 원본 근거(진료일·병원) 표시 연결 Codex 검증 완료
+
+Owner flow: Claude Chat -> Cowork -> Codex Windows | Current owner: Human
+Commit: pending at handoff write time; final hash in Codex response.
+
+### Changed
+- Cowork 구현분 검증 후 `backend/pipeline/result_builder.py`를 보강했다. 실 PDF에서 같은 대표 코드가 `S83|YYYY-MM-DD`처럼 분할된 경우에도 결과 표시용 근거를 대표 코드 기준으로 합쳐 item/복사문/PDF까지 전달한다.
+- 기존 213 범위 유지: `inpatient_periods.hospital`, `_inpatient_periods_in_range` 병원 보존, `visit_records`/`med_records`/`surgery_events`, 복사문 병원 표기, 리포트 PDF 근거 블록, 화면 "근거 상세 보기" 접이식.
+- `backend/tests/test_evidence_213.py`: 신규 테스트 수는 8개 유지하면서 분할키 실사 동형 회귀를 포함했다.
+- `.agent-harness/verify.md`, `CLAUDE.md`: backend pytest 기준선 `608 passed, 8 skipped`로 갱신.
+
+### Verified
+- 마운트 절단 의심 파일 Windows 원본 py_compile 통과: `backend/main.py`, `helpers.py`, `result_builder.py`, `disease_aggregator.py`, `test_usage_middleware.py`, `test_analyzer_snapshot.py`, `test_evidence_213.py`.
+- `npx tsc -p tsconfig.app.json --noEmit` — passed.
+- `npx tsc -p tsconfig.node.json --noEmit` — passed.
+- `npm run lint` — passed.
+- `npm test` — `7` files, `25 passed`.
+- `npm run build` — passed, 기존 Vite 500kB chunk warning만 발생.
+- `cd backend && python -m pytest tests/test_evidence_213.py -vv` — `8 passed`.
+- `cd backend && python -m pytest tests/test_kakao_inpatient_205.py tests/test_drug_change_205.py tests/test_evidence_213.py -vv` — `28 passed`.
+- `cd backend && python -m pytest -q` — `608 passed, 8 skipped`.
+
+### Real PDF Smoke
+- 석지원 3종(기본·세부·처방) 파싱: `basic 68`, `pharma 181`, `detail 770`, parse_errors 0.
+- 실측 회차 근거: `2022-12-19~2022-12-28 10일 충남대학교병 원`, `2024-10-07~2024-10-15 9일 가톨릭병원`, `2025-08-03~2025-08-06 4일 가톨릭병원`.
+- 화면 item 데이터, 복사문, 리포트 HTML, 임시 렌더 PDF 모두 해당 날짜·병원 근거 포함 확인. 임시 PDF는 삭제했다.
+- Human note: 사용자 지시의 `2023-06-16~2023-06-19 · 인화재단한국병원`은 현재 Windows 로컬 석지원 3종 실측값과 다르다. 현재 파일 기준 4일 입원은 `2025-08-03~2025-08-06 · 가톨릭병원`.
+
+### Guardrails
+- `filters.py` 판정 로직·임계·5년/10년 창, `backend/coverage/`, DB/auth/payment 로직 무변경.
+- 실 PDF/PII/렌더 산출물 미스테이지. repo root의 `석지원 기본진료정보.pdf` untracked 파일은 스모크용으로만 확인하고 stage하지 않는다.
+
+## 2026-07-12 BOHUMFIT-213 - 고지 필터 결과에 원본 근거(진료일·병원·상병) 부착 — 설계사 추적성
+
+Owner flow: Claude Chat -> Cowork -> Codex | Current owner: Codex
+
+### Changed
+- `backend/pipeline/disease_aggregator.py`: `inpatient_periods` 항목에 표시용 `hospital` 추가(기본진료·NHIS 2지점).
+- `backend/pipeline/helpers.py`: `_inpatient_periods_in_range` dedup 시 병원 보존(비어있지 않은 값 우선·백필).
+- `backend/pipeline/result_builder.py`: 표시용 근거 신설 — `visit_records`(날짜·병의원·행수), `med_records`(처방일·일수·병의원, 배지와 동일 원천·창), `surgery_events`(수술일·병의원). 각 지표와 동일 창, 상한 100건. 판정 수치·detail 문구 무변경.
+- `backend/main.py`: `_kakao_item` 입원 회차 줄 끝 ` / 병의원명`(없으면 기존 형식 유지), 폴백 한 줄 `병원 외 N곳` 요약.
+- `backend/templates/report_disclosure.html`: 항목 카드 근거 블록(입원/수술/통원/투약, 유형별 6~8건+"외 N건", `.evid` — 기존 브랜드 변수만).
+- `src/pages/Disclosure.tsx`: 입원기간 줄 병원명 + 칩 아래 "근거 상세 보기(N건)" 접이식(기본 접힘·그룹별 스크롤), SummaryItem 타입 확장.
+- `backend/tests/test_evidence_213.py`(신규 8), `backend/tests/test_analyzer_snapshot.py`(periods 완전일치 어서션에 hospital 키 정합 1건).
+- `.agent-harness/tasks/BOHUMFIT-213-filter-evidence-attach.md`, `locks.md`, `handoff.md`.
+
+### Verified (Cowork /tmp — Windows 권위는 Codex)
+- 신규 213: `8 passed`. 전체(87파일·4청크): `604 passed, 12 skipped, 0 failed` — 기준선 600+8=608 예상 대비 4건 샌드박스 환경 skip → Windows 기대 `608 passed, 8 skipped`.
+- 실 PDF 스모크(이미숙님 2종, 메모리·PII 미저장): 간편 Q2 입원 4건 회차별 날짜·일수·병의원 표기, E78 투약 210일 근거 3건(30/90/90) 정합, 복사문 입원 줄 병원 표기, **판정 대상 코드 집합 전후 동일**(표시만 추가).
+- 판정 불변 고정: 합성 3회 입원(2022-12-19 10일/2024-10-07 9일/2025-08-03 4일 — 석지원님 사례 동형)이 각 병원과 함께 표기되고 detail "(23일)"·inpatient 23·count 3 유지, 병원 무정보 시 판정 필드 동일.
+- 마운트 truncation 광범위 실측(Windows 원본은 전부 정상, /tmp만 Read 재조립): helpers·result_builder·disease_aggregator·main·report_disclosure.html·coverage/export_excel.py·tests 4종. **py_compile 통과형·mid-token(NameError 'w'/'wit') 절단 포함** — 마운트 검증 신뢰 불가, Windows 원본 기준 필수.
+
+### Notes
+- 판정 로직·임계·5년/10년 창 무변경(filters.py 무접촉), coverage 계산·DB·auth 무접촉. FIT v1.1 브랜드 변수만 사용.
+- 병의원명 내부 공백(예: "충북대학교병 원")은 원본 PDF 셀 줄바꿈 유래 — 기존 hospitals 필드와 동일 특성, 정규화는 범위 밖 후속 제안.
+- 복사문 기존 테스트는 부분 문자열 어서션이라 병원 꼬리 추가와 호환(205 테스트 20개 통과 확인).
+
+### Next
+- Codex: Windows 권위 검증(tsc app/node, lint, npm test, build, backend pytest `608/8` 예상, 213 -vv) → 석지원님 실 PDF 스모크(입원 4일=2025-08-03·9일=2024-10-07·10일=2022-12-19 각 병원명 표기) → 리포트 PDF 합성 렌더 스모크(근거 블록·페이지 넘침) → 범위 파일만 stage(실 PDF·PII 제외) → 커밋 `feat(BOHUMFIT-213): 고지 필터 결과에 원본 근거(진료일·병원·상병) 부착 — 설계사 추적성` → push → verify.md·CLAUDE.md 기준선 608/8 갱신.
+
 ## 2026-07-12 BOHUMFIT-212 - role별 분석 횟수 게이트(admin 무제한/internal 월100/customer 누적5)
 
 Owner flow: Human -> Codex Windows | Current owner: Human

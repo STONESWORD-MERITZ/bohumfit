@@ -416,6 +416,8 @@ def build_disease_stats(
                             "start": clean_date,
                             "end": _add_days(clean_date, m_days),
                             "days": m_days,
+                            # BOHUMFIT-213: 표시용 근거(어디서) — 판정 로직 미사용.
+                            "hospital": (hospital or "").strip(),
                         })
                         if _add_days(clean_date, m_days) > s["latest_date"]:
                             s["latest_date"] = _add_days(clean_date, m_days)
@@ -558,6 +560,8 @@ def build_disease_stats(
                                 "start": clean_date,
                                 "end": _add_days(clean_date, m_days),
                                 "days": m_days,
+                                # BOHUMFIT-213: 표시용 근거(어디서) — 판정 로직 미사용.
+                                "hospital": (hospital or "").strip(),
                             })
                             if _add_days(clean_date, m_days) > s["latest_date"]:
                                 s["latest_date"] = _add_days(clean_date, m_days)

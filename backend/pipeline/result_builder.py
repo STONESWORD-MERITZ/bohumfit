@@ -3,8 +3,11 @@ from __future__ import annotations
 
 import logging
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime
+
+# BOHUMFIT-213: 표시용 근거 목록 상한(payload 과대 방지 — 판정 수치는 별도 필드라 영향 없음).
+_EVIDENCE_CAP = 100
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +59,97 @@ def _make_merged_item(item: dict, q: str, code_override: str = "") -> dict:
         "hospitals":      [item.get("hospital", "")],
         "q2_suspicion":   item.get("q2_suspicion", ""),
     }
+
+
+def _code_key_base(value: str) -> str:
+    """BOHUMFIT-213: `S83|2024-10-07` 같은 날짜 분할키의 대표 코드를 반환."""
+    return str(value or "").split("|", 1)[0].strip().upper()
+
+
+def _merge_display_stats_for_code(disease_stats: dict, code_key: str) -> dict | None:
+    """대표 코드로 분할된 disease_stats를 표시 근거용으로만 합친다.
+
+    일부 실 PDF는 수술/세부진료 링크 때문에 같은 대표 코드가 `S83|날짜` 형태로
+    여러 disease_stats 키에 나뉜다. 필터 판정은 이미 대표 코드로 병합되므로, 여기서는
+    결과 카드·복사문·PDF에 보여줄 원본 근거만 다시 모은다.
+    """
+    target = _code_key_base(code_key)
+    parts = [
+        s for k, s in (disease_stats or {}).items()
+        if _code_key_base(k) == target and isinstance(s, dict)
+    ]
+    if not parts:
+        return None
+    if len(parts) == 1:
+        return parts[0]
+
+    merged = {
+        "visit_dates": set(), "visit_events": [], "med_dates_basic": {}, "med_dates_pharma": {},
+        "med_dates_pharma_episode": {}, "tests_found": set(), "test_events": [],
+        "inpatient_dates": set(), "inpatient_periods": [], "inpatient_admissions": set(),
+        "surgeries": set(), "surgery_dates": set(), "hospitals": set(),
+        "procedures": set(), "procedure_dates": set(),
+        "surgery_suspected_names": set(), "surgery_suspected_dates": set(),
+        "surgery_suspected_grade": "",
+        "_inpatient_days_map": {}, "hospital_dates": {},
+        "chojin_count": 0, "jaejin_count": 0,
+        "first_date": "2099-12-31", "latest_date": "2000-01-01",
+        "diag_code": target, "name": "", "has_pharma": False,
+    }
+
+    def _merge_day_map(dst: dict, src: dict) -> None:
+        for d, v in (src or {}).items():
+            try:
+                val = int(v or 0)
+            except (TypeError, ValueError):
+                val = 0
+            dst[d] = max(int(dst.get(d, 0) or 0), val)
+
+    def _merge_episode(dst: dict, src: dict) -> None:
+        for d, by_hosp in (src or {}).items():
+            if isinstance(by_hosp, dict):
+                dd = dst.setdefault(d, {})
+                for h, days in by_hosp.items():
+                    try:
+                        val = int(days or 0)
+                    except (TypeError, ValueError):
+                        val = 0
+                    dd[h] = max(int(dd.get(h, 0) or 0), val)
+            else:
+                _merge_day_map(dst, {d: by_hosp})
+
+    for s in parts:
+        for key in (
+            "visit_dates", "inpatient_dates", "inpatient_admissions", "surgeries", "surgery_dates",
+            "hospitals", "procedures", "procedure_dates", "surgery_suspected_names",
+            "surgery_suspected_dates", "tests_found",
+        ):
+            merged[key].update(s.get(key, set()) or set())
+        merged["visit_events"].extend(s.get("visit_events") or [])
+        merged["test_events"].extend(s.get("test_events") or [])
+        merged["inpatient_periods"].extend(s.get("inpatient_periods") or [])
+        _merge_day_map(merged["_inpatient_days_map"], s.get("_inpatient_days_map") or {})
+        _merge_day_map(merged["med_dates_basic"], s.get("med_dates_basic") or {})
+        _merge_day_map(merged["med_dates_pharma"], s.get("med_dates_pharma") or {})
+        _merge_episode(merged["med_dates_pharma_episode"], s.get("med_dates_pharma_episode") or {})
+        for d, h in (s.get("hospital_dates") or {}).items():
+            if h and not merged["hospital_dates"].get(d):
+                merged["hospital_dates"][d] = h
+        fd = s.get("first_date") or "2099-12-31"
+        ld = s.get("latest_date") or "2000-01-01"
+        if fd < merged["first_date"]:
+            merged["first_date"] = fd
+        if ld > merged["latest_date"]:
+            merged["latest_date"] = ld
+        if not merged["name"] and s.get("name"):
+            merged["name"] = s.get("name")
+        merged["has_pharma"] = bool(merged["has_pharma"] or s.get("has_pharma"))
+        merged["chojin_count"] += int(s.get("chojin_count") or 0)
+        merged["jaejin_count"] += int(s.get("jaejin_count") or 0)
+        if not merged["surgery_suspected_grade"] and s.get("surgery_suspected_grade"):
+            merged["surgery_suspected_grade"] = s.get("surgery_suspected_grade")
+
+    return merged
 
 
 def _merge_item_into(m: dict, item: dict) -> None:
@@ -145,7 +239,9 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
         until_dt = _q_until.get(q)   # BOHUMFIT-034: Q4 범위창 상한(없으면 >=since)
         def _win(dates, _since=since_dt, _until=until_dt):
             return _dts_in_window(dates, _since, _until) if _until else _dts_in_range(dates, _since)
-        _ds      = disease_stats.get(code_key)
+        # BOHUMFIT-213: 표시 근거 보강. 실 PDF에서 같은 대표 코드가 `S83|날짜`로 분할되는 경우,
+        # 필터 판정은 대표 코드로 병합되지만 결과 item은 exact key를 못 찾아 회차 근거가 빠질 수 있다.
+        _ds      = disease_stats.get(code_key) or _merge_display_stats_for_code(disease_stats, code_key)
 
         if _ds:
             _inpatient_end_dates = _inpatient_end_dates_in_range(_ds, since_dt)
@@ -191,6 +287,37 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
             # 배지=헤더를 유지한다. 입원·통원 표시창(since_dt=10년)은 불변.
             _med_since         = q3_med_since if (not is_easy and q == "Q3" and q3_med_since is not None) else since_dt
             ds_med_days        = _sum_daily_max_presc(_med_src, _med_since)
+
+            # BOHUMFIT-213: 설계사 추적성 — 표시용 원본 근거(언제·어디서). 판정 로직 미사용,
+            #   카운트·임계·창 계산 불변. 각 근거는 해당 지표와 동일 원천·동일 창에서 뽑는다.
+            _hosp_by_date  = _ds.get("hospital_dates", {}) or {}
+            #   통원: 내원 '행' 단위(visit_events)를 날짜별로 접어 {날짜·병의원·행수} 노출.
+            _visit_counter = Counter(_win(_ds.get("visit_events") or _ds.get("visit_dates", set())))
+            _visit_records = [
+                {"date": d, "hospital": _hosp_by_date.get(d, ""), "count": int(c)}
+                for d, c in sorted(_visit_counter.items())
+            ][:_EVIDENCE_CAP]
+            #   투약: 배지·헤더와 동일 원천(_med_src)·동일 창(_med_since)의 처방 근거.
+            _med_records = []
+            for _md, _mv in sorted((_med_src or {}).items()):
+                _mdt = _parse_ymd(_md)
+                if not _mdt or _mdt < _med_since:
+                    continue
+                if isinstance(_mv, dict):
+                    for _mh, _mdd in sorted(_mv.items()):
+                        _med_records.append({
+                            "date": _md, "days": int(_mdd or 0),
+                            "hospital": "" if _mh == "_unknown" else str(_mh),
+                        })
+                else:
+                    _med_records.append({"date": _md, "days": int(_mv or 0),
+                                         "hospital": _hosp_by_date.get(_md, "")})
+            _med_records = _med_records[:_EVIDENCE_CAP]
+            #   수술: 해당 문항 창의 수술일 + 당일 병의원.
+            _surgery_events = [
+                {"date": d, "hospital": _hosp_by_date.get(d, "")}
+                for d in _win(_ds.get("surgery_dates", set()))
+            ][:_EVIDENCE_CAP]
         else:
             dates_sorted       = sorted([d for d in m["dates"] if d])
             first_date         = dates_sorted[0]  if dates_sorted else ""
@@ -202,6 +329,9 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
             ds_med_days        = m["med_days"]
             _ds_inp_dates      = []
             _ds_inp_periods    = []
+            _visit_records     = []   # BOHUMFIT-213
+            _med_records       = []
+            _surgery_events    = []
 
         _chojin          = _ds["chojin_count"]  if _ds else 0
         _jaejin          = _ds["jaejin_count"]  if _ds else 0
@@ -250,6 +380,10 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
             "surgeries":               {m["surgery_name"]} if m["is_surgery"] and m["surgery_name"] else ({"수술"} if m["is_surgery"] else set()),
             "surgery_dates":           sorted(set(m["surgery_dates"])),
             "surgery_count":           len(set(m["surgery_dates"])) if m["is_surgery"] else 0,
+            # BOHUMFIT-213: 표시용 원본 근거(언제·어디서) — 판정 로직 미사용(추가 필드만).
+            "visit_records":           _visit_records,
+            "med_records":             _med_records,
+            "surgery_events":          _surgery_events,
             "procedures":              _procedures,
             "procedure_dates":         _proc_dates,
             "surgery_suspected":       _surg_susp,

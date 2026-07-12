@@ -380,7 +380,10 @@ def _kakao_item(item: dict) -> str:
                 dd = 0
             p_date = f"{st} ~ {en}" if en and en != st else st
             p_days = f"입원{dd}일" if dd > 0 else "입원"
-            _lines.append(f"{p_date} / {p_days} / {code_clean} / {kind}{_s(item.get('name'))}\n")
+            # BOHUMFIT-213: 회차별 근거(어디서) — 병의원명이 있으면 덧붙인다(없으면 기존 형식 유지).
+            p_hosp = _s(p.get("hospital")).strip()
+            _tail = f" / {p_hosp}" if p_hosp else ""
+            _lines.append(f"{p_date} / {p_days} / {code_clean} / {kind}{_s(item.get('name'))}{_tail}\n")
         line1 = "".join(_lines)
         if len(_periods) >= 2:
             line1 += f"→ 입원 총 {len(_periods)}회 · 합산 {inpatient}일\n"
@@ -389,7 +392,11 @@ def _kakao_item(item: dict) -> str:
             visit_str = f"입원{inpatient}일"
         else:
             visit_str = f"통원{item.get('visit') or 1}회"
-        line1 = f"{date_str} / {visit_str} / {code_clean} / {kind}{_s(item.get('name'))}\n"
+        # BOHUMFIT-213: 폴백 한 줄에도 근거(어디서) — 병의원 1곳 + 외 N곳 요약.
+        _h_tail = ""
+        if hosp_list:
+            _h_tail = f" / {hosp_list[0]}" + (f" 외 {len(hosp_list) - 1}곳" if len(hosp_list) > 1 else "")
+        line1 = f"{date_str} / {visit_str} / {code_clean} / {kind}{_s(item.get('name'))}{_h_tail}\n"
 
     surgeries = item.get("surgeries") or []
     suspected_names = _kakao_values(item.get("surgery_suspected"))

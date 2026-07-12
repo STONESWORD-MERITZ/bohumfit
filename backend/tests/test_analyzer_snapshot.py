@@ -138,7 +138,8 @@ def test_inpatient_periods_use_start_plus_days_minus_one():
         ]
     }
     periods = _inpatient_periods_in_range(stat, datetime(2020, 1, 1))
-    assert periods == [{"start": "2022-12-20", "end": "2022-12-27", "days": 8}]
+    # BOHUMFIT-213: 표시용 근거 hospital 키 추가(구형 period 입력은 빈 문자열) — 날짜 계약은 불변.
+    assert periods == [{"start": "2022-12-20", "end": "2022-12-27", "days": 8, "hospital": ""}]
 
 
 def test_clean_disease_name_repairs_common_ocr_spacing():

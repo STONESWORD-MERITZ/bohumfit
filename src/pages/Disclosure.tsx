@@ -62,7 +62,11 @@ type SummaryItem = {
   med_days_30plus?: boolean;
   inpatient: number;
   inpatient_count: number;
-  inpatient_periods?: { start: string; end: string; days: number }[];
+  inpatient_periods?: { start: string; end: string; days: number; hospital?: string }[];
+  // BOHUMFIT-213: 표시용 원본 근거(언제·어디서) — 판정 수치와 별개(추가 필드).
+  visit_records?: { date: string; hospital?: string; count?: number }[];
+  med_records?: { date: string; days?: number; hospital?: string }[];
+  surgery_events?: { date: string; hospital?: string }[];
   surgery_count?: number;
   surgeries: string[];
   surgery_dates?: string[];
@@ -389,6 +393,12 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
   const procN = item.procedures?.length ?? 0;
   const suspN = item.surgery_suspected?.length ?? 0;
   const metric = getMetricVisibility(item, qNum, isEasy);
+  // BOHUMFIT-213: 원본 근거(언제·어디서) 상세 — 기본 접힘(과밀 방지). 입원 근거는 위 "입원기간" 줄에 상시 표시.
+  const [evidenceOpen, setEvidenceOpen] = useState(false);
+  const evVisit = metric.visit ? (item.visit_records ?? []) : [];
+  const evMed = metric.med ? (item.med_records ?? []) : [];
+  const evSurg = metric.surgery ? (item.surgery_events ?? []) : [];
+  const evidenceCount = evVisit.length + evMed.length + evSurg.length;
   const period = item.first_date && item.latest_date && item.first_date !== item.latest_date
     ? `${item.first_date} ~ ${item.latest_date}`
     : (item.first_date || "");
@@ -445,6 +455,8 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
                     {p.start}
                     {p.end && p.end !== p.start ? ` ~ ${p.end}` : ""}
                     {p.days > 0 ? ` (${p.days}일)` : ""}
+                    {/* BOHUMFIT-213: 회차별 근거(어디서) */}
+                    {p.hospital ? <span className="font-normal text-ink-soft"> · {p.hospital}</span> : null}
                   </span>
                 ))}
             </span>
@@ -477,6 +489,61 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
               title={windowTip}
               tone={(item.med_days ?? 0) >= 30 ? "amber" : (item.med_days ?? 0) > 0 ? "emerald" : "gray"}
             />
+          )}
+        </div>
+      )}
+
+      {/* BOHUMFIT-213: 원본 근거(진료일·병의원) 상세 — 기본 접힘. 판정 수치는 위 칩 그대로(표시 전용). */}
+      {evidenceCount > 0 && (
+        <div className="mb-2">
+          <button
+            type="button"
+            onClick={() => setEvidenceOpen(!evidenceOpen)}
+            aria-expanded={evidenceOpen}
+            className="text-[11px] font-semibold text-accent-700 hover:underline"
+          >
+            {evidenceOpen ? "근거 상세 접기 ▲" : `근거 상세 보기 (${evidenceCount}건) ▼`}
+          </button>
+          {evidenceOpen && (
+            <div className="mt-1.5 space-y-2 rounded-[8px] bg-ink-50 px-3 py-2.5 text-[11px] leading-relaxed text-ink-soft">
+              {evSurg.length > 0 && (
+                <div>
+                  <p className="font-bold text-ink">수술 근거</p>
+                  <div className="max-h-36 overflow-y-auto">
+                    {evSurg.map((e, i) => (
+                      <p key={`sg-${e.date}-${i}`}>· {e.date}{e.hospital ? ` · ${e.hospital}` : ""}</p>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {evVisit.length > 0 && (
+                <div>
+                  <p className="font-bold text-ink">통원 근거 ({evVisit.length}일)</p>
+                  <div className="max-h-36 overflow-y-auto">
+                    {evVisit.map((e, i) => (
+                      <p key={`vs-${e.date}-${i}`}>
+                        · {e.date}{(e.count ?? 1) > 1 ? ` ×${e.count}` : ""}{e.hospital ? ` · ${e.hospital}` : ""}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {evMed.length > 0 && (
+                <div>
+                  <p className="font-bold text-ink">투약 근거 ({evMed.length}건)</p>
+                  <div className="max-h-36 overflow-y-auto">
+                    {evMed.map((e, i) => (
+                      <p key={`md-${e.date}-${i}`}>
+                        · {e.date}{(e.days ?? 0) > 0 ? ` (${e.days}일)` : ""}{e.hospital ? ` · ${e.hospital}` : ""}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <p className="text-[10px] text-ink-400">
+                근거는 업로드한 진료 자료의 원본 기록(진료일·병의원) 표시이며, 위 판정 수치·기준은 그대로입니다.
+              </p>
+            </div>
           )}
         </div>
       )}
