@@ -525,28 +525,40 @@ async def verify_jwt(credentials: HTTPAuthorizationCredentials = Depends(_bearer
     return user_id
 
 
-# ── 구독·사용량 게이트 (BOHUMFIT-069) ────────────────────────────────────────
-# /api/analyze 성공 시 월 한도 체크·차감. internal(profiles.role)은 pro 동일 월 100회.
+# ── 구독·사용량 게이트 (BOHUMFIT-069/212) ────────────────────────────────────
+# 분석 성공 시 사용량 체크·기록. admin은 무제한, internal은 월 100회,
+# customer/기타 미구독자는 최초 누적 5회. 활성 구독 플랜은 기존 월 한도를 유지한다.
 # Supabase 서비스롤 키·supabase 패키지가 없으면 게이트 비활성(기존 무료 동작 유지) — graceful.
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
-# BOHUMFIT-072: 플랜·무료 체험. 미구독자는 이번 달 TRIAL_LIMIT(5)회까지 무료 체험, 초과 시 구독 유도.
+# BOHUMFIT-072/212: 플랜·무료 분석. 미구독자는 최초 누적 TRIAL_LIMIT(5)회까지 무료 분석.
 PLANS = {
-    "trial": {"price_krw": 0,     "limit": 5},     # 무료 체험(미구독)
+    "trial": {"price_krw": 0,     "limit": 5},     # 무료 분석(미구독·누적)
     "basic": {"price_krw": 14900, "limit": 30},    # 베이직
     "pro":   {"price_krw": 24900, "limit": 100},   # 프로
 }
 TRIAL_LIMIT = PLANS["trial"]["limit"]
 MONTHLY_ANALYZE_LIMIT = PLANS["basic"]["limit"]   # 하위 호환(베이직 기본 한도)
+ADMIN_ROLE = "admin"
+INTERNAL_ROLE = "internal"
 _supabase_admin_client = None
 _supabase_admin_inited = False
 
 
-def _month_bounds() -> tuple[str, str]:
-    """이번 달(UTC) 시작·다음 달 시작 ISO. 무료 체험 횟수 집계 창."""
-    now = datetime.now(timezone.utc)
+def _month_bounds(now: datetime | None = None) -> tuple[str, str]:
+    """이번 달(UTC) 시작·다음 달 시작 ISO. internal 월별 집계 창."""
+    now = now or datetime.now(timezone.utc)
     start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     nxt = start.replace(year=start.year + 1, month=1) if start.month == 12 else start.replace(month=start.month + 1)
     return start.isoformat(), nxt.isoformat()
+
+
+def _normalize_profile_role(value) -> str:
+    role = str(value or "customer").strip().lower()
+    if role == ADMIN_ROLE:
+        return ADMIN_ROLE
+    if role == INTERNAL_ROLE:
+        return INTERNAL_ROLE
+    return "customer"
 
 
 def _get_supabase_admin():
@@ -572,14 +584,16 @@ async def _enforce_subscription(user_id: str) -> dict:
     반환 dict: {is_internal, enabled, period_start, period_end}. 동기 SDK는 to_thread로 감싼다."""
     admin = _get_supabase_admin()
     if admin is None:
-        return {"is_internal": True, "enabled": False, "period_start": None, "period_end": None}
+        return {"is_admin": False, "is_internal": True, "enabled": False, "period_start": None, "period_end": None}
 
-    def _count_usage(ps: str, pe: str) -> int:
+    def _count_usage(ps: str | None = None, pe: str | None = None) -> int:
         try:
-            u = (
-                admin.table("usage_logs").select("id", count="exact")
-                .eq("user_id", user_id).gte("used_at", ps).lte("used_at", pe).execute()
-            )
+            query = admin.table("usage_logs").select("id", count="exact").eq("user_id", user_id)
+            if ps:
+                query = query.gte("used_at", ps)
+            if pe:
+                query = query.lt("used_at", pe)
+            u = query.execute()
             return getattr(u, "count", 0) or 0
         except Exception:
             return 0
@@ -587,16 +601,34 @@ async def _enforce_subscription(user_id: str) -> dict:
     def _check() -> dict:
         try:
             prof = admin.table("profiles").select("role").eq("id", user_id).single().execute()
-            role = (getattr(prof, "data", None) or {}).get("role")
+            role = _normalize_profile_role((getattr(prof, "data", None) or {}).get("role"))
         except Exception:
-            role = None
-        if role == "internal":
-            # BOHUMFIT-110: internal = pro 동일 월 100회(기존 무제한 → 한도 적용).
+            role = "customer"
+        if role == ADMIN_ROLE:
+            return {
+                "is_admin": True,
+                "is_internal": False,
+                "enabled": True,
+                "plan": ADMIN_ROLE,
+                "quota_scope": "unlimited",
+                "period_start": None,
+                "period_end": None,
+            }
+        if role == INTERNAL_ROLE:
+            # BOHUMFIT-110/212: internal = pro 동일 월 100회, 매월 used_at 기준 리셋.
             ips, ipe = _month_bounds()
             ilimit = PLANS["pro"]["limit"]
             if _count_usage(ips, ipe) >= ilimit:
                 raise HTTPException(status_code=429, detail=f"이번 달 분석 횟수({ilimit}회)를 모두 사용했습니다.")
-            return {"is_internal": True, "enabled": True, "plan": "internal", "period_start": ips, "period_end": ipe}
+            return {
+                "is_admin": False,
+                "is_internal": True,
+                "enabled": True,
+                "plan": INTERNAL_ROLE,
+                "quota_scope": "monthly",
+                "period_start": ips,
+                "period_end": ipe,
+            }
         # 활성 구독 → 플랜별 한도.
         try:
             sub = admin.table("subscriptions").select("*").eq("user_id", user_id).eq("status", "active").single().execute()
@@ -609,23 +641,40 @@ async def _enforce_subscription(user_id: str) -> dict:
             ps, pe = sub_data.get("current_period_start"), sub_data.get("current_period_end")
             if _count_usage(ps, pe) >= limit:
                 raise HTTPException(status_code=429, detail=f"이번 달 분석 횟수({limit}회)를 모두 사용했습니다.")
-            return {"is_internal": False, "enabled": True, "plan": plan, "period_start": ps, "period_end": pe}
-        # BOHUMFIT-072: 미구독자 → 이번 달 무료 체험 TRIAL_LIMIT(5)회.
-        tps, tpe = _month_bounds()
-        if _count_usage(tps, tpe) >= TRIAL_LIMIT:
+            return {
+                "is_admin": False,
+                "is_internal": False,
+                "enabled": True,
+                "plan": plan,
+                "quota_scope": "subscription",
+                "period_start": ps,
+                "period_end": pe,
+            }
+        # BOHUMFIT-212: 미구독 customer/기타 → 최초 누적 무료 분석 TRIAL_LIMIT(5)회.
+        if _count_usage() >= TRIAL_LIMIT:
             raise HTTPException(
                 status_code=402,
-                detail=f"무료 체험 {TRIAL_LIMIT}회를 모두 사용했습니다. 구독 후 계속 이용하세요.",
+                detail=f"무료 분석 최초 {TRIAL_LIMIT}회를 모두 사용했습니다. 구독 후 계속 이용하세요.",
             )
-        return {"is_internal": False, "enabled": True, "plan": "trial", "period_start": tps, "period_end": tpe}
+        return {
+            "is_admin": False,
+            "is_internal": False,
+            "enabled": True,
+            "plan": "trial",
+            "quota_scope": "lifetime",
+            "period_start": None,
+            "period_end": None,
+        }
 
     return await asyncio.to_thread(_check)
 
 
 async def _log_usage(user_id: str, ctx: dict) -> None:
     """분석 성공 후 usage_logs 1건 적재. 게이트 비활성 시 skip. 실패는 분석을 막지 않음.
-    BOHUMFIT-110: internal도 월 100회 한도 적용 대상 → 차감(기존 internal skip 제거)."""
+    BOHUMFIT-212: admin은 무제한이므로 차감하지 않고, internal/customer/구독자는 차감한다."""
     if not ctx.get("enabled"):
+        return
+    if ctx.get("is_admin") or ctx.get("quota_scope") == "unlimited":
         return
     admin = _get_supabase_admin()
     if admin is None:
@@ -770,19 +819,21 @@ async def billing_webhook(request: Request):
 
 @app.get("/billing/status")
 async def billing_status(user_id: str = Depends(verify_jwt)):
-    """구독 상태·이번 달 사용량·무료 체험 조회 — BOHUMFIT-072 trial 필드 포함."""
+    """구독 상태·role별 사용량 조회 — BOHUMFIT-212 role/quota_scope 필드 포함."""
     admin = _get_supabase_admin()
     if admin is None:
         return {"status": "inactive", "plan": None, "period_end": None,
                 "used": 0, "limit": TRIAL_LIMIT, "trial_used": 0, "trial_limit": TRIAL_LIMIT,
-                "is_internal": False, "enabled": False}
+                "is_internal": False, "is_admin": False, "role": "customer", "quota_scope": "lifetime", "enabled": False}
 
-    def _count(ps, pe) -> int:
+    def _count(ps=None, pe=None) -> int:
         try:
-            u = (
-                admin.table("usage_logs").select("id", count="exact")
-                .eq("user_id", user_id).gte("used_at", ps).lte("used_at", pe).execute()
-            )
+            query = admin.table("usage_logs").select("id", count="exact").eq("user_id", user_id)
+            if ps:
+                query = query.gte("used_at", ps)
+            if pe:
+                query = query.lt("used_at", pe)
+            u = query.execute()
             return getattr(u, "count", 0) or 0
         except Exception:
             return 0
@@ -790,10 +841,11 @@ async def billing_status(user_id: str = Depends(verify_jwt)):
     def _query() -> dict:
         try:
             prof = admin.table("profiles").select("role").eq("id", user_id).single().execute()
-            role = (getattr(prof, "data", None) or {}).get("role")
+            role = _normalize_profile_role((getattr(prof, "data", None) or {}).get("role"))
         except Exception:
-            role = None
-        is_internal = role == "internal"
+            role = "customer"
+        is_admin = role == ADMIN_ROLE
+        is_internal = role == INTERNAL_ROLE
         try:
             sub = admin.table("subscriptions").select("*").eq("user_id", user_id).single().execute()
             sub_data = getattr(sub, "data", None)
@@ -802,27 +854,37 @@ async def billing_status(user_id: str = Depends(verify_jwt)):
         is_active = bool(sub_data) and sub_data.get("status") == "active"
         plan = (sub_data or {}).get("plan") if is_active else None
         tps, tpe = _month_bounds()
-        if is_internal:
-            # BOHUMFIT-110: internal = pro 동일 월 100회.
+        quota_scope = "lifetime"
+        if is_admin:
+            used = 0
+            limit = None
+            quota_scope = "unlimited"
+        elif is_internal:
+            # BOHUMFIT-110/212: internal = pro 동일 월 100회.
             used = _count(tps, tpe)
             limit = PLANS["pro"]["limit"]
+            quota_scope = "monthly"
         elif is_active:
             used = _count(sub_data.get("current_period_start"), sub_data.get("current_period_end"))
             limit = PLANS.get(plan, PLANS["basic"])["limit"]
+            quota_scope = "subscription"
         else:
-            used = 0
+            used = _count()
             limit = TRIAL_LIMIT
-        # BOHUMFIT-072: 무료 체험 사용량(이번 달) — 미구독자 배지·구독 유도용.
-        trial_used = _count(tps, tpe) if (not is_active and not is_internal) else 0
+        # BOHUMFIT-212: 무료 분석 사용량은 미구독 customer/기타의 누적 사용량.
+        trial_used = used if (not is_active and not is_internal and not is_admin) else 0
         return {
-            "status": "active" if is_active else "inactive",
-            "plan": plan,
+            "status": ADMIN_ROLE if is_admin else "active" if is_active else "inactive",
+            "plan": ADMIN_ROLE if is_admin else INTERNAL_ROLE if is_internal else plan,
             "period_end": (sub_data or {}).get("current_period_end") if is_active else None,
             "used": used,
             "limit": limit,
             "trial_used": trial_used,
             "trial_limit": TRIAL_LIMIT,
             "is_internal": is_internal,
+            "is_admin": is_admin,
+            "role": role,
+            "quota_scope": quota_scope,
             "enabled": True,
         }
 
@@ -1389,6 +1451,7 @@ async def coverage_analyze(
         )
     if b"%PDF-" not in data[:1024]:
         raise HTTPException(status_code=400, detail="올바른 PDF 파일이 아니에요.")
+    _sub_ctx = await _enforce_subscription(user_id)
     try:
         result = await asyncio.to_thread(analyze_kb_coverage, data)
     except KBFormatError as e:  # 비-KB 양식·PDF 열기 실패
@@ -1398,6 +1461,7 @@ async def coverage_analyze(
         raise HTTPException(status_code=500, detail="보장분석 생성에 실패했어요. 잠시 후 다시 시도해 주세요.")
     finally:
         del data
+    await _log_usage(user_id, _sub_ctx)
     return result
 
 
@@ -1586,7 +1650,7 @@ async def analyze(
             detail="서비스 점검 중입니다. 잠시 후 다시 시도해 주세요.",
         )
 
-    # BOHUMFIT-069/110: 구독·월 한도 체크(internal은 pro 동일 100회·미설정 시 비활성). 위반 시 402/429.
+    # BOHUMFIT-069/212: role별 분석 횟수 체크(admin 무제한·internal 월100·미구독 customer 누적5).
     _sub_ctx = await _enforce_subscription(user_id)
 
     logger.info(
@@ -1648,7 +1712,7 @@ async def analyze(
             detail="서버에서 분석을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.",
         )
 
-    # BOHUMFIT-069/110: 분석 성공 → 사용량 1건 차감(internal 포함·비활성 시 skip, 실패는 응답 막지 않음).
+    # BOHUMFIT-069/212: 분석 성공 → 사용량 1건 기록(admin·비활성은 skip, 실패는 응답 막지 않음).
     await _log_usage(user_id, _sub_ctx)
 
     std_reports   = result["standard_reports"]

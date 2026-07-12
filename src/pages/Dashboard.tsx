@@ -1,7 +1,7 @@
 // BOHUMFIT-163: 로그인 대시보드 홈 — 최근 분석·사용량·저장 리포트·바로가기·Pro 업셀.
 //   ★신규 백엔드 API 0 — 기존 3개 엔드포인트 조합만:
 //     GET /history?track=recent&limit=5 (최근 분석) · GET /history?track=saved&limit=1 (total=저장 수)
-//     GET /billing/status (used/limit·trial_used/trial_limit·is_internal — 159 업셀 톤 재사용)
+//     GET /billing/status (used/limit·trial_used/trial_limit·role/quota_scope — 159 업셀 톤 재사용)
 //   위젯별 독립 상태·독립 fetch — 한 위젯 실패가 페이지 전체를 깨지 않는다(graceful).
 //   진입: Layout UserArea "대시보드"(로그인 시). 로그인 후 기본 진입(/disclosure)은 무변경(A안).
 import { useEffect, useState, type ReactNode } from "react";
@@ -16,10 +16,12 @@ type Billing = {
   status: string;
   plan: string | null;
   used: number;
-  limit: number;
+  limit: number | null;
   trial_used?: number;
   trial_limit?: number;
   is_internal: boolean;
+  is_admin?: boolean;
+  quota_scope?: "unlimited" | "monthly" | "subscription" | "lifetime";
   enabled?: boolean;
 };
 
@@ -92,16 +94,17 @@ export default function Dashboard() {
     };
   }, [token]);
 
-  // 사용량 계산 — 159(UsageBadge)와 동일 규칙: internal=월100 / active=플랜 한도 / 그 외=무료 체험
+  // 사용량 계산 — 서버 권위 quota_scope 표시: admin=무제한 / internal=월100 / active=플랜 / 그 외=최초 무료 분석
   const isActive = billing && billing.status === "active";
+  const isAdmin = !!(billing && (billing.is_admin || billing.quota_scope === "unlimited"));
   const isInternal = !!(billing && billing.is_internal);
   const usageUsed = billing ? (isInternal || isActive ? billing.used : billing.trial_used ?? 0) : 0;
-  const usageLimit = billing ? (isInternal || isActive ? billing.limit : billing.trial_limit ?? 5) : 0;
-  const usageLeft = Math.max(0, usageLimit - usageUsed);
-  const usageRatio = usageLimit > 0 ? Math.min(1, usageUsed / usageLimit) : 0;
-  const usageWarn = billing && usageLeft <= Math.max(1, Math.ceil(usageLimit * 0.1));
-  // Pro 업셀: 무료 유저 한정(비구독·비internal) + 소진 근접(잔여 ≤1) 또는 소진
-  const showUpsell = !!(billing && !isInternal && !isActive && usageLeft <= 1);
+  const usageLimit = billing ? (isAdmin ? null : isInternal || isActive ? billing.limit ?? 0 : billing.trial_limit ?? 5) : 0;
+  const usageLeft = usageLimit == null ? null : Math.max(0, usageLimit - usageUsed);
+  const usageRatio = usageLimit && usageLimit > 0 ? Math.min(1, usageUsed / usageLimit) : 0;
+  const usageWarn = billing && usageLimit != null && usageLeft != null && usageLeft <= Math.max(1, Math.ceil(usageLimit * 0.1));
+  // Pro 업셀: 무료 유저 한정(비구독·비admin·비internal) + 소진 근접(잔여 ≤1) 또는 소진
+  const showUpsell = !!(billing && !isAdmin && !isInternal && !isActive && usageLeft != null && usageLeft <= 1);
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -152,28 +155,33 @@ export default function Dashboard() {
           )}
         </Widget>
 
-        {/* ── 2. 이번 달 사용량 (billing_status — 159 톤) ── */}
-        <Widget title="이번 달 사용량">
+        {/* ── 2. 분석 사용량 (billing_status — 159/212 톤) ── */}
+        <Widget title={isAdmin ? "분석 사용량" : isInternal || isActive ? "이번 달 사용량" : "무료 분석 사용량"}>
           {billing === null || billing === false ? (
             <WidgetFallback loading={billing === null} />
           ) : billing.enabled === false ? (
             <p className="text-[13px] text-ink-soft">사용량 집계가 비활성 상태예요.</p>
+          ) : isAdmin ? (
+            <>
+              <p className="text-2xl font-extrabold tabular-nums text-ink-900">무제한</p>
+              <p className="mt-0.5 text-[12px] text-ink-soft">관리자 계정 · 분석 횟수 제한 없음</p>
+            </>
           ) : (
             <>
               <p className="text-2xl font-extrabold tabular-nums text-ink-900">
                 {usageUsed}
-                <span className="text-sm font-semibold text-ink-soft"> / {usageLimit}회</span>
+                <span className="text-sm font-semibold text-ink-soft"> / {usageLimit ?? "-"}회</span>
               </p>
               <p className="mt-0.5 text-[12px] text-ink-soft">
-                {isInternal ? "내부 계정 · 월 100회" : isActive ? `${billing.plan === "pro" ? "프로" : "베이직"} 플랜` : "무료 체험"}
-                {` · 남은 ${usageLeft}회`}
+                {isInternal ? "내부 계정 · 월 100회" : isActive ? `${billing.plan === "pro" ? "프로" : "베이직"} 플랜` : "최초 무료 분석"}
+                {` · 남은 ${usageLeft ?? 0}회`}
               </p>
               <div
                 role="progressbar"
                 aria-valuemin={0}
-                aria-valuemax={usageLimit}
+                aria-valuemax={usageLimit ?? 0}
                 aria-valuenow={usageUsed}
-                aria-label="이번 달 분석 사용량"
+                aria-label={isInternal || isActive ? "이번 달 분석 사용량" : "무료 분석 누적 사용량"}
                 className="mt-3 h-2 overflow-hidden rounded-full bg-ink-100"
               >
                 <div

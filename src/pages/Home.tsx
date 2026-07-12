@@ -90,7 +90,7 @@ const FEATURES = [
 ];
 
 const PRICING = [
-  { name: "무료 체험", price: "5회", sub: "카드 불필요" },
+  { name: "무료 분석", price: "5회", sub: "카드 불필요" },
   { name: "베이직", price: "월 14,900원", sub: "월 30회 분석" },
   { name: "프로", price: "월 24,900원", sub: "월 100회 분석" },
 ];
@@ -171,7 +171,7 @@ export default function Home() {
                 </Link>
               </div>
               <p className="ko-text mt-5 text-caption text-ink-soft">
-                가입 후 5회 무료 체험 · 신용카드 불필요
+                가입 후 최초 5회 무료 분석 · 신용카드 불필요
               </p>
             </div>
           </section>

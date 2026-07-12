@@ -1649,7 +1649,7 @@ export default function Disclosure({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<AnalyzeResult | null>(null);
-  // BOHUMFIT-159: 무료 체험 소진(402) → 빨간 오류 대신 전환 카드(안내 톤). count = 서버 detail의 한도 수치.
+  // BOHUMFIT-159/212: 무료 분석 소진(402) → 빨간 오류 대신 전환 카드(안내 톤). count = 서버 detail의 한도 수치.
   const [upsell, setUpsell] = useState<{ count: string } | null>(null);
   const [tourPhase, setTourPhase] = useState<TourPhase | null>(() => (readTourSeen().pre ? null : "pre"));
   const [tourIndex, setTourIndex] = useState(0);
@@ -1803,7 +1803,7 @@ export default function Disclosure({
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        // BOHUMFIT-159: 무료 체험 소진(402)은 오류가 아니라 전환 접점 — red 오류·error 토스트 대신
+        // BOHUMFIT-159/212: 무료 분석 소진(402)은 오류가 아니라 전환 접점 — red 오류·error 토스트 대신
         //   전환 카드로 안내(수치는 서버 detail에서 추출, 파싱 실패 시 5 폴백). 429(플랜 월 한도)는 기존 유지.
         if (res.status === 402) {
           const m = String(body?.detail || "").match(/(\d+)\s*회/);
@@ -2046,7 +2046,7 @@ export default function Disclosure({
         <div className="mb-5 rounded-[8px] bg-red-50 p-4 text-sm font-semibold text-red-600">{error}</div>
       )}
 
-      {/* BOHUMFIT-159: 무료 체험 소진 전환 카드 — 수치 헤드라인 + 실제 플랜 혜택 1줄 + 프라이머리 CTA.
+      {/* BOHUMFIT-159/212: 무료 분석 소진 전환 카드 — 수치 헤드라인 + 실제 플랜 혜택 1줄 + 프라이머리 CTA.
           가치 제안은 Subscription 실플랜(베이직 월 30회·고객용 PDF / 프로 월 100회)과 대조 완료 — 발명 없음. */}
       {upsell && (
         <section className="mb-5 rounded-[8px] border border-accent-200 bg-accent-50 p-5">

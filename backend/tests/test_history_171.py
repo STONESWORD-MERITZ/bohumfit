@@ -92,7 +92,7 @@ class _FakeQuery:
         if self._name == "usage_logs":
             if self._op == "insert":
                 return _Resp([{"id": "u"}])
-            return _Resp([], count=0)   # 무료 체험 카운트 0 → 게이트 통과
+            return _Resp([], count=0)   # 무료 분석 카운트 0 → 게이트 통과
         if self._name == "subscriptions":
             return _Resp(None)          # 미구독
         if self._name != main.HISTORY_TABLE:

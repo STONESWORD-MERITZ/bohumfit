@@ -1,3 +1,30 @@
+## 2026-07-12 BOHUMFIT-212 - role별 분석 횟수 게이트(admin 무제한/internal 월100/customer 누적5)
+
+Owner flow: Human -> Codex Windows | Current owner: Human
+Commit: pending at handoff write time; final hash in Codex response.
+
+### Changed
+- `backend/main.py`: 분석 횟수 게이트를 `profiles.role` 기준 서버 권위로 정리했다. `admin`은 무제한 허용하고 usage 로그를 남기지 않으며, `internal`은 이번 달 `usage_logs.used_at` 범위 기준 100회, `customer`/기타는 누적 최초 5회로 분기한다.
+- `backend/main.py`: `/billing/status`에 `role`, `is_admin`, `quota_scope`를 추가해 프런트가 무제한/월 잔여/누적 잔여를 표시만 하도록 했다. 기존 subscription 응답 필드는 하위 호환 유지.
+- `backend/main.py`: `/coverage/analyze`에도 `/api/analyze`와 같은 `_enforce_subscription()`/성공 후 `_log_usage()` 경로를 적용했다. 실패·차단 케이스는 usage 로그를 남기지 않는다.
+- `src/components/UsageBadge.tsx`, `Dashboard.tsx`, `Subscription.tsx` 등: 무료 분석 문구를 누적 최초 5회 기준으로 맞추고, admin 무제한·internal 이번 달 잔여 표시를 분리했다.
+- `backend/tests/test_usage_middleware.py`: admin 무제한/미로깅, internal 100·101 및 월 경계 리셋, customer 누적 5·6 차단, KB coverage analyze gate/log 회귀를 추가했다.
+- `.agent-harness/tasks/BOHUMFIT-212-role-based-analysis-quota.md`, `locks.md`, `verify.md`, `CLAUDE.md`.
+
+### Verified
+- `npx tsc -p tsconfig.app.json --noEmit` — passed.
+- `npx tsc -p tsconfig.node.json --noEmit` — passed.
+- `npm run lint` — passed.
+- `npm test` — `7` files, `25 passed`.
+- `npm run build` — passed, 기존 Vite 500kB chunk warning만 발생.
+- `cd backend && python -m pytest tests/test_usage_middleware.py -vv` — `19 passed`.
+- `cd backend && python -m pytest -q` — `600 passed, 8 skipped`.
+
+### Guardrails
+- `backend/pipeline/`, DB schema/RLS/auth 설정, payment/subscription core flow, coverage 계산 규칙은 변경하지 않았다.
+- 월별 카운트는 기존 `usage_logs.used_at` 범위 집계로 처리해 스키마 신설이 필요하지 않았다.
+- role·quota 판정은 백엔드에서 강제하고, 프런트는 표시 전용이다.
+
 ## 2026-07-12 BOHUMFIT-211 - 집계 패리티 보증 + GA/로고 placeholder 정리
 
 Owner flow: Human -> Codex Windows | Current owner: Human

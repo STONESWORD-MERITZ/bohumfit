@@ -113,7 +113,7 @@ export default function ReportSample() {
         <p className="ko-text mt-1 text-[13px] text-ink-soft">
           {user
             ? "샘플은 예시일 뿐, 실제 분석은 업로드한 진료자료를 기준으로 정확히 산출됩니다."
-            : "가입하면 매월 무료 분석 5회가 제공됩니다."}
+            : "가입하면 최초 무료 분석 5회가 제공됩니다."}
         </p>
         {user ? (
           <Link

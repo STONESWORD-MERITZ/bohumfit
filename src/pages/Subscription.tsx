@@ -13,10 +13,12 @@ type BillingStatus = {
   plan: string | null;
   period_end: string | null;
   used: number;
-  limit: number;
-  trial_used?: number;   // BOHUMFIT-072: 이번 달 무료 체험 사용량
+  limit: number | null;
+  trial_used?: number;   // BOHUMFIT-212: 미구독 무료 분석 누적 사용량
   trial_limit?: number;
   is_internal: boolean;
+  is_admin?: boolean;
+  quota_scope?: "unlimited" | "monthly" | "subscription" | "lifetime";
   enabled?: boolean;
 };
 
@@ -162,6 +164,7 @@ export default function Subscription() {
   };
 
   const isActive = status?.status === "active";
+  const isAdmin = !!(status?.is_admin || status?.quota_scope === "unlimited");
   const trialUsed = status?.trial_used ?? 0;
   const trialLimit = status?.trial_limit ?? 5;
   const trialLeft = Math.max(0, trialLimit - trialUsed);
@@ -172,7 +175,7 @@ export default function Subscription() {
     <section className="mx-auto max-w-2xl">
       <h1 className="text-2xl font-extrabold text-ink-900">구독 관리</h1>
       <p className="mt-2 text-sm text-ink-soft break-keep">
-        보험핏 고지 분석은 구독제로 운영됩니다. 가입 후 매월 무료 체험 {trialLimit}회, 구독 시 플랜별 분석을 제공합니다.
+        보험핏 고지 분석은 구독제로 운영됩니다. 가입 후 최초 무료 분석 {trialLimit}회, 구독 시 플랜별 분석을 제공합니다.
       </p>
 
       {toast && (
@@ -187,9 +190,16 @@ export default function Subscription() {
 
       {loading ? (
         <div className="mt-6 text-sm text-ink-soft">불러오는 중…</div>
+      ) : isAdmin ? (
+        <div className="mt-6 rounded-2xl border border-accent-200 bg-accent-50 p-6">
+          <p className="text-sm font-bold text-accent-700">관리자 계정 — 분석 무제한</p>
+          <p className="mt-1 text-sm text-ink-soft">
+            관리자 계정은 별도 구독 없이 분석 횟수 제한 없이 이용할 수 있습니다.
+          </p>
+        </div>
       ) : status?.is_internal ? (
         <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
-          {/* BOHUMFIT-110: internal = pro 동일 월 100회 */}
+          {/* BOHUMFIT-110/212: internal = pro 동일 월 100회 */}
           <p className="text-sm font-bold text-emerald-800">내부 사용자 — 월 100회</p>
           <p className="mt-1 text-sm text-emerald-700">
             내부 계정은 별도 구독 없이 매월 100회 분석을 이용할 수 있습니다.
@@ -209,16 +219,16 @@ export default function Subscription() {
         </div>
       ) : (
         <>
-          {/* BOHUMFIT-072: 무료 체험 상태(미구독·로그인 시). BOHUMFIT-111: 비로그인은 안내만. */}
+          {/* BOHUMFIT-212: 무료 분석 누적 상태(미구독·로그인 시). BOHUMFIT-111: 비로그인은 안내만. */}
           {isLoggedIn ? (
             <div className={`mt-6 rounded-[8px] px-4 py-3 text-sm ${trialLeft > 0 ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
               {trialLeft > 0
-                ? <>무료 체험 <b>{trialLeft}회</b> 남음 (이번 달 {trialUsed}/{trialLimit}회 사용). 더 분석하려면 구독해 주세요.</>
+                ? <>무료 분석 <b>{trialLeft}회</b> 남음 (누적 {trialUsed}/{trialLimit}회 사용). 더 분석하려면 구독해 주세요.</>
                 : <>무료 분석 {trialLimit}회를 모두 사용했어요. 구독하면 매월 30회부터 계속 분석할 수 있어요.</>}
             </div>
           ) : (
             <div className="mt-6 rounded-[8px] bg-ink-50 px-4 py-3 text-sm text-ink-soft">
-              가입 후 매월 무료 체험 {trialLimit}회를 제공합니다. 아래 플랜을 둘러보고 구독을 시작해 보세요.
+              가입 후 최초 무료 분석 {trialLimit}회를 제공합니다. 아래 플랜을 둘러보고 구독을 시작해 보세요.
             </div>
           )}
 
