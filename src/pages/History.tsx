@@ -118,7 +118,11 @@ export default function History() {
   );
 
   useEffect(() => {
-    if (token) void fetchList(0, false);
+    if (!token) return;
+    const id = window.setTimeout(() => {
+      void fetchList(0, false);
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [token, fetchList]);
 
   // BOHUMFIT-157: 저장(saved) 항목을 고객 전달용 리포트 PDF 파일로 다운로드(공유 링크 금지 — 파일만).

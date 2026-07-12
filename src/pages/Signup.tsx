@@ -17,9 +17,10 @@ export default function Signup() {
   const [phone, setPhone] = useState("");
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaUnavailable, setCaptchaUnavailable] = useState(false);
 
   const requireCaptcha = () => {
-    if (isHCaptchaEnabled() && !captchaToken) {
+    if (isHCaptchaEnabled() && !captchaUnavailable && !captchaToken) {
       setError("보안 확인을 완료해 주세요.");
       return false;
     }
@@ -56,7 +57,6 @@ export default function Signup() {
   };
 
   const handleOAuth = async (provider: "kakao" | "google") => {
-    if (!requireCaptcha()) return;
     setError("");
     setLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
@@ -115,7 +115,12 @@ export default function Signup() {
               Google로 계속하기
             </button>
           </div>
-          <HCaptcha onTokenChange={setCaptchaToken} className="mt-4" />
+          <HCaptcha
+            onTokenChange={setCaptchaToken}
+            onReady={() => setCaptchaUnavailable(false)}
+            onUnavailable={() => setCaptchaUnavailable(true)}
+            className="mt-4"
+          />
         </section>
 
         <div className="my-6 flex items-center gap-3" aria-hidden>

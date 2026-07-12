@@ -1,4 +1,4 @@
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { isHCaptchaEnabled } from "../lib/hcaptcha";
 import HCaptcha from "./HCaptcha";
@@ -7,6 +7,9 @@ afterEach(() => {
   cleanup();
   vi.unstubAllEnvs();
   delete window.hcaptcha;
+  document
+    .querySelectorAll('script[data-bohumfit-hcaptcha="true"]')
+    .forEach((script) => script.remove());
 });
 
 describe("HCaptcha", () => {
@@ -34,5 +37,21 @@ describe("HCaptcha", () => {
     await waitFor(() => expect(onTokenChange).toHaveBeenCalledWith("test-token"));
     expect(isHCaptchaEnabled()).toBe(true);
     expect(renderWidget).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports widget load failure so auth screens can fail open", async () => {
+    vi.stubEnv("VITE_HCAPTCHA_SITEKEY", "test-site-key");
+    const onTokenChange = vi.fn();
+    const onUnavailable = vi.fn();
+
+    render(<HCaptcha onTokenChange={onTokenChange} onUnavailable={onUnavailable} />);
+
+    const script = document.querySelector<HTMLScriptElement>('script[data-bohumfit-hcaptcha="true"]');
+    expect(script).toBeInTheDocument();
+    script?.dispatchEvent(new Event("error"));
+
+    await waitFor(() => expect(onUnavailable).toHaveBeenCalledTimes(1));
+    expect(onTokenChange).toHaveBeenCalledWith("");
+    expect(screen.getByText("보안 확인을 불러오지 못했어요. 기존 로그인 흐름으로 진행합니다.")).toBeInTheDocument();
   });
 });

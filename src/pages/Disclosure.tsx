@@ -7,11 +7,16 @@ import AnimatedNumber from "../components/AnimatedNumber"; // BOHUMFIT-132
 import Badge, { type BadgeVariant } from "../components/ui/Badge"; // BOHUMFIT-133a
 import { Upload, FileText, CheckCircle2 } from "lucide-react"; // BOHUMFIT-136b
 import { useAuth } from "../lib/auth-context";
+import { resultItemInWindow } from "../lib/disclosureWindow";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 const MAX_FILE_COUNT = 10; // BOHUMFIT-053: 10년 고지형 전체 = 발급기간별 분할 파일 최대 10개
 const MAX_FILE_SIZE = 15 * 1024 * 1024;
 const MAX_TOTAL_SIZE = 40 * 1024 * 1024;
+
+function currentTimeMs(): number {
+  return Date.now();
+}
 
 // BOHUMFIT-133a: 질문별 Q배지 색상 매핑(Badge variant). Q5(중대질환)는 danger.
 const Q_VARIANT: Record<string, BadgeVariant> = {
@@ -229,26 +234,6 @@ function subYearsIso(iso: string, years: number): string {
   const lastDay = new Date(y, mo, 0).getDate();
   const d = Math.min(Number(m[3]), lastDay);
   return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-}
-
-// BOHUMFIT-205: 결과 조회용 기간 필터다. 실제 고지문항별 기간과 서버 판정은 바꾸지 않는다.
-// 날짜가 전혀 없으면 누락 표시를 피하기 위해 유지하고, 하나라도 창 안이면 표시한다.
-export function resultItemInWindow(item: SummaryItem, cutoffIso: string): boolean {
-  const starts = (item.inpatient_periods ?? []).map((p) => p.start).filter(Boolean);
-  const surgD = item.surgery_dates ?? [];
-  const suspD = item.surgery_suspected_dates ?? [];
-  const procD = item.procedure_dates ?? [];
-  const all = [
-    item.first_date,
-    item.latest_date,
-    item.first_diagnosis_date,
-    ...starts,
-    ...surgD,
-    ...procD,
-    ...suspD,
-  ].filter(Boolean);
-  if (all.length === 0) return true;
-  return all.some((d) => d >= cutoffIso);
 }
 
 const RESULT_WINDOW_YEAR_OPTIONS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0] as const;
@@ -1694,19 +1679,23 @@ export default function Disclosure({
   };
   // BOHUMFIT-138(항목7): 10분 재보기 — 마운트 시 저장 결과 복원(10분 이내).
   const [restoredAt, setRestoredAt] = useState<number | null>(null);
+  const [restoredAgeMinutes, setRestoredAgeMinutes] = useState(1);
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem("bohumfit_result");
       if (!raw) return;
       const saved = JSON.parse(raw) as { result: AnalyzeResult; ts: number };
-      if (saved?.ts && Date.now() - saved.ts < 10 * 60 * 1000) {
-        setResult(saved.result);
-        setRestoredAt(saved.ts);
+      const now = currentTimeMs();
+      if (saved?.ts && now - saved.ts < 10 * 60 * 1000) {
+        queueMicrotask(() => {
+          setResult(saved.result);
+          setRestoredAt(saved.ts);
+          setRestoredAgeMinutes(Math.max(1, Math.round((now - saved.ts) / 60000)));
+        });
       } else {
         sessionStorage.removeItem("bohumfit_result");
       }
     } catch { /* sessionStorage 비활성/파싱 실패 무시 */ }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -1826,8 +1815,9 @@ export default function Disclosure({
       const data = await res.json();
       setResult(data);
       // BOHUMFIT-138(항목7): 10분 재보기용 저장(분석 직후, 복원 배너 비표시).
-      try { sessionStorage.setItem("bohumfit_result", JSON.stringify({ result: data, ts: Date.now() })); } catch { /* 무시 */ }
+      try { sessionStorage.setItem("bohumfit_result", JSON.stringify({ result: data, ts: currentTimeMs() })); } catch { /* 무시 */ }
       setRestoredAt(null);
+      setRestoredAgeMinutes(1);
       showToast("분석이 완료되었습니다", "success"); // BOHUMFIT-131
       if (!postTourShown) {
         window.setTimeout(showPostTour, 0);
@@ -2083,13 +2073,14 @@ export default function Disclosure({
       {result && restoredAt && (
         <div className="mb-3 flex items-center justify-between gap-3 rounded-[8px] border border-amber-200 bg-amber-50 px-4 py-2.5">
           <p className="text-[13px] font-semibold text-amber-800">
-            이전 분석 결과입니다 ({Math.max(1, Math.round((Date.now() - restoredAt) / 60000))}분 전)
+            이전 분석 결과입니다 ({restoredAgeMinutes}분 전)
           </p>
           <button
             type="button"
             onClick={() => {
               setResult(null);
               setRestoredAt(null);
+              setRestoredAgeMinutes(1);
               try { sessionStorage.removeItem("bohumfit_result"); } catch { /* 무시 */ }
             }}
             className="shrink-0 rounded-[6px] bg-amber-600 px-3 py-1.5 text-[12px] font-bold text-white hover:bg-amber-700"

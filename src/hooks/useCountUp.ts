@@ -14,8 +14,8 @@ export function useCountUp(
 
   useEffect(() => {
     if (target === 0) {
-      setValue(0);
-      return;
+      const raf = requestAnimationFrame(() => setValue(0));
+      return () => cancelAnimationFrame(raf);
     }
     started.current = false;
     let raf = 0;

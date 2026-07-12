@@ -1,3 +1,46 @@
+## 2026-07-12 BOHUMFIT-210 - 전수 감사 리포트 + hCaptcha fail-open/lint 안전수정
+
+Owner flow: Human -> Codex Windows | Current owner: Human
+Commit: pending at handoff write time; final hash in Codex response.
+
+### Changed
+- `.agent-harness/audit/BOHUMFIT-210-full-audit-report.md` 신규: PASS 1~4 findings, severity, Human 태스크 분리, 취지 정합 평가.
+- hCaptcha fail-open 안전화: `Login.tsx`/`Signup.tsx` OAuth는 hCaptcha와 분리, 이메일은 위젯 사용 가능할 때만 토큰 요구. `HCaptcha.tsx`는 `onReady`/`onUnavailable`과 로더 reject reset 추가.
+- 신규 `src/pages/AuthCaptcha.test.tsx` + `HCaptcha.test.tsx` 보강: keyless 렌더, OAuth 비차단, 위젯 실패 시 이메일 fail-open.
+- lint 7-error 안전 정리: `useCountUp.ts`, `CoverageRemodel.tsx`, `Disclosure.tsx`, `History.tsx`. `resultItemInWindow`는 `src/lib/disclosureWindow.ts`로 분리.
+- `.agent-harness/verify.md`, `CLAUDE.md`: backend pytest 기준선 `592 passed, 8 skipped`로 갱신.
+- `.agent-harness/tasks/BOHUMFIT-210-full-audit-safe-fixes.md`, `locks.md`.
+
+### Audit Results
+- PASS 1: 비식별 실 PDF 메모리 스모크에서 `[전]` 573,227 / 181,984,128 / 상해사망 5.5억 / 일반암 1억, 193 신규제안 합계 162,154 및 bundle/특정Ⅱ/자부상 14급 실측 anchor 일치. 182/196 보험사 줄분리도 warnings 0.
+- PASS 1 report-only findings: frontend after aggregation duplicate path drift risk, mixed/partial image PDF 진단 메시지 정밀도 부족. `backend/pipeline/`·`backend/coverage/` 무수정.
+- PASS 2 report-only findings: GA/logo export placeholder, 5세대 실손 준비중, legacy generic coverage parser 정밀 매핑 경고, phone verification stub flow.
+- PASS 3: hardcoded secret scan은 env var name 참조만 검출. `security.txt`는 `contact@bohumfit.ai`. `phone_verified` 서버 게이트 부재와 Supabase/RLS 정리는 Human 태스크로 유지.
+- PASS 4: 번호 이력 정합표와 `stash@{0}: pre-resync-20260708` 존재를 보고만 했고 stash는 건드리지 않음.
+
+### Verified
+- `npm run lint` — passed.
+- `npm test` — `6` files, `24 passed`.
+- `npx tsc -p tsconfig.app.json --noEmit` — passed.
+- `npx tsc -p tsconfig.node.json --noEmit` — passed.
+- `npm run build` — passed, 기존 Vite 500kB chunk warning만 발생.
+- `cd backend && python -m pytest -q` — `592 passed, 8 skipped`.
+- Targeted coverage/pipeline audit tests — `78 passed`.
+
+### Human Tasks Split
+- BF210-H1: mixed/partial image PDF per-page diagnostics (`backend/pipeline/`, Human-approved follow-up).
+- BF210-H2: BOHUMFIT-209 server-side `phone_verified` gate.
+- BF210-H3: shared Supabase/FitHere RLS/profile policy/index cleanup.
+- BF210-H4: GA/profile/logo cover slots for PDF/Excel exports.
+- BF210-H5: 5th-generation 실손 rules.
+- BF210-H6: retire or complete legacy generic coverage parser contract mapping.
+- BF210-H7: append-only task-number registry.
+- BF210-H8: backend/frontend after-aggregation parity test before future coverage rule changes.
+
+### Notes
+- 실 PDF·의료정보·고객명·주민번호·키·시크릿 미저장·미스테이지.
+- 자동수정 경계 준수: pipeline/coverage/DB/auth policy 위험 수정 없음.
+
 ## 2026-07-12 BOHUMFIT-206 - "1인 1계정"(SMS OTP + 번호 유일성) 설계 명세 [조사·설계 전용, 코드 0]
 
 Owner flow: Claude Chat -> Cowork(조사·설계) -> Codex(문서 커밋) | Current owner: Codex

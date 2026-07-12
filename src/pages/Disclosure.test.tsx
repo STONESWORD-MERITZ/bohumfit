@@ -2,7 +2,8 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import Disclosure, { resultItemInWindow } from "./Disclosure";
+import { resultItemInWindow } from "../lib/disclosureWindow";
+import Disclosure from "./Disclosure";
 
 vi.mock("../lib/auth-context", () => ({
   useAuth: () => ({

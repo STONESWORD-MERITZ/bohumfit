@@ -16,9 +16,10 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaUnavailable, setCaptchaUnavailable] = useState(false);
 
   const requireCaptcha = () => {
-    if (isHCaptchaEnabled() && !captchaToken) {
+    if (isHCaptchaEnabled() && !captchaUnavailable && !captchaToken) {
       setError("보안 확인을 완료해 주세요.");
       return false;
     }
@@ -50,7 +51,6 @@ export default function Login() {
   };
 
   const handleKakao = async () => {
-    if (!requireCaptcha()) return;
     setError("");
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "kakao",
@@ -60,7 +60,6 @@ export default function Login() {
   };
 
   const handleGoogle = async () => {
-    if (!requireCaptcha()) return;
     setError("");
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -105,7 +104,12 @@ export default function Login() {
             </button>
           </div>
 
-          <HCaptcha onTokenChange={setCaptchaToken} className="mt-4" />
+          <HCaptcha
+            onTokenChange={setCaptchaToken}
+            onReady={() => setCaptchaUnavailable(false)}
+            onUnavailable={() => setCaptchaUnavailable(true)}
+            className="mt-4"
+          />
 
           <div className="my-6 flex items-center gap-3" aria-hidden>
             <div className="h-px flex-1 bg-line" />

@@ -22,6 +22,8 @@ declare global {
 
 type HCaptchaProps = {
   onTokenChange: (token: string) => void;
+  onReady?: () => void;
+  onUnavailable?: () => void;
   className?: string;
 };
 
@@ -33,14 +35,18 @@ function loadHCaptcha(): Promise<HCaptchaApi> {
   if (hCaptchaLoader) return hCaptchaLoader;
 
   hCaptchaLoader = new Promise<HCaptchaApi>((resolve, reject) => {
+    const rejectLoad = (error: Error) => {
+      hCaptchaLoader = null;
+      reject(error);
+    };
     const complete = () => {
       if (window.hcaptcha) {
         resolve(window.hcaptcha);
       } else {
-        reject(new Error("hCaptcha 위젯을 초기화하지 못했습니다."));
+        rejectLoad(new Error("hCaptcha 위젯을 초기화하지 못했습니다."));
       }
     };
-    const fail = () => reject(new Error("hCaptcha 위젯을 불러오지 못했습니다."));
+    const fail = () => rejectLoad(new Error("hCaptcha 위젯을 불러오지 못했습니다."));
     const existing = document.querySelector<HTMLScriptElement>(SCRIPT_SELECTOR);
     if (existing) {
       existing.addEventListener("load", complete, { once: true });
@@ -61,16 +67,20 @@ function loadHCaptcha(): Promise<HCaptchaApi> {
   return hCaptchaLoader;
 }
 
-export default function HCaptcha({ onTokenChange, className }: HCaptchaProps) {
+export default function HCaptcha({ onTokenChange, onReady, onUnavailable, className }: HCaptchaProps) {
   const siteKey = hCaptchaSiteKey();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const onTokenChangeRef = useRef(onTokenChange);
+  const onReadyRef = useRef(onReady);
+  const onUnavailableRef = useRef(onUnavailable);
   const widgetIdRef = useRef<number | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
     onTokenChangeRef.current = onTokenChange;
-  }, [onTokenChange]);
+    onReadyRef.current = onReady;
+    onUnavailableRef.current = onUnavailable;
+  }, [onReady, onTokenChange, onUnavailable]);
 
   useEffect(() => {
     if (!siteKey || !containerRef.current) return;
@@ -91,13 +101,19 @@ export default function HCaptcha({ onTokenChange, className }: HCaptchaProps) {
           "error-callback": () => {
             if (!disposed) {
               onTokenChangeRef.current("");
-              setError("보안 확인을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.");
+              onUnavailableRef.current?.();
+              setError("보안 확인을 불러오지 못했어요. 기존 로그인 흐름으로 진행합니다.");
             }
           },
         });
+        onReadyRef.current?.();
       })
       .catch(() => {
-        if (!disposed) setError("보안 확인을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.");
+        if (!disposed) {
+          onTokenChangeRef.current("");
+          onUnavailableRef.current?.();
+          setError("보안 확인을 불러오지 못했어요. 기존 로그인 흐름으로 진행합니다.");
+        }
       });
 
     return () => {

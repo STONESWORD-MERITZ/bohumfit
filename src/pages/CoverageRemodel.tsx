@@ -877,8 +877,9 @@ export default function CoverageRemodel() {
   function removeProposal(id: string) {
     setProposals((current) => current.filter((proposal) => proposal.id !== id));
     setExpandedProposalIds((current) => {
-      const { [id]: _removed, ...rest } = current;
-      return rest;
+      const next = { ...current };
+      delete next[id];
+      return next;
     });
     setAfterResult(null);
   }
