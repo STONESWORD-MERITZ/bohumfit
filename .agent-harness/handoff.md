@@ -1,3 +1,40 @@
+## 2026-07-12 BOHUMFIT-205 - 입원 회차별 표기 + 결과 조회기간 10~0년 + 약변경 3개월 2차확인
+
+Owner flow: Cowork -> Codex Windows | Current owner: Human (deployment / real-data confirmation)
+Code commit: `daeb60d feat(BOHUMFIT-205): 입원 회차별 표기 + 조회기간 10~0년 선택 + 약변경 오탐 3개월 2차확인`
+
+### Changed
+- `backend/pipeline/helpers.py`: `extract_drug_info` 강화(줄바꿈 공백 접기·중첩/불균형 괄호 제거 `_strip_parens_balanced`·한글 용량 단위 제거) + `normalize_ingredient` 신설.
+- `backend/pipeline/disease_aggregator.py`: 처방조제 성분명과 약품별 마지막 확인일을 수집한다. 동일 성분 브랜드 전환은 제외하고, 고지 후보가 생긴 경우에만 최신 확인 처방이 3개월 이전 처방과 성분·용량까지 일치하는지 재대조한다. 새 성분·실질 증량은 유지하며 성분명 없는 데이터는 기존 판정을 유지한다.
+- `backend/main.py`: `_kakao_item` 입원을 회차별 `개시일 ~ 종료일 / 입원N일` 줄로 출력, 2회 이상이면 `입원 총 N회 · 합산 N일` 줄 추가. `inpatient_periods` 없으면 기존 한 줄 폴백. `_serialize_reports`에 `inpatient_periods` 직렬화.
+- `src/pages/Disclosure.tsx`: 카드에 입원기간 회차별 표시(진료기간과 분리), 건강체·간편심사 결과 전체에 10~0년 조회기간 select와 날짜 기반 확인용 필터를 추가했다. 실제 문항 기간·서버 판정·복사문·PDF가 바뀌지 않음을 화면에 명시한다. `subYearsIso`는 2/29 보정의 달력연도 방식이다.
+- `src/pages/Disclosure.test.tsx`: 결과 조회기간 근거일자 필터 회귀를 추가했다.
+- `backend/tests/test_drug_change_205.py`(15)·`backend/tests/test_kakao_inpatient_205.py`(5): 신규 20건.
+- `.agent-harness/tasks/BOHUMFIT-205-easy-inpatient-display-window-drugchange.md`, `locks.md`, `handoff.md`.
+- ※ 본 항목은 중단된 이전 Cowork 세션(락만 기록, handoff 미기록)의 구현을 2차 세션이 이어받아 검증·문서화한 결과. `analyzer.py`는 변경 불필요 판정(빈 감지 결과는 기존 처리로 충분). 실변경 파일 목록은 Codex가 `git status --short -uall`로 최종 확정할 것.
+
+### Verified (Codex Windows)
+- 기준 커밋 collect-only `580`(572 passed, 8 skipped)와 현재 collect-only `600`을 대조해 신규 20건 수집을 확인했다. 최종 전체 backend pytest는 **`592 passed, 8 skipped`**.
+- 신규 205 회귀: **`20 passed`**. 동일성분 제네릭 교체·3개월 일시 처방 후 원복은 제외되고, 새 성분·동일/상이한 브랜드 증량은 고지 후보로 남는다.
+- `npx tsc -p tsconfig.app.json --noEmit`, `npx tsc -p tsconfig.node.json --noEmit`, `npm test`(19 passed), `npm run build` 통과. build의 기존 500kB chunk warning만 발생.
+- 비식별 실 PDF(기본진료 23p·처방조제 75p, 메모리 판독·PII 미저장):
+  - 기준일 2026-07-12: 약변경 감지 0건(고지 미발화 — 사용자 증상 해소), 간편 Q2 입원 4건(G44/G45/K35/K64) 회차별 표기·당일 입퇴원 단일 날짜 확인, Q1은 L02 1건뿐.
+  - 기준일 스윕(2/20~7/12) A/B: 구 로직 근사(성분맵 무시+단일 패스 괄호+공백 미접기)는 K21에서 계속복용약(모사프리엠=모사프리드 지속, 스파론=티로파 동일성분, 모티리톤 괄호잔재 키)을 '새 약' 오탐. 신 로직은 continued 분류, 진짜 신규 성분(모티리톤·그란닥신 — 그룹 기준 신규)과 E78/N30/N31 실변경 감지 유지(민감도 후퇴 없음).
+  - 처방조제 실데이터에 1/7·4/28 처방일 없음(2026년 최근 처방일 01-26·03-17·04-21) — 사용자 언급 일자는 기억 오차 또는 다른 파일 조합 추정. 오탐 메커니즘 자체는 재현·해소.
+- 마운트 truncation 실측 4건(Windows 원본 무결 확인, Read 재조립로 /tmp 검증): `helpers.py` 514/582행, `main.py` 1761/1786행, `disease_aggregator.py` 824/893행 — **py_compile 통과형 절단**이라 wc/py_compile만으로 못 잡음. Codex는 Windows 원본 기준 검증 필수.
+
+### Notes
+- 결과 조회기간은 **화면 확인용 클라이언트 필터**다. 실제 법적 고지 기간은 상품별 청약서 문항과 인수 기준을 따르며, 서버 판정·고지 복사문·PDF는 변경하지 않는다.
+- 최신 확인 처방은 약품별 마지막 확인일 중 가장 최근 일자의 처방 집합으로만 사용한다. 최신 데이터가 없거나 과거 집합과 정확히 일치하지 않으면 기존 고지 민감도를 보수적으로 유지한다.
+- 동일 성분의 염/수화물 표기 차이에서 발생하는 10% 이내 용량 차이는 같은 처방으로 본다. 실질 증량·새 성분은 회귀 테스트로 유지 확인했다.
+- 리포트 PDF(`report_pdf.py`)는 여전히 진료기간만 표시 — 입원 회차 표기는 후속 태스크 제안(범위 밖 유지).
+- NHIS '수술 의심: <질병명>' 라벨 표기는 기존 동작(범위 밖).
+- 크로스 그룹 동일 성분 지속(다른 질병코드로 계속 처방 시 '새 약' 감지) 억제는 판정 민감도 저하 소지 → 미적용, 필요 시 Human 결정.
+- 샌드박스 제약 실측: 백그라운드 프로세스가 bash 호출 종료와 함께 소멸(die-with-parent) → 장기 작업은 pickle 체크포인트로 분할 실행함(파싱 결과 재사용).
+
+### Next
+- 배포 후 비식별 실자료 화면 확인은 Human이 진행한다.
+
 ## 2026-07-10 BOHUMFIT-BUG-198 - 이미지 PDF 안내 개선 (원본 PDF 다운로드 유도, OCR 미도입)
 
 Owner flow: Human -> Codex Windows | Current owner: Human(배포 확인)

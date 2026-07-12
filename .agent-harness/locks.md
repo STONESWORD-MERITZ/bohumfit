@@ -5,6 +5,10 @@ Use this file to record active Codex file ownership during a task.
 ## Active
 
 ### Released
+- 2026-07-12 `BOHUMFIT-205-easy-inpatient-display-window-drugchange` - Cowork - 완료(2차 세션이 중단된 1차 세션 구현 인계·검증·문서화). 입원 회차별 표기(_kakao_item+Disclosure 카드), 간편 Q2 조회기간 select(클라이언트 확인용·서버 10년 불변), 동일성분 브랜드 전환·표기 갈라짐 약변경 오탐 수정(extract_drug_info 강화+normalize_ingredient+drug_ingredient_map). /tmp 검증: 205 신규 16 passed, 전체 585 passed/11 skipped/0 failed(Windows 기대 588/8), 비식별 실 PDF 2종 재현·A/B로 오탐 해소+민감도 유지 확인. analyzer.py 무변경 판정. 마운트 truncation 3파일(helpers/main/disease_aggregator — py_compile 통과형 포함) 실측, Windows 원본 무결. PII 미저장·미스테이지.
+- 2026-07-12 `BOHUMFIT-205-easy-inpatient-display-window-drugchange` - Codex Windows - Released. Human 정정(결과 전체 10~0년 조회, 3개월 이전 대비 최신 확인 약 2차 대조)을 반영했다. Windows 검증: 205 신규 20 passed, 전체 backend 592 passed/8 skipped, tsc app/node, frontend 19 passed, build 통과. Code `daeb60d`; PII/PDF/렌더 산출물 미스테이지.
+
+### Active
 - 2026-07-11 `BOHUMFIT-204-f02-oauth-hcaptcha-rate-limit` - Codex - Completed. F-02 앱 완화: OAuth 우선 가입/로그인, 키 조건부 hCaptcha(이메일 Supabase captchaToken + 휴대폰 인증 서버 검증), 분석 트리거 IP 레이트리밋, security.txt 도메인 연락처 보정. Verified targeted `6 passed`, backend `572 passed, 8 skipped`, tsc app/node, frontend `18 passed`, build, no-sitekey browser smoke, scoped lint. `backend/pipeline/`, `backend/coverage/`, Supabase/RLS/스키마, 결제·인증 코어와 실 키는 무접촉. BOHUMFIT-197은 완료된 리포트 UI 작업과 번호 충돌하여 새 번호 204 사용. OAuth CAPTCHA 대시보드 정책은 Human 확인.
 - 2026-07-10 `BOHUMFIT-BUG-198-image-pdf-guidance` - Codex - Completed. Kept the 0 non-whitespace `first_text.strip()` image-PDF threshold and all parsing behavior unchanged; improved fallback copy with original-PDF download guidance and added anonymous synthetic image/text NHIS regressions. Verified parser tests `20 passed`, NHIS tests `9 passed`, full backend `566 passed, 8 skipped`, and read-only redacted real raster smoke. No OCR, coverage, dependency, PII, or generated-image staging.
 - 2026-07-10 `BOHUMFIT-BUG-198-nhis-raster-pdf-ocr-decision` - Codex - Stopped under explicit OCR-new-dependency condition. S0: five-page user PDF returned 0 text/word characters in pdfplumber and 0 layout chars in pdfminer, with image objects per page; current parser correctly returns image-PDF guidance. Existing NHIS two-row parser cannot run without text. No `pytesseract`, `pdf2image`, or `tesseract` available. Human must approve OCR/PII/runtime approach before code changes. Real PDF/read-only, temporary render deleted, no code/stage/commit/push.
@@ -406,4 +410,3 @@ Use this file to record active Codex file ownership during a task.
 - 2026-05-30 `BOHUMFIT-PROGRESS-001` - Codex - progress determinism plan updated; locks released.
 - 2026-05-30 `BOHUMFIT-HARNESS-CODEX-ONLY` - Codex - final check/plan/publish completed; locks released.
 - 2026-05-30 `BOHUMFIT-HARNESS-CODEX-ONLY` - Codex - documentation cleanup completed; locks released.
-
