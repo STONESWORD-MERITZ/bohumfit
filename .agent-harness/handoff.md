@@ -1,3 +1,34 @@
+## 2026-07-13 BOHUMFIT-215 - 조회기간 필터 출력 정책
+
+Owner flow: Human -> Codex Windows | Current owner: Human
+Commit: pending at handoff write time; final hash in Codex response.
+
+### Changed
+- `src/lib/disclosureWindow.ts`: 조회기간 계산을 공용화하고, 선택 N년 밖 항목 제거 + 혼합 항목의 오래된 입원 회차/근거 배열/표시용 카운트 pruning을 추가했다.
+- `src/lib/disclosureMemo.ts`: 복사문 생성 헬퍼 신규. `가입예정상품 10년 고지형 · 선택 N년 고지` 헤더를 붙이고 N년 초과 항목/회차를 삭제한다.
+- `src/pages/Disclosure.tsx`: 조회기간 state를 `ResultView`로 올려 화면·복사문·PDF 헤더가 동일 선택값을 사용한다. 화면 안내 문구는 “화면/복사문 축소, PDF 전체보존” 정책으로 교체했다.
+- `backend/pipeline/report_pdf.py`, `backend/templates/report_disclosure.html`: PDF 상단 정책 헤더를 추가하되 reports 원본은 축소하지 않는다.
+- `src/lib/disclosureMemo.test.ts` 신규 6건, `backend/tests/test_disclosure_window_215.py` 신규 1건.
+- `.agent-harness/verify.md`, `CLAUDE.md`: backend pytest 기준선을 `612 passed, 8 skipped`로 갱신.
+
+### Verified
+- `npx tsc -p tsconfig.app.json --noEmit` passed.
+- `npx tsc -p tsconfig.node.json --noEmit` passed.
+- `npm run lint` passed.
+- `npm test` passed: `31 passed`.
+- `npm run build` passed, existing Vite chunk warning only.
+- `cd backend && python -m py_compile pipeline\report_pdf.py` passed.
+- `cd backend && python -m pytest tests/test_disclosure_window_215.py -vv` passed: `1 passed`.
+- `cd backend && python -m pytest -q` passed: `612 passed, 8 skipped`.
+
+### Notes
+- 상품별 청약서 문항 기간(3/5/10년) 별도 데이터 출처는 현재 앱에 없다. 현행 건강체·간편심사 결과가 최대 10년 문항을 포함하므로 헤더의 `[상품고지문항]년`은 기본 10년으로 표시했다. 실제 상품별 문항 기간을 별도 입력/선택하려면 Human 결정 후 후속 태스크 필요.
+- PDF는 고지 누락 방지를 위해 선택 N년과 무관하게 full `standard_reports`/`easy_reports`를 전송한다.
+
+### Guardrails
+- `backend/filters.py`, 판정 임계/코드집합, `backend/coverage/`, DB/auth/payment core 무변경.
+- 실 PDF/PII/렌더 산출물 미저장·미스테이지. 기존 untracked `석지원 기본진료정보.pdf`는 계속 제외.
+
 ## 2026-07-13 BOHUMFIT-214 - 입원 판정 라인 중복 제거
 
 Owner flow: Human -> Codex Windows | Current owner: Human

@@ -304,6 +304,14 @@ def _format_period(item: dict) -> str:
     return fd or ld or ""
 
 
+def _positive_int(value, default: int) -> int:
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return default
+    return n if n >= 0 else default
+
+
 def _display_detail(item: dict) -> str:
     """PDF 표시용 detail. 입원-only 판정은 상단 입원근거와 중복되므로 숨긴다."""
     detail = str(item.get("detail") or "").strip()
@@ -446,6 +454,8 @@ def render_disclosure_html(payload: dict, generated_at: datetime) -> str:
         # BOHUMFIT-067: 리포트 본문(헤더)에 고객명 표시. payload 값(사용자 입력>자동추출)이며 없으면 ""(줄 생략).
         #   PII — 화면·PDF 표시만, 서버 영구 저장 안 함(기존 휘발 설계 유지).
         "customer_name": (payload.get("customer_name") or "").strip(),
+        "product_question_years": _positive_int(payload.get("product_question_years"), 10),
+        "selected_query_years": _positive_int(payload.get("selected_query_years"), 10),
         "std_sections": std_sections,
         "easy_sections": easy_sections,
         "has_surgery_suspected": _has_surgery_suspected(std_sections) or _has_surgery_suspected(easy_sections),

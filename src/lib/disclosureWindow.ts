@@ -1,14 +1,25 @@
-// BOHUMFIT-205: 결과 조회용 기간 필터다. 실제 고지문항별 기간과 서버 판정은 바꾸지 않는다.
+// BOHUMFIT-215: 화면/복사문 조회기간 필터다. 실제 고지문항별 서버 판정은 바꾸지 않는다.
 // 날짜가 전혀 없으면 누락 표시를 피하기 위해 유지하고, 하나라도 창 안이면 표시한다.
 export type DisclosureWindowItem = {
   first_date?: string;
   latest_date?: string;
   first_diagnosis_date?: string;
-  inpatient_periods?: { start?: string }[];
+  inpatient_periods?: { start?: string; end?: string; days?: number; hospital?: string }[];
   surgery_dates?: string[];
   surgery_suspected_dates?: string[];
   procedure_dates?: string[];
 };
+
+// 기준일(ISO)에서 N 달력연도 전 날짜. 백엔드 _subtract_years 와 동일하게 2/29 -> 2/28 보정.
+export function subYearsIso(iso: string, years: number): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || "");
+  if (!m) return "";
+  const y = Number(m[1]) - years;
+  const mo = Number(m[2]);
+  const lastDay = new Date(y, mo, 0).getDate();
+  const d = Math.min(Number(m[3]), lastDay);
+  return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
 
 export function resultItemInWindow(item: DisclosureWindowItem, cutoffIso: string): boolean {
   const starts = (item.inpatient_periods ?? []).map((p) => p.start).filter(Boolean);
@@ -26,4 +37,92 @@ export function resultItemInWindow(item: DisclosureWindowItem, cutoffIso: string
   ].filter((d): d is string => Boolean(d));
   if (all.length === 0) return true;
   return all.some((d) => d >= cutoffIso);
+}
+
+function dateInWindow(date: unknown, cutoffIso: string): boolean {
+  return typeof date === "string" && date >= cutoffIso;
+}
+
+function sumNumbers(values: unknown[]): number {
+  return values.reduce<number>((sum, value) => sum + (Number(value) || 0), 0);
+}
+
+export function filterDisclosureItemEvidenceByWindow<T extends DisclosureWindowItem>(
+  item: T,
+  cutoffIso: string,
+): T | null {
+  if (!cutoffIso) return item;
+  if (!resultItemInWindow(item, cutoffIso)) return null;
+
+  const next: Record<string, unknown> = { ...item };
+  const visibleDates: string[] = [];
+  const addDate = (date: unknown) => {
+    if (dateInWindow(date, cutoffIso)) visibleDates.push(String(date));
+  };
+
+  const inpatientPeriods = (item.inpatient_periods ?? []).filter((p) => dateInWindow(p.start, cutoffIso));
+  next.inpatient_periods = inpatientPeriods;
+  if (Array.isArray(item.inpatient_periods)) {
+    next.inpatient = sumNumbers(inpatientPeriods.map((p) => p.days));
+    next.inpatient_count = inpatientPeriods.length;
+  }
+  inpatientPeriods.forEach((p) => addDate(p.start));
+
+  for (const key of ["surgery_dates", "surgery_suspected_dates", "procedure_dates"] as const) {
+    const values = (item[key] ?? []).filter((d) => dateInWindow(d, cutoffIso));
+    next[key] = values;
+    values.forEach(addDate);
+  }
+
+  const visitRecords = Array.isArray(next.visit_records)
+    ? (next.visit_records as Array<Record<string, unknown>>).filter((r) => dateInWindow(r.date, cutoffIso))
+    : undefined;
+  if (visitRecords) {
+    next.visit_records = visitRecords;
+    next.visit = sumNumbers(visitRecords.map((r) => r.count || 1));
+    visitRecords.forEach((r) => addDate(r.date));
+  }
+
+  const medRecords = Array.isArray(next.med_records)
+    ? (next.med_records as Array<Record<string, unknown>>).filter((r) => dateInWindow(r.date, cutoffIso))
+    : undefined;
+  if (medRecords) {
+    next.med_records = medRecords;
+    next.med_days = sumNumbers(medRecords.map((r) => r.days));
+    medRecords.forEach((r) => addDate(r.date));
+  }
+
+  const surgeryEvents = Array.isArray(next.surgery_events)
+    ? (next.surgery_events as Array<Record<string, unknown>>).filter((r) => dateInWindow(r.date, cutoffIso))
+    : undefined;
+  if (surgeryEvents) {
+    next.surgery_events = surgeryEvents;
+    next.surgery_count = surgeryEvents.length;
+    surgeryEvents.forEach((r) => addDate(r.date));
+  }
+
+  for (const key of ["first_date", "latest_date", "first_diagnosis_date"] as const) addDate(item[key]);
+  if (visibleDates.length) {
+    const sorted = [...new Set(visibleDates)].sort();
+    if (!dateInWindow(next.first_date, cutoffIso)) next.first_date = sorted[0];
+    if (!dateInWindow(next.latest_date, cutoffIso)) next.latest_date = sorted[sorted.length - 1];
+    if (!dateInWindow(next.first_diagnosis_date, cutoffIso)) next.first_diagnosis_date = "";
+  }
+
+  return next as T;
+}
+
+export function filterDisclosureReportsByWindow<T extends DisclosureWindowItem>(
+  reports: Record<string, T[]>,
+  cutoffIso: string,
+): Record<string, T[]> {
+  if (!cutoffIso) return reports;
+  return Object.fromEntries(
+    Object.entries(reports).map(([title, items]) => {
+      const filtered = (items ?? [])
+        .map((item) => filterDisclosureItemEvidenceByWindow(item, cutoffIso))
+        .filter((item): item is T => item !== null);
+      return [title, filtered];
+    }),
+  );
 }

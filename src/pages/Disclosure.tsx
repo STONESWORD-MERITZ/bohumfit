@@ -7,7 +7,12 @@ import AnimatedNumber from "../components/AnimatedNumber"; // BOHUMFIT-132
 import Badge, { type BadgeVariant } from "../components/ui/Badge"; // BOHUMFIT-133a
 import { Upload, FileText, CheckCircle2 } from "lucide-react"; // BOHUMFIT-136b
 import { useAuth } from "../lib/auth-context";
-import { resultItemInWindow } from "../lib/disclosureWindow";
+import {
+  buildFilteredDisclosureMemo,
+  withDisclosureSelectionHeader,
+  type DisclosureMemoItem,
+} from "../lib/disclosureMemo";
+import { filterDisclosureItemEvidenceByWindow, subYearsIso } from "../lib/disclosureWindow";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 const MAX_FILE_COUNT = 10; // BOHUMFIT-053: 10년 고지형 전체 = 발급기간별 분할 파일 최대 10개
@@ -228,19 +233,8 @@ function cleanQTitle(qTitle: string): string {
   return qTitle.replace(/^\[.*?\]\s*/, "");
 }
 
-// BOHUMFIT-205: 기준일(ISO)에서 N 달력연도 전 날짜 — backend _subtract_years 와 동일하게
-//   2/29 → 비윤년이면 2/28 로 보정한다. 창 경계는 백엔드 관례와 같이 포함(>=).
-function subYearsIso(iso: string, years: number): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || "");
-  if (!m) return "";
-  const y = Number(m[1]) - years;
-  const mo = Number(m[2]);
-  const lastDay = new Date(y, mo, 0).getDate();
-  const d = Math.min(Number(m[3]), lastDay);
-  return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-}
-
 const RESULT_WINDOW_YEAR_OPTIONS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0] as const;
+const PRODUCT_DISCLOSURE_QUESTION_YEARS = 10; // 현재 상품별 기간 데이터 없음: 건강체·간편 모두 최대 10년 문항 기준.
 
 function getMetricVisibility(item: SummaryItem, qNum: string, isEasy: boolean) {
   const detail = item.detail || "";
@@ -616,30 +610,43 @@ function DisclosureSection({
   reports,
   memo,
   label,
+  productLabel,
   mode,
   isEasy = false,
   referenceDate = "",
+  resultWindowYears,
+  onResultWindowYearsChange,
 }: {
   reports: Record<string, SummaryItem[]>;
   memo: string;
   label: string;
+  productLabel: string;
   mode: AudienceMode;
   isEasy?: boolean;
   referenceDate?: string;
+  resultWindowYears: number;
+  onResultWindowYearsChange: (years: number) => void;
 }) {
   const [memoOpen, setMemoOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  // BOHUMFIT-205: 10~0년은 결과를 확인하는 클라이언트 필터다.
-  // 상품별 실제 고지문항의 법적 기간과 서버 판정, 복사문, PDF는 바꾸지 않는다.
-  const [resultWindowYears, setResultWindowYears] = useState<number>(10);
   const { showToast } = useToast(); // BOHUMFIT-131
   const copy = modeCopy[mode];
   const hasItems = Object.keys(reports).length > 0;
   const resultWindowCutoffIso = referenceDate ? subYearsIso(referenceDate, resultWindowYears) : "";
   const resultWindowActive = resultWindowYears < 10 && !!resultWindowCutoffIso;
+  const visibleMemo = resultWindowActive
+    ? buildFilteredDisclosureMemo({
+        productLabel,
+        referenceDate,
+        reports: reports as Record<string, DisclosureMemoItem[]>,
+        cutoffIso: resultWindowCutoffIso,
+        selectedYears: resultWindowYears,
+        productQuestionYears: PRODUCT_DISCLOSURE_QUESTION_YEARS,
+      })
+    : withDisclosureSelectionHeader(memo, PRODUCT_DISCLOSURE_QUESTION_YEARS, resultWindowYears);
 
   const handleCopy = () => {
-    void navigator.clipboard.writeText(memo);
+    void navigator.clipboard.writeText(visibleMemo);
     setCopied(true);
     showToast("복사되었습니다", "success"); // BOHUMFIT-131
     window.setTimeout(() => setCopied(false), 2000);
@@ -647,7 +654,7 @@ function DisclosureSection({
 
   return (
     <div>
-      {memo && (
+      {visibleMemo && (
         <section data-tour="copy" className="mb-4 overflow-hidden rounded-[8px] bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
           <div className="flex items-center justify-between gap-3 px-5 py-4">
             <button type="button" onClick={() => setMemoOpen(!memoOpen)} aria-expanded={memoOpen} className="text-left text-sm font-bold text-ink">
@@ -663,7 +670,7 @@ function DisclosureSection({
           </div>
           {memoOpen && (
             <pre className="whitespace-pre-wrap bg-ink-50 px-5 py-4 font-sans text-xs leading-relaxed text-ink-soft">
-              {memo}
+              {visibleMemo}
             </pre>
           )}
         </section>
@@ -683,7 +690,7 @@ function DisclosureSection({
                 <span className="sr-only">결과 조회기간</span>
                 <select
                   value={resultWindowYears}
-                  onChange={(e) => setResultWindowYears(Number(e.target.value))}
+                  onChange={(e) => onResultWindowYearsChange(Number(e.target.value))}
                   aria-label="결과 조회기간 선택"
                   disabled={!referenceDate}
                   className="rounded-[8px] border border-line bg-white px-2.5 py-1.5 text-xs font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-60"
@@ -695,7 +702,7 @@ function DisclosureSection({
               </label>
             </div>
             <p className="mt-2 text-[11px] leading-relaxed text-amber-700">
-              확인용 조회입니다. 실제 고지 대상은 상품별 청약서 문항 기간과 인수 기준으로 판단하며, 이 선택으로 고지 판정·복사문·PDF 내용은 바뀌지 않습니다.
+              화면과 복사문은 선택 기간만 표시합니다. 실제 고지 판정은 상품별 청약서 문항 기준이며, PDF는 누락 방지를 위해 10년 전체 병력을 보존합니다.
             </p>
           </section>
           {Object.entries(reports).map(([qTitle, items]) => {
@@ -709,7 +716,9 @@ function DisclosureSection({
             // BOHUMFIT-168: 추가검사·재검사 소견([B]) 분리 제거 — 결과 항목만 그대로 렌더.
             const allItems = sortByDate(items);
             const normalItems = resultWindowActive
-              ? allItems.filter((it) => resultItemInWindow(it, resultWindowCutoffIso))
+              ? allItems
+                  .map((it) => filterDisclosureItemEvidenceByWindow(it, resultWindowCutoffIso))
+                  .filter((it): it is SummaryItem => it !== null)
               : allItems;
             const hiddenCount = allItems.length - normalItems.length;
             return (
@@ -1220,6 +1229,7 @@ export function ResultView({
   const activeMemo = productTab === "standard" ? result.standard_kakao : (result.easy_kakao || "");
   const activeLabel = productTab === "standard" ? "건강체/표준체" : "간편심사";
   const copy = modeCopy[mode];
+  const [resultWindowYears, setResultWindowYears] = useState<number>(10);
 
   // BOHUMFIT-036: 고지내역(Q1~Q5) 고객용 PDF 저장 — result_builder 결과값 그대로 전달(재계산 없음).
   const { session } = useAuth();
@@ -1240,6 +1250,8 @@ export function ResultView({
           report_type: "disclosure",
           reference_date: referenceDate,
           customer_name: effectiveCustomerName,   // BOHUMFIT-067: 입력>자동추출>"" (파일명·본문 공용)
+          product_question_years: PRODUCT_DISCLOSURE_QUESTION_YEARS,
+          selected_query_years: resultWindowYears,
           standard_reports: result.standard_reports,
           easy_reports: result.easy_reports || {},
           all_disease_summary: result.all_disease_summary || [],
@@ -1442,6 +1454,9 @@ export function ResultView({
               mode={mode}
               isEasy={productTab === "easy"}
               referenceDate={referenceDate}
+              productLabel={activeLabel}
+              resultWindowYears={resultWindowYears}
+              onResultWindowYearsChange={setResultWindowYears}
             />
           )}
         </div>

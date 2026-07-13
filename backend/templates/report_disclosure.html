@@ -50,6 +50,11 @@ h1.title {
   border-bottom: 2px solid var(--navy); padding-bottom: 8px; margin-bottom: 14px;
 }
 h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); margin-left: 8px; }
+.query-policy {
+  margin: -6px 0 12px; border: 1px solid var(--brand-green-line); background: var(--brand-green-soft);
+  border-radius: 6px; padding: 7px 10px; font-size: 9.2pt; font-weight: 800; color: var(--brand-green);
+}
+.query-policy .note { font-size: 8.2pt; font-weight: 600; color: var(--muted); margin-left: 6px; }
 
 /* ── 요약 ── */
 .summary { display: flex; gap: 10px; margin-bottom: 14px; }
@@ -199,6 +204,10 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
 </div>
 
 <h1 class="title">알릴의무(고지의무) 점검 리포트<small>건강체 · 간편심사</small></h1>
+<div class="query-policy">
+  가입예정상품 {{ product_question_years }}년 고지형 · 선택 {{ selected_query_years }}년 고지
+  <span class="note">PDF는 고지 누락 방지를 위해 10년 전체 병력을 보존합니다.</span>
+</div>
 
 <div class="summary">
   <div class="cell"><span class="k">건강체/표준체 고지 검토</span><span class="v {{ 'warn' if std_count else '' }}">{{ std_count }}건</span></div>

@@ -19,7 +19,7 @@ npm run dev
 Backend pytest baseline:
 
 ```text
-611 passed, 8 skipped
+612 passed, 8 skipped
 ```
 
 ## 수동 확인 체크리스트
