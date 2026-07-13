@@ -6,7 +6,8 @@ from pipeline.report_pdf import _metric_visibility, _prepare_section, render_dis
 
 def test_metric_visibility_q4_inpatient_surgery():
     m = _metric_visibility({"inpatient": 5, "inpatient_count": 1, "surgery_count": 1}, "Q4", False)
-    assert m["inpatient"] and m["surgery"] and m["inpatient_count"]
+    assert not m["inpatient"] and not m["inpatient_count"]  # BOHUMFIT-214: 입원은 상단 입원근거로만 표시
+    assert m["surgery"]
     assert not m["visit"] and not m["med"]          # Q4 통원·투약 없음
 
 

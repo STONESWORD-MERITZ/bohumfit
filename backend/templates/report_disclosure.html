@@ -232,7 +232,7 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
     {% if p.period %}진료기간 <b>{{ p.period }}</b>{% if p.item.last_hospital %} · {{ p.item.last_hospital }}{% endif %}{% endif %}
     {% if p.item.first_diagnosis_date %} &nbsp;|&nbsp; 최초진단 <b>{{ p.item.first_diagnosis_date }}</b>{% if p.item.first_hospital %} · {{ p.item.first_hospital }}{% endif %}{% endif %}
   </div>
-  {% if p.item.detail %}<div class="detail">{{ p.item.detail }}</div>{% endif %}
+  {% if p.display_detail %}<div class="detail">{{ p.display_detail }}</div>{% endif %}
   <div class="chips">
     {% if p.metric.visit %}<span class="chip {{ 'amber' if (p.item.visit or 0) >= 7 else '' }}">통원 {{ p.item.visit or 0 }}회</span>{% endif %}
     {% if p.metric.inpatient %}<span class="chip red">입원 {{ p.item.inpatient or 0 }}일</span>{% endif %}
@@ -246,7 +246,7 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
   </div>
   {# BOHUMFIT-213: 원본 근거(진료일·병의원) — 판정 수치는 위 칩 그대로, 아래는 추적용 상세(표시 전용) #}
   {% set _ev_inp = p.item.inpatient_periods or [] %}
-  {% if p.metric.inpatient and _ev_inp %}
+  {% if _ev_inp %}
   <div class="evid"><span class="ttl">입원 근거</span>
     {% for ip in _ev_inp[:8] %}<span class="ln">· {{ ip.start }}{% if ip.end and ip.end != ip.start %} ~ {{ ip.end }}{% endif %}{% if ip.days %} ({{ ip.days }}일){% endif %}{% if ip.hospital %} · {{ ip.hospital }}{% endif %}</span>{% endfor %}
     {% if _ev_inp|length > 8 %}<span class="ln">· 외 {{ _ev_inp|length - 8 }}건</span>{% endif %}

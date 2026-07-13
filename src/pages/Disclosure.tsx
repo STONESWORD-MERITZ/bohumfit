@@ -245,7 +245,6 @@ const RESULT_WINDOW_YEAR_OPTIONS = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0] as const;
 function getMetricVisibility(item: SummaryItem, qNum: string, isEasy: boolean) {
   const detail = item.detail || "";
   const surgN = item.surgery_count ?? item.surgeries?.length ?? 0;
-  const hasInpatient = (item.inpatient ?? 0) > 0 || (item.inpatient_count ?? 0) > 0;
   const hasSurgery = surgN > 0;
   const hasVisitTrigger = (item.visit ?? 0) >= 7 || detail.includes("통원");
   const hasMedTrigger = (item.med_days ?? 0) >= 30 || detail.includes("투약") || detail.includes("처방");
@@ -253,8 +252,9 @@ function getMetricVisibility(item: SummaryItem, qNum: string, isEasy: boolean) {
   if (isEasy) {
     return {
       visit: false,
-      inpatient: qNum === "Q2" && hasInpatient,
-      inpatientCount: qNum === "Q2" && (item.inpatient_count ?? 0) > 0,
+      // BOHUMFIT-214: 입원은 상단 "입원기간" 블록에만 표시한다. 하단 판정 칩은 수술/통원/투약 중심.
+      inpatient: false,
+      inpatientCount: false,
       surgery: qNum === "Q2" && hasSurgery,
       med: false,
     };
@@ -263,8 +263,8 @@ function getMetricVisibility(item: SummaryItem, qNum: string, isEasy: boolean) {
   if (qNum === "Q1") {
     return {
       visit: false,
-      inpatient: hasInpatient,
-      inpatientCount: (item.inpatient_count ?? 0) > 0,
+      inpatient: false,
+      inpatientCount: false,
       surgery: hasSurgery,
       med: hasMedTrigger,
     };
@@ -273,8 +273,8 @@ function getMetricVisibility(item: SummaryItem, qNum: string, isEasy: boolean) {
   if (qNum === "Q3") {
     return {
       visit: hasVisitTrigger,
-      inpatient: hasInpatient,
-      inpatientCount: (item.inpatient_count ?? 0) > 0,
+      inpatient: false,
+      inpatientCount: false,
       surgery: hasSurgery,
       med: hasMedTrigger,
     };
@@ -285,8 +285,8 @@ function getMetricVisibility(item: SummaryItem, qNum: string, isEasy: boolean) {
   if (qNum === "Q4") {
     return {
       visit: false,
-      inpatient: hasInpatient,
-      inpatientCount: (item.inpatient_count ?? 0) > 0,
+      inpatient: false,
+      inpatientCount: false,
       surgery: hasSurgery,
       med: false,
     };
@@ -300,6 +300,20 @@ function getMetricVisibility(item: SummaryItem, qNum: string, isEasy: boolean) {
     surgery: false,
     med: false,
   };
+}
+
+function hideDuplicateInpatientDetail(detail: string, item: SummaryItem) {
+  const text = detail.trim();
+  if (!text || !text.includes("입원")) return text;
+  const hasInpatient = (item.inpatient ?? 0) > 0 || (item.inpatient_count ?? 0) > 0 || (item.inpatient_periods?.length ?? 0) > 0;
+  if (!hasInpatient) return text;
+  const hasOtherDisplayTrigger = /수술|통원|투약|처방/.test(text);
+  if (!hasOtherDisplayTrigger) return "";
+  return text
+    .replace(/입원\s*(또는|및|과|와|\/|·|,)\s*(수술|통원|투약|처방)/g, "$2")
+    .replace(/(수술|통원|투약|처방)\s*(또는|및|과|와|\/|·|,)\s*입원/g, "$1")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
 
 // BOHUMFIT-168: Q2 소견 표시 제거.
@@ -413,6 +427,7 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
   const hasTreatment = item.treatment_ongoing === true || item.treatment_ongoing === false;
   const hasClinicalChips = procN > 0 || suspN > 0 || hasTreatment;
   const hasBottom = suspN > 0 || (hasTreatment && !!item.treatment_ongoing_reason);
+  const displayDetail = hideDuplicateInpatientDetail(item.detail || "", item);
 
   return (
     <article className={`border-l-4 px-5 py-4 transition-colors duration-200 hover:bg-green-50/40 ${RISK[risk].border}`}>
@@ -471,9 +486,9 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
         )}
       </div>
 
-      {item.detail && (
+      {displayDetail && (
         <div className="mb-3 text-[13px] font-medium leading-relaxed text-ink">
-          {item.detail}
+          {displayDetail}
         </div>
       )}
 

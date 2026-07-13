@@ -217,7 +217,6 @@ def _metric_visibility(item: dict, q_num: str, is_easy: bool) -> dict:
     surg_n = item.get("surgery_count")
     if surg_n is None:
         surg_n = len(item.get("surgeries") or [])
-    has_inpatient = (item.get("inpatient") or 0) > 0 or (item.get("inpatient_count") or 0) > 0
     has_surgery = surg_n > 0
     has_visit_trigger = (item.get("visit") or 0) >= 7 or ("통원" in detail)
     has_med_trigger = (item.get("med_days") or 0) >= 30 or ("투약" in detail) or ("처방" in detail)
@@ -225,32 +224,33 @@ def _metric_visibility(item: dict, q_num: str, is_easy: bool) -> dict:
     if is_easy:
         return {
             "visit": False,
-            "inpatient": q_num == "Q2" and has_inpatient,
-            "inpatient_count": q_num == "Q2" and (item.get("inpatient_count") or 0) > 0,
+            # BOHUMFIT-214: 입원은 상단 입원기간/입원근거 블록에만 표시한다.
+            "inpatient": False,
+            "inpatient_count": False,
             "surgery": q_num == "Q2" and has_surgery,
             "med": False,
         }
     if q_num == "Q1":
         return {
             "visit": False,
-            "inpatient": has_inpatient,
-            "inpatient_count": (item.get("inpatient_count") or 0) > 0,
+            "inpatient": False,
+            "inpatient_count": False,
             "surgery": has_surgery,
             "med": has_med_trigger,
         }
     if q_num == "Q3":
         return {
             "visit": has_visit_trigger,
-            "inpatient": has_inpatient,
-            "inpatient_count": (item.get("inpatient_count") or 0) > 0,
+            "inpatient": False,
+            "inpatient_count": False,
             "surgery": has_surgery,
             "med": has_med_trigger,
         }
     if q_num == "Q4":  # BOHUMFIT-034/036: 5년 초과 10년 이내 입원·수술(통원·투약 없음)
         return {
             "visit": False,
-            "inpatient": has_inpatient,
-            "inpatient_count": (item.get("inpatient_count") or 0) > 0,
+            "inpatient": False,
+            "inpatient_count": False,
             "surgery": has_surgery,
             "med": False,
         }
@@ -304,6 +304,21 @@ def _format_period(item: dict) -> str:
     return fd or ld or ""
 
 
+def _display_detail(item: dict) -> str:
+    """PDF 표시용 detail. 입원-only 판정은 상단 입원근거와 중복되므로 숨긴다."""
+    detail = str(item.get("detail") or "").strip()
+    if not detail or "입원" not in detail:
+        return detail
+    has_inpatient = (item.get("inpatient") or 0) > 0 or (item.get("inpatient_count") or 0) > 0 or bool(item.get("inpatient_periods"))
+    if not has_inpatient:
+        return detail
+    if not re.search(r"수술|통원|투약|처방", detail):
+        return ""
+    text = re.sub(r"입원\s*(또는|및|과|와|/|·|,)\s*(수술|통원|투약|처방)", r"\2", detail)
+    text = re.sub(r"(수술|통원|투약|처방)\s*(또는|및|과|와|/|·|,)\s*입원", r"\1", text)
+    return re.sub(r"\s{2,}", " ", text).strip()
+
+
 def _prepare_section(reports: dict, is_easy: bool) -> list[dict]:
     """summary_reports(dict) → 템플릿용 질문 섹션 리스트. 값은 가공 없이 전달."""
     if not isinstance(reports, dict):
@@ -331,6 +346,7 @@ def _prepare_section(reports: dict, is_easy: bool) -> list[dict]:
             prepared.append({
                 "item": item,
                 "period": _format_period(item),
+                "display_detail": _display_detail(item),
                 "metric": _metric_visibility(item, q_num, is_easy),
                 "surgery_n": surg_n,
                 "procedures_n": len(item.get("procedures") or []),

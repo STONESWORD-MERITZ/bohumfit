@@ -351,6 +351,21 @@ def _kakao_has_surgery_signal(item: dict) -> bool:
     return bool(_kakao_values(item.get("surgeries")) or _kakao_values(item.get("surgery_suspected")))
 
 
+def _kakao_display_detail(item: dict) -> str:
+    """복사문 하단 detail에서 상단 입원 회차와 중복되는 입원-only 판정 문구를 제거한다."""
+    detail = _s(item.get("detail")).strip()
+    if not detail or "입원" not in detail:
+        return detail
+    has_inpatient = (item.get("inpatient") or 0) > 0 or (item.get("inpatient_count") or 0) > 0
+    if not has_inpatient:
+        return detail
+    if not re.search(r"수술|통원|투약|처방", detail):
+        return ""
+    text = re.sub(r"입원\s*(또는|및|과|와|/|·|,)\s*(수술|통원|투약|처방)", r"\2", detail)
+    text = re.sub(r"(수술|통원|투약|처방)\s*(또는|및|과|와|/|·|,)\s*입원", r"\1", text)
+    return re.sub(r"\s{2,}", " ", text).strip()
+
+
 def _kakao_item(item: dict) -> str:
     fd = _s(item.get("first_date"))
     ld = _s(item.get("latest_date"))
@@ -410,7 +425,7 @@ def _kakao_item(item: dict) -> str:
             suspected_text += f" ({suspected_grade})"
         line2 = f"수술 의심: {suspected_text}\n"
     else:
-        detail = _s(item.get("detail"))
+        detail = _kakao_display_detail(item)
         line2 = f"{detail[:60]}\n" if detail else ""
 
     return line1 + line2 + "\n"

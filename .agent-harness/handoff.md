@@ -1,3 +1,33 @@
+## 2026-07-13 BOHUMFIT-214 - 입원 판정 라인 중복 제거
+
+Owner flow: Human -> Codex Windows | Current owner: Human
+Commit: pending at handoff write time; final hash in Codex response.
+
+### Changed
+- `src/pages/Disclosure.tsx`: 상단 `입원기간` 회차별 블록은 유지하고 하단 metric chip에서 `입원 N일/N회`를 숨겼다. 입원-only detail(`10년이내 입원 (N일)` 등)은 화면 하단에서 숨기고, 수술/통원/투약 detail은 유지한다.
+- `backend/main.py`: 복사문은 입원 회차별 줄을 그대로 유지하되, 바로 아래 중복 입원-only detail 줄을 제거했다. 수술 의심/확정 수술 및 통원 fallback은 유지한다.
+- `backend/pipeline/report_pdf.py`, `backend/templates/report_disclosure.html`: PDF도 화면과 동일하게 입원 칩/detail 중복을 숨기고 `입원 근거` 블록은 metric chip과 독립적으로 유지한다.
+- `backend/tests/test_inpatient_display_214.py` 신규 3건, `test_report_pdf_q1q5.py` 표시 기대값 갱신.
+- `.agent-harness/verify.md`, `CLAUDE.md`: backend pytest 기준선을 `611 passed, 8 skipped`로 갱신.
+
+### Verified
+- `npx tsc -p tsconfig.app.json --noEmit` passed.
+- `npx tsc -p tsconfig.node.json --noEmit` passed.
+- `npm run lint` passed.
+- `npm test` passed: `25 passed`.
+- `npm run build` passed, existing Vite chunk warning only.
+- `cd backend && python -m py_compile main.py pipeline\report_pdf.py` passed.
+- `cd backend && python -m pytest tests/test_inpatient_display_214.py tests/test_kakao_inpatient_205.py tests/test_evidence_213.py tests/test_report_pdf_q1q5.py -vv` passed: `22 passed`.
+- `cd backend && python -m pytest -q` passed: `611 passed, 8 skipped`.
+
+### Real PDF Smoke
+- Read-only Seok Jiwon 3 PDFs: parsed `basic 68/detail 770/pharma 181`, parse_errors 0. 입원 회차/근거는 유지되고 PDF 하단 입원 칩은 사라짐.
+- Read-only Lee Mi-suk 3 text PDFs: parsed `basic 247/detail 1698/pharma 803`, parse_errors 0. 중복 입원 detail absent.
+
+### Guardrails
+- `backend/filters.py`, 판정 임계/코드집합, `backend/coverage/`, DB/auth/payment core 무변경.
+- 실 PDF/PII/렌더 산출물 미저장·미스테이지. 기존 untracked `석지원 기본진료정보.pdf`는 계속 제외.
+
 ## 2026-07-13 BOHUMFIT-213 - 원본 근거(진료일·병원) 표시 연결 Codex 검증 완료
 
 Owner flow: Claude Chat -> Cowork -> Codex Windows | Current owner: Human
