@@ -13,6 +13,7 @@ import DisclosureHub from "./pages/DisclosureHub";
 import InsuranceCalculator from "./pages/InsuranceCalculator";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import ForgotPassword from "./pages/ForgotPassword";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import WhyDisclosure from "./pages/WhyDisclosure";
@@ -79,6 +80,7 @@ function App() {
       <ScrollToTop />
       <Routes>
         <Route path="/login" element={<RedirectIfAuthed><Login /></RedirectIfAuthed>} />
+        <Route path="/forgot-password" element={<RedirectIfAuthed><ForgotPassword /></RedirectIfAuthed>} />
         <Route path="/signup" element={<RedirectIfAuthed><Signup /></RedirectIfAuthed>} />
         {/* BOHUMFIT-075: 소셜/이메일 공통 휴대폰 본인인증 게이트(로그인 필요·전체화면) */}
         <Route path="/phone-verify" element={<ProtectedRoute><PhoneVerify /></ProtectedRoute>} />

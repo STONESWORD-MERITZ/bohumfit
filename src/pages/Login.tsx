@@ -134,6 +134,11 @@ export default function Login() {
               required
               autoComplete="current-password"
             />
+            <div className="text-right">
+              <Link to="/forgot-password" className="text-xs font-semibold text-accent-700 hover:underline">
+                비밀번호 찾기
+              </Link>
+            </div>
 
             {error && <Callout variant="danger">{error}</Callout>}
 

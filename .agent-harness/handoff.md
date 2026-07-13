@@ -1,3 +1,30 @@
+## 2026-07-13 BOHUMFIT-216 - 비밀번호 찾기 SMS 재설정
+
+Owner flow: Human -> Codex Windows | Current owner: Human
+Commit: pending at handoff write time; final hash in Codex response.
+
+### Changed
+- `backend/sms_nhn.py`: NHN SMS 공용 유틸을 추가했다. `NHN_SMS_APP_KEY`, `NHN_SMS_SECRET_KEY`, `NHN_SMS_SENDER`가 없으면 실발송 대신 `SMSNotConfigured`로 명확히 실패한다.
+- `backend/main.py`: 서버 권위 비밀번호 재설정 3단계 엔드포인트(`/auth/password-reset/request`, `/auth/password-reset/verify`, `/auth/password-reset/confirm`)를 추가했다. 등록 휴대폰이 `phone_verified=true`인 이메일 계정만 SMS 코드를 받을 수 있고, Kakao/Google 소셜-only 계정은 SMS 발송 전 OAuth 로그인 안내로 차단한다.
+- `src/pages/Login.tsx`, `src/pages/ForgotPassword.tsx`, `src/App.tsx`: 로그인 화면에 `비밀번호 찾기` 링크를 추가하고, 휴대폰 입력 -> SMS 코드 확인 -> 새 비밀번호 설정 UI를 연결했다. 기존 OAuth 버튼 흐름은 변경하지 않았다.
+- `backend/tests/test_password_reset_216.py`, `src/pages/ForgotPassword.test.tsx`: NHN 미설정 503, 이메일 계정 request/verify/confirm, 소셜-only 차단, 미검증 휴대폰 차단, 프런트 3단계 흐름과 로그인 링크를 회귀 테스트로 고정했다.
+- `.agent-harness/verify.md`, `CLAUDE.md`: backend pytest 기준선을 `616 passed, 8 skipped`로 갱신했다.
+
+### Verified
+- `npx tsc -p tsconfig.app.json --noEmit` passed.
+- `npx tsc -p tsconfig.node.json --noEmit` passed.
+- `npm run lint` passed.
+- `npm test` passed: `34 passed`.
+- `npm run build` passed, existing Vite chunk warning only.
+- `python -m py_compile backend\main.py backend\sms_nhn.py` passed.
+- `python -m pytest backend\tests\test_password_reset_216.py -vv` passed: `4 passed`.
+- `cd backend && python -m pytest -q` passed: `616 passed, 8 skipped`.
+
+### Notes
+- NHN 본인확인/발신번호 승인과 실 키가 없으면 SMS 실발송은 아직 불가하다. 이 경우 새 503 안내가 나가며, 코드 경로는 테스트 더블로 검증했다.
+- OTP/재설정 토큰은 DB 스키마 추가 없이 서버 메모리 TTL로 관리한다. 운영 다중 인스턴스·재시작 내구성은 NHN/207 OTP 인프라 확정 시 후속 검토가 필요하다.
+- `backend/pipeline/`, `backend/coverage/`, DB 스키마/RLS/Supabase auth settings, 결제 core 무변경. 실 PDF/PII/키/시크릿 미스테이징.
+
 ## 2026-07-13 BOHUMFIT-215 - 조회기간 필터 출력 정책
 
 Owner flow: Human -> Codex Windows | Current owner: Human

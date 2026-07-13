@@ -1,9 +1,12 @@
 import asyncio
 import base64
+import hashlib
+import hmac
 import json
 import logging
 import os
 import re
+import secrets
 import time
 import urllib.parse
 from datetime import date, datetime, timedelta, timezone
@@ -51,6 +54,7 @@ from pipeline.report_pdf import (
     ReportUnavailableError,
     generate_report_pdf,
 )
+from sms_nhn import SMSNotConfigured, SMSSendError, send_sms
 
 # ── 서비스 환경 ──────────────────────────────────────────────────────────────
 SENTRY_DSN  = os.environ.get("SENTRY_DSN", "")
@@ -67,6 +71,7 @@ HCAPTCHA_VERIFY_URL = "https://hcaptcha.com/siteverify"
 # BOHUMFIT-204 F-02: 사용자별 한도와 별도로 IP 집계 한도를 둔다.
 # 계정 다중 생성으로 분석/인증 요청을 분산하는 우회를 줄이되 기존 사용자별 throttle은 유지한다.
 PHONE_VERIFY_IP_RATE_LIMIT = "5/minute,20/hour"
+PASSWORD_RESET_IP_RATE_LIMIT = "5/minute,20/hour"
 COVERAGE_ANALYZE_IP_RATE_LIMIT = "10/minute,60/hour"
 ANALYZE_IP_RATE_LIMIT = "15/minute,90/hour"
 
@@ -943,6 +948,193 @@ async def verify_phone(
                 logger.warning("phone_verified 갱신 실패: %s", e)
         await asyncio.to_thread(_update)
     return {"verified": True, "message": "본인인증이 완료되었습니다."}
+
+
+# ── 비밀번호 찾기: SMS 코드 → 서버 검증 → Supabase Admin 비밀번호 변경 (BOHUMFIT-216) ──
+PASSWORD_RESET_CODE_TTL_SECONDS = 5 * 60
+PASSWORD_RESET_TOKEN_TTL_SECONDS = 10 * 60
+PASSWORD_RESET_MAX_ATTEMPTS = 5
+_password_reset_codes: dict[str, dict] = {}
+_password_reset_tokens: dict[str, dict] = {}
+
+
+def _normalize_phone_digits(phone: str) -> str:
+    return re.sub(r"[^0-9]", "", phone or "")
+
+
+def _password_reset_secret() -> str:
+    return os.environ.get("PASSWORD_RESET_OTP_SECRET", "").strip() or SUPABASE_SERVICE_KEY or "bohumfit-local-reset-secret"
+
+
+def _hash_reset_code(phone: str, code: str) -> str:
+    msg = f"{phone}:{code}".encode("utf-8")
+    return hmac.new(_password_reset_secret().encode("utf-8"), msg, hashlib.sha256).hexdigest()
+
+
+def _cleanup_password_reset_store(now: float | None = None) -> None:
+    now = now or time.time()
+    for key in [k for k, v in _password_reset_codes.items() if float(v.get("expires_at", 0)) < now]:
+        _password_reset_codes.pop(key, None)
+    for key in [k for k, v in _password_reset_tokens.items() if float(v.get("expires_at", 0)) < now]:
+        _password_reset_tokens.pop(key, None)
+
+
+async def _find_verified_profile_by_phone(phone: str) -> str | None:
+    admin = _get_supabase_admin()
+    if admin is None:
+        raise HTTPException(status_code=503, detail="비밀번호 재설정 서버 설정이 아직 완료되지 않았습니다.")
+
+    def _query():
+        res = (
+            admin.table("profiles")
+            .select("id, phone, phone_verified")
+            .eq("phone", phone)
+            .eq("phone_verified", True)
+            .execute()
+        )
+        data = getattr(res, "data", None) or []
+        return data[0].get("id") if data else None
+
+    return await asyncio.to_thread(_query)
+
+
+async def _get_auth_user_record(user_id: str) -> dict:
+    if not (SUPABASE_URL and SUPABASE_SERVICE_KEY):
+        raise HTTPException(status_code=503, detail="비밀번호 재설정 서버 설정이 아직 완료되지 않았습니다.")
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            res = await client.get(
+                f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
+                headers={"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}"},
+            )
+    except httpx.HTTPError:
+        raise HTTPException(status_code=503, detail="회원 정보를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.")
+    if res.status_code == 404:
+        raise HTTPException(status_code=404, detail="등록된 휴대폰 번호를 확인해 주세요.")
+    if res.status_code >= 400:
+        raise HTTPException(status_code=503, detail="회원 정보를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.")
+    try:
+        return res.json()
+    except ValueError:
+        raise HTTPException(status_code=503, detail="회원 정보를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.")
+
+
+def _auth_user_provider_label(user: dict) -> str:
+    providers = list((user.get("app_metadata") or {}).get("providers") or [])
+    for identity in user.get("identities") or []:
+        provider = (identity or {}).get("provider")
+        if provider and provider not in providers:
+            providers.append(provider)
+    labels = {"kakao": "카카오", "google": "Google"}
+    social = [labels[p] for p in providers if p in labels]
+    return "/".join(social)
+
+
+def _auth_user_has_password(user: dict) -> bool:
+    providers = list((user.get("app_metadata") or {}).get("providers") or [])
+    providers.extend((identity or {}).get("provider") for identity in (user.get("identities") or []))
+    providers = [p for p in providers if p]
+    if "email" in providers:
+        return True
+    return bool(user.get("email")) and not providers
+
+
+async def _update_supabase_user_password(user_id: str, password: str) -> None:
+    if not (SUPABASE_URL and SUPABASE_SERVICE_KEY):
+        raise HTTPException(status_code=503, detail="비밀번호 재설정 서버 설정이 아직 완료되지 않았습니다.")
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            res = await client.put(
+                f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
+                headers={
+                    "apikey": SUPABASE_SERVICE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={"password": password},
+            )
+    except httpx.HTTPError:
+        raise HTTPException(status_code=503, detail="비밀번호 변경 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.")
+    if res.status_code >= 400:
+        raise HTTPException(status_code=503, detail="비밀번호 변경 요청에 실패했습니다. 잠시 후 다시 시도해 주세요.")
+
+
+@app.post("/auth/password-reset/request")
+@limiter.limit(PASSWORD_RESET_IP_RATE_LIMIT, key_func=get_remote_address)
+async def password_reset_request(request: Request, payload: dict = Body(...)):
+    await _verify_hcaptcha_token(request)
+    phone = _normalize_phone_digits(payload.get("phone") or "")
+    if len(phone) < 10:
+        raise HTTPException(status_code=400, detail="등록 휴대폰 번호를 정확히 입력해 주세요.")
+
+    user_id = await _find_verified_profile_by_phone(phone)
+    if not user_id:
+        raise HTTPException(status_code=404, detail="등록된 휴대폰 번호를 확인해 주세요.")
+
+    user = await _get_auth_user_record(user_id)
+    if not _auth_user_has_password(user):
+        provider = _auth_user_provider_label(user) or "소셜"
+        raise HTTPException(status_code=400, detail=f"{provider} 로그인 계정은 비밀번호가 없습니다. 해당 소셜 버튼으로 로그인해 주세요.")
+
+    code = f"{secrets.randbelow(1_000_000):06d}"
+    try:
+        await send_sms(phone, f"[보험핏] 비밀번호 재설정 인증번호는 {code} 입니다. 5분 안에 입력해 주세요.")
+    except SMSNotConfigured:
+        raise HTTPException(status_code=503, detail="NHN SMS 모듈 또는 발신번호 승인이 아직 준비되지 않아 실발송할 수 없습니다.")
+    except SMSSendError:
+        raise HTTPException(status_code=503, detail="SMS 발송에 실패했습니다. 잠시 후 다시 시도해 주세요.")
+
+    _cleanup_password_reset_store()
+    _password_reset_codes[phone] = {
+        "user_id": user_id,
+        "code_hash": _hash_reset_code(phone, code),
+        "expires_at": time.time() + PASSWORD_RESET_CODE_TTL_SECONDS,
+        "attempts": 0,
+    }
+    return {"sent": True, "message": "등록된 휴대폰으로 인증번호를 보냈습니다."}
+
+
+@app.post("/auth/password-reset/verify")
+@limiter.limit(PASSWORD_RESET_IP_RATE_LIMIT, key_func=get_remote_address)
+async def password_reset_verify(request: Request, payload: dict = Body(...)):
+    phone = _normalize_phone_digits(payload.get("phone") or "")
+    code = re.sub(r"[^0-9]", "", payload.get("code") or "")
+    _cleanup_password_reset_store()
+    row = _password_reset_codes.get(phone)
+    if not row:
+        raise HTTPException(status_code=400, detail="인증번호가 만료되었거나 요청 이력이 없습니다.")
+    row["attempts"] = int(row.get("attempts") or 0) + 1
+    if row["attempts"] > PASSWORD_RESET_MAX_ATTEMPTS:
+        _password_reset_codes.pop(phone, None)
+        raise HTTPException(status_code=400, detail="인증번호 입력 횟수를 초과했습니다. 다시 요청해 주세요.")
+    if not code or not hmac.compare_digest(row.get("code_hash") or "", _hash_reset_code(phone, code)):
+        raise HTTPException(status_code=400, detail="인증번호가 일치하지 않습니다.")
+
+    token = secrets.token_urlsafe(32)
+    _password_reset_tokens[token] = {
+        "user_id": row["user_id"],
+        "phone": phone,
+        "expires_at": time.time() + PASSWORD_RESET_TOKEN_TTL_SECONDS,
+    }
+    _password_reset_codes.pop(phone, None)
+    return {"verified": True, "reset_token": token, "message": "휴대폰 인증이 완료되었습니다."}
+
+
+@app.post("/auth/password-reset/confirm")
+@limiter.limit(PASSWORD_RESET_IP_RATE_LIMIT, key_func=get_remote_address)
+async def password_reset_confirm(request: Request, payload: dict = Body(...)):
+    token = (payload.get("reset_token") or "").strip()
+    password = payload.get("password") or ""
+    if len(password) < 10:
+        raise HTTPException(status_code=400, detail="새 비밀번호는 10자 이상으로 입력해 주세요.")
+
+    _cleanup_password_reset_store()
+    row = _password_reset_tokens.pop(token, None)
+    if not row:
+        raise HTTPException(status_code=400, detail="재설정 인증이 만료되었습니다. 다시 인증해 주세요.")
+
+    await _update_supabase_user_password(row["user_id"], password)
+    return {"updated": True, "message": "비밀번호가 변경되었습니다. 새 비밀번호로 로그인해 주세요."}
 
 
 # ── 분석 히스토리 (BOHUMFIT-156a) ────────────────────────────────────────────
