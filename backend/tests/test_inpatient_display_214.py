@@ -1,7 +1,5 @@
-"""BOHUMFIT-214: 입원 판정 라인 중복 제거 표시 회귀.
+"""BOHUMFIT-214/217: inpatient display is evidence/chips, judgment detail is surgery-only."""
 
-판정 결과 payload의 inpatient 값은 그대로 보존하되, 하단 판정 칩/detail에서만 입원 중복을 숨긴다.
-"""
 import os
 import sys
 from datetime import date, datetime
@@ -12,7 +10,11 @@ import main
 from pipeline import report_pdf as rp
 
 
-EASY_Q2_TITLE = "[2번질문] 10년 이내 입원·수술"
+INPATIENT = "\uc785\uc6d0"
+SURGERY = "\uc218\uc220"
+HOSPITAL = "\ud14c\uc2a4\ud2b8\ubcd1\uc6d0"
+DISEASE = "\ubb34\ub98e \uc778\ub300 \uc190\uc0c1"
+EASY_Q2_TITLE = f"[2\ubc88\uc9c8\ubb38] 10\ub144\uc774\ub0b4 {INPATIENT}\u00b7{SURGERY}"
 
 
 def _inpatient_item(**overrides):
@@ -21,33 +23,35 @@ def _inpatient_item(**overrides):
         "latest_date": "2023-06-19",
         "display_code": "S83",
         "code": "S83",
-        "name": "무릎 인대 손상",
+        "name": DISEASE,
         "visit": 0,
         "med_days": 0,
         "inpatient": 4,
         "inpatient_count": 1,
-        "inpatient_periods": [{"start": "2023-06-16", "end": "2023-06-19", "days": 4, "hospital": "테스트병원"}],
+        "inpatient_periods": [{"start": "2023-06-16", "end": "2023-06-19", "days": 4, "hospital": HOSPITAL}],
         "surgeries": [],
         "surgery_suspected": [],
         "surgery_suspected_grade": "",
-        "detail": "10년이내 입원 (4일)",
-        "hospitals": ["테스트병원"],
+        "detail": f"10\ub144\uc774\ub0b4 {INPATIENT} (4\uc77c)",
+        "hospitals": [HOSPITAL],
     }
     item.update(overrides)
     return item
 
 
 def test_kakao_keeps_inpatient_period_but_hides_duplicate_detail():
-    msg = main._build_kakao_message("간편심사", date(2026, 7, 13), {EASY_Q2_TITLE: [_inpatient_item()]})
+    item = _inpatient_item()
+    msg = main._build_kakao_message("\uac04\ud3b8\uc2ec\uc0ac", date(2026, 7, 13), {EASY_Q2_TITLE: [item]})
 
-    assert "[입원]" in msg
-    assert "2023-06-16 ~ 2023-06-19 / 입원4일 / S83 / (양방)무릎 인대 손상 / 테스트병원" in msg
-    assert "10년이내 입원 (4일)" not in msg
+    assert f"[{INPATIENT}]" in msg
+    assert "2023-06-16 ~ 2023-06-19" in msg
+    assert f"{INPATIENT}4" in msg
+    assert item["detail"] not in msg
 
 
 def test_pdf_metric_visibility_hides_inpatient_chips_only():
     metric = rp._metric_visibility(
-        {"inpatient": 4, "inpatient_count": 1, "surgery_count": 1, "detail": "10년 이내 입원·수술"},
+        {"inpatient": 4, "inpatient_count": 1, "surgery_count": 1, "detail": f"10\ub144\uc774\ub0b4 {INPATIENT}\u00b7{SURGERY}"},
         "Q2",
         True,
     )
@@ -57,19 +61,49 @@ def test_pdf_metric_visibility_hides_inpatient_chips_only():
     assert metric["surgery"] is True
 
 
-def test_pdf_keeps_inpatient_evidence_without_inpatient_chip():
+def test_pdf_keeps_inpatient_evidence_and_new_summary_chips():
+    item = _inpatient_item()
     payload = {
         "reference_date": "2026-07-13",
         "standard_reports": {},
-        "easy_reports": {EASY_Q2_TITLE: [_inpatient_item()]},
+        "easy_reports": {EASY_Q2_TITLE: [item]},
         "all_disease_summary": [],
         "total_med_sum": 0,
     }
 
     html = rp.render_disclosure_html(payload, datetime(2026, 7, 13))
 
-    assert "입원 근거" in html
     assert "2023-06-16 ~ 2023-06-19" in html
-    assert "입원 4일" not in html
-    assert "입원 1회" not in html
-    assert "10년이내 입원 (4일)" not in html
+    assert f"{INPATIENT} \ucd1d 1\ud68c" in html
+    assert "\ud569\uc0b0 4\uc77c" in html
+    assert f"{INPATIENT} 4\uc77c" not in html
+    assert f"{INPATIENT} 1\ud68c" not in html
+    assert item["detail"] not in html
+
+
+def test_display_detail_is_surgery_only_after_217():
+    surgery_name = "\uad00\uc808\uacbd\ud558\uc218\uc220\uc2dc\uc0ac\uc6a9\ud558\ub294\uce58\ub8cc\uc7ac\ub8cc\ube44\uc6a9"
+    detail = f"10\ub144\uc774\ub0b4 {INPATIENT}(4\uc77c)/{SURGERY}: {surgery_name}/{INPATIENT}(9\uc77c)"
+    item = _inpatient_item(
+        surgery_count=1,
+        surgeries=[surgery_name],
+        surgery_events=[{"date": "2024-10-07", "hospital": HOSPITAL, "surgeries": [surgery_name]}],
+        detail=detail,
+    )
+
+    assert rp._display_detail(item) == f"10\ub144\uc774\ub0b4 {SURGERY}: {surgery_name}"
+    assert main._kakao_display_detail(item) == f"10\ub144\uc774\ub0b4 {SURGERY}: {surgery_name}"
+
+
+def test_display_detail_drops_surgery_when_filtered_count_zero():
+    surgery_name = "\uad00\uc808\uacbd\ud558\uc218\uc220"
+    detail = f"10\ub144\uc774\ub0b4 {INPATIENT}(4\uc77c)/{SURGERY}: {surgery_name}"
+    item = _inpatient_item(
+        surgery_count=0,
+        surgeries=[],
+        surgery_events=[],
+        detail=detail,
+    )
+
+    assert rp._display_detail(item) == ""
+    assert main._kakao_display_detail(item) == ""

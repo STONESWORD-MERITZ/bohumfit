@@ -352,23 +352,72 @@ def _kakao_values(value) -> list[str]:
     return [_s(v).strip() for v in raw_values if _s(v).strip()]
 
 
+def _current_surgery_count(item: dict) -> int:
+    if item.get("surgery_count") is not None:
+        try:
+            return max(0, int(item.get("surgery_count") or 0))
+        except (TypeError, ValueError):
+            return 0
+    if isinstance(item.get("surgery_events"), list):
+        return len(item.get("surgery_events") or [])
+    if isinstance(item.get("surgery_dates"), list):
+        return len(item.get("surgery_dates") or [])
+    return len(_kakao_values(item.get("surgeries")))
+
+
+def _visible_surgery_names(item: dict) -> list[str]:
+    if _current_surgery_count(item) <= 0:
+        return []
+    return [s for s in _kakao_values(item.get("surgeries")) if s and s != "수술"]
+
+
 def _kakao_has_surgery_signal(item: dict) -> bool:
-    return bool(_kakao_values(item.get("surgeries")) or _kakao_values(item.get("surgery_suspected")))
+    return bool(_current_surgery_count(item) > 0 or _kakao_values(item.get("surgery_suspected")))
+
+
+def _disclosure_window_prefix(text: str) -> str:
+    m = re.search(r"\d+\s*년\s*초과\s*\d+\s*년\s*이내|\d+\s*년\s*이내", text or "")
+    return re.sub(r"\s+", " ", m.group(0)).strip() if m else ""
 
 
 def _kakao_display_detail(item: dict) -> str:
-    """복사문 하단 detail에서 상단 입원 회차와 중복되는 입원-only 판정 문구를 제거한다."""
+    """복사문 판정라인: 입원 회차는 제거하고 현재 표시 범위의 수술/통원/투약만 남긴다."""
     detail = _s(item.get("detail")).strip()
-    if not detail or "입원" not in detail:
-        return detail
-    has_inpatient = (item.get("inpatient") or 0) > 0 or (item.get("inpatient_count") or 0) > 0
-    if not has_inpatient:
-        return detail
-    if not re.search(r"수술|통원|투약|처방", detail):
+    if not detail:
         return ""
-    text = re.sub(r"입원\s*(또는|및|과|와|/|·|,)\s*(수술|통원|투약|처방)", r"\2", detail)
-    text = re.sub(r"(수술|통원|투약|처방)\s*(또는|및|과|와|/|·|,)\s*입원", r"\1", text)
-    return re.sub(r"\s{2,}", " ", text).strip()
+    has_surgery = _current_surgery_count(item) > 0
+    has_visit = (item.get("visit") or 0) > 0
+    has_med = (item.get("med_days") or 0) > 0
+    prefix = _disclosure_window_prefix(detail)
+    normalized = re.sub(r"\s*(또는|및|과|와)\s*", "/", detail)
+    parts = [p.strip() for p in re.split(r"\s*(?:/|,|·|\n)\s*", normalized) if p.strip()]
+    kept = []
+    had_inpatient = "입원" in detail
+    for part in (parts or [detail]):
+        if "입원" in part:
+            continue
+        if "수술" in part:
+            if has_surgery:
+                kept.append(part)
+            continue
+        if "통원" in part:
+            if has_visit:
+                kept.append(part)
+            continue
+        if "투약" in part or "처방" in part:
+            if has_med:
+                kept.append(part)
+            continue
+        if not had_inpatient:
+            kept.append(part)
+    if not kept and has_surgery:
+        names = _visible_surgery_names(item)
+        return f"{prefix + ' ' if prefix else ''}{'수술: ' + ', '.join(names) if names else '수술'}"
+    text = " / ".join(kept)
+    text = re.sub(r"\s{2,}", " ", text).strip()
+    if prefix and not re.search(r"\d+\s*년", text) and re.search(r"수술|통원|투약|처방", text):
+        return f"{prefix} {text}"
+    return text
 
 
 def _kakao_item(item: dict) -> str:
@@ -418,12 +467,12 @@ def _kakao_item(item: dict) -> str:
             _h_tail = f" / {hosp_list[0]}" + (f" 외 {len(hosp_list) - 1}곳" if len(hosp_list) > 1 else "")
         line1 = f"{date_str} / {visit_str} / {code_clean} / {kind}{_s(item.get('name'))}{_h_tail}\n"
 
-    surgeries = item.get("surgeries") or []
+    surgery_count = _current_surgery_count(item)
+    surgeries = _visible_surgery_names(item)
     suspected_names = _kakao_values(item.get("surgery_suspected"))
     suspected_grade = _s(item.get("surgery_suspected_grade")).strip()
-    if surgeries:
-        surg_names = [s for s in surgeries if s and s != "수술"]
-        line2 = (", ".join(surg_names) if surg_names else "수술") + "\n"
+    if surgery_count > 0:
+        line2 = (", ".join(surgeries) if surgeries else "수술") + "\n"
     elif suspected_names:
         suspected_text = ", ".join(suspected_names)
         if suspected_grade:

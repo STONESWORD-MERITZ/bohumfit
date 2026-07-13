@@ -211,12 +211,43 @@ def _clean_q_title(q_title: str) -> str:
     return re.sub(r"^\[.*?\]\s*", "", q_title or "")
 
 
+def _current_surgery_count(item: dict) -> int:
+    if item.get("surgery_count") is not None:
+        try:
+            return max(0, int(item.get("surgery_count") or 0))
+        except (TypeError, ValueError):
+            return 0
+    if isinstance(item.get("surgery_events"), list):
+        return len(item.get("surgery_events") or [])
+    if isinstance(item.get("surgery_dates"), list):
+        return len(item.get("surgery_dates") or [])
+    return len(item.get("surgeries") or [])
+
+
+def _visible_surgery_names(item: dict) -> list[str]:
+    if _current_surgery_count(item) <= 0:
+        return []
+    return [str(s).strip() for s in (item.get("surgeries") or []) if str(s).strip() and str(s).strip() != "수술"]
+
+
+def _inpatient_summary(item: dict) -> dict:
+    try:
+        days = max(0, int(item.get("inpatient") or 0))
+    except (TypeError, ValueError):
+        days = 0
+    try:
+        explicit_count = max(0, int(item.get("inpatient_count") or 0))
+    except (TypeError, ValueError):
+        explicit_count = 0
+    period_count = len(item.get("inpatient_periods") or []) if isinstance(item.get("inpatient_periods"), list) else 0
+    count = explicit_count or period_count or (1 if days > 0 else 0)
+    return {"show": count > 0 or days > 0, "count": count, "days": days}
+
+
 def _metric_visibility(item: dict, q_num: str, is_easy: bool) -> dict:
     """Disclosure.tsx getMetricVisibility 미러."""
     detail = item.get("detail") or ""
-    surg_n = item.get("surgery_count")
-    if surg_n is None:
-        surg_n = len(item.get("surgeries") or [])
+    surg_n = _current_surgery_count(item)
     has_surgery = surg_n > 0
     has_visit_trigger = (item.get("visit") or 0) >= 7 or ("통원" in detail)
     has_med_trigger = (item.get("med_days") or 0) >= 30 or ("투약" in detail) or ("처방" in detail)
@@ -312,19 +343,49 @@ def _positive_int(value, default: int) -> int:
     return n if n >= 0 else default
 
 
+def _disclosure_window_prefix(text: str) -> str:
+    m = re.search(r"\d+\s*년\s*초과\s*\d+\s*년\s*이내|\d+\s*년\s*이내", text or "")
+    return re.sub(r"\s+", " ", m.group(0)).strip() if m else ""
+
+
 def _display_detail(item: dict) -> str:
-    """PDF 표시용 detail. 입원-only 판정은 상단 입원근거와 중복되므로 숨긴다."""
+    """PDF 표시용 판정라인. 입원 회차는 제거하고 현재 payload의 수술/통원/투약만 남긴다."""
     detail = str(item.get("detail") or "").strip()
-    if not detail or "입원" not in detail:
-        return detail
-    has_inpatient = (item.get("inpatient") or 0) > 0 or (item.get("inpatient_count") or 0) > 0 or bool(item.get("inpatient_periods"))
-    if not has_inpatient:
-        return detail
-    if not re.search(r"수술|통원|투약|처방", detail):
+    if not detail:
         return ""
-    text = re.sub(r"입원\s*(또는|및|과|와|/|·|,)\s*(수술|통원|투약|처방)", r"\2", detail)
-    text = re.sub(r"(수술|통원|투약|처방)\s*(또는|및|과|와|/|·|,)\s*입원", r"\1", text)
-    return re.sub(r"\s{2,}", " ", text).strip()
+    has_surgery = _current_surgery_count(item) > 0
+    has_visit = (item.get("visit") or 0) > 0
+    has_med = (item.get("med_days") or 0) > 0
+    prefix = _disclosure_window_prefix(detail)
+    normalized = re.sub(r"\s*(또는|및|과|와)\s*", "/", detail)
+    parts = [p.strip() for p in re.split(r"\s*(?:/|,|·|\n)\s*", normalized) if p.strip()]
+    kept: list[str] = []
+    had_inpatient = "입원" in detail
+    for part in (parts or [detail]):
+        if "입원" in part:
+            continue
+        if "수술" in part:
+            if has_surgery:
+                kept.append(part)
+            continue
+        if "통원" in part:
+            if has_visit:
+                kept.append(part)
+            continue
+        if "투약" in part or "처방" in part:
+            if has_med:
+                kept.append(part)
+            continue
+        if not had_inpatient:
+            kept.append(part)
+    if not kept and has_surgery:
+        names = _visible_surgery_names(item)
+        return f"{prefix + ' ' if prefix else ''}{'수술: ' + ', '.join(names) if names else '수술'}"
+    text = " / ".join(kept)
+    text = re.sub(r"\s{2,}", " ", text).strip()
+    if prefix and not re.search(r"\d+\s*년", text) and re.search(r"수술|통원|투약|처방", text):
+        return f"{prefix} {text}"
+    return text
 
 
 def _prepare_section(reports: dict, is_easy: bool) -> list[dict]:
@@ -347,9 +408,8 @@ def _prepare_section(reports: dict, is_easy: bool) -> list[dict]:
         for item in sorted(items, key=_item_sort_key, reverse=True):
             if not isinstance(item, dict):
                 continue
-            surg_n = item.get("surgery_count")
-            if surg_n is None:
-                surg_n = len(item.get("surgeries") or [])
+            surg_n = _current_surgery_count(item)
+            inpatient_summary = _inpatient_summary(item)
             show_review = _show_clinical_review(q_num, is_easy)
             prepared.append({
                 "item": item,
@@ -357,6 +417,7 @@ def _prepare_section(reports: dict, is_easy: bool) -> list[dict]:
                 "display_detail": _display_detail(item),
                 "metric": _metric_visibility(item, q_num, is_easy),
                 "surgery_n": surg_n,
+                "inpatient_summary": inpatient_summary,
                 "procedures_n": len(item.get("procedures") or []),
                 "suspected_n": len(item.get("surgery_suspected") or []),
                 "suspected_grade": item.get("surgery_suspected_grade") or "",  # BOHUMFIT-036: 공단 수술의심 강/약(Q4)

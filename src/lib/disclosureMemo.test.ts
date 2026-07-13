@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildFilteredDisclosureMemo, withDisclosureSelectionHeader, type DisclosureMemoItem } from "./disclosureMemo";
-import { filterDisclosureReportsByWindow, subYearsIso } from "./disclosureWindow";
+import { displayJudgmentDetail, filterDisclosureReportsByWindow, subYearsIso } from "./disclosureWindow";
 
 const Q3 = "[3번질문] 5년 이내 입원·수술·통원·투약";
 
@@ -107,5 +107,63 @@ describe("BOHUMFIT-215 disclosure memo window policy", () => {
     const memo = withDisclosureSelectionHeader("기존 전체 메모", 10, 10);
 
     expect(memo).toBe("가입예정상품 10년 고지형 · 선택 10년 고지\n\n기존 전체 메모");
+  });
+});
+
+describe("BOHUMFIT-217 display detail follows selected window", () => {
+  const INPATIENT = "\uC785\uC6D0";
+  const SURGERY = "\uC218\uC220";
+  const SURGERY_NAME = "\uAD00\uC808\uACBD\uD558\uC218\uC220";
+  const DETAIL = `10\uB144\uC774\uB0B4 ${INPATIENT}(4\uC77C)/${SURGERY}: ${SURGERY_NAME}/${INPATIENT}(9\uC77C)`;
+
+  it("removes inpatient segments and keeps only in-window surgery detail", () => {
+    const reports = {
+      [Q3]: [{
+        ...item("2024-10-07", "SURG"),
+        latest_date: "2024-10-07",
+        inpatient: 9,
+        inpatient_count: 1,
+        inpatient_periods: [{ start: "2024-10-07", end: "2024-10-15", days: 9, hospital: "H" }],
+        surgeries: [SURGERY_NAME],
+        surgery_count: 1,
+        surgery_events: [{ date: "2024-10-07", hospital: "H", surgeries: [SURGERY_NAME] }],
+        detail: DETAIL,
+      }],
+    };
+
+    const filtered = filterDisclosureReportsByWindow(reports, "2023-07-13");
+    const detail = displayJudgmentDetail(filtered[Q3][0]);
+
+    expect(detail).toContain(`${SURGERY}: ${SURGERY_NAME}`);
+    expect(detail).not.toContain(INPATIENT);
+  });
+
+  it("drops out-of-window surgery from detail and memo copy", () => {
+    const reports = {
+      [Q3]: [{
+        ...item("2022-12-19", "OLD-SURG"),
+        latest_date: "2022-12-19",
+        surgeries: [SURGERY_NAME],
+        surgery_count: 1,
+        surgery_events: [{ date: "2022-12-19", hospital: "H", surgeries: [SURGERY_NAME] }],
+        detail: DETAIL,
+      }],
+    };
+
+    const filtered = filterDisclosureReportsByWindow(reports, "2023-07-13");
+
+    expect(filtered[Q3]).toHaveLength(0);
+
+    const memo = buildFilteredDisclosureMemo({
+      productLabel: "Product",
+      referenceDate: "2026-07-13",
+      reports,
+      cutoffIso: "2023-07-13",
+      selectedYears: 3,
+      productQuestionYears: 10,
+    });
+
+    expect(memo).not.toContain(SURGERY_NAME);
+    expect(memo).not.toContain(DETAIL);
   });
 });

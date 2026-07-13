@@ -243,9 +243,9 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
   </div>
   {% if p.display_detail %}<div class="detail">{{ p.display_detail }}</div>{% endif %}
   <div class="chips">
+    {% if p.inpatient_summary.show and p.inpatient_summary.count %}<span class="chip red">입원 총 {{ p.inpatient_summary.count }}회</span>{% endif %}
+    {% if p.inpatient_summary.show and p.inpatient_summary.days %}<span class="chip red">합산 {{ p.inpatient_summary.days }}일</span>{% endif %}
     {% if p.metric.visit %}<span class="chip {{ 'amber' if (p.item.visit or 0) >= 7 else '' }}">통원 {{ p.item.visit or 0 }}회</span>{% endif %}
-    {% if p.metric.inpatient %}<span class="chip red">입원 {{ p.item.inpatient or 0 }}일</span>{% endif %}
-    {% if p.metric.inpatient_count %}<span class="chip red">입원 {{ p.item.inpatient_count or 0 }}회</span>{% endif %}
     {% if p.metric.surgery %}<span class="chip red">수술 {{ p.surgery_n }}건</span>{% endif %}
     {% if p.metric.med %}<span class="chip {{ 'amber' if (p.item.med_days or 0) >= 30 else 'green' }}">투약 {{ p.item.med_days or 0 }}일</span>{% endif %}
     {% if p.procedures_n %}<span class="chip amber">시술 {{ p.procedures_n }}건</span>{% endif %}

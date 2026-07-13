@@ -5,9 +5,19 @@ export type DisclosureWindowItem = {
   latest_date?: string;
   first_diagnosis_date?: string;
   inpatient_periods?: { start?: string; end?: string; days?: number; hospital?: string }[];
+  inpatient?: number;
+  inpatient_count?: number;
+  visit?: number;
+  med_days?: number;
   surgery_dates?: string[];
+  surgery_events?: { date?: string; hospital?: string }[];
+  surgeries?: string[];
+  surgery_count?: number;
   surgery_suspected_dates?: string[];
+  surgery_suspected?: string[];
+  surgery_suspected_grade?: string;
   procedure_dates?: string[];
+  detail?: string;
 };
 
 // 기준일(ISO)에서 N 달력연도 전 날짜. 백엔드 _subtract_years 와 동일하게 2/29 -> 2/28 보정.
@@ -47,6 +57,84 @@ function sumNumbers(values: unknown[]): number {
   return values.reduce<number>((sum, value) => sum + (Number(value) || 0), 0);
 }
 
+function values(value: unknown): string[] {
+  if (!value) return [];
+  const raw = Array.isArray(value) || value instanceof Set ? Array.from(value) : [value];
+  return raw.map((v) => String(v || "").trim()).filter(Boolean);
+}
+
+export function currentSurgeryCount(item: DisclosureWindowItem): number {
+  if (item.surgery_count != null) return Math.max(0, Number(item.surgery_count) || 0);
+  if (Array.isArray(item.surgery_events)) return item.surgery_events.length;
+  if (Array.isArray(item.surgery_dates)) return item.surgery_dates.length;
+  return values(item.surgeries).length;
+}
+
+export function visibleSurgeryNames(item: DisclosureWindowItem): string[] {
+  if (currentSurgeryCount(item) <= 0) return [];
+  return values(item.surgeries).filter((name) => name !== "수술");
+}
+
+export function inpatientSummary(item: DisclosureWindowItem) {
+  const days = Math.max(0, Number(item.inpatient) || 0);
+  const periodCount = Array.isArray(item.inpatient_periods) ? item.inpatient_periods.length : 0;
+  const explicitCount = Math.max(0, Number(item.inpatient_count) || 0);
+  const count = explicitCount || periodCount || (days > 0 ? 1 : 0);
+  return { count, days, show: count > 0 || days > 0 };
+}
+
+function disclosureWindowPrefix(text: string): string {
+  return (
+    text.match(/\d+\s*년\s*초과\s*\d+\s*년\s*이내/)?.[0] ||
+    text.match(/\d+\s*년\s*이내/)?.[0] ||
+    ""
+  ).replace(/\s+/g, " ");
+}
+
+export function displayJudgmentDetail(item: DisclosureWindowItem): string {
+  const text = String(item.detail || "").trim();
+  if (!text) return "";
+
+  const surgeryCount = currentSurgeryCount(item);
+  const hasSurgery = surgeryCount > 0;
+  const hasVisit = (Number(item.visit) || 0) > 0;
+  const hasMed = (Number(item.med_days) || 0) > 0;
+  const prefix = disclosureWindowPrefix(text);
+  const normalized = text.replace(/\s*(또는|및|과|와)\s*/g, "/");
+  const segments = normalized.split(/\s*(?:\/|,|·|\n)\s*/).map((part) => part.trim()).filter(Boolean);
+  const hadInpatient = text.includes("입원");
+  const kept: string[] = [];
+
+  for (const segment of segments.length ? segments : [text]) {
+    if (segment.includes("입원")) continue;
+    if (segment.includes("수술")) {
+      if (hasSurgery) kept.push(segment);
+      continue;
+    }
+    if (segment.includes("통원")) {
+      if (hasVisit) kept.push(segment);
+      continue;
+    }
+    if (segment.includes("투약") || segment.includes("처방")) {
+      if (hasMed) kept.push(segment);
+      continue;
+    }
+    if (!hadInpatient) kept.push(segment);
+  }
+
+  if (!kept.length && hasSurgery) {
+    const names = visibleSurgeryNames(item);
+    return `${prefix ? `${prefix} ` : ""}${names.length ? `수술: ${names.join(", ")}` : "수술"}`;
+  }
+
+  const joined = kept.join(" / ").replace(/\s{2,}/g, " ").trim();
+  if (!joined) return "";
+  if (prefix && !/\d+\s*년/.test(joined) && /수술|통원|투약|처방/.test(joined)) {
+    return `${prefix} ${joined}`;
+  }
+  return joined;
+}
+
 export function filterDisclosureItemEvidenceByWindow<T extends DisclosureWindowItem>(
   item: T,
   cutoffIso: string,
@@ -72,6 +160,14 @@ export function filterDisclosureItemEvidenceByWindow<T extends DisclosureWindowI
     const values = (item[key] ?? []).filter((d) => dateInWindow(d, cutoffIso));
     next[key] = values;
     values.forEach(addDate);
+    if (key === "surgery_dates" && Array.isArray(item.surgery_dates) && !Array.isArray(item.surgery_events)) {
+      next.surgery_count = values.length;
+      if (values.length === 0) next.surgeries = [];
+    }
+    if (key === "surgery_suspected_dates" && Array.isArray(item.surgery_suspected_dates) && values.length === 0) {
+      next.surgery_suspected = [];
+      next.surgery_suspected_grade = "";
+    }
   }
 
   const visitRecords = Array.isArray(next.visit_records)
@@ -98,6 +194,7 @@ export function filterDisclosureItemEvidenceByWindow<T extends DisclosureWindowI
   if (surgeryEvents) {
     next.surgery_events = surgeryEvents;
     next.surgery_count = surgeryEvents.length;
+    if (surgeryEvents.length === 0) next.surgeries = [];
     surgeryEvents.forEach((r) => addDate(r.date));
   }
 

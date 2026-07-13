@@ -1,3 +1,38 @@
+## 2026-07-13 BOHUMFIT-217 - 판정라인 수술만 + 입원배지 3개 + 조회기간 연동 보정
+
+Owner flow: Human -> Codex Windows | Current owner: Human
+Commit: final hash in Codex response - `fix(BOHUMFIT-217): 판정라인 수술만+입원배지 3개+조회기간 연동(214 보정)`
+
+### Changed
+- S0 원인: BOHUMFIT-215 조회기간 필터가 `inpatient_periods`, `surgery_events`, 카운트는 줄였지만 기존 `detail` 판정 문자열은 그대로 두어 Q2 카드/복사문/PDF에 기간 밖 입원·수술 문구가 남았다.
+- `src/lib/disclosureWindow.ts`: 현재 payload 기준 `currentSurgeryCount`, `visibleSurgeryNames`, `inpatientSummary`, `displayJudgmentDetail`를 추가했다. 필터가 수술 근거를 제거하면 `surgery_count=0`, `surgeries=[]`가 되어 판정라인 수술 텍스트도 함께 빠진다.
+- `src/pages/Disclosure.tsx`: Q2 등 결과 카드의 판정라인은 입원 세그먼트를 제거하고 수술/통원/투약만 표시한다. 입원 신호는 `[입원 총 N회] [합산 N일]`, 수술은 `[수술 N건]` 배지로 표시한다.
+- `src/lib/disclosureMemo.ts`, `backend/main.py`, `backend/pipeline/report_pdf.py`, `backend/templates/report_disclosure.html`: 복사문/PDF도 같은 표시 규칙을 사용하도록 정리했다. PDF는 BOHUMFIT-215 정책대로 10년 전체 reports를 보존하되, 중복 입원 detail/chip만 제거한다.
+- `backend/tests/test_inpatient_display_214.py`, `src/lib/disclosureMemo.test.ts`: 217 회귀를 추가했다. 기간 밖 수술은 판정라인/복사문에서 제거되고, 기간 안 수술은 입원 문구 없이 남는 케이스를 고정했다.
+- `.agent-harness/verify.md`, `CLAUDE.md`: backend pytest 기준선을 `618 passed, 8 skipped`로 갱신했다.
+
+### Verified
+- `npx tsc -p tsconfig.app.json --noEmit` passed.
+- `npx tsc -p tsconfig.node.json --noEmit` passed.
+- `npm run lint` passed.
+- `npm test` passed: `36 passed`.
+- `npm run build` passed, existing Vite chunk warning only.
+- `cd backend && python -m py_compile main.py pipeline\report_pdf.py` passed.
+- `cd backend && python -m pytest tests\test_inpatient_display_214.py -vv` passed: `5 passed`.
+- `cd backend && python -m pytest tests\test_disclosure_window_215.py tests\test_inpatient_display_214.py -vv` passed: `6 passed`.
+- `cd backend && python -m pytest -q` passed: `618 passed, 8 skipped`.
+
+### Real PDF Smoke
+- Read-only local PDF smoke only; no files copied, generated, staged, or committed.
+- Seok local PDF: parsed `basic 68`, Q2 inpatient periods `3`, days `[4, 9, 10]`, parse errors `0`.
+- Lee local PDF: parsed `basic 349`, parse errors `0`.
+- Smoke output intentionally excluded customer names, hospital names, disease names, and codes.
+
+### Guardrails
+- `backend/filters.py`, judgment thresholds, code sets, `backend/coverage/`, DB/auth/payment core unchanged.
+- BOHUMFIT-215 policy preserved: screen/copy narrow to selected inquiry window; PDF keeps full 10-year reports.
+- Existing untracked real PDF in repo root remains untracked and unstaged.
+
 ## 2026-07-13 BOHUMFIT-216 - 비밀번호 찾기 SMS 재설정
 
 Owner flow: Human -> Codex Windows | Current owner: Human

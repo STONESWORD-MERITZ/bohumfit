@@ -1,4 +1,10 @@
-import { filterDisclosureReportsByWindow, type DisclosureWindowItem } from "./disclosureWindow";
+import {
+  currentSurgeryCount,
+  displayJudgmentDetail,
+  filterDisclosureReportsByWindow,
+  visibleSurgeryNames,
+  type DisclosureWindowItem,
+} from "./disclosureWindow";
 
 export type DisclosureMemoItem = Omit<DisclosureWindowItem, "inpatient_periods"> & {
   first_date?: string;
@@ -43,20 +49,7 @@ function values(value: unknown): string[] {
 }
 
 function hasSurgerySignal(item: DisclosureMemoItem) {
-  return values(item.surgeries).length > 0 || values(item.surgery_suspected).length > 0;
-}
-
-function displayDetail(item: DisclosureMemoItem) {
-  const detail = s(item.detail).trim();
-  if (!detail || !detail.includes("입원")) return detail;
-  const hasInpatient = (item.inpatient ?? 0) > 0 || (item.inpatient_count ?? 0) > 0 || (item.inpatient_periods?.length ?? 0) > 0;
-  if (!hasInpatient) return detail;
-  if (!/수술|통원|투약|처방/.test(detail)) return "";
-  return detail
-    .replace(/입원\s*(또는|및|과|와|\/|·|,)\s*(수술|통원|투약|처방)/g, "$2")
-    .replace(/(수술|통원|투약|처방)\s*(또는|및|과|와|\/|·|,)\s*입원/g, "$1")
-    .replace(/\s{2,}/g, " ")
-    .trim();
+  return currentSurgeryCount(item) > 0 || values(item.surgery_suspected).length > 0;
 }
 
 function memoItem(item: DisclosureMemoItem) {
@@ -90,17 +83,17 @@ function memoItem(item: DisclosureMemoItem) {
     line1 = `${dateStr} / ${visitStr} / ${code} / ${kind}${s(item.name)}${tail}\n`;
   }
 
-  const surgeries = values(item.surgeries);
+  const surgeryCount = currentSurgeryCount(item);
+  const surgeries = visibleSurgeryNames(item);
   const suspected = values(item.surgery_suspected);
   const suspectedGrade = s(item.surgery_suspected_grade).trim();
   let line2: string;
-  if (surgeries.length) {
-    const named = surgeries.filter((x) => x && x !== "수술");
-    line2 = `${named.length ? named.join(", ") : "수술"}\n`;
+  if (surgeryCount > 0) {
+    line2 = `${surgeries.length ? surgeries.join(", ") : "수술"}\n`;
   } else if (suspected.length) {
     line2 = `수술 의심: ${suspected.join(", ")}${suspectedGrade ? ` (${suspectedGrade})` : ""}\n`;
   } else {
-    const detail = displayDetail(item);
+    const detail = displayJudgmentDetail(item);
     line2 = detail ? `${detail.slice(0, 60)}\n` : "";
   }
   return `${line1}${line2}\n`;
