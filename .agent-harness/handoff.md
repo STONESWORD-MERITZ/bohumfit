@@ -1,3 +1,33 @@
+## 2026-07-14 BOHUMFIT-219 - 218 감사 드리프트 마이그레이션 코드화
+
+Owner flow: Human -> Codex Windows -> Human | Current owner: Human
+Commit: pending at handoff write time; final hash in Codex response.
+
+### Changed
+- `supabase/migrations/20260714000100_bohumfit219_analysis_history_rls_pin.sql`: 실DB의 `bohumfit_analysis_history` 스키마와 `user_id = auth.uid()` owner SELECT/INSERT/UPDATE/DELETE RLS를 자동 마이그레이션 경로에 못박았다. 현재 grant와 다른 이름의 정책은 건드리지 않아 2026-07-14 기준 실DB 동작은 바꾸지 않는다.
+- `supabase/manual/BOHUMFIT-219-01-public-view-hardening.sql`: 공개 뷰 4개에 active/verified/published 경계를 명시했다. 집계 원천 RLS로 공개 지표가 0이 되지 않도록 제한 출력의 definer aggregate view를 유지한다.
+- `supabase/manual/BOHUMFIT-219-02-contact-rpc-hardening.sql`: 연락처 RPC를 published + authenticated + 본인 `connection_requests` 조건으로 강화하는 Human SQL을 분리했다.
+- `supabase/manual/BOHUMFIT-219-03-owner-policy-hardening.sql`: 실DB `owner_id`, `applicant_id`, `advisor_id` 기준 policy set, review_links/history server-only grant, profiles SELECT 통합안을 작성했다.
+- `supabase/manual/BOHUMFIT-219-04-advisors-base-select-cutover.sql`: FitHere가 `advisors.select('*')`를 쓰지 않게 전환된 뒤에만 기본 테이블 SELECT를 회수하는 차단 파일을 분리했다.
+- `.agent-harness/tasks/BOHUMFIT-219-shared-rls-migration-alignment.md`: 못박기/강화 분류표, 저트래픽·백업·FitHere 회귀를 포함한 Human 실행 순서, 파일별 rollback, 미확정 결정을 기록했다.
+
+### Safety
+- 동작 변경 SQL은 자동 경로가 아닌 `supabase/manual/`에 두었고, 같은 세션에서 `bohumfit.human_approved = 'BOHUMFIT-219'`를 설정하지 않으면 실행이 실패한다.
+- 프로덕션 Supabase connect/query/apply 0. 로컬에도 `psql`, Docker, Supabase CLI가 없어 실제 PostgreSQL apply/rollback은 하지 않았으며 그 한계를 태스크 문서에 명시했다.
+- `src/`, `backend/`, 기존 마이그레이션, FitHere 작업트리 변경 0. credential, 실데이터, PII 저장/스테이지 0.
+
+### Verified
+- 신규 SQL 5개 정적 검사 통과: lexer/dollar quote 종료, 괄호, outer transaction, manual Human guard, 자동/수동 경로, URL/JWT/service-secret 패턴.
+- `npm run build` passed. TypeScript + Vite production build 완료, 기존 500 kB chunk 경고만 발생.
+- `cd backend && python -m pytest -q`: **618 passed, 8 skipped** (기준선 불변).
+- `git diff --name-only -- src backend` = empty.
+
+### Human 실행 필요
+- 218 감사 SQL A~I와 schema/policy/view/function 백업 후 저트래픽에 파일을 하나씩 적용한다. 각 transaction 직후 BOHUMFIT와 FitHere를 모두 회귀 검증한다.
+- `connection_requests`가 실제 연결 성사를 뜻하는지 승인하기 전 `219-02` 실행 금지.
+- FitHere 공개 조회 코드가 현재도 기본 `advisors.select('*')`를 사용하므로 별도 전환 배포 전 `219-04` 실행 금지.
+- 실DB `pg_policies`가 218 기대와 다르면 적용을 중단하고 SQL을 실제 정책 기준으로 다시 조정한다.
+
 ## 2026-07-14 BOHUMFIT-218 - 공유 Supabase RLS SELECT/쓰기 정책 전수 감사
 
 Owner flow: Human -> Codex Windows -> Human | Current owner: Human
