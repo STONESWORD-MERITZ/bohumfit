@@ -85,3 +85,15 @@ set bohumfit.human_approved = 'BOHUMFIT-219';
 - FitHere 공개 조회를 `advisors_public`으로 옮기는 코드 변경은 별도 태스크다. 완료 전 기본 테이블 SELECT 회수 금지다.
 - `advisor_profile_drafts` owner UPDATE와 `certifications` owner INSERT 범위가 현재 운영 승인 흐름과 일치하는지 policy 백업과 앱 액션을 함께 대조해야 한다.
 - 실DB `pg_policies`가 218 기대와 다르면 이 SQL을 즉시 실행하지 말고 차이를 새 마이그레이션에 반영해야 한다.
+
+## 8. 2026-07-14 후속 - analysis_history 중복 정책 정합
+
+Human이 프로덕션에서 중복 정책 `own rows select`, `own rows insert`, `own rows delete`를 제거하고 canonical `bohumfit_history_*` 4개만 남겼다.
+
+- S0: `rg -i "own rows" supabase/migrations/` 결과 기존 생성 SQL은 없었다. 과거 Dashboard 수동 생성 정책으로 판단한다.
+- 신규 `20260714000200_bohumfit219_drop_duplicate_history_policies.sql`에 세 정책의 `drop policy if exists`를 기록했다.
+- 기존 `20260714000100` 및 canonical 정책 4개는 수정하거나 drop하지 않는다.
+- 이미 정리된 프로덕션에서는 세 문장이 모두 no-op이고, 오래된 환경에서만 중복 정책을 제거한다.
+- SQL 정적 검사: legacy drop 이름 3개 정확 일치, canonical drop 0, transaction/괄호/secret 검사 통과.
+- `npm run build` 통과(기존 500 kB chunk 경고만), backend pytest **618 passed, 8 skipped**로 기준선 불변.
+- 이 후속에서도 프로덕션 Supabase 연결/query/apply는 0이다.

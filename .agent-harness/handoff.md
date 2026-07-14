@@ -1,3 +1,24 @@
+## 2026-07-14 BOHUMFIT-219 follow-up - analysis_history 중복 정책 코드 정합
+
+Owner flow: Human -> Codex Windows -> Human | Current owner: Human
+Commit: pending at handoff write time; final hash in Codex response.
+
+### Changed
+- S0: `rg -i "own rows" supabase/migrations/` 결과 legacy `own rows` 정책을 생성하는 저장소 마이그레이션은 없었다. Dashboard 수동 생성 이력으로 판단한다.
+- `supabase/migrations/20260714000200_bohumfit219_drop_duplicate_history_policies.sql` 신규. `own rows select`, `own rows insert`, `own rows delete`만 `drop policy if exists`로 제거한다.
+- 기존 `20260714000100`과 canonical `bohumfit_history_select/insert/update/delete_own` 4개는 수정하거나 drop하지 않았다. 이미 Human 정리된 프로덕션에서는 no-op이며 오래된 환경만 정합한다.
+
+### Verified
+- SQL 정적 검사 통과: transaction 종료, 괄호, legacy drop 정확히 3개, canonical drop 0, URL/secret 패턴 0.
+- 저장소 최종 정책 코드: canonical create 4, legacy create 0, legacy drop 3.
+- `npm run build` passed. 기존 500 kB chunk 경고만 발생.
+- `cd backend && python -m pytest -q`: **618 passed, 8 skipped** (기준선 불변).
+- `git diff --name-only -- src backend` = empty.
+
+### Safety
+- 프로덕션 Supabase connect/query/apply 0. 실DB는 Human이 이미 정리했으며 이번 작업은 마이그레이션 코드 정합만 수행했다.
+- backend/pipeline, coverage, auth, 결제·인증, 기존 마이그레이션 히스토리 변경 0.
+
 ## 2026-07-14 BOHUMFIT-219 - 218 감사 드리프트 마이그레이션 코드화
 
 Owner flow: Human -> Codex Windows -> Human | Current owner: Human
