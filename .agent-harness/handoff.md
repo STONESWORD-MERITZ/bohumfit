@@ -1,3 +1,36 @@
+## 2026-07-14 BOHUMFIT-218 - 공유 Supabase RLS SELECT/쓰기 정책 전수 감사
+
+Owner flow: Human -> Codex Windows -> Human | Current owner: Human
+Commit: pending at handoff write time; final hash in Codex response.
+
+### Changed
+- `.agent-harness/tasks/BOHUMFIT-218-shared-rls-audit.md` 신규. 공유 BOHUMFIT/FitHere Supabase의 public 객체 20개(테이블 16, 뷰 4)를 실DB OpenAPI 메타데이터와 양쪽 저장소 SQL/호출 경로로 교차 감사했다.
+- 테이블별 owner/admin 기대 스코프, anon 읽기 상태, 저장소 정책 근거, 실DB 확인 필요 여부를 현황표로 정리했다.
+- Human 읽기 전용 감사 SQL(A~I): RLS flags, `pg_policies`, 위험/중복 permissive 정책, anon/authenticated grant, 실제 컬럼/enum, view security option/definition, admin·연락처 RPC, Storage, authenticated 교차 소유자 boolean 카나리를 작성했다.
+- 강화 초안 6종: BOHUMFIT 히스토리 backend-only 잠금, 기본 advisors 연락처 분리, 공개 뷰 published 경계, 연락처 RPC 연결 조건, 드리프트 테이블 owner policy 템플릿, profiles 중복 SELECT 통합을 작성했다. 실제 실행은 하지 않았다.
+
+### Findings
+- 🔴 `bohumfit_analysis_history`는 의료 분석 JSONB를 포함하고 실DB에 존재하지만 두 저장소에 생성/RLS 원본 SQL이 없어 최우선 Human 확인 대상이다.
+- 🔴 anon으로 `public.advisors` 기본 테이블 행 읽기가 확인됐다. 테이블에 연락처 컬럼이 있어 RPC-only 개인정보 경계와 충돌할 수 있다.
+- 🔴 `advisor_review_stats`, `advisor_field_ratings`, `advisor_public_certifications`는 저장소 최종 SQL상 RLS 우회 또는 `is_published` 누락 가능성이 있다.
+- 🔴 저장소 `get_advisor_contact`는 authenticated + active + verified만 확인하고 published/본인 연결 기록 조건이 없다.
+- 🔴 실DB와 마이그레이션의 소유자 컬럼이 `owner_id/profile_id`, `applicant_id/profile_id` 등으로 드리프트해 저장소 SQL만으로 live policy를 확정할 수 없다.
+- 🟡 profiles permissive SELECT 정책 중복 가능성과 broad authenticated grant 의존을 Human 정리 대상으로 남겼다.
+
+### Verified
+- BOHUMFIT/FitHere Supabase URL 동일 여부를 값 노출 없이 확인: shared match true.
+- 서비스 역할 OpenAPI는 메타데이터만 조회했으며 20개 relation/column contract를 확인했다. 행 내용, 키, 시크릿은 출력·저장하지 않았다.
+- anon 스모크는 관계별 최대 1행 요청 후 상태/행 존재 여부만 기록하고 응답 본문을 폐기했다.
+- `git diff --name-only -- src backend` = empty.
+- Supabase SQL/RLS/schema/grant 변경 0, FitHere 작업트리 변경 0.
+
+### Notes
+- 로컬에는 Supabase CLI/DB URL/DB 비밀번호가 없어 `pg_policies` 실제값은 Human SQL Editor 실행이 필요하다. 미확정 정책을 정상으로 판정하지 않았다.
+- 공유 DB 변경은 저트래픽 시간, schema/policy 백업, BOHUMFIT와 FitHere 양쪽 회귀 확인 후 항목별 transaction으로만 실행한다.
+
+### Next
+- Human: task 218의 읽기 전용 A~I를 먼저 실행해 결과를 검토한다. 우선순위는 history -> 기본 advisors 연락처 -> 공개 뷰 -> 연락처 RPC -> 드리프트 owner policy -> profiles 중복 순서다.
+
 ## 2026-07-13 BOHUMFIT-217 - 판정라인 수술만 + 입원배지 3개 + 조회기간 연동 보정
 
 Owner flow: Human -> Codex Windows | Current owner: Human
