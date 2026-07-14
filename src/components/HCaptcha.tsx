@@ -28,6 +28,8 @@ type HCaptchaProps = {
 };
 
 const SCRIPT_SELECTOR = 'script[data-bohumfit-hcaptcha="true"]';
+const LOAD_TIMEOUT_MS = 5_000;
+const UNAVAILABLE_MESSAGE = "보안 확인을 불러오지 못했어요. 기존 인증 흐름으로 진행합니다.";
 let hCaptchaLoader: Promise<HCaptchaApi> | null = null;
 
 function loadHCaptcha(): Promise<HCaptchaApi> {
@@ -85,10 +87,24 @@ export default function HCaptcha({ onTokenChange, onReady, onUnavailable, classN
   useEffect(() => {
     if (!siteKey || !containerRef.current) return;
     let disposed = false;
+    let unavailableReported = false;
+    const reportUnavailable = () => {
+      if (disposed || unavailableReported) return;
+      unavailableReported = true;
+      onTokenChangeRef.current("");
+      onUnavailableRef.current?.();
+      setError(UNAVAILABLE_MESSAGE);
+    };
+    // A CSP/network failure does not consistently dispatch a script error in
+    // every browser. Auth screens that opt into fail-open must not wait forever.
+    const loadTimeout = onUnavailableRef.current
+      ? window.setTimeout(reportUnavailable, LOAD_TIMEOUT_MS)
+      : null;
 
     void loadHCaptcha()
       .then((hcaptcha) => {
         if (disposed || !containerRef.current) return;
+        if (loadTimeout !== null) window.clearTimeout(loadTimeout);
         widgetIdRef.current = hcaptcha.render(containerRef.current, {
           sitekey: siteKey,
           hl: "ko",
@@ -99,25 +115,18 @@ export default function HCaptcha({ onTokenChange, onReady, onUnavailable, classN
             if (!disposed) onTokenChangeRef.current("");
           },
           "error-callback": () => {
-            if (!disposed) {
-              onTokenChangeRef.current("");
-              onUnavailableRef.current?.();
-              setError("보안 확인을 불러오지 못했어요. 기존 로그인 흐름으로 진행합니다.");
-            }
+            reportUnavailable();
           },
         });
+        unavailableReported = false;
+        setError("");
         onReadyRef.current?.();
       })
-      .catch(() => {
-        if (!disposed) {
-          onTokenChangeRef.current("");
-          onUnavailableRef.current?.();
-          setError("보안 확인을 불러오지 못했어요. 기존 로그인 흐름으로 진행합니다.");
-        }
-      });
+      .catch(reportUnavailable);
 
     return () => {
       disposed = true;
+      if (loadTimeout !== null) window.clearTimeout(loadTimeout);
       if (widgetIdRef.current !== null && window.hcaptcha) {
         window.hcaptcha.remove(widgetIdRef.current);
         widgetIdRef.current = null;

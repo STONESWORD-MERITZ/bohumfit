@@ -1,3 +1,25 @@
+## 2026-07-15 BOHUMFIT-220 - CSP hCaptcha 허용 + 회원가입 fail-open
+
+Owner flow: Human -> Codex Windows -> Human | Current owner: Human
+Commit: pending at handoff write time; final hash in Codex response.
+
+### Changed
+- S0: CSP 정본은 `vercel.json`의 전역 `Content-Security-Policy` 한 곳이었다. 기존 `script-src`가 self와 TossPayments만 허용해 hCaptcha API를 차단했고, `frame-src`/`connect-src`에도 hCaptcha origin이 없었다.
+- 기존 TossPayments, Supabase, Railway, CDN, `style-src 'unsafe-inline'`을 모두 보존하면서 hCaptcha만 최소 추가했다: script `js.hcaptcha.com`/`*.hcaptcha.com`, frame `newassets.hcaptcha.com`/`*.hcaptcha.com`, connect `*.hcaptcha.com`.
+- 공용 `HCaptcha`에 auth 소비자 전용 5초 silent non-render 감지를 추가했다. keyless/로드 오류/조용한 미렌더는 안내 후 token 없이 기존 인증 흐름으로 진행하고, 정상 render는 timeout을 취소해 captcha token 요구를 유지한다.
+- Kakao/Google OAuth는 captcha gate를 거치지 않는 기존 경로를 보존했다. `PhoneVerify.tsx`와 207~209 휴대폰 인증 mock/gate는 수정하지 않았다.
+- CSP 보존/추가, 로그인 Kakao+Google, 회원가입 keyless/load-failure/normal-token/OAuth 회귀 테스트를 추가했다.
+
+### Verified
+- tsc app/node, `npm run lint`, `npm run build` passed. 빌드는 기존 500 kB chunk warning만 발생했다.
+- `npm test`: **10 files, 41 passed**.
+- `cd backend && python -m pytest -q`: **618 passed, 8 skipped** (기준선 불변).
+- 로컬 브라우저 `http://127.0.0.1:5175`: 사이트키 미설정 시 hCaptcha script 0, 로그인 Kakao/Google/email 활성, 가입 Kakao/Google 활성, console error/warning 0. 가입 제출 버튼의 비활성은 기존 휴대폰 본인인증 조건이며 captcha 차단이 아니다.
+- backend/pipeline/coverage, DB/RLS, 결제, 인증 코어, 휴대폰 인증 영역, key/secret 변경 0.
+
+### Human Check
+- 프로덕션 재배포 후 응답 CSP 헤더에 위 origin이 포함되는지, 콘솔의 hCaptcha CSP 오류가 사라지는지, 실제 sitekey 환경에서 위젯이 렌더되고 token이 전달되는지 확인한다.
+
 ## 2026-07-14 BOHUMFIT-219 follow-up - analysis_history 중복 정책 코드 정합
 
 Owner flow: Human -> Codex Windows -> Human | Current owner: Human
