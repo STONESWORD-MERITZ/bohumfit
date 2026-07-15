@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -52,6 +52,7 @@ describe("auth hCaptcha fail-open", () => {
     vi.unstubAllEnvs();
     removeCaptchaScripts();
     delete window.hcaptcha;
+    delete window.__bohumfitHCaptchaOnload;
   });
 
   it("renders the keyless login path without loading hCaptcha", () => {
@@ -122,7 +123,7 @@ describe("auth hCaptcha fail-open", () => {
     });
   });
 
-  it("does not require hCaptcha for signup OAuth", async () => {
+  it("does not require hCaptcha for Kakao or Google signup OAuth", async () => {
     vi.stubEnv("VITE_HCAPTCHA_SITEKEY", "test-site-key");
     const user = userEvent.setup();
 
@@ -132,9 +133,14 @@ describe("auth hCaptcha fail-open", () => {
       </MemoryRouter>,
     );
 
+    await user.click(screen.getByRole("button", { name: "카카오로 계속하기" }));
     await user.click(screen.getByRole("button", { name: "Google로 계속하기" }));
 
-    expect(authMocks.signInWithOAuth).toHaveBeenCalledWith({
+    expect(authMocks.signInWithOAuth).toHaveBeenNthCalledWith(1, {
+      provider: "kakao",
+      options: { redirectTo: window.location.origin },
+    });
+    expect(authMocks.signInWithOAuth).toHaveBeenNthCalledWith(2, {
       provider: "google",
       options: { redirectTo: window.location.origin },
     });
@@ -202,6 +208,8 @@ describe("auth hCaptcha fail-open", () => {
       </MemoryRouter>,
     );
 
+    expect(window.__bohumfitHCaptchaOnload).toEqual(expect.any(Function));
+    act(() => window.__bohumfitHCaptchaOnload?.());
     await waitFor(() => expect(renderWidget).toHaveBeenCalledTimes(1));
     await submitEmailSignup(user);
 

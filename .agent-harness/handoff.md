@@ -1,3 +1,27 @@
+## 2026-07-15 BOHUMFIT-221 - hCaptcha onload 시퀀싱 + 토큰 미수신 안전화
+
+Owner flow: Human -> Codex Windows -> Human | Current owner: Human
+Commit: pending at handoff write time; final hash in Codex response.
+
+### Changed
+- S0: 220 로더가 `api.js?render=explicit`의 일반 script load에서 promise를 resolve해 SDK 내부 준비 전에 `hcaptcha.render()`를 호출했다. 운영의 `should not render before js api is fully loaded` 경고와 동일 원인이다.
+- script를 `render=explicit&onload=__bohumfitHCaptchaOnload`로 한 번만 삽입하고, callback을 삽입 전에 등록했다. 일반 load 이벤트는 무시하고 API onload 뒤에만 shared loader를 resolve한다.
+- StrictMode/동시 소비에서도 script는 1개, 컴포넌트별 widget은 1회만 render한다. 실패 script와 loader는 정리해 재시도 가능하다.
+- verify token은 기존 Login/Signup state와 Supabase `captchaToken`에 그대로 연결된다. expire/error/render failure/유효하지 않은 widget id/API onload timeout은 auth fail-open으로 연결했다.
+- 렌더 뒤 `getResponse(widgetId)`를 5초 간격으로 확인해 verify callback만 누락된 token을 복구한다. 빈 응답만으로는 fail-open하지 않아 사용자가 챌린지를 푸는 중 자동 우회하지 않는다.
+- 사이트키는 `VITE_HCAPTCHA_SITEKEY` 한 곳뿐이며 하드코딩·폴백 키 0. `PhoneVerify.tsx`, OAuth, 220 CSP, backend/pipeline/coverage, DB/RLS, 인증 코어 변경 0.
+
+### Verified
+- tsc app/node, full lint, final scoped lint, build passed. 빌드는 기존 500 kB chunk warning만 발생했다.
+- `npm test`: **10 files, 44 passed**. hCaptcha/CSP/auth target **15 passed**.
+- `cd backend && python -m pytest -q`: **618 passed, 8 skipped**.
+- 브라우저 keyless: script 0, Kakao/Google 활성, console warning/error 0.
+- 공식 test sitekey를 런타임 env로만 주입한 브라우저: 새 onload URL, ready marker, iframe render, 기존 초기화 경고 0. loopback/IP 제한의 error-callback→fail-open 확인; 키 저장·커밋 0.
+- 배포 전 운영 220 번들에서 기존 경고를 재현했다. 새 배포에서 실제 운영 checkbox/token은 최종 확인 항목이다.
+
+### Operations
+- `VITE_HCAPTCHA_SITEKEY`와 `HCAPTCHA_SECRET` 및 Supabase Auth에 설정한 hCaptcha secret은 동일 hCaptcha site 쌍이어야 siteverify가 통과한다.
+
 ## 2026-07-15 BOHUMFIT-220 - CSP hCaptcha 허용 + 회원가입 fail-open
 
 Owner flow: Human -> Codex Windows -> Human | Current owner: Human
