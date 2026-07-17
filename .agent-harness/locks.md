@@ -425,3 +425,4 @@ Use this file to record active Codex file ownership during a task.
 - 2026-05-30 `BOHUMFIT-PROGRESS-001` - Codex - progress determinism plan updated; locks released.
 - 2026-05-30 `BOHUMFIT-HARNESS-CODEX-ONLY` - Codex - final check/plan/publish completed; locks released.
 - 2026-05-30 `BOHUMFIT-HARNESS-CODEX-ONLY` - Codex - documentation cleanup completed; locks released.
+- 2026-07-17 `BOHUMFIT-222` - Codex Windows - Released. Added email-link password reset as the primary path, added `/reset-password`, kept 216 SMS behind `VITE_ENABLE_SMS_PASSWORD_RESET=true`, and verified tsc app/node, lint, frontend `50 passed`, build, backend `618 passed, 8 skipped`, and local browser smoke.

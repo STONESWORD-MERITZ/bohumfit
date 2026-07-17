@@ -9,6 +9,7 @@ interface ImportMetaEnv {
   readonly VITE_KAKAO_REST_API_KEY?: string;
   readonly VITE_KAKAO_LOGOUT_REDIRECT_URI?: string;
   readonly VITE_HCAPTCHA_SITEKEY?: string;
+  readonly VITE_ENABLE_SMS_PASSWORD_RESET?: string;
 }
 
 interface ImportMeta {

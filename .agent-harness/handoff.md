@@ -1,3 +1,29 @@
+## 2026-07-17 BOHUMFIT-222 - 비밀번호 재설정 이메일 링크 경로 추가
+Owner flow: Human -> Codex Windows -> Human | Current owner: Human
+Commit: pending at handoff write time; final hash in Codex response.
+
+### Changed
+- `/forgot-password`의 주 경로를 이메일 링크 방식으로 전환했다. `supabase.auth.resetPasswordForEmail(email, { redirectTo: origin + "/reset-password" })`를 호출하며, 계정 존재 여부와 무관하게 동일한 "메일 발송" 안내를 표시한다.
+- BOHUMFIT-216 SMS 재설정 코드는 제거하지 않았다. 다만 NHN 심사/키 미가동 상태에서 사용자가 503 경로로 들어가지 않도록 `VITE_ENABLE_SMS_PASSWORD_RESET=true`일 때만 SMS 탭을 노출한다.
+- `/reset-password` 페이지를 추가했다. recovery 링크의 `code` 또는 `type=recovery` 신호가 있을 때만 열고, `exchangeCodeForSession`/`getSession` 후 `updateUser({ password })`로 변경한다. 완료 후에는 `signOut()`으로 recovery 세션을 정리하고 로그인 안내를 보여준다.
+- recovery 신호 없이 직접 접근하거나 만료/무효 링크로 진입하면 비밀번호 변경 폼 대신 재요청 경로를 안내한다.
+- `VITE_ENABLE_SMS_PASSWORD_RESET` 프런트 환경변수 타입을 추가해 SMS 경로 노출 플래그를 명시했다.
+- 로그인/가입/OAuth/hCaptcha/PhoneVerify, backend/pipeline, backend/coverage, DB/RLS, 216 SMS 서버 유틸 변경 0.
+
+### Verified
+- `npx tsc -p tsconfig.app.json --noEmit` passed.
+- `npx tsc -p tsconfig.node.json --noEmit` passed.
+- `npm run lint` passed.
+- `npm test`: **11 files, 50 passed**.
+- `npm run build` passed. Existing 500 kB chunk warning and plugin timing warning only.
+- `cd backend && python -m pytest -q`: **618 passed, 8 skipped**.
+- Local browser smoke on `http://127.0.0.1:5177`: `/forgot-password`, `/reset-password`, `/login`, `/signup` rendered; console warning/error 0. Direct `/reset-password` access showed retry guidance.
+- After adding `src/vite-env.d.ts`, reran app tsc and targeted password-reset tests: **9 passed**.
+
+### Notes
+- 실제 메일 발송은 Supabase Auth SMTP 설정에 의존한다. SMTP가 미설정이면 앱 코드는 정상이어도 사용자가 메일을 받지 못할 수 있다.
+- 소셜 계정은 비밀번호가 없다는 안내를 요청 화면에 고정 표시했다. 특정 이메일이 소셜 계정인지 화면에서 분기하지 않아 계정 열거 신호를 만들지 않는다.
+
 ## 2026-07-15 BOHUMFIT-221 - hCaptcha onload 시퀀싱 + 토큰 미수신 안전화
 
 Owner flow: Human -> Codex Windows -> Human | Current owner: Human
