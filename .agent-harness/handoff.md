@@ -1,3 +1,37 @@
+## 2026-07-17 BOHUMFIT-224 - 하네스 3트랙 전환(Cowork 퇴역 · Claude Code 구현 트랙 · 위험도 규칙)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human
+Commit: pending at handoff write time; final hash in Codex response.
+
+### Changed
+- 구성 변경(문서만, 코드 무변경): 구현 트랙을 Claude Cowork(샌드박스)에서 Claude Code(Windows 로컬)로 교체. 순서 불변: Chat → Code → Codex. 퇴역 사유: 마운트 truncation 반복(182~184·195·213 mid-token 절단).
+- `AGENTS.md`: 루트 게이트 신설(pwd·remote·리트머스 3종, 불일치 시 즉시 중단·Human 보고, 유사 폴더 작업 금지) / 트랙 구성 교체(Chat=기획·레포 접근 없음, Code=구현+1차 검증 직접 실행·git 읽기 허용·쓰기 기본 금지, Codex=2차 검증+커밋·push·직접 수정 한 줄급만) / 위험도 운영 규칙 신설(저위험="Code 커밋 허용" 명시 시 Code 커밋·Codex 생략 가능, 고위험=풀 하네스+DB Human 게이트, 판단·명시=Chat 책임) / 원칙 보강(STEP 0 실측·최소 수정·이상 신호 즉시 중단) / 커밋 전 검증 계약 명문화(tsc app·node·lint·build·pytest 618/8 + SURIT 0건·구브랜드 색상 0건 grep + 보호 영역 diff 검사) / Cowork 규칙은 삭제하지 않고 "[퇴역] Cowork 이력" 섹션으로 이동.
+- `CLAUDE.md`: 필수 순서에 루트 게이트 0번 추가, Cowork 단계 → Claude Code 교체, 절대 규칙에 STEP 0·이상 신호 원칙 추가, 마운트 제약 → 퇴역 이력 표기, 검증 게이트 git 반영 주체 갱신.
+- `.agent-harness/WORKFLOW.md`: 3트랙 Roles 재서술, New Chat Packet에 Risk tier 항목 추가, 호출 템플릿 2벌 신설(Code용=구현+1차검증+handoff·git 쓰기 금지 / Codex용=2차검증+커밋·push), Publish Gate 마운트 절단 검사 → 이상 신호 검사로 교체.
+- `README.md`: 현재 운영 방식·역할·작업 원칙을 3트랙 기준으로 갱신.
+- `.agent-harness/tasks/BOHUMFIT-224-harness-three-track-transition.md` 신설.
+
+### Verified
+- 루트 게이트 실측 통과: pwd=`/c/Users/18_rk/BOHUMFIT`, remote=`STONESWORD-MERITZ/bohumfit`, 리트머스 파일 존재.
+- `git status --short -uall` / `git diff --stat`: 변경 = `.agent-harness/`(WORKFLOW·locks·tasks/224) + 루트 MD(AGENTS·CLAUDE·README)만. `src/`·`backend/`·`supabase/` diff 0.
+- `git diff --check` passed.
+- 문서만 — 코드 무변경이므로 tsc/lint/build/pytest 미실행(사유: 코드 diff 0, 기준선 618/8 영향 없음).
+
+### Codex Windows 2차 검증
+- 루트 게이트 통과: pwd=`C:\Users\18_rk\BOHUMFIT`, remote=`STONESWORD-MERITZ/bohumfit`, 219 리트머스 파일 존재.
+- 변경 범위는 `.agent-harness/`와 루트 MD(`AGENTS.md`·`CLAUDE.md`·`README.md`)뿐이며 `src/`·`backend/`·`supabase/` diff 0. 사용자 미추적 `.env.txt` 제외.
+- `AGENTS.md`의 루트 게이트·Chat/Code/Codex 3트랙·위험도 규칙·커밋 전 검증 계약·`[퇴역] Cowork 이력` 확인.
+- `CLAUDE.md`·`WORKFLOW.md`·`README.md`에서 현행 Cowork 역할 잔여 0(전환·퇴역 이력 문구만 존재), WORKFLOW 호출 템플릿 Code용/Codex용 2벌 확인.
+- 코드 diff 0이므로 pytest는 재실행하지 않았고 backend 기준선 `618 passed, 8 skipped` 불변 판단. `git diff --check` 통과.
+- BOHUMFIT-223 최종 `2f041fc`가 로컬 HEAD·`origin/main`과 일치함을 확인했고, `d73638c`는 어느 브랜치에도 속하지 않은 고아 커밋이라 추가 조치하지 않았다.
+
+### Notes
+- ★Chat 지시의 "223 d73638c 미푸시분 함께 push"는 실측과 다름: `d73638c`는 어느 브랜치에도 속하지 않은 구(舊) 223 커밋(동일 메시지, amend 대체 추정)이고, 최종 223 커밋 `2f041fc`는 이미 origin/main에 푸시 완료(로컬 HEAD = 원격 main = `2f041fc`, `git log origin/main..HEAD` 0건). 미푸시분 없음 — Codex는 224 단건만 커밋·push하면 된다.
+- 사용자 미추적 `.env.txt`는 조회·스테이지 대상 아님.
+
+### Next
+- Human: Codex 최종 응답의 224 커밋 해시와 `origin/main` 반영 결과 확인. 223 추가 조치 없음.
+
 ## 2026-07-17 BOHUMFIT-223 - 개발 의존성 고정 + Windows 셋업 문서화
 
 Owner flow: Human -> Codex Windows -> Human | Current owner: Human

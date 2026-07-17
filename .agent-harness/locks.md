@@ -5,6 +5,10 @@ Use this file to record active Codex file ownership during a task.
 ## Active
 
 ### Released
+- 2026-07-17 `BOHUMFIT-224-harness-three-track-transition` - Codex Windows - Released. 루트 게이트, 문서 범위, 3트랙·위험도·검증 계약·퇴역 이력, 호출 템플릿 2벌, 코드 diff 0, 223 원격 상태를 2차 확인. pytest는 코드 diff 0으로 미실행; scoped commit/push 진행.
+- 2026-07-17 `BOHUMFIT-224-harness-three-track-transition` - Claude Code - Released. 하네스 3트랙 전환 문서화 완료(AGENTS·CLAUDE·README·WORKFLOW·tasks/224·handoff). 루트 게이트·위험도 규칙·커밋 전 검증 계약 신설, Cowork "[퇴역]" 이력 이동. diff = `.agent-harness/` + 루트 MD만, 코드 무변경. 커밋·push는 Codex(헌법 변경 — Code 커밋 금지 지시).
+
+### Released
 - 2026-07-17 `BOHUMFIT-223-dev-dependencies-setup` - Codex Windows - Released. Added pinned Windows-installed development dependencies (`pytest 9.1.1`, `playwright 1.52.0`) and documented Python 3.12.10, VC++ Redistributable, requirements, and Chromium setup. Verified backend `618 passed, 8 skipped`, diff checks, and application code changes 0; user `.env.txt` excluded.
 - 2026-07-15 `BOHUMFIT-221-hcaptcha-onload-token-sequencing` - Codex Windows - Released. Replaced script-load sequencing with the official explicit API onload callback, kept one shared script/one widget render per component, wired verify/expire/error/render failure, and added 5-second getResponse recovery without bypassing an unsolved challenge. Verified tsc app/node, lint, frontend `44 passed`, build, backend `618 passed, 8 skipped`, keyless/browser test-key smoke. No backend/pipeline, coverage, DB/RLS, PhoneVerify, auth core, OAuth, CSP, real key, or secret changes.
 - 2026-07-15 `BOHUMFIT-220-hcaptcha-csp-signup-fail-open` - Codex Windows - Released. Added only hCaptcha origins to the existing Vercel CSP, made auth widgets report explicit and silent non-render failures so login/signup fail open while normal token verification remains, and added CSP/auth regressions. Verified tsc app/node, lint, frontend `41 passed`, build, backend `618 passed, 8 skipped`, and keyless local browser smoke. No backend/pipeline, coverage, DB/RLS, phone verification, auth core, key, or secret changes.

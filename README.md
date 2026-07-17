@@ -8,7 +8,7 @@
 
 ## 현재 운영 방식
 
-이 저장소는 **Claude Chat → Claude Cowork → Codex 3역할 하네스 방식**으로 진행합니다.
+이 저장소는 **Claude Chat → Claude Code → Codex 3역할 하네스 방식**으로 진행합니다. (BOHUMFIT-224로 구현 트랙이 Cowork(샌드박스)에서 Claude Code(Windows 로컬)로 교체됐습니다. 순서 불변.)
 
 - 최상위 규칙: `AGENTS.md`
 - 프로젝트 세부 관례: `CLAUDE.md`
@@ -20,10 +20,10 @@
 
 역할은 아래처럼 나눕니다.
 
-- Claude Chat: 사용자의 요구를 취지 중심 작업 패킷으로 정리합니다.
-- Claude Cowork: 샌드박스에서 구현, 테스트 추가, 1차 검증, handoff 기록을 담당합니다.
-- Codex: Windows 원본에서 권위 검증, 좁은 보정, scoped commit/push, 배포 확인을 담당합니다.
-- Human: 사업 판단, 법무·개인정보·결제·대시보드 설정처럼 코드 밖 결정을 담당합니다.
+- Claude Chat: 사용자의 요구를 취지 중심 작업 패킷으로 정리하고 위험도(저위험/고위험)를 판단·명시합니다. 레포 접근은 없습니다.
+- Claude Code: Windows 로컬에서 구현, 테스트 추가, 1차 검증(tsc/lint/build/pytest 직접 실행), handoff 기록을 담당합니다. git 읽기는 허용, 쓰기(add/commit/push)는 기본 금지입니다.
+- Codex: 2차 검증과 scoped commit/push, 배포 확인을 담당합니다. 직접 수정은 한 줄급만 — 그 이상은 handoff로 Claude Code에 회송합니다.
+- Human: 사업 판단, 법무·개인정보·결제·대시보드 설정, DB 변경 실행처럼 코드 밖 결정을 담당합니다.
 
 과거 handoff/task에 남아 있는 예전 운영 표기는 역사 기록입니다. 새 작업은 `.agent-harness/WORKFLOW.md`의 New Chat Packet 형식으로 이어받습니다.
 
@@ -80,9 +80,9 @@ npx tsc -p tsconfig.node.json --noEmit
 
 ## 작업 원칙
 
-1. `AGENTS.md`를 먼저 읽고 하네스 절차를 따른다.
+1. 루트 게이트(pwd·remote·리트머스 파일)를 통과하고 `AGENTS.md`를 먼저 읽어 하네스 절차를 따른다.
 2. 최신 `handoff.md`, 관련 task, `.agent-harness/locks.md`를 확인한다.
-3. Cowork는 마운트 git 금지 원칙을 지키고, Codex는 Windows에서 `git status --short -uall`을 확인한다.
-4. 태스크 범위 안에서만 수정하되, 사용자의 취지 기준으로 필요한 회귀 테스트와 안전장치는 보강한다.
+3. Claude Code는 git 읽기까지만 사용하고(쓰기 기본 금지), Codex는 커밋 전 `git status --short -uall`을 확인한다.
+4. 태스크 범위 안에서만 수정하되, 사용자의 취지 기준으로 필요한 회귀 테스트와 안전장치는 보강한다. STEP 0 실측 없이 수정하지 않는다.
 5. 검증 결과와 남은 이슈를 `handoff.md` 상단에 남긴다.
-6. 사용자가 publish를 요청했거나 태스크 완료 조건에 push가 있으면 Codex가 태스크 범위 파일만 커밋·푸시한다.
+6. 사용자가 publish를 요청했거나 태스크 완료 조건에 push가 있으면 태스크 범위 파일만 커밋·푸시한다. 주체는 기본 Codex, 저위험 + "Code 커밋 허용" 명시 시에만 Claude Code.
