@@ -41,6 +41,21 @@
 - Backend: FastAPI, Python, pdfplumber, pandas, google-genai
 - Deploy: Vercel(frontend), Railway(backend)
 
+## Windows 신규 환경 셋업
+
+저장소의 `.python-version`에 맞는 Python 3.12.10과 Microsoft Visual C++ 2015-2022 Redistributable (x64)를 먼저 설치합니다. VC++ 재배포 패키지는 백엔드 Python 의존성이 사용하는 Windows 네이티브 런타임에 필요합니다.
+
+백엔드 운영 의존성, 개발·테스트 의존성, Playwright Chromium을 순서대로 설치합니다.
+
+```powershell
+cd backend
+python -m pip install -r requirements.txt
+python -m pip install -r requirements-dev.txt
+python -m playwright install chromium
+```
+
+`requirements-dev.txt`는 로컬 검증 도구의 재현성을 위해 현재 Windows 설치본 버전을 고정합니다.
+
 ## 기본 검증
 
 ```powershell

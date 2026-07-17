@@ -1,3 +1,24 @@
+## 2026-07-17 BOHUMFIT-223 - 개발 의존성 고정 + Windows 셋업 문서화
+
+Owner flow: Human -> Codex Windows -> Human | Current owner: Human
+Commit: pending at handoff write time; final hash in Codex response.
+
+### Changed
+- `backend/requirements-dev.txt`를 신설해 Windows Python 3.12.10 현재 설치본인 `pytest==9.1.1`, `playwright==1.52.0`을 고정했다.
+- README에 Python 3.12.10과 Microsoft Visual C++ 2015-2022 Redistributable (x64) 선행 설치를 명시했다.
+- 백엔드에서 `requirements.txt`, `requirements-dev.txt`, Playwright Chromium을 순서대로 설치하는 신규 환경 명령을 추가했다.
+- 애플리케이션 코드, 기존 운영 의존성, 배포 설정은 변경하지 않았다.
+
+### Verified
+- 설치본 조회: `pytest 9.1.1`, `playwright 1.52.0`.
+- `cd backend && python -m pytest -q`: **618 passed, 8 skipped**, 기존 Starlette/httpx deprecation warning 1건.
+- 첫 권한 실행은 PATH의 npm 누락으로 parity 1건이 추가 스킵됐으며, Windows npm 경로를 포함한 최종 권위 실행에서 기준선을 확인했다.
+- `git diff --check` passed. `src/`, 백엔드 Python 코드, `backend/pipeline/`, `backend/coverage/` 변경 0.
+
+### Safety
+- 사용자 소유 미추적 `.env.txt`는 조회·수정·스테이지하지 않았다.
+- 문서·설정 및 harness 기록만 커밋 범위에 포함한다.
+
 ## 2026-07-17 BOHUMFIT-222 - 비밀번호 재설정 이메일 링크 경로 추가
 Owner flow: Human -> Codex Windows -> Human | Current owner: Human
 Commit: pending at handoff write time; final hash in Codex response.
