@@ -5,6 +5,10 @@ Use this file to record active Codex file ownership during a task.
 ## Active
 
 ### Released
+- 2026-07-18 `BOHUMFIT-226-brand-hygiene-audit` - Codex Windows - Released. 225 선행 커밋 `efb62cc` push 후 226 Windows 2차 검증 완료: tsc app/node·lint·test 68·build·pytest 618/8·계약 grep·보호 영역 diff 통과. `/insurance-links` 활성 탭 accent 렌더·console error 0; `/disclosure`는 비로그인 보호로 드롭존 진입 제한, 소스 분기와 전체 게이트로 대체 확인. `.env.txt` 조회·stage 0.
+- 2026-07-17 `BOHUMFIT-226-brand-hygiene-audit` - Claude Code - Released (A~D 완료). A: InsuranceLinks 5곳+Disclosure 2곳 비토큰 그린→accent 토큰(★`#2d6a4f` hex 2곳 포함), 시맨틱 emerald는 기록만. B: 공개 라우트 스모크 14케이스+ProtectedRoute 게이트 4케이스 신규 — 50→68 passed(기존 무수정·전체 4연속 안정). C: 위생 리포트(★xlsx = no-fix high 취약점인데 미사용 — 제거 제안 1순위). D: 메일 브랜드 분리 조사(권장: 중립 템플릿). 검증: tsc·lint·test 68·build(342.66 kB 기록만)·pytest 618/8·계약 grep 0. git 쓰기 0 — 내일 Codex가 225 선행 커밋 후 226 순차 커밋.
+- 2026-07-17 `BOHUMFIT-225-hardening-sql-drift-revalidation` (S1~S3) - Claude Code - Released. 실측 기준 재작성 완료: 225-01(공개 뷰 4개·reconsult_intent 미참조·published 경계), 225-02(RPC published+has_consult 조건·anon EXECUTE 회수), 225-03(profiles SELECT 중복 통합만 — is_admin 부재로 219-03 전면 교체 폐기), 225-04(cutover 보강·BLOCKED 유지), 219-01~04 [SUPERSEDED] 헤더. 정적 검사 PASS·pytest 618/8·프로덕션 연결 0. ★invoker 전환은 실측 충돌로 미적용(handoff 참조). ★빌드 산출물 급감 이상 신호 보고(handoff 참조). Next: Codex 검증·커밋 → Human 실행(01→02→03, 04는 FitHere 전환 후).
+- 2026-07-17 `BOHUMFIT-225-hardening-sql-drift-revalidation` - Claude Code - Released (S0 완료). 219-01 42703 드리프트 대응: 읽기 전용 확인 쿼리 세트 `supabase/manual/BOHUMFIT-225-00-current-state-check.sql`(Q1~Q8) + tasks/225 신설. 프로덕션 연결·적용 0, 219-01~04 기존 파일 무접촉. Next: Human 실측 → Code 재작성(재잠금) → Codex 검증·커밋 → Human 실행.
 - 2026-07-17 `BOHUMFIT-224-harness-three-track-transition` - Codex Windows - Released. 루트 게이트, 문서 범위, 3트랙·위험도·검증 계약·퇴역 이력, 호출 템플릿 2벌, 코드 diff 0, 223 원격 상태를 2차 확인. pytest는 코드 diff 0으로 미실행; scoped commit/push 진행.
 - 2026-07-17 `BOHUMFIT-224-harness-three-track-transition` - Claude Code - Released. 하네스 3트랙 전환 문서화 완료(AGENTS·CLAUDE·README·WORKFLOW·tasks/224·handoff). 루트 게이트·위험도 규칙·커밋 전 검증 계약 신설, Cowork "[퇴역]" 이력 이동. diff = `.agent-harness/` + 루트 MD만, 코드 무변경. 커밋·push는 Codex(헌법 변경 — Code 커밋 금지 지시).
 

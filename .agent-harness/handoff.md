@@ -1,3 +1,118 @@
+## 2026-07-18 BOHUMFIT-225/226 - Codex Windows 2차 검증·순차 배포
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human
+Commit: BOHUMFIT-225 = `efb62ccb090d242e4f39aa76b5ad66dbf7202e6c` (origin/main push 완료) / BOHUMFIT-226 = 이 handoff를 포함하는 후행 커밋이라 작성 시점 pending, 최종 해시는 Codex 응답에 기록.
+
+### BOHUMFIT-225 결과 (선행)
+- 루트 게이트 통과. `BOHUMFIT-225-00~04` 5파일 존재, 00은 읽기 전용·무트랜잭션, 01~04는 각각 단일 `BEGIN`/`COMMIT`과 `BOHUMFIT-225` 세션 가드 확인. secret/PII 패턴 0.
+- 219-01~04는 `[SUPERSEDED]` 헤더 주석만 추가됐고 나머지 본문은 HEAD와 바이트 기준 동일함을 확인.
+- 프로덕션 DB 연결·query·apply 0. SQL 실행은 전부 Human 게이트로 유지.
+- 225 범위 10파일만 stage해 커밋·push. 혼합 기록인 handoff/locks는 지시대로 226 후행 커밋에 포함.
+
+### BOHUMFIT-226 결과 (후행)
+- Windows 권위 2차 게이트 통과: tsc app/node, lint, `npm test` **68 passed**(기존 50 + 신규 18), build 통과(청크 수치는 새 기준선으로 등록하지 않음), backend pytest **618 passed, 8 skipped**(기존 Starlette/httpx warning 1건).
+- 신규 테스트의 콘솔 필터는 `console.error` 첫 문자열 중 `not wrapped in act`만 제외하며 warn/error 전체 무시가 아님을 육안 확인. 직접 수정 없음.
+- 계약 grep 통과: SURIT 0, 구브랜드 색상(`#15663D`/`#2E6B3E`/`#145C2A`) 프로덕션 0, 면 전용 색상 텍스트 0, 변경 2파일의 green/`#2d6a4f` 잔재 0.
+- diff 범위 확인: `src/` 수정은 `InsuranceLinks.tsx`·`Disclosure.tsx` 2파일과 신규 스모크 테스트 2파일뿐. `backend/`·`backend/pipeline/`·`backend/coverage/`·`supabase/` diff 0. `.env.txt`는 조회·stage하지 않음.
+- 로컬 `/insurance-links` 스모크: 탭 전환 후 활성 텍스트·밑줄 모두 `accent-600` 계산값, hover/focus 클래스도 accent 토큰, 콘솔 error 0. `/disclosure`는 비로그인 세션에서 `/login`으로 정상 보호되어 드롭존까지 진입하지 못했으며, 실제 인증정보나 `.env.txt`를 사용하지 않았다. 드래그 활성 분기는 소스의 `border-accent-400 bg-accent-50`과 전체 테스트·빌드로 대체 확인. 로컬 서버에는 비민감 임시 Supabase placeholder만 사용했고 종료함.
+
+### Next
+1. **Human**: 225-01→03을 저트래픽 창에서 순서대로 실행. 각 실행 전 `set bohumfit.human_approved = 'BOHUMFIT-225';`. 225-04는 FitHere 전환 후 실행. `.env.txt` 상태 확인 및 invoker 전환·빌드 이상 신호 결정.
+2. **Human**: Supabase 대시보드에서 인증 메일 중립 템플릿 문구 반영 여부 결정(226-D 권장안).
+3. **Chat**: BOHUMFIT-227(`xlsx` 의존성 제거) 발번 예정. `npm audit fix` 업그레이드는 별도 검토.
+
+## 2026-07-17 BOHUMFIT-226 - 브랜드 잔재 정리 + 라우트 스모크 + 위생/메일분리 감사 (A~D 완료)
+
+Owner flow: Claude Chat -> Claude Code -> Codex | Current owner: Codex
+Commit: 없음 — git 쓰기 전면 금지 지시. 내일 Codex가 225 커밋 선행 후 226 순차 커밋.
+
+### Part A — 브랜드 비토큰 그린 정리 (구현)
+- STEP 0 실측: 구브랜드 색상 0건·FIT hex 하드코딩 위반 0건·면 전용 색상(lime/greentea) 텍스트 사용 0건. 브랜드 목적 비토큰 그린 7곳 발견·치환(상세 표는 tasks/BOHUMFIT-226-brand-hygiene-audit.md).
+- `InsuranceLinks.tsx` 5곳: focus ring green-500→accent-600(관례 정합), hover border/bg green-200/50→accent, ★활성 탭 `text-[#2d6a4f]`/`bg-[#2d6a4f]`(비토큰 hex)→accent-600.
+- `Disclosure.tsx` 2곳: 카드 hover green-50/40→accent-50/40, 드롭존 드래그 활성 green-400/50→accent-400/50(같은 라인 비활성 accent와 정합).
+- 시맨틱 emerald(성공/상태 표시: Toast·Badge·종결 등)는 브랜드 아님으로 판정 — 기록만(success 토큰 치환은 후속 제안). 카카오 공식색·고아 BeforeAfter도 기록만.
+
+### Part B — 공개 라우트 렌더 스모크 (신규 테스트만)
+- `src/pages/PublicRoutesSmoke.test.tsx` 신규: App.tsx 실측 공개 라우트 13페이지 + ResetPassword 직접 접근 재요청 안내 = 14케이스. supabase auth mock·fetch stub·IntersectionObserver stub, 실제 콘솔 오류 0 판정(act() 타이밍 경고는 환경 아티팩트로 제외 — 최초 전체 실행에서 Home 간헐 실패 재현·보강, 이후 전체 4연속 안정).
+- `src/components/ProtectedRouteSmoke.test.tsx` 신규: anonymous→/login, unverified→/phone-verify(state.from 유지), verified→children, loading 표시 4케이스.
+- 기존 테스트 무수정. 50 → **68 passed** (신규 +18, 기존 50 전부 유지).
+
+### Part C — 위생 감사 리포트 (조사만, 코드 0)
+- 산출: `tasks/BOHUMFIT-226-hygiene-report.md`. 요지: SURIT 프로덕션 0건 / TODO 총 1건(backend main.py:980 PASS 스텁) / npm audit 8건(high 6 — ★`xlsx`는 no-fix high인데 src 사용 0건 = 제거로 해소 가능, 나머지는 audit fix 가능) / pip-audit 미설치로 backend 미확인(설치 금지 지시) / 미참조 파일 후보 BeforeAfter.tsx·HomeMission.tsx / 후속 태스크 5건 제안(위험도 표기).
+
+### Part D — 인증 메일 브랜드 분리 사전조사 (조사만, 코드 0)
+- 산출: `tasks/BOHUMFIT-226-auth-mail-brand-split.md`. BOHUMFIT 측 발송 경로 실측(ForgotPassword reset + Signup confirm 노출), 3방식 비교(중립 템플릿/Send Email Hook/인스턴스 분리 — 분리는 공유 DB 아키텍처와 충돌로 비권장). 권장: 단기 중립 템플릿(대시보드 문구만·코드 0), 중기 훅 분기. 후속 태스크 명세 초안 포함.
+
+### Verified (A·B 1차 검증 — Code 직접 실행)
+- tsc app/node 통과, `npm run lint` 통과.
+- `npm test`: **68 passed** (기존 50 유지 + 18 순증). 전체 스위트 4연속 68/68.
+- `npm run build` 통과 — 청크 342.66 kB **기록만**(225 이상 신호 미해결, 새 기준선 아님).
+- backend pytest: **618 passed, 8 skipped** (backend 무접촉 증명).
+- grep: 구브랜드 0(backend 테스트의 부재-assert 제외)·SURIT 0·면 전용 텍스트 0·치환 잔재 0.
+- git status: 변경 = A 2파일 + B 신규 2파일 + harness 문서만. supabase/·backend/·225 파일 diff 0. `git diff --check` 통과.
+
+### Next
+1. **Codex**: (선행) 225 범위 stage→커밋·push → (후행) 226 검증·stage→커밋·push. 226 stage: `src/pages/InsuranceLinks.tsx`, `src/pages/Disclosure.tsx`, `src/pages/PublicRoutesSmoke.test.tsx`, `src/components/ProtectedRouteSmoke.test.tsx`, `tasks/BOHUMFIT-226*.md` 3개, handoff, locks. 커밋 메시지: `chore(BOHUMFIT-226): 브랜드 비토큰 그린 정리 + 공개 라우트 스모크 테스트 + 위생/메일분리 감사 리포트`.
+2. **Human**: 225-01→03 저트래픽 창 실행 / .env 상태 확인 / invoker·빌드 이상 신호 결정.
+3. **Chat**: C·D 리포트 검토 → 후속 태스크 발번(권장 1순위: xlsx 제거 — no-fix high 취약점 동시 해소).
+
+## 2026-07-17 BOHUMFIT-225 - 219 강화 SQL 실DB 드리프트 재검증 (S1~S3: 재작성 완료)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex
+Commit: 없음 — commit·push 금지 지시, Codex 인계(S0 산출물 포함 아직 미커밋). [고위험 — DB는 Human 게이트]
+
+### Changed
+- Human Q1~Q8 실측 기준으로 `supabase/manual/BOHUMFIT-225-01~04` 4파일 신설, 219-01~04에는 [SUPERSEDED] 헤더 주석만 추가(내용 보존). 공통: 세션 가드 `'BOHUMFIT-225'`, 파일별 독립 트랜잭션, idempotent, 드리프트 가드 DO 블록, 실행 전/후 확인쿼리·롤백 절차 주석.
+- 225-01: 공개 뷰 4개 — 라이브 정의 기준, `reconsult_intent` 미참조(42703 해소), 전 뷰 `is_published=true` 경계, advisors_public 컬럼 shape 16개 유지.
+- 225-02: `get_advisor_contact` — `is_published` + `has_consult_with_advisor()`(라이브 기존 함수 재사용) 조건 추가, anon EXECUTE 회수, search_path 보강.
+- 225-03: profiles SELECT 중복 2건 → `profiles_select_own` 1개 통합(legacy `"본인 프로필 조회"` 제거). ★219-03 전면 정책 교체는 폐기 — 실DB에 `is_admin()`/`owns_advisor()` 부재(42883 실패 예정이었음) + Q6 실측상 소유자 정책 대부분 정상.
+- 225-04: 219-04 실질 동일 + 가드·확인쿼리 보강. FitHere 전환 전 실행 금지(BLOCKED) 유지.
+- 상세 실측→변경 매핑·기록만 항목은 `tasks/BOHUMFIT-225-hardening-sql-drift-revalidation.md` §S1~S3 참조.
+
+### ★Chat 지시와 다르게 구현 (실측 근거 — Chat/Human 재확인 요청)
+- 집계 뷰 3개 **invoker 전환 미적용**: contact_clicks anon 무grant(218 §4 실측 401)→invoker 시 review_stats anon 조회 오류, certifications 공개 SELECT 정책 부재(Q6)→cert 뷰 전원 0행 = FitHere 공개 화면 파손. → 검토된 definer+security_barrier+published 경계+고정 컬럼(218 Draft 3 설계) 유지. invoker 원하면 grant/정책 정비 선행 태스크 필요.
+
+### Verified
+- SQL 정적 검사 4파일 PASS($$ 짝·괄호 균형·단일 트랜잭션·가드·secret 0).
+- backend pytest: **618 passed, 8 skipped** (기준선 일치 — 코드 무변경 확인).
+- `npm run build` 통과. `git status`: 변경 = `supabase/manual/` + harness 문서만, `src/`·`backend/` diff 0. 프로덕션 연결/query/apply 0.
+
+### ★이상 신호 보고 (수정 시도 안 함 — Human 확인 필요)
+- 프런트 빌드 산출물 급감: dist JS 단일 청크 **342.66 kB**, 기존 handoff(220~222)의 "500 kB chunk 경고"가 소실. src/·vite.config·package(-lock).json·index.html 모두 HEAD와 해시 일치(git 무결), 의존성도 lock 버전 설치 확인 → 원인은 로컬 빌드 환경으로 추정. 미추적 `.env.txt`가 새로 나타난 점과의 연관(.env 개명 여부)은 미확인(.env 파일 접근은 하지 않음). Vercel은 대시보드 env를 쓰므로 배포 영향은 별개. **Human: .env 상태 확인 요청. Codex: 이 수치를 새 기준선으로 기록 금지.**
+
+### Next
+1. **Codex**: 2차 검증 → 225 범위(S0 포함: `supabase/manual/BOHUMFIT-225-00~04`, 219-01~04 헤더, tasks/225, handoff, locks)만 stage → 커밋·push. 커밋 메시지 예: `docs(BOHUMFIT-225): 219 강화 SQL 실DB 드리프트 재검증 — 225-01~04 재작성·219 SUPERSEDED`.
+2. **Human**: 저트래픽 창 실행 순서 **01→02→03**(개별 트랜잭션·각 단계 확인쿼리/회귀), **04는 FitHere advisors_public 전환 후**. 각 실행 전 `set bohumfit.human_approved = 'BOHUMFIT-225';`.
+3. **Human/Chat**: invoker 전환 여부·기록만 3건·빌드 이상 신호 결정.
+
+## 2026-07-17 BOHUMFIT-225 - 219 강화 SQL 실DB 드리프트 재검증 (S0: 확인 쿼리 세트 산출)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human (S0 쿼리 실행)
+Commit: 없음 — commit·push 금지 지시, Codex 인계. [고위험 — 풀 하네스, DB는 Human 게이트]
+
+### Changed
+- 배경: Human이 `219-01`(공개 뷰 강화)을 프로덕션 실행 시도 → `column r.reconsult_intent does not exist` 42703으로 트랜잭션 롤백(DB 무변경). 원인 = 219-01~04가 218 감사(2026-07-14) 시점 메타데이터 기준이라 실DB와 드리프트(reconsult_intent는 FitHere 측 reviews 컬럼, FITHERE-158~162 사이 변경 추정).
+- S0 실측: `rg -i reconsult` 저장소 전수 — `reconsult_intent` 근거는 `supabase/manual/BOHUMFIT-219-01-*.sql` 자신뿐(원본 정의 없음) → 실DB 실측 없이는 재작성 불가 확정.
+- `supabase/manual/BOHUMFIT-225-00-current-state-check.sql` 신설(읽기 전용, Human 실행용): Q1 공개 뷰 4개 `pg_get_viewdef`+reloptions / Q2 관련 테이블 10개 컬럼 전체 / Q3 `reconsult_intent`·유사 명칭 존재 위치 / Q4 enum 목록 / Q5 함수 5종 정의 / Q6 대상 테이블 정책 전체 / Q7 anon·authenticated grant / Q8 RLS 활성화 상태. 세션 가드 불요(전부 읽기 전용), 행 데이터·PII 조회 없음.
+- `.agent-harness/tasks/BOHUMFIT-225-hardening-sql-drift-revalidation.md` 신설(S0~S3 계획: S1=219-01 재작성[존재 컬럼만 참조·is_published 경계 유지], S2=219-02·03·04 실측 대조 후 필요 시 재작성, S3=세션 가드·파일별 독립 트랜잭션 유지+정적 검사).
+- 219-01~04 기존 파일·`supabase/migrations/`·`src/`·`backend/` 무접촉.
+
+### Verified
+- 루트 게이트 통과(pwd·remote·리트머스). 기준선 618/8 인지.
+- 프로덕션 Supabase 연결/query/apply: **0** (S0는 쿼리 세트 산출만, 실행은 Human).
+- `git status --short -uall`: 변경 = `supabase/manual/BOHUMFIT-225-00-*.sql`(신규) + harness 문서만. `git diff --check` passed.
+- 코드 diff 0이므로 tsc/lint/build/pytest 미실행(사유: 문서·읽기 전용 SQL 신설만).
+
+### Notes
+- 재작성 시 결정 필요(Chat): ① 219-01~04를 in-place 재작성할지 225 번호 대체 파일로 둘지 ② 세션 가드 키를 'BOHUMFIT-219' 유지할지 'BOHUMFIT-225'로 갱신할지 ③ `reconsult_intent`가 실DB에서 삭제로 확정되면 `reconsult_intent_rate` 지표 제거가 FitHere 소비 화면에 미치는 영향(컬럼 shape 변경) Human 확인.
+- Q6 정책식·Q1 뷰 정의 원문 결과는 저장소에 커밋하지 않는다(218 §6 보관 규칙).
+
+### Next
+1. **Human**: `BOHUMFIT-225-00-current-state-check.sql` Q1~Q8 실행 → 결과를 Chat/Code에 전달.
+2. **Claude Code**: 실측 기준 S1~S3 재작성 + 변경 근거 문서.
+3. **Codex**: 2차 검증 → 225 범위 파일만 stage → 커밋·push (이번 S0 산출물 포함).
+4. **Human**: 저트래픽 창에서 재작성본 실행(219 태스크 §4 절차·§5 롤백 준수).
+
 ## 2026-07-17 BOHUMFIT-224 - 하네스 3트랙 전환(Cowork 퇴역 · Claude Code 구현 트랙 · 위험도 규칙)
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human

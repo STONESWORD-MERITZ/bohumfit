@@ -417,7 +417,7 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
   const displayDetail = displayJudgmentDetail(item);
 
   return (
-    <article className={`border-l-4 px-5 py-4 transition-colors duration-200 hover:bg-green-50/40 ${RISK[risk].border}`}>
+    <article className={`border-l-4 px-5 py-4 transition-colors duration-200 hover:bg-accent-50/40 ${RISK[risk].border}`}>
       <div className="mb-1 flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="text-[15px] font-bold text-ink-900">{item.name || "질병명 없음"}</span>
@@ -2003,7 +2003,7 @@ export default function Disclosure({
             }
           }}
           className={`mt-5 cursor-pointer rounded-[8px] border-2 border-dashed p-6 text-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-600/40 ${
-            isDragging ? "border-green-400 bg-green-50" : "border-accent-200 bg-accent-50 hover:border-accent-400"
+            isDragging ? "border-accent-400 bg-accent-50" : "border-accent-200 bg-accent-50 hover:border-accent-400"
           }`}
         >
           <Upload aria-hidden className="mx-auto mb-2 h-7 w-7 text-accent-600" />

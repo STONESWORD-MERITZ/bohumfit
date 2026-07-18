@@ -311,7 +311,7 @@ function CopyButton({ text, label = "복사" }: { text: string; label?: string }
         showToast("복사되었습니다", "success");
         window.setTimeout(() => setDone(false), 1500);
       }}
-      className="shrink-0 rounded-[6px] border border-line-strong bg-white px-2 py-0.5 text-[11px] font-semibold text-ink-700 transition-colors hover:bg-ink-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500"
+      className="shrink-0 rounded-[6px] border border-line-strong bg-white px-2 py-0.5 text-[11px] font-semibold text-ink-700 transition-colors hover:bg-ink-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-600"
       aria-label={`${label} 복사`}
     >
       {done ? "복사됨 ✓" : label}
@@ -388,7 +388,7 @@ function InsurerCard({ ins }: { ins: Insurer }) {
     "보험금 청구 전, 보험사별 필요서류와\n청구 가능 기준은 해당 보험사 공식 안내를\n함께 확인해 주세요.";
 
   return (
-    <div className="rounded-card border border-line bg-white p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-green-200 hover:shadow-lg">
+    <div className="rounded-card border border-line bg-white p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-accent-200 hover:shadow-lg">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="card-title text-base font-bold text-ink-900">{ins.name}</h3>
         <Badge variant={CATEGORY_VARIANT[cat]}>{shortCat(cat)}</Badge>
@@ -635,14 +635,14 @@ export default function InsuranceLinks() {
             role="tab"
             aria-selected={tab === t}
             onClick={() => setTab(t)}
-            className={`button-text relative flex-1 rounded-t-[8px] px-3 py-2.5 text-sm font-bold transition-all duration-200 hover:bg-green-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 ${
-              tab === t ? "text-[#2d6a4f]" : "text-ink-soft"
+            className={`button-text relative flex-1 rounded-t-[8px] px-3 py-2.5 text-sm font-bold transition-all duration-200 hover:bg-accent-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-600 ${
+              tab === t ? "text-accent-600" : "text-ink-soft"
             }`}
           >
             {t}
             <span
               aria-hidden
-              className={`absolute inset-x-2 -bottom-px h-0.5 origin-center rounded-full bg-[#2d6a4f] transition-all duration-200 ${
+              className={`absolute inset-x-2 -bottom-px h-0.5 origin-center rounded-full bg-accent-600 transition-all duration-200 ${
                 tab === t ? "scale-x-100 opacity-100" : "scale-x-0 opacity-0"
               }`}
             />
