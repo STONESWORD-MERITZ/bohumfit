@@ -1,3 +1,6 @@
+-- [SUPERSEDED by BOHUMFIT-225-02-contact-rpc-hardening.sql] 2026-07-17 — 실행 금지.
+-- 실DB에 has_consult_with_advisor(uuid)가 이미 존재해(225-00 Q5 실측) 연결기록
+-- 조건을 그 함수 재사용으로 재작성했다. 이 파일은 이력 보존용.
 -- BOHUMFIT-219 / F-218-04
 -- Classification: HARDENING (behavior change; Human approval required).
 -- NOT in supabase/migrations: never apply through an automatic migration run.

@@ -1,3 +1,6 @@
+-- [SUPERSEDED by BOHUMFIT-225-01-public-view-hardening.sql] 2026-07-17 — 실행 금지.
+-- 2026-07-14 감사 시점 메타데이터 기준이라 실DB와 드리프트: reviews.reconsult_intent
+-- 삭제(42703 실측, 2026-07-17 실행 시도 롤백). 이 파일은 이력 보존용.
 -- BOHUMFIT-219 / F-218-03
 -- Classification: HARDENING (behavior change; Human approval required).
 -- NOT in supabase/migrations: never apply through an automatic migration run.

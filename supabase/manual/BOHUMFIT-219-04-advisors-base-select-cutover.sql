@@ -1,3 +1,6 @@
+-- [SUPERSEDED by BOHUMFIT-225-04-advisors-base-select-cutover.sql] 2026-07-17 — 실행 금지.
+-- 내용 실질 동일(드리프트 없음 실측 확인). 세션 가드 키 갱신('BOHUMFIT-225')과
+-- 드리프트 가드·전후 확인쿼리 보강본이 225-04다. 이 파일은 이력 보존용.
 -- BOHUMFIT-219 / F-218-02
 -- Classification: HARDENING (behavior change; BLOCKED until FitHere cutover).
 -- NOT in supabase/migrations: never apply through an automatic migration run.

@@ -1,3 +1,8 @@
+-- [SUPERSEDED by BOHUMFIT-225-03-profiles-select-dedup.sql] 2026-07-17 — 실행 금지.
+-- 실DB에 public.is_admin()·public.owns_advisor() 부재(225-00 Q5 실측) → 실행 시
+-- 42883 실패 예정이었고, Q6 실측상 소유자 정책은 대부분 이미 auth.uid() 스코프로
+-- 정상이라 전면 교체가 불필요·위험하다. 남은 실제 변경(profiles SELECT 중복 통합)만
+-- 225-03으로 분리했다. 이 파일은 이력 보존용.
 -- BOHUMFIT-219 / F-218-01, F-218-05, F-218-06, F-218-07
 -- Classification: HARDENING (behavior change; Human approval required).
 -- NOT in supabase/migrations: never apply through an automatic migration run.
