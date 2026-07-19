@@ -21,6 +21,26 @@ Commit: BOHUMFIT-225 = `efb62ccb090d242e4f39aa76b5ad66dbf7202e6c` (origin/main p
 2. **Human**: Supabase 대시보드에서 인증 메일 중립 템플릿 문구 반영 여부 결정(226-D 권장안).
 3. **Chat**: BOHUMFIT-227(`xlsx` 의존성 제거) 발번 예정. `npm audit fix` 업그레이드는 별도 검토.
 
+## 2026-07-18 BOHUMFIT-227 - 미사용 xlsx 의존성 제거 (npm audit no-fix high 해소)
+
+Owner flow: Claude Chat -> Claude Code (커밋 허용) | Current owner: Chat
+Commit: Claude Code 직접 커밋·push(저위험 — Chat "Code 커밋 허용" 명시, Codex 생략). 해시는 최종 응답 기록.
+
+### Changed
+- `npm uninstall xlsx`: package.json에서 xlsx 1줄 제거, lockfile에서 xlsx+하위 9패키지(adler-32·cfb·codepage·crc-32·frac·ssf·wmf·word) 트리만 제거. 다른 의존성 버전 이동 **0** 실측 확인.
+- STEP 0 재실측: src/ xlsx import/require 0건(226 감사 재확인).
+- src/·backend/·supabase/·.env*·openpyxl(Python 별개) 무접촉.
+
+### Verified
+- tsc app/node, lint, `npm test` **68 passed**, build 통과(청크 342.66 kB — 기록만, 225 이상 신호 미해결·새 기준선 아님).
+- backend pytest **618 passed, 8 skipped** 불변.
+- npm audit: **8건 → 7건**(1 low, 1 moderate, 5 high). no-fix high(xlsx GHSA-4r6h-8v6p-xvw6·GHSA-5pgg-2g8v-p4x9) 해소. 남은 7건(react-router·undici·vite·ws·brace-expansion·@babel/core)은 전부 `npm audit fix` 경로 존재.
+- `git diff --check` 통과. stage 범위 = package.json·package-lock.json·tasks/227·handoff·locks(.env* 제외).
+
+### Next
+1. **Chat**: `npm audit fix` 업그레이드(react-router/undici/vite/ws 등) 별도 태스크 발번 검토. ※vite 업그레이드는 225 빌드 이상 신호(.env 상태) 해결 후 권장 — 기준선 혼동 방지.
+2. **Human**: (계류) 225-01→03 저트래픽 실행 / .env 상태 확인 / invoker·빌드 이상 신호 결정.
+
 ## 2026-07-17 BOHUMFIT-226 - 브랜드 잔재 정리 + 라우트 스모크 + 위생/메일분리 감사 (A~D 완료)
 
 Owner flow: Claude Chat -> Claude Code -> Codex | Current owner: Codex
