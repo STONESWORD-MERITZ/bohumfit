@@ -1,3 +1,23 @@
+## 2026-07-20 BOHUMFIT-228 - Codex Windows 2차 검증·배포
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human
+Commit: 이 handoff를 포함하는 커밋이라 작성 시점 pending. 최종 해시는 Codex 응답에 기록.
+
+### Verified
+- 루트 게이트 통과. 변경 범위는 `package-lock.json`, 고아 컴포넌트 삭제 2파일, tasks/228 2파일, handoff, locks뿐이며 `package.json` diff 0. `.env.txt`는 조회·stage하지 않음.
+- lockfile 구조 비교: react-router/react-router-dom `7.14.2→7.18.1`, undici `7.25.0→7.28.0`, ws `8.20.0→8.21.1`, brace-expansion `5.0.5→5.0.7`, `@babel/core` 및 동일 Babel/browserslist 하위 트리만 이동. `react-router-dom` spec은 `^7.14.2` 유지. vite `8.0.10`, `@vitejs/plugin-react` `6.0.1`, `@tailwindcss/vite` `4.2.4`, vitest `4.1.6` 모두 이동 0.
+- `BeforeAfter`·`HomeMission` 코드 참조 0. `src/index.css`의 `HomeMission` 주석 1건만 허용된 기록으로 잔존.
+- Windows 권위 게이트 통과: tsc app/node, lint, `npm test` **68 passed**, build 통과. 청크 **343.22 kB**는 관찰값으로만 기록하며 기준선으로 등록하지 않음.
+- backend pytest는 최초 실행에서 Node PATH 누락으로 frontend parity 1건이 환경 skip되어 617/9였고, `C:\Program Files\nodejs`를 PATH에 명시한 권위 재실행에서 **618 passed, 8 skipped**. 기존 Starlette/httpx warning 1건.
+- `npm audit` 재실행: **high 1건(vite)**만 잔존, 지시대로 보류. SURIT·구브랜드 색상 프로덕션 0, `backend/`·`backend/pipeline/`·`backend/coverage/`·`supabase/` diff 0, `git diff --check` 통과.
+- 로컬 브라우저: `/`→`/login`→`/forgot-password`, `/reset-password` 직접 접근 안내, `/dashboard`·`/disclosure?mode=agent` 비로그인 보호 리다이렉트, `/forgot-password`→`/login`→`/` 뒤로가기, 콘솔 error 0 확인. 로컬 Supabase 환경변수와 기존 로그인 세션이 없어 실제 로그인 후 대시보드·분석 화면은 실행하지 않았으며 임의 계정·비밀값·`.env.txt`를 사용하지 않음. 인증 상태 라우팅은 자동 테스트 68개 중 ProtectedRoute 4케이스로 보완 확인.
+- 같은 태스크 범위 내 직접 수정 없음.
+
+### Next
+1. **Chat**: BOHUMFIT-229(pillow 12.3.0·python-multipart 0.0.31 상향, 중위험) 발번 예정.
+2. **Human**: 225-01→03 저트래픽 실행 / `.env.txt` 확인 / 인증 메일 템플릿 결정 — 계류 유지.
+3. **보류 유지**: vite 업그레이드(`.env`·빌드 이상 신호 해결 후), 미사용 토큰 정리(저위험 후속).
+
 ## 2026-07-18 BOHUMFIT-225/226 - Codex Windows 2차 검증·순차 배포
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human
@@ -20,6 +40,34 @@ Commit: BOHUMFIT-225 = `efb62ccb090d242e4f39aa76b5ad66dbf7202e6c` (origin/main p
 1. **Human**: 225-01→03을 저트래픽 창에서 순서대로 실행. 각 실행 전 `set bohumfit.human_approved = 'BOHUMFIT-225';`. 225-04는 FitHere 전환 후 실행. `.env.txt` 상태 확인 및 invoker 전환·빌드 이상 신호 결정.
 2. **Human**: Supabase 대시보드에서 인증 메일 중립 템플릿 문구 반영 여부 결정(226-D 권장안).
 3. **Chat**: BOHUMFIT-227(`xlsx` 의존성 제거) 발번 예정. `npm audit fix` 업그레이드는 별도 검토.
+
+## 2026-07-20 BOHUMFIT-228 - vite 제외 보안 업그레이드 + 고아 파일 정리 + 백엔드 취약점 리포트 (A~C 완료)
+
+Owner flow: Claude Chat -> Claude Code -> Codex | Current owner: Codex
+Commit: 없음 — git 쓰기 전면 금지 지시(중위험 풀 하네스). Codex가 2차 검증 후 커밋·push.
+
+### Part A — 보안 업그레이드 (vite 제외)
+- npm audit 7건 → **1건**(vite high만 잔존 — 지시에 따른 명시적 보류, 225 빌드 이상 신호 미해결 사유).
+- react-router/react-router-dom 7.14.2→7.18.1(spec ^7.14.2 유지·메이저 점프 없음), undici→7.28.0, ws→8.21.1, brace-expansion→5.0.7, @babel/core→7.29.7(헬퍼·browserslist 데이터 동반 — 동일 트리).
+- 전이 의존성은 `npm install`(package.json 승격 부작용) 대신 대상 지정 `npm update`로 통제 — **package.json diff 0, lockfile-only**. 각 단계 후 이동 목록 실측: 대상 트리 밖 0, vite·@vitejs/plugin-react·@tailwindcss/vite·vitest 이동 **0**.
+
+### Part B — 고아 파일 정리
+- 재실측(문자열 경로·동적 import 포함): `BeforeAfter.tsx` 참조 0, `HomeMission.tsx` 코드 참조 0(index.css 토큰 주석 언급뿐) → 2파일 삭제(rm — git 쓰기 금지 준수). 삭제 직후 tsc·build 통과.
+- 기록만: `--text-fluid-title` 토큰이 미사용화(HomeMission 전용이었음) — 토큰·주석 정리는 후속 저위험 후보.
+
+### Part C — pip-audit 리포트 (문서만)
+- pip-audit 신규 설치(도구만) 후 실행. `requirements.txt`: **11건/2패키지** — pillow 12.2.0(8건, fix 12.3.0), python-multipart 0.0.29(3건, fix 0.0.31 — 업로드 직접 경로라 우선순위 높음). `requirements-dev.txt`: **0건**. 상세·후속 제안: `tasks/BOHUMFIT-228-pip-audit-report.md`. requirements 수정 0.
+- ※한국어 주석 cp949 오디코딩으로 기본 실행 실패 → `PYTHONUTF8=1` 우회(파일 무수정).
+
+### Verified (1차 — Code 직접 실행)
+- tsc app/node·lint 통과. `npm test` **68 passed** 2연속(라우트 스모크 18건 = react-router 7.18.1 회귀망 통과).
+- build 통과 — 청크 343.22 kB(기록만, +0.56 kB는 react-router분·기준선 아님). backend pytest **618 passed, 8 skipped** 불변.
+- diff 범위 = package-lock.json + 삭제 2파일 + harness 문서만(package.json 무변경). `git diff --check` 통과. vite 계열 이동 0.
+
+### Next
+1. **Codex**: 2차 검증(특히 vite 계열 이동 0·test 68 재확인) → stage(package-lock.json, 삭제 2파일 git rm 반영, tasks/228 2개, handoff, locks — package.json은 diff 0이라 불필요, .env* 제외) → 커밋 메시지 `chore(BOHUMFIT-228): vite 제외 보안 업그레이드 + 고아 컴포넌트 제거 + 백엔드 취약점 리포트` → push.
+2. **Chat**: 후속 발번 검토 — ① backend pillow 12.3.0·python-multipart 0.0.31 상향(중위험·풀 하네스, 228-C 리포트 참조) ② vite 업그레이드(.env/빌드 이상 신호 해결 후) ③ text-fluid-title 미사용 토큰 정리(저위험).
+3. **Human**: (계류) 225-01→03 저트래픽 실행 / .env 상태 확인.
 
 ## 2026-07-18 BOHUMFIT-227 - 미사용 xlsx 의존성 제거 (npm audit no-fix high 해소)
 
