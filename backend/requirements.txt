@@ -5,8 +5,8 @@ pandas==2.3.3
 openpyxl==3.1.5     # BOHUMFIT-181: 보장분석 리모델링표 엑셀(.xlsx) 생성
 # BOHUMFIT-140: 재현성 위해 핵심 전이 의존성도 명시 고정(설치본 기준). pydantic=fastapi, pillow=pdfplumber 경유.
 pydantic==2.13.4
-pillow==12.2.0
-python-multipart==0.0.29
+pillow==12.3.0
+python-multipart==0.0.31
 google-genai==2.6.0
 python-dotenv==1.2.2
 slowapi==0.1.9

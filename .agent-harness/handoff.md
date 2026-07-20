@@ -1,3 +1,45 @@
+## 2026-07-20 BOHUMFIT-229 - Codex Windows 2차 검증·실 PDF 스모크 완료
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human
+Commit: handoff를 포함하는 단일 커밋이므로 작성 시점 pending. 최종 해시는 Codex 완료 응답에 기록.
+
+### Verified
+- 루트 게이트 통과. `backend/requirements.txt` 변경은 `pillow==12.2.0→12.3.0`, `python-multipart==0.0.29→0.0.31` 두 줄뿐이며 UTF-8·BOM 없음·CRLF 21개·lone LF 0, 한국어 주석 무변경.
+- Python 3.12 환경에서 requirements 재설치 후 Pillow **12.3.0**, python-multipart **0.0.31**, `pip check` 충돌 0. backend pytest **618 passed, 8 skipped**. `PYTHONUTF8=1 python -m pip_audit -r backend/requirements.txt --no-deps` 취약점 0.
+- `보장분석/` 실측: 심평원 진료·처방 내역 3개(`이미숙님 기본진료정보.pdf` 23p, `이미숙님 세부진료정보.pdf` 155p, `이미숙님 처방조제정보.pdf` 75p), KB 제안서 `황종철 KB보장분석 제안서.pdf` 32p로 식별.
+- backend 로컬 서버에서 외부 인증·구독 의존만 테스트 오버라이드하고 AI 예산을 0으로 고정한 뒤 실제 운영 엔드포인트와 multipart/parser를 검증. `/api/analyze`에 심평원 PDF 3개 업로드: HTTP 200, basic 247/detail 1698/pharma 803, parse error 0, retry warning 0, drug change 0.
+- `/coverage/analyze`에 KB 제안서 업로드: HTTP 200, 월 보험료 533,753원, 납입 보험료 214,472,808원, 보험사 8개, 보장 항목 before/final 각 38개, warning 0.
+- 두 업로드를 재실행해 서버 로그의 `[ERROR]` 0, `[CRITICAL]` 0, traceback 0, HTTP 5xx 0을 확인. 임시 로그는 삭제했고 코드 수정 없음.
+- `.gitignore`의 `보장분석/` 규칙 유지 확인. 실 PDF·PII·`.env.txt`·pycache는 조회 외 변경·stage 대상에서 제외.
+
+### Next
+1. **Human**: Railway 배포 로그에서 pillow 12.3.0·python-multipart 0.0.31 설치 확인.
+2. **Human 계류 4건**: 225-01→03 실행 / `.env.txt` 확인 / 메일 템플릿 결정 / invoker 확정.
+3. **Chat**: 스모크 PDF 세트 고정 경로·문서화(저위험) 발번 대기.
+
+## 2026-07-20 BOHUMFIT-229 - Codex Windows 2차 검증 (실 PDF 입력 부재로 배포 보류)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human
+Commit: 없음 — 필수 실 PDF 업로드 스모크를 완료하지 못해 stage·commit·push 중단.
+
+### Verified
+- 루트 게이트 통과. `backend/requirements.txt` diff는 `pillow==12.2.0→12.3.0`, `python-multipart==0.0.29→0.0.31` 두 줄뿐. UTF-8 유효·BOM 없음·CRLF 21개·lone LF 0, 한국어 주석 무변경.
+- Python 3.12에서 `pip install -r backend/requirements.txt` 재실행. 설치본 Pillow **12.3.0**, python-multipart **0.0.31**, `pip check` 충돌 0.
+- Node PATH를 명시한 backend pytest: **618 passed, 8 skipped**, 기존 Starlette/httpx warning 1건.
+- `PYTHONUTF8=1 python -m pip_audit -r backend/requirements.txt --no-deps`: **No known vulnerabilities found**.
+- 코드 수정·의존성 부수 이동·stage 0. `.env*`, PDF/PII, pycache 등 부산물 미스테이지.
+
+### Blocker — 필수 실 PDF 스모크 입력 없음
+- 이전 handoff에 repo root 미추적 심평원 PDF와 KB 실 제안서 스모크 이력이 있으나 현재 `git status`와 workspace에는 PDF가 존재하지 않음.
+- 저장소, Desktop, Documents, Downloads, OneDrive, Temp, Codex 첨부 위치를 읽기 전용으로 탐색. 발견 PDF는 심평원 스모크 세트가 아니며 `analyze_kb_coverage`가 인식하는 KB 신정원 제안서도 0건.
+- 따라서 `/api/analyze`의 기존 회귀값(예: basic 68/detail 770/pharma 181)과 `/coverage/analyze`의 KB 회귀값을 실 업로드로 비교할 수 없음. 관련 없는 PDF나 합성 fixture로 필수 실 PDF 게이트를 대체하지 않음.
+
+### Next
+1. **Human**: 기존 심평원 스모크 PDF 세트와 KB 신정원 제안서 실 PDF 1건을 다시 첨부하거나 로컬 경로를 지정. Codex가 읽기 전용 메모리 업로드로 재검증 후 229 커밋·push 재개.
+2. 229 완료 후 **Human**: Railway 배포 로그에서 pillow 12.3.0·python-multipart 0.0.31 설치 확인.
+3. **Human 계류**: 225-01→03 실행 / `.env.txt` 확인 / 메일 템플릿 결정 / invoker 확정.
+4. **Chat 대기**: vite 업그레이드(`.env` 신호 해결 후)·미사용 토큰 정리 발번.
+
 ## 2026-07-20 BOHUMFIT-228 - Codex Windows 2차 검증·배포
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human
@@ -40,6 +82,27 @@ Commit: BOHUMFIT-225 = `efb62ccb090d242e4f39aa76b5ad66dbf7202e6c` (origin/main p
 1. **Human**: 225-01→03을 저트래픽 창에서 순서대로 실행. 각 실행 전 `set bohumfit.human_approved = 'BOHUMFIT-225';`. 225-04는 FitHere 전환 후 실행. `.env.txt` 상태 확인 및 invoker 전환·빌드 이상 신호 결정.
 2. **Human**: Supabase 대시보드에서 인증 메일 중립 템플릿 문구 반영 여부 결정(226-D 권장안).
 3. **Chat**: BOHUMFIT-227(`xlsx` 의존성 제거) 발번 예정. `npm audit fix` 업그레이드는 별도 검토.
+
+## 2026-07-20 BOHUMFIT-229 - pillow·python-multipart 보안 상향 (pip-audit 11건 해소)
+
+Owner flow: Claude Chat -> Claude Code -> Codex | Current owner: Codex
+Commit: 없음 — git 쓰기 전면 금지 지시(중위험 풀 하네스). Codex가 2차 검증 후 커밋·push.
+
+### Changed
+- `backend/requirements.txt` 핀 2줄만 변경: pillow 12.2.0→**12.3.0**, python-multipart 0.0.29→**0.0.31**. 한국어 주석·UTF-8·CRLF 보존(`file` 재확인). 다른 파일·패키지 무접촉.
+- STEP 0 실측: 설치본=핀 일치(드리프트 0). pillow는 PIL 직접 import 0건(pdfplumber 경유 전이 — 140 주석과 일치), python-multipart는 업로드 엔드포인트 4곳 경유(main.py:1659·1697·1736·1884).
+- 로컬 반영: `pip install -r` — 두 패키지만 이동(부수 이동 0), `pip show` 신버전 확인.
+
+### Verified (1차 — Code 직접 실행)
+- backend pytest(신버전 설치 후): **618 passed, 8 skipped** 불변 — PDF 파싱·이미지·업로드 검증 경로 회귀 통과.
+- `pip check`: 충돌 0. `PYTHONUTF8=1 pip-audit -r requirements.txt --no-deps`: **11건 → 0건**.
+- git diff = requirements.txt 2줄 + harness 문서만, `git diff --check` 통과.
+- 프런트(tsc/lint/build/npm test) 미실행 사유: src/·프런트 의존성 diff 0 — 비대상.
+
+### Next
+1. **Codex**: 2차 검증 + 실 PDF 업로드 스모크(pillow·multipart 실경로) → stage(backend/requirements.txt, tasks/229, handoff, locks — .env* 제외) → 커밋 메시지 `chore(BOHUMFIT-229): pillow 12.3.0·python-multipart 0.0.31 보안 상향 — pip-audit 11건 해소` → push.
+2. **Human**: Railway 배포가 requirements 기반 — push 후 배포 로그에서 pillow 12.3.0·python-multipart 0.0.31 설치 확인.
+3. 계류 유지 — 225-01→03 실행 / .env 확인 / 메일 템플릿 중립화 / vite 업그레이드.
 
 ## 2026-07-20 BOHUMFIT-228 - vite 제외 보안 업그레이드 + 고아 파일 정리 + 백엔드 취약점 리포트 (A~C 완료)
 
