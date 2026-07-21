@@ -601,9 +601,12 @@ async def verify_jwt(credentials: HTTPAuthorizationCredentials = Depends(_bearer
     return user_id
 
 
-# ── 구독·사용량 게이트 (BOHUMFIT-069/212) ────────────────────────────────────
+# ── 구독·사용량 게이트 (BOHUMFIT-069/212/231) ────────────────────────────────
 # 분석 성공 시 사용량 체크·기록. admin은 무제한, internal은 월 100회,
 # customer/기타 미구독자는 최초 누적 5회. 활성 구독 플랜은 기존 월 한도를 유지한다.
+# BOHUMFIT-231: 등급 판정은 profiles.bohumfit_tier 단독 기준 — profiles.role은 FitHere
+# 전용(advisor 신분)으로 분리되어 게이트가 읽지 않는다. tier 컬럼 부재·미지값은
+# customer 취급(fail-closed) — 구DB에 코드가 먼저 배포돼도 한도만 보수적으로 적용된다.
 # Supabase 서비스롤 키·supabase 패키지가 없으면 게이트 비활성(기존 무료 동작 유지) — graceful.
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
 # BOHUMFIT-072/212: 플랜·무료 분석. 미구독자는 최초 누적 TRIAL_LIMIT(5)회까지 무료 분석.
@@ -614,6 +617,7 @@ PLANS = {
 }
 TRIAL_LIMIT = PLANS["trial"]["limit"]
 MONTHLY_ANALYZE_LIMIT = PLANS["basic"]["limit"]   # 하위 호환(베이직 기본 한도)
+# BOHUMFIT-231: 아래 두 상수는 profiles.bohumfit_tier 값이다(이름은 하위호환 유지).
 ADMIN_ROLE = "admin"
 INTERNAL_ROLE = "internal"
 _supabase_admin_client = None
@@ -628,11 +632,12 @@ def _month_bounds(now: datetime | None = None) -> tuple[str, str]:
     return start.isoformat(), nxt.isoformat()
 
 
-def _normalize_profile_role(value) -> str:
-    role = str(value or "customer").strip().lower()
-    if role == ADMIN_ROLE:
+def _normalize_bohumfit_tier(value) -> str:
+    """profiles.bohumfit_tier 정규화 — null·미지값은 customer(fail-closed, BOHUMFIT-231)."""
+    tier = str(value or "customer").strip().lower()
+    if tier == ADMIN_ROLE:
         return ADMIN_ROLE
-    if role == INTERNAL_ROLE:
+    if tier == INTERNAL_ROLE:
         return INTERNAL_ROLE
     return "customer"
 
@@ -675,9 +680,10 @@ async def _enforce_subscription(user_id: str) -> dict:
             return 0
 
     def _check() -> dict:
+        # BOHUMFIT-231: bohumfit_tier 단독 판정. 컬럼 부재(구DB)·조회 실패 → customer(fail-closed).
         try:
-            prof = admin.table("profiles").select("role").eq("id", user_id).single().execute()
-            role = _normalize_profile_role((getattr(prof, "data", None) or {}).get("role"))
+            prof = admin.table("profiles").select("bohumfit_tier").eq("id", user_id).single().execute()
+            role = _normalize_bohumfit_tier((getattr(prof, "data", None) or {}).get("bohumfit_tier"))
         except Exception:
             role = "customer"
         if role == ADMIN_ROLE:
@@ -895,7 +901,9 @@ async def billing_webhook(request: Request):
 
 @app.get("/billing/status")
 async def billing_status(user_id: str = Depends(verify_jwt)):
-    """구독 상태·role별 사용량 조회 — BOHUMFIT-212 role/quota_scope 필드 포함."""
+    """구독 상태·등급별 사용량 조회 — BOHUMFIT-212 role/quota_scope 필드 포함.
+    BOHUMFIT-231: 등급 원천은 profiles.bohumfit_tier. 응답 `role` 필드는 하위호환 키로
+    유지하되 값은 보험핏 등급(tier)이다(프런트는 is_admin/is_internal/quota_scope만 소비 — 실측)."""
     admin = _get_supabase_admin()
     if admin is None:
         return {"status": "inactive", "plan": None, "period_end": None,
@@ -915,9 +923,10 @@ async def billing_status(user_id: str = Depends(verify_jwt)):
             return 0
 
     def _query() -> dict:
+        # BOHUMFIT-231: bohumfit_tier 단독 판정(게이트와 동일 원천 — 표시·게이트 불일치 방지).
         try:
-            prof = admin.table("profiles").select("role").eq("id", user_id).single().execute()
-            role = _normalize_profile_role((getattr(prof, "data", None) or {}).get("role"))
+            prof = admin.table("profiles").select("bohumfit_tier").eq("id", user_id).single().execute()
+            role = _normalize_bohumfit_tier((getattr(prof, "data", None) or {}).get("bohumfit_tier"))
         except Exception:
             role = "customer"
         is_admin = role == ADMIN_ROLE
@@ -1913,7 +1922,7 @@ async def analyze(
             detail="서비스 점검 중입니다. 잠시 후 다시 시도해 주세요.",
         )
 
-    # BOHUMFIT-069/212: role별 분석 횟수 체크(admin 무제한·internal 월100·미구독 customer 누적5).
+    # BOHUMFIT-069/212/231: bohumfit_tier별 분석 횟수 체크(admin 무제한·internal 월100·미구독 customer 누적5).
     _sub_ctx = await _enforce_subscription(user_id)
 
     logger.info(

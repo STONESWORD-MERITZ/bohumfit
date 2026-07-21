@@ -1,5 +1,8 @@
 # BOHUMFIT-069/072 구독·사용량·무료체험 게이트 회귀 — Supabase admin을 가짜로 주입.
 #
+# BOHUMFIT-231: 등급 원천이 profiles.role → profiles.bohumfit_tier로 이관됨.
+#   게이트는 role을 읽지 않는다(FitHere 전용화). tier 부재·미지값 = customer(fail-closed).
+#
 # /api/analyze와 /coverage/analyze:
 #   admin=무제한, internal=월 100회, 활성 구독은 기존 플랜 한도(basic 30·pro 100),
 #   미구독 customer/기타는 최초 누적 무료 분석 5회까지 통과·초과 시 402.
@@ -112,7 +115,7 @@ PERIODS = {"current_period_start": "2026-06-01T00:00:00Z", "current_period_end":
 def test_admin_unlimited_passes_and_does_not_log(monkeypatch):
     main = _load_main(monkeypatch)
     admin = _FakeAdmin({
-        "profiles": _Resp({"role": "admin"}),
+        "profiles": _Resp({"bohumfit_tier": "admin"}),
         "usage_logs": _Resp([], count=999),
     })
     _patch_admin(monkeypatch, main, admin)
@@ -127,7 +130,7 @@ def test_admin_unlimited_passes_and_does_not_log(monkeypatch):
 def test_admin_billing_status_reports_unlimited(monkeypatch):
     main = _load_main(monkeypatch)
     _patch_admin(monkeypatch, main, _FakeAdmin({
-        "profiles": _Resp({"role": "admin"}),
+        "profiles": _Resp({"bohumfit_tier": "admin"}),
         "usage_logs": _Resp([], count=999),
     }))
     status = asyncio.run(main.billing_status("admin-2"))
@@ -141,7 +144,7 @@ def test_admin_billing_status_reports_unlimited(monkeypatch):
 def test_internal_under_100_passes(monkeypatch):
     main = _load_main(monkeypatch)
     _patch_admin(monkeypatch, main, _FakeAdmin({
-        "profiles": _Resp({"role": "internal"}),
+        "profiles": _Resp({"bohumfit_tier": "internal"}),
         "usage_logs": _Resp([], count=30),
     }))
     ctx = asyncio.run(main._enforce_subscription("u1"))
@@ -153,7 +156,7 @@ def test_internal_under_100_passes(monkeypatch):
 def test_internal_over_100_429(monkeypatch):
     main = _load_main(monkeypatch)
     _patch_admin(monkeypatch, main, _FakeAdmin({
-        "profiles": _Resp({"role": "internal"}),
+        "profiles": _Resp({"bohumfit_tier": "internal"}),
         "usage_logs": _Resp([], count=100),
     }))
     with pytest.raises(HTTPException) as ei:
@@ -174,7 +177,7 @@ def test_internal_monthly_window_resets_at_month_boundary(monkeypatch):
         + [{"user_id": "u1c", "used_at": "2026-08-01T00:00:00+00:00"}]
     )
     _patch_admin(monkeypatch, main, _FakeAdmin({
-        "profiles": _Resp({"role": "internal"}),
+        "profiles": _Resp({"bohumfit_tier": "internal"}),
     }, usage_rows=rows))
     ctx = asyncio.run(main._enforce_subscription("u1c"))
     assert ctx["enabled"] is True and ctx["quota_scope"] == "monthly"
@@ -184,7 +187,7 @@ def test_internal_monthly_window_resets_at_month_boundary(monkeypatch):
 def test_trial_under_limit_passes(monkeypatch):
     main = _load_main(monkeypatch)
     _patch_admin(monkeypatch, main, _FakeAdmin({
-        "profiles": _Resp({"role": "customer"}),
+        "profiles": _Resp({"bohumfit_tier": "customer"}),
         "subscriptions": _Resp(None),
         "usage_logs": _Resp([], count=2),
     }))
@@ -197,7 +200,7 @@ def test_trial_under_limit_passes(monkeypatch):
 def test_trial_exhausted_402(monkeypatch):
     main = _load_main(monkeypatch)
     _patch_admin(monkeypatch, main, _FakeAdmin({
-        "profiles": _Resp({"role": "customer"}),
+        "profiles": _Resp({"bohumfit_tier": "customer"}),
         "subscriptions": _Resp(None),
         "usage_logs": _Resp([], count=5),
     }))
@@ -215,7 +218,7 @@ def test_customer_lifetime_trial_does_not_reset_next_month(monkeypatch):
     )
     rows = [{"user_id": "u3m", "used_at": "2026-06-15T00:00:00+00:00"} for _ in range(5)]
     _patch_admin(monkeypatch, main, _FakeAdmin({
-        "profiles": _Resp({"role": "customer"}),
+        "profiles": _Resp({"bohumfit_tier": "customer"}),
         "subscriptions": _Resp(None),
     }, usage_rows=rows))
     with pytest.raises(HTTPException) as ei:
@@ -230,7 +233,7 @@ def test_customer_billing_status_uses_lifetime_trial_count(monkeypatch):
         {"user_id": "u3s", "used_at": "2026-06-01T00:00:00+00:00"},
     ]
     _patch_admin(monkeypatch, main, _FakeAdmin({
-        "profiles": _Resp({"role": "customer"}),
+        "profiles": _Resp({"bohumfit_tier": "customer"}),
         "subscriptions": _Resp(None),
     }, usage_rows=rows))
     status = asyncio.run(main.billing_status("u3s"))
@@ -243,7 +246,7 @@ def test_customer_billing_status_uses_lifetime_trial_count(monkeypatch):
 def test_inactive_subscription_falls_to_trial(monkeypatch):
     main = _load_main(monkeypatch)
     _patch_admin(monkeypatch, main, _FakeAdmin({
-        "profiles": _Resp({"role": "customer"}),
+        "profiles": _Resp({"bohumfit_tier": "customer"}),
         "subscriptions": _Resp({"status": "inactive", "plan": "basic", **PERIODS}),
         "usage_logs": _Resp([], count=5),
     }))
@@ -256,7 +259,7 @@ def test_inactive_subscription_falls_to_trial(monkeypatch):
 def test_active_basic_over_limit_429(monkeypatch):
     main = _load_main(monkeypatch)
     _patch_admin(monkeypatch, main, _FakeAdmin({
-        "profiles": _Resp({"role": "customer"}),
+        "profiles": _Resp({"bohumfit_tier": "customer"}),
         "subscriptions": _Resp({"status": "active", "plan": "basic", **PERIODS}),
         "usage_logs": _Resp([], count=30),
     }))
@@ -269,7 +272,7 @@ def test_active_basic_over_limit_429(monkeypatch):
 def test_active_pro_limit_100(monkeypatch):
     main = _load_main(monkeypatch)
     _patch_admin(monkeypatch, main, _FakeAdmin({
-        "profiles": _Resp({"role": "customer"}),
+        "profiles": _Resp({"bohumfit_tier": "customer"}),
         "subscriptions": _Resp({"status": "active", "plan": "pro", **PERIODS}),
         "usage_logs": _Resp([], count=30),
     }))
@@ -280,7 +283,7 @@ def test_active_pro_limit_100(monkeypatch):
 def test_active_pro_over_100_429(monkeypatch):
     main = _load_main(monkeypatch)
     _patch_admin(monkeypatch, main, _FakeAdmin({
-        "profiles": _Resp({"role": "customer"}),
+        "profiles": _Resp({"bohumfit_tier": "customer"}),
         "subscriptions": _Resp({"status": "active", "plan": "pro", **PERIODS}),
         "usage_logs": _Resp([], count=100),
     }))
@@ -293,7 +296,7 @@ def test_active_pro_over_100_429(monkeypatch):
 def test_active_under_limit_passes_and_logs(monkeypatch):
     main = _load_main(monkeypatch)
     admin = _FakeAdmin({
-        "profiles": _Resp({"role": "customer"}),
+        "profiles": _Resp({"bohumfit_tier": "customer"}),
         "subscriptions": _Resp({"status": "active", "plan": "basic", **PERIODS}),
         "usage_logs": _Resp([], count=5),
     })
@@ -348,7 +351,7 @@ def test_coverage_analyze_logs_usage_on_success(monkeypatch):
     main = _load_main(monkeypatch)
     monkeypatch.setattr(main.limiter, "enabled", False)
     admin = _FakeAdmin({
-        "profiles": _Resp({"role": "customer"}),
+        "profiles": _Resp({"bohumfit_tier": "customer"}),
         "subscriptions": _Resp(None),
         "usage_logs": _Resp([], count=0),
     })
@@ -365,7 +368,7 @@ def test_coverage_analyze_blocks_before_parsing_when_quota_exhausted(monkeypatch
     main = _load_main(monkeypatch)
     monkeypatch.setattr(main.limiter, "enabled", False)
     admin = _FakeAdmin({
-        "profiles": _Resp({"role": "customer"}),
+        "profiles": _Resp({"bohumfit_tier": "customer"}),
         "subscriptions": _Resp(None),
         "usage_logs": _Resp([], count=5),
     })
@@ -383,3 +386,70 @@ def test_coverage_analyze_blocks_before_parsing_when_quota_exhausted(monkeypatch
 
     assert ei.value.status_code == 402
     assert called is False
+
+
+# ── ⑪ BOHUMFIT-231: bohumfit_tier 분리 — role은 게이트 판정에 불개입 ─────────
+def test_advisor_role_with_internal_tier_gets_monthly_quota(monkeypatch):
+    """FitHere 전문가 등록으로 role=advisor여도 tier=internal이면 월 100회 유지
+    (hssong302984 오적용 사례의 회귀 고정)."""
+    main = _load_main(monkeypatch)
+    _patch_admin(monkeypatch, main, _FakeAdmin({
+        "profiles": _Resp({"role": "advisor", "bohumfit_tier": "internal"}),
+        "usage_logs": _Resp([], count=30),
+    }))
+    ctx = asyncio.run(main._enforce_subscription("staff-1"))
+    assert ctx["is_internal"] is True and ctx["enabled"] is True
+    assert ctx["quota_scope"] == "monthly" and ctx["plan"] == "internal"
+
+
+def test_advisor_role_with_internal_tier_billing_status(monkeypatch):
+    main = _load_main(monkeypatch)
+    _patch_admin(monkeypatch, main, _FakeAdmin({
+        "profiles": _Resp({"role": "advisor", "bohumfit_tier": "internal"}),
+        "usage_logs": _Resp([], count=3),
+    }))
+    status = asyncio.run(main.billing_status("staff-2"))
+    assert status["is_internal"] is True
+    assert status["quota_scope"] == "monthly"
+    assert status["limit"] == 100
+
+
+def test_unknown_tier_value_treated_as_customer(monkeypatch):
+    """tier 미지값(예: 실수로 advisor가 들어간 경우)은 customer 취급 — fail-closed."""
+    main = _load_main(monkeypatch)
+    assert main._normalize_bohumfit_tier(None) == "customer"  # null도 fail-closed
+    _patch_admin(monkeypatch, main, _FakeAdmin({
+        "profiles": _Resp({"bohumfit_tier": "advisor"}),
+        "subscriptions": _Resp(None),
+        "usage_logs": _Resp([], count=2),
+    }))
+    ctx = asyncio.run(main._enforce_subscription("u-unknown"))
+    assert ctx["is_admin"] is False and ctx["is_internal"] is False
+    assert ctx["plan"] == "trial" and ctx["quota_scope"] == "lifetime"
+
+
+def test_missing_tier_column_fails_closed_to_customer(monkeypatch):
+    """구DB(bohumfit_tier 컬럼 부재)에서 조회가 실패하면 customer로 폴백 —
+    코드 선배포 안전망(231 배포 순서 역전 시에도 한도만 보수적으로 적용)."""
+    main = _load_main(monkeypatch)
+    _patch_admin(monkeypatch, main, _FakeAdmin({
+        "profiles": RuntimeError("column profiles.bohumfit_tier does not exist"),
+        "subscriptions": _Resp(None),
+        "usage_logs": _Resp([], count=0),
+    }))
+    ctx = asyncio.run(main._enforce_subscription("u-olddb"))
+    assert ctx["is_admin"] is False and ctx["is_internal"] is False
+    assert ctx["plan"] == "trial"
+
+
+def test_admin_tier_unlimited_even_with_advisor_role(monkeypatch):
+    main = _load_main(monkeypatch)
+    admin = _FakeAdmin({
+        "profiles": _Resp({"role": "advisor", "bohumfit_tier": "admin"}),
+        "usage_logs": _Resp([], count=999),
+    })
+    _patch_admin(monkeypatch, main, admin)
+    ctx = asyncio.run(main._enforce_subscription("staff-admin"))
+    assert ctx["is_admin"] is True and ctx["quota_scope"] == "unlimited"
+    asyncio.run(main._log_usage("staff-admin", ctx))
+    assert admin.inserted == []

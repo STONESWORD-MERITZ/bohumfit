@@ -1,3 +1,62 @@
+## 2026-07-21 BOHUMFIT-231 - Codex Windows 2차 검증 완료
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human
+Commit: handoff를 포함하는 단일 커밋이므로 작성 시점 pending. 최종 해시는 Codex 완료 응답에 기록.
+
+### Verified
+- 루트 게이트 통과. Windows Python 3.12.10에서 게이트 테스트 **24 passed**, 전체 backend pytest **623 passed, 8 skipped**(기준선 618 + 신규 5, 기존 Starlette/httpx warning 1건).
+- fail-closed 3종 확인: `bohumfit_tier=None`·미지값은 customer, 구DB 컬럼 부재 조회 예외도 customer로 폴백. 최초 산출물에 null 명시 단언이 없어 기존 미지값 테스트에 한 줄 단언을 추가했고 동일 623/8을 재현.
+- hssong 회귀 고정: `role=advisor + bohumfit_tier=internal`이면 게이트와 billing 모두 internal, 월 100회(`quota_scope=monthly`) 적용.
+- 게이트·billing/status는 `select("bohumfit_tier")`만 사용하며 `select("role")` 잔재 0. `_history_is_internal`의 `profiles.role` 참조만 목록화 범위로 유지.
+- SQL 정적 계약 통과: `BOHUMFIT-231` 세션 가드, 단일 `begin`/`commit`, DO 블록 2개, `$$`·`$ddl$` 짝, 테이블/role 드리프트 가드, 신설 시에만 1회 백필, revoke, `[봉인 한계]`, (f) 테이블 UPDATE grant 확인쿼리 모두 존재. secret 패턴 0, `supabase/migrations/` 변경 0.
+- 프런트 표준 게이트도 통과: tsc app/node, lint, `npm test` **68 passed**, build 통과(청크 343.22 kB는 관찰값만).
+- diff 범위는 `backend/main.py`, `backend/tests/test_usage_middleware.py`, `supabase/manual/BOHUMFIT-231-01-add-bohumfit-tier.sql`, tasks/231, handoff, locks뿐. `src/`·`backend/pipeline/`·`backend/coverage/` diff 0, SURIT 0, 구브랜드 색상 프로덕션 0, `git diff --check` 통과.
+- 프로덕션 DB 연결·query·apply **0**. `.env.txt` 소실 관찰은 Human 의도 삭제 확인으로 종결했으며 stage 제외.
+
+### Next
+1. **Human**: push 직후 `231-01` SQL 실행(실행 전까지 내근직은 일시 customer 한도) + (f) 포함 확인쿼리 실행 + hssong302984 및 빠진 2명 `bohumfit_tier=internal` 지정.
+2. **Chat**: 후속 발번 대기 — ① phoneGate internal 우회(1순위) ② `_history_is_internal` 이관 ③ 봉인 한계((f) 결과에 따라 열거식 grant) ④ vite 업그레이드(230).
+
+## 2026-07-20 BOHUMFIT-231 - 보험핏 등급 bohumfit_tier 분리 (212 게이트 이관, S0~S3 완료)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex
+Commit: 없음 — git 쓰기 금지 지시(고위험 풀 하네스). 프로덕션 DB 연결·실행 **0**(SQL은 파일 산출만).
+
+### Changed
+- S0 실측: backend에서 profiles.role 읽는 지점 3곳 특정 — 212 게이트(`_enforce_subscription`)·212 표시(`/billing/status`)는 이관, `_history_is_internal`(156/171 저장 한도)은 목록화만. src/는 원시 role 필드 미사용 실측(is_admin/is_internal/quota_scope만 소비) → 프런트 무수정으로 표시 정합. ★별건: `src/lib/phoneGate.ts:33`의 `role==='internal'` 본인인증 우회도 동일 계열 충돌 — 목록화만(후속 재료).
+- S1: `supabase/manual/BOHUMFIT-231-01-add-bohumfit-tier.sql` 신설(Human 실행용) — 가드 'BOHUMFIT-231'·단일 트랜잭션·idempotent(재실행 시 백필 skip — 운영 중 강등을 되돌리지 않음)·드리프트 가드·전후 확인쿼리·롤백·배포 순서(SQL→확인→코드 push) 명시.
+- S2: `_normalize_profile_role`→`_normalize_bohumfit_tier`, 게이트·billing/status 모두 `select("bohumfit_tier")`로 교체. 한도 정책 값 무변경. 컬럼 부재·미지값·null → customer(fail-closed) — 코드 선배포 안전망을 테스트로 보증. `/billing/status`의 `role` 응답 키는 하위호환 유지(값=tier).
+- 테스트: 기존 212 테스트 19건 tier 픽스처 갱신 + 신규 5건(★advisor role+tier=internal 월100 게이트/표시 — hssong302984 회귀 고정, tier 미지값→customer, 컬럼 부재 예외→fail-closed, advisor role+tier=admin 무제한·비차감).
+- S3: 태스크 문서에 승격/강등 SQL 표준(auth.users JOIN·tier만 갱신, role 갱신 절차 폐기 명시) + 빠진 2명 internal 지정 템플릿.
+
+### ★스펙과 다른 명시 1건 (Human/Chat 확인)
+- "revoke update (컬럼)이 owner UPDATE 정책과 무관하게 차단" 전제는 PostgreSQL 의미론과 다름 — 컬럼 revoke는 컬럼 단위 grant만 회수하며, **테이블 단위 UPDATE grant 잔존 시 여전히 수정 가능**(RLS는 행 범위만). SQL에 (f) 잔존 확인쿼리와 "[봉인 한계]" 절 추가 — 잔존 시 열거식 컬럼 grant 후속 필요(양쪽 앱 UPDATE 컬럼 실측 선행, Human/Chat 결정).
+
+### Verified (1차 — Code 직접 실행)
+- SQL 정적 검사 PASS($$·$ddl$ 짝, 괄호 균형, 가드, secret 0).
+- backend pytest: **623 passed, 8 skipped** (기준선 618 + 신규 5, 기존 무손실. 게이트 테스트 24 passed).
+- diff 범위 = backend/main.py·tests/test_usage_middleware.py + supabase/manual/231-01 + harness 문서만. src/ diff 0. `git diff --check` 통과.
+
+### Next
+1. **Codex**: 2차 검증 → stage(backend/main.py, tests/test_usage_middleware.py, supabase/manual/BOHUMFIT-231-01-*.sql, tasks/231, handoff, locks — .env*·실 PDF 제외) → 커밋 메시지 `feat(BOHUMFIT-231): 보험핏 등급 bohumfit_tier 분리 — role 공유 충돌 해소(212 게이트 이관)` → push. ★Railway 자동 배포로 코드가 구DB에 먼저 도달해도 게이트는 fail-closed(customer)로 동작(테스트 보증) — 단 내근직이 일시 5회 제한을 받으므로 **push 직후 Human이 231-01 SQL을 곧바로 실행하는 순서 권장**.
+2. **Human**: 231-01 SQL 실행 + 전후 확인쿼리((f) 테이블 UPDATE grant 잔존 포함) + 빠진 2명 tier=internal 지정(hssong302984 포함 — 백필 시 role=advisor라 customer로 초기화됨).
+3. **Chat**: 후속 발번 — ① phoneGate role='internal' 우회의 tier 이관 ② `_history_is_internal` 이관 ③ billing `role` 키 개명 ④ 봉인 한계 (f) 결과에 따른 열거식 grant.
+
+## 2026-07-20 BOHUMFIT-229 - 프로덕션 배포 확인 (Codex, 검증만)
+
+Owner flow: Codex -> Human | Current owner: Human
+Commit: 없음 — 이 기록은 다음 커밋에 편승. 코드·stage·commit·push 변경 0.
+
+### Verified
+- Windows에서 `railway` 실행 파일을 찾지 못해 `railway whoami`와 최신 배포 빌드 로그 조회는 실행 불가.
+- 공개 운영 백엔드 `https://bohumfit.up.railway.app/api/health`: HTTP **200**, `{"status":"ok"}`. `/health`도 HTTP **200**, 동일 응답.
+- 프로덕션 웹의 기존 브라우저 상태는 비로그인 상태였고 `/api/analyze`·`/coverage/analyze` 모두 `verify_jwt` 의존성이 필수라 인증된 업로드 권한을 확보할 수 없었음. 실 PDF·PII를 인증 없이 전송하지 않았으며 프로덕션 업로드 스모크는 미실행.
+- 따라서 서비스 기동·헬스 응답은 확인했지만 빌드 로그의 `pillow-12.3.0`·`python_multipart-0.0.31` 설치 라인은 직접 확인하지 못함. **버전 라인 직접 확인은 Human이 Railway 대시보드의 커밋 `95e1792` 최신 배포 빌드 로그에서 수행 필요.**
+
+### Next
+1. **Human**: Railway 대시보드에서 커밋 `95e1792` 배포의 `pillow-12.3.0`, `python_multipart-0.0.31` 설치 줄 확인.
+2. 필요 시 로그인된 프로덕션 세션에서 대표 실 PDF 1건 업로드 후 HTTP 200 확인.
+
 ## 2026-07-20 BOHUMFIT-229 - Codex Windows 2차 검증·실 PDF 스모크 완료
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human
