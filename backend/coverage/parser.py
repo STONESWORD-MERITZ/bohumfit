@@ -136,6 +136,67 @@ def _contract_prefix_source(lines: list[str], row_idx: int, row_prefix: str, use
     return _clean(" ".join(prefix))
 
 
+_INSURER_HEAD_RE = re.compile(r"^([가-힣A-Za-z()·]{0,14}?(?:손해보험|생명보험|손보|생명|화재|해상))")
+_INSURER_JOINED_RE = re.compile(r"^[가-힣A-Z][가-힣A-Za-z()·]*(?:손해보험|생명보험|손보|생명|화재|해상)$")
+
+
+def _join_split_insurer_fragments(
+    lines: list[str], row_idx: int, row_insurer: str, after_parts: list[str]
+) -> tuple[str | None, list[str], bool]:
+    """BOHUMFIT-234 ⑥①: 셀 안에서 세로로 쪼개진 보험사명 복원.
+
+    예: "메리츠화"(윗줄)+"재"(아랫줄), "라이나(에"(행 안)+"이스)손보"(아랫줄).
+    결합 후보를 KNOWN_INSURERS 우선으로, 실패 시 보험사 접미 종결형으로 판정한다.
+    반환: (insurer, 갱신된 after_parts, 행 안 조각 사용 여부).
+    """
+    row_frag = _despace(row_insurer)
+    if row_frag and (any(ch.isdigit() for ch in row_frag) or len(row_frag) > 10):
+        row_frag = ""
+    after_head = _despace(after_parts[0]) if after_parts else ""
+    head_match = _INSURER_HEAD_RE.match(after_head) if after_head else None
+    head = head_match.group(1) if head_match else ""
+
+    prev_frag = ""
+    if row_idx > 0:
+        prev = _clean(lines[row_idx - 1])
+        if prev and not CONTRACT_LINE_RE.search(prev):
+            compact_prev = _despace(prev)
+            if 0 < len(compact_prev) <= 8 and not any(ch.isdigit() for ch in compact_prev):
+                prev_frag = compact_prev
+
+    # (결합명, row조각 사용, after에서 소비할 접두)
+    candidates: list[tuple[str, bool, str]] = []
+    for frag, row_used in ((row_frag, True), (prev_frag, False)):
+        if not frag:
+            continue
+        # 접미 경계가 조각 사이에 걸린 경우("메리츠화"+"재") — after 접두 1~6자를 붙여 KNOWN 대조.
+        for k in range(1, min(6, len(after_head)) + 1):
+            candidates.append((frag + after_head[:k], row_used, after_head[:k]))
+        if head:
+            candidates.append((frag + head, row_used, head))
+    if prev_frag and row_frag:
+        candidates.append((prev_frag + row_frag, True, ""))
+
+    for candidate, row_used, consumed_head in candidates:
+        known = _known_insurer_in(candidate)
+        if known and _despace(known) != candidate:
+            known = None  # 결합명이 KNOWN 전체와 정확히 일치할 때만 채택(부분 포함 오인 방지)
+        joined = known or (
+            candidate if _INSURER_JOINED_RE.match(candidate) and len(candidate) >= 4 else None
+        )
+        if not joined:
+            continue
+        updated = list(after_parts)
+        if consumed_head and updated:
+            remainder = _strip_leading_despace_fragment(updated[0], consumed_head)
+            if remainder:
+                updated[0] = remainder
+            else:
+                updated = updated[1:]
+        return joined, updated, row_used
+    return None, after_parts, False
+
+
 def classify_page(lines: list[str]) -> Optional[str]:
     head = " ".join(lines[:8])
     compact_head = "".join(head.split())
@@ -204,6 +265,16 @@ def parse_contract_list(lines: list[str]) -> list[dict]:
             used_continuations.add(j)
         split_insurer, after_parts = _split_known_insurer(pm.group("insurer"), after_parts)
         insurer = split_insurer or _known_insurer_in(" ".join([prefix_source, *after_parts])) or _fallback_insurer(pm.group("insurer"))
+        if insurer is None:
+            # BOHUMFIT-234 ⑥①: 보험사명이 셀 안에서 세로로 쪼개진 양식 복원
+            # (예: "메리츠화"/"재", "라이나(에"/"이스)손보"). 인접 조각을 결합해
+            # KNOWN 매칭 또는 보험사 접미(손보·생명·화재 등) 종결 매칭으로 채운다.
+            insurer, after_parts, row_frag_used = _join_split_insurer_fragments(
+                lines, i, pm.group("insurer"), after_parts
+            )
+            if insurer is not None and row_frag_used:
+                # 행 안의 보험사 조각은 상품명에서 제거한다(무배당 등 비조각 토큰은 보존).
+                prefix_source = _strip_despace_fragment(prefix_source, pm.group("insurer"))
         if split_insurer:
             product = row_product
         elif insurer and _despace(pm.group("insurer")) == _despace(insurer):
@@ -401,7 +472,7 @@ def parse_document(pdf_bytes: bytes) -> dict:
         raise KBFormatError("KB 표준형 보장분석 제안서 형식이 아닙니다.")
 
     warnings: list[str] = []
-    contracts_lines: list[str] = []
+    contracts_pages: list[list[str]] = []
     matrix_pages: list[list[str]] = []
     detail_pages: list[list[str]] = []
     diagnosis_lines: list[str] = []
@@ -414,7 +485,9 @@ def parse_document(pdf_bytes: bytes) -> dict:
                 customer = parsed_customer
         role = classify_page(lines)
         if role == "contracts":
-            contracts_lines = lines
+            # BOHUMFIT-234 ⑥: 계약이 많으면 계약리스트가 여러 페이지로 이어진다 —
+            # 마지막 페이지만 남기던 덮어쓰기를 누적으로 교체(234 실사용: 15계약 중 1건만 파싱되던 결함).
+            contracts_pages.append(lines)
         elif role == "matrix":
             matrix_pages.append(lines)
         elif role == "detail":
@@ -422,7 +495,15 @@ def parse_document(pdf_bytes: bytes) -> dict:
         elif role == "diagnosis":
             diagnosis_lines = lines
 
-    contracts = parse_contract_list(contracts_lines) if contracts_lines else []
+    contracts = []
+    seen_contract_idx: set[int] = set()
+    for contract_lines in contracts_pages:
+        for contract in parse_contract_list(contract_lines):
+            if contract["idx"] in seen_contract_idx:
+                continue
+            seen_contract_idx.add(contract["idx"])
+            contracts.append(contract)
+    contracts.sort(key=lambda c: c["idx"])
     matrix = parse_matrix(matrix_pages) if matrix_pages else {}
     if contracts and matrix:
         contracts = _ensure_contracts_for_matrix_columns(contracts, matrix)

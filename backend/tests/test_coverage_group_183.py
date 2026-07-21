@@ -77,4 +77,5 @@ def test_selected_non_standard_riders_stay_in_etc() -> None:
 
 
 def test_mojibake_extra_pattern_removed() -> None:
-    assert all(r"\d+企.*呪綬" not in pattern.pattern for pattern, _label, _agg in EXTRA_PATTERNS)
+    # BOHUMFIT-234: EXTRA_PATTERNS가 4-튜플(bracket 플래그 추가)로 확장됨.
+    assert all(r"\d+企.*呪綬" not in pattern.pattern for pattern, _label, _agg, _bracket in EXTRA_PATTERNS)

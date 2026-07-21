@@ -21,6 +21,9 @@ def _aggregate(by_company: dict, agg: str):
 def _paid(contract: dict):
     premium = contract.get("monthly_premium")
     months = contract.get("pay_months")
+    # BOHUMFIT-234: 일시납은 표기 금액이 1회 납입 총액 — 개월 수를 곱하지 않는다.
+    if contract.get("pay_cycle") == "일시납":
+        return premium
     return premium * months if premium is not None and months is not None else None
 
 
@@ -43,7 +46,13 @@ def _company_sort_key(contract: dict):
 
 def build_before(raw: dict) -> dict:
     contracts = raw.get("contracts", [])
-    monthly_total = sum(c["monthly_premium"] for c in contracts if c.get("monthly_premium"))
+    # BOHUMFIT-234 ⑥: 일시납 계약의 표기 금액은 월 보험료가 아니다 — 월납 합산에서 제외
+    # (KB 원본 헤더 월납 합계와 정합 — 234 실사용 케이스 실측: 일시납 혼입 시 합계 왜곡).
+    monthly_total = sum(
+        c["monthly_premium"]
+        for c in contracts
+        if c.get("monthly_premium") and c.get("pay_cycle") != "일시납"
+    )
     paid_total = sum((_paid(c) or 0) for c in contracts)
     notes = raw.get("notes", {})
     companies = sorted(contracts, key=_company_sort_key)

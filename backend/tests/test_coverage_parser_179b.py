@@ -127,20 +127,42 @@ def test_179_base_coverage_count_unchanged():
     ("text", "label"),
     [
         ("112대질병수술비 특정질병수술 500만", "N대수술비"),
-        ("중대화상·부식진단비 중대화상진단 1,000만", "화상"),
+        # BOHUMFIT-234 ⑤: 화상은 KB분류로 진단/수술을 분리 집계한다.
+        ("중대화상·부식진단비 중대화상진단 1,000만", "화상진단비"),
+        ("화상수술비 화상수술 50만", "화상수술비"),
         ("양성종양 및 폴립진단비 특정질병진단 20만", "양성종양·폴립"),
         ("상급종합병원 1인실 입원일당 상급종합병원 질병입원일당 40만", "상급/종합병원 일당"),
+        # BOHUMFIT-234 ②⑦: 종수술·장기이식은 N대수술비에서 분리(과포섭 해소).
+        ("간편심사[355(6대질병)] 질병1~5종수술(수술당1회한)(5종수술) 질병종수술 1,000만", "종수술비"),
+        ("5대장기이식수술비 특정질병수술 2,000만", "장기이식수술비"),
+        ("주요심·뇌·5대혈관수술비Ⅱ(맞춤간편고지)(갱신형) 뇌혈관질환수술 500만", "심·뇌혈관수술비"),
     ],
 )
 def test_classify_extra_patterns(text, label):
     assert classify_extra(text)[0] == label
 
 
+def test_classify_extra_skips_class_only_burn_line():
+    """BOHUMFIT-234 ⑨류: 담보명에 화상이 없고 KB분류만 화상진단인 라인(상품명 행 등)은
+    화상으로 계상하지 않는다(234 실사용 'Active 보험금' 2,500만 과추출의 회귀 고정)."""
+    assert classify_extra("Active 보험금 화상진단 1,500만") is None
+    assert classify_extra("퍼펙트통합보험Ⅰ3.0無_표준체 중대화상진단 5,000만") is None
+    # 복합 특약의 비화상 분류 행도 계상하지 않는다.
+    assert classify_extra("[갱신형]교통사고 및 골절.화상 관련보장Ⅵ 골절진단 375만") is None
+    # 같은 특약이라도 분류가 화상진단인 행은 화상진단비로 계상한다.
+    assert classify_extra("[갱신형]교통사고 및 골절.화상 관련보장Ⅵ 화상진단 375만")[0] == "화상진단비"
+
+
 @pytest.mark.parametrize(
     ("name", "expected"),
     [
-        ("N대수술비", 4090 * MAN),
-        ("화상", 6000 * MAN),
+        # BOHUMFIT-234 재계산: 구 N대수술비 4,090만에는 5대장기이식 3,000만이 과포섭돼
+        # 있었다(112대 6건 1,040만 + 5대골절수술비 50만 = 1,090만이 정밀값).
+        ("N대수술비", 1090 * MAN),
+        ("장기이식수술비", 3000 * MAN),
+        # 구 화상 6,000만에는 담보명 없는 상품명 라인(중대화상진단 분류 5,000만)이
+        # 포함돼 있었다 — 234 ⑨류 제거 후 중대화상·부식진단비 1,000만만 화상진단비로.
+        ("화상진단비", 1000 * MAN),
         ("양성종양·폴립", 30 * MAN),
         ("상급/종합병원 일당", 120 * MAN),
     ],
@@ -148,7 +170,7 @@ def test_classify_extra_patterns(text, label):
 def test_extra_coverages_summary(name, expected):
     _, before, _ = _build()
     assert _cov(before, name)["summary"] == expected
-    expected_group = "골절" if name == "화상" else GROUP_ETC
+    expected_group = "골절" if name in ("화상", "화상진단비", "화상수술비") else GROUP_ETC
     assert _cov(before, name)["group12"] == expected_group
     assert _cov(before, name)["agg"] == "sum"
 
