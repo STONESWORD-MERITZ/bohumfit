@@ -14,6 +14,13 @@ from .constants import (
     extract_n_surgery,
     match_coverage,
     match_coverage_span,
+    split_detail_parts,
+)
+from .jong_surgery import (
+    OUT_OF_RANGE_LABEL,
+    estimated_tier_label,
+    has_explicit_tier,
+    lookup_jong_tiers,
 )
 
 CONTRACT_LINE_RE = re.compile(
@@ -429,7 +436,7 @@ def _last_amount(line: str):
     return None
 
 
-def parse_detail_pages(detail_pages: list[list[str]], contracts: list[dict]):
+def parse_detail_pages(detail_pages: list[list[str]], contracts: list[dict], jong_table: dict | None = None):
     """Parse detailed pages for contract remarks and non-standard 기타 riders."""
     premium_to_idx = {c["monthly_premium"]: c["idx"] for c in contracts if c.get("monthly_premium")}
     notes: dict[int, dict] = {}
@@ -459,8 +466,27 @@ def parse_detail_pages(detail_pages: list[list[str]], contracts: list[dict]):
             if amount is None:
                 continue
             label, agg = classified
-            entry = extra.setdefault(label, {"agg": agg, "by_company": {}})
             key = str(idx) if idx is not None else "?"
+            # BOHUMFIT-238: 종수술비가 종별 마커 없이 "5종 기준 최대금액"만 표기된 경우
+            # 표준 환산표로 1~5종을 세팅한다(원문에 종별이 있으면 미적용 — 원문 우선).
+            if label == "종수술비":
+                name, _cls = split_detail_parts(line)
+                compact_name = _despace(name)
+                if not has_explicit_tier(compact_name):
+                    tiers = lookup_jong_tiers(amount, jong_table)
+                    if tiers is None:
+                        # 표 외(100만원 미만): 세팅하지 않고 "표 외" 표기 버킷으로 유지.
+                        entry = extra.setdefault(OUT_OF_RANGE_LABEL, {"agg": agg, "by_company": {}})
+                        entry["by_company"][key] = entry["by_company"].get(key, 0) + amount
+                    else:
+                        for tier, tier_amount in tiers.items():
+                            entry = extra.setdefault(
+                                estimated_tier_label(tier),
+                                {"agg": agg, "by_company": {}, "estimated": True},
+                            )
+                            entry["by_company"][key] = entry["by_company"].get(key, 0) + tier_amount
+                    continue
+            entry = extra.setdefault(label, {"agg": agg, "by_company": {}})
             entry["by_company"][key] = entry["by_company"].get(key, 0) + amount
             # BOHUMFIT-237 C: N대수술비는 원문의 N(131대 등)을 채집해 표시명 병기에 쓴다.
             if label == "N대수술비":
@@ -473,7 +499,7 @@ def parse_detail_pages(detail_pages: list[list[str]], contracts: list[dict]):
     return notes, extra
 
 
-def parse_document(pdf_bytes: bytes) -> dict:
+def parse_document(pdf_bytes: bytes, jong_table: dict | None = None) -> dict:
     pages = _extract_pages(pdf_bytes)
     joined_heads = " ".join(" ".join(p[:8]) for p in pages)
     if not all(hint in joined_heads for hint in KB_FORMAT_HINTS):
@@ -516,7 +542,7 @@ def parse_document(pdf_bytes: bytes) -> dict:
     if contracts and matrix:
         contracts = _ensure_contracts_for_matrix_columns(contracts, matrix)
     diagnosis = parse_diagnosis(diagnosis_lines) if diagnosis_lines else {}
-    notes, extra = parse_detail_pages(detail_pages, contracts) if detail_pages else ({}, {})
+    notes, extra = parse_detail_pages(detail_pages, contracts, jong_table) if detail_pages else ({}, {})
 
     if not contracts:
         warnings.append("p5 계약리스트를 찾지 못했습니다.")

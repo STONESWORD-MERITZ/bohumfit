@@ -1,7 +1,24 @@
+## 2026-07-21 BOHUMFIT-238 - Codex Windows 2차 검증 완료
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human
+Commit: 본 기록을 포함하는 단일 커밋으로 완료하며 자기참조 불가로 최종 해시는 Codex 완료 응답과 push 후 사후 기록에 명시. 프로덕션 DB 연결·실행 **0**(SQL은 파일 산출만), 실 PDF는 로컬 입력으로만 사용.
+
+### Verified
+- 루트 게이트 통과. Windows Python 3.12.10에서 backend pytest **677 passed, 8 skipped**(기준선 657+20)를 재현했다. `test_fallback_matches_sql_seed`와 750만→700행·1,500만→1,000행·종별 마커 원문우선 targeted 3건도 별도 통과. tsc app/node·lint·`npm test` **77 passed**·build 통과, 번들 **343.22 kB**는 관찰값만 기록한다.
+- SQL 첫 줄은 정확히 `set bohumfit.human_approved = 'BOHUMFIT-238';` 실행문이다. 단일 begin/commit, Human 세션 가드, create table if not exists, on-conflict upsert, `$$` 짝·괄호 균형·commit 종결을 확인했다. 10행 시딩은 내장표와 전 행 정확히 일치하고 RLS+전체 SELECT 정책, anon/authenticated `revoke all` 후 **grant select 단독**이며 secret 0·`supabase/migrations/` 변경 0이다.
+- 룩업 경계는 100만원 미만 `표 외` 원액 유지, 표 사이 값은 이하 최대 행(750→700), 1,000만원 초과는 1,000행 **상한 고정·비례 스케일 없음**(1,500→1,000행)으로 명세·코드 docstring·테스트가 일치한다. 종별 마커가 있으면 룩업보다 원문이 우선한다. 해당 규칙은 명확해 추가 Human 결정 항목으로 남기지 않았다.
+- 실 PDF A~D를 재분석했다. 월납/납입중 값은 A **2,835,744/2,282,564**, B **681,312/681,312**, C **183,621/183,621**, D **763,089/495,389**로 불변이며 N대·6주미만·한글 단위도 유지된다. A 원문은 종별 마커 없는 1,000만원 기준액 2건으로, 환산 1/2/3/4/5종 합계가 **40/100/200/1,000/2,000만원**이고 5종 합 2,000만원=종전 통합값이다. D는 종별 마커 15행을 전부 원문 우선 처리해 통합 **3,410만원** 보존, B·C는 적용 대상 0이다.
+- 화면 ④·⑤, Excel [전], PDF ⑤의 환산 안내문 조건부 경로를 코드 대조했다. 기존 테스트 갱신 2곳은 각각 234 환산 기대값과 API 인자 파급이며 BOHUMFIT-238 근거 주석이 존재한다.
+- 변경은 Stage 목록 **15파일**과 정확히 일치하고 `backend/pipeline/`·`supabase/migrations/` diff 0이다. A~D 실제 고객명 4개를 556개 텍스트 파일에 역검색해 PII 0, `보장분석/` ignore 유지, 실 PDF·`.env*` stage 0. SURIT·구브랜드 색상·면 전용 색상 위반 0, `git diff --check` 통과.
+
+### Next
+1. **Human**: `BOHUMFIT-238-01` SQL을 첫 줄 set 포함 파일 전체 한 번에 실행 → 확인쿼리 → `jong_surgery_conversion` 10행 시딩·SELECT-only grant 확인 → 종수술 케이스 재업로드 검수.
+2. **Chat**: 분류표 부록(에셋 대기)·가입제안서 [후] 트랙 계류.
+
 ## 2026-07-21 BOHUMFIT-237 - Codex Windows 2차 검증 완료
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human
-Commit: 본 기록을 포함하는 단일 커밋으로 완료하며 자기참조 불가로 최종 해시는 Codex 완료 응답과 push 후 사후 기록에 명시. 실 PDF는 로컬 입력으로만 사용했고 프로덕션 전송·데이터 변경 0.
+Commit: `44df2372347d40ca2fb1b023a20a1334565d2bc6` (`origin/main`, local/remote 0/0). 실 PDF는 로컬 입력으로만 사용했고 프로덕션 전송·데이터 변경 0. 이 push 이후 사후 기록은 다음 하네스 커밋에 편승.
 
 ### Verified
 - 루트 게이트 통과. Windows Python 3.12.10에서 backend pytest **657 passed, 8 skipped**(기준선 650+7)를 재현했다. tsc app/node·lint·`npm test` **77 passed**·build 통과, 번들 **343.22 kB**는 관찰값만 기록한다.
@@ -9,6 +26,7 @@ Commit: 본 기록을 포함하는 단일 커밋으로 완료하며 자기참조
 - P1-A 화면 경로는 `formatCoverageAmount`가 보장 요약·회사별·전후 비교·수동담보·제안 담보 렌더 지점에 모두 연결되고 원 단위 월납 포맷과 분리됨을 코드/타입/테스트로 확인했다. PDF-HTML은 한글 단위와 원 단위 보험료를 동시에 포함하고, 앱 생성 A PDF(5페이지)를 Chromium에서 직접 열어 `2,000만원`류 표기와 월납 **2,835,744원**을 육안 확인했다.
 - A 엑셀을 Microsoft Excel 16.0으로 읽기 전용 개방했다. 두 시트의 보장금액 한글 단위 문자열 셀 **165개**, 월납 합계 숫자 셀 유지, 수식 오류 **0건**을 확인했고 Excel 고정 출력 10페이지를 Chromium으로 렌더해 최종 보장진단·회사별 세부 표를 육안 확인했다. 전용 artifact-tool 렌더러는 Windows 앱 제어가 `skia.node`를 차단해 사용 불가했으며, Excel 자체 렌더로 대체했다. 문자열 전환 근거(표시 포맷은 1,000 단위만 지원, 10^4/10^8 불가)는 task와 코드 주석에 존재한다.
 - P2 D~G는 task/handoff 결정지뿐이며 관련 동작 변경 0. 변경은 Stage 목록 **15파일**과 정확히 일치하고 `backend/pipeline/`·`supabase/` diff 0이다. A~D 실제 고객명 4개를 552개 텍스트 파일에 역검색해 PII 0, `보장분석/` ignore 유지, 실 PDF·임시 엑셀/PDF/캡처 stage 0·삭제 완료. SURIT·구브랜드 색상·면 전용 색상 위반 0, `git diff --check` 통과.
+- push 후 표준 배포 스모크: Railway `https://bohumfit.up.railway.app/api/health` **200**, Vercel 공개 라우트 `https://bohumfit.ai/login` **200**. 인증정보·실 PDF 전송 없이 공개 GET만 수행했다.
 
 ### Next
 1. **Human**: 배포 후 4케이스 재업로드 통합 검수(234+236+237: 한글단위·6주미만·N값 병기 포함).

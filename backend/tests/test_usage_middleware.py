@@ -356,7 +356,8 @@ def test_coverage_analyze_logs_usage_on_success(monkeypatch):
         "usage_logs": _Resp([], count=0),
     })
     _patch_admin(monkeypatch, main, admin)
-    monkeypatch.setattr(main, "analyze_kb_coverage", lambda data: {"before": {}, "final": {}, "warnings": []})
+    # BOHUMFIT-238: analyze_kb_coverage가 jong_table 인자를 받는다(환산표 주입).
+    monkeypatch.setattr(main, "analyze_kb_coverage", lambda data, jong_table=None: {"before": {}, "final": {}, "warnings": []})
 
     result = asyncio.run(main.coverage_analyze(SimpleNamespace(), _Upload(), "u9"))
 

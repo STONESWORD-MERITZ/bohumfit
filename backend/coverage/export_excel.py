@@ -329,6 +329,12 @@ def _sheet_before(ws, before: dict, title: str = "회사별 세부 (전)") -> No
             _krw(ws.cell(row=r, column=j), by.get(str(co.get("idx"))))
         r += 1
 
+    # BOHUMFIT-238: 표준 환산 산출 행이 있으면 기준 문구 병기(필수).
+    if any("표준환산" in str(c.get("kb_name")) for c in coverages):
+        r += 1
+        note = ws.cell(row=r, column=1, value="※ 종수술비 종별 금액은 표준 환산 기준으로 산출되어 상품별 실제와 상이할 수 있습니다.")
+        note.font = Font(color=GRAY_TX, size=8)
+
     for j in range(3, 4 + len(companies)):
         ws.column_dimensions[get_column_letter(j)].width = 14
     ws.column_dimensions["A"].width = 12

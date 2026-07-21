@@ -123,17 +123,19 @@ def build_before(raw: dict, today: str | None = None) -> dict:
         n_values = extra.get("n_values") or []
         if label == "N대수술비" and n_values:
             display_label = f"N대수술비({'·'.join(str(n) for n in sorted(set(n_values)))}대)"
-        coverages.append(
-            before_coverage(
-                display_label,
-                group12,
-                group12,
-                agg,
-                summary,
-                by_company,
-                any(value is not None for value in by_company.values()),
-            )
+        row = before_coverage(
+            display_label,
+            group12,
+            group12,
+            agg,
+            summary,
+            by_company,
+            any(value is not None for value in by_company.values()),
         )
+        # BOHUMFIT-238: 표준 환산 산출 행 구분 필드(표시명 외 데이터 소비자용).
+        if extra.get("estimated"):
+            row["estimated"] = True
+        coverages.append(row)
 
     return {
         "customer": raw.get("customer"),

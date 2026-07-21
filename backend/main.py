@@ -976,6 +976,41 @@ async def billing_status(user_id: str = Depends(verify_jwt)):
     return await asyncio.to_thread(_query)
 
 
+# ── 종수술 환산표 로딩 (BOHUMFIT-238) ───────────────────────────────────────
+# Supabase jong_surgery_conversion(Human 수정 가능)을 우선 사용하고, 테이블 미존재·
+# 조회 실패·게이트 비활성 시 coverage.jong_surgery.DEFAULT_JONG_TABLE로 fallback
+# (배포↔SQL 실행 순서 안전망 — 237-A식). 값은 프로세스 수명 동안 캐시한다.
+_jong_table_cache: dict | None = None
+_jong_table_loaded = False
+
+
+def _get_jong_conversion_table() -> dict | None:
+    global _jong_table_cache, _jong_table_loaded
+    if _jong_table_loaded:
+        return _jong_table_cache
+    _jong_table_loaded = True
+    admin = _get_supabase_admin()
+    if admin is None:
+        return None
+    try:
+        res = admin.table("jong_surgery_conversion").select(
+            "base_man, tier1_man, tier2_man, tier3_man, tier4_man, tier5_man"
+        ).execute()
+        rows = getattr(res, "data", None) or []
+        table = {
+            int(row["base_man"]): (
+                int(row["tier1_man"]), int(row["tier2_man"]), int(row["tier3_man"]),
+                int(row["tier4_man"]), int(row["tier5_man"]),
+            )
+            for row in rows
+        }
+        _jong_table_cache = table or None
+    except Exception as e:
+        logger.warning("종수술 환산표 조회 실패 — 내장 기본표 fallback: %s", e)
+        _jong_table_cache = None
+    return _jong_table_cache
+
+
 # ── 관리자 tier 관리 (BOHUMFIT-233) ─────────────────────────────────────────
 # 231/232 이후 tier 변경은 service role 경유만 가능 — admin 전용 API로 SQL 운영을 졸업한다.
 # ★'admin' 지정은 API로 불가(422): 권한 상승 오남용 방지를 위해 admin 추가만은 SQL 절차 유지.
@@ -1848,7 +1883,8 @@ async def coverage_analyze(
         raise HTTPException(status_code=400, detail="올바른 PDF 파일이 아니에요.")
     _sub_ctx = await _enforce_subscription(user_id)
     try:
-        result = await asyncio.to_thread(analyze_kb_coverage, data)
+        jong_table = await asyncio.to_thread(_get_jong_conversion_table)
+        result = await asyncio.to_thread(analyze_kb_coverage, data, jong_table)
     except KBFormatError as e:  # 비-KB 양식·PDF 열기 실패
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

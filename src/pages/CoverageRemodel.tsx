@@ -1194,6 +1194,13 @@ export default function CoverageRemodel() {
                 )}
               </div>
 
+              {/* BOHUMFIT-238: 표준 환산 산출 행이 있으면 기준 문구 병기(필수). */}
+              {displayComparison?.coverages.some((coverage) => coverage.kb_name.includes("표준환산")) && (
+                <p className="mt-4 text-[11px] text-ink-soft">
+                  ※ 종수술비 종별 금액은 표준 환산 기준으로 산출되어 상품별 실제와 상이할 수 있습니다.
+                </p>
+              )}
+
               <div className="mt-5 space-y-5">
                 {comparisonGroups.map(({ group, rows }) => (
                   <div key={group}>
@@ -1382,6 +1389,12 @@ export default function CoverageRemodel() {
                     );
                   })}
                 </div>
+              )}
+              {/* BOHUMFIT-238: 표준 환산 문구 — ⑤ 매트릭스에도 병기. */}
+              {afterResult.after.before.coverages.some((coverage) => coverage.kb_name.includes("표준환산")) && (
+                <p className="mt-3 text-[11px] text-ink-soft">
+                  ※ 종수술비 종별 금액은 표준 환산 기준으로 산출되어 상품별 실제와 상이할 수 있습니다.
+                </p>
               )}
             </section>
             </>

@@ -195,6 +195,10 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
                 f"<td class=\"num\">{_esc(_premium_label(co.get('monthly_premium')))}</td>"
                 "</tr>"
             )
+        # BOHUMFIT-238: 표준 환산 산출 행이 있으면 기준 문구 병기(필수).
+        jong_note = ""
+        if any("표준환산" in str(c.get("kb_name")) for c in after_before.get("coverages", [])):
+            jong_note = '<p class="notes">※ 종수술비 종별 금액은 표준 환산 기준으로 산출되어 상품별 실제와 상이할 수 있습니다.</p>'
         after_section = f"""
 <section class="report-section">
 <h2>⑤ 최종 전 VS 후 — 회사별 보장 세부</h2>
@@ -209,6 +213,7 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
 <tr>{after_comp_premium_head}</tr>
 </thead>
 <tbody>{''.join(after_rows)}</tbody></table>
+{jong_note}
 </section>
 """
 
