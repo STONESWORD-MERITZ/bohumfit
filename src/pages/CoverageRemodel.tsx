@@ -134,14 +134,19 @@ function withReportCover<T extends object>(analysis: T, draft: ReportCoverDraft)
 }
 
 function formatCoverageAmount(value: number | null | undefined): string {
+  // BOHUMFIT-237 A: 보장금액 한글 단위 표기("1억 2,000만원" — 백엔드 format_krw와 동일 규칙).
   if (value == null) return "-";
-  if (value === 0) return "0";
-  const eok = Math.floor(value / 100_000_000);
-  const man = Math.floor((value % 100_000_000) / 10_000);
+  if (value === 0) return "0원";
+  const sign = value < 0 ? "-" : "";
+  const abs = Math.abs(value);
+  const eok = Math.floor(abs / 100_000_000);
+  const man = Math.floor((abs % 100_000_000) / 10_000);
+  const won = abs % 10_000;
   const parts: string[] = [];
-  if (eok) parts.push(`${eok}억`);
+  if (eok) parts.push(`${eok.toLocaleString("ko-KR")}억`);
   if (man) parts.push(`${man.toLocaleString("ko-KR")}만`);
-  return parts.length > 0 ? parts.join(" ") : value.toLocaleString("ko-KR");
+  if (won || parts.length === 0) parts.push(won.toLocaleString("ko-KR"));
+  return `${sign}${parts.join(" ")}원`;
 }
 
 function formatCoverageDeltaAmount(value: number | null | undefined): string {

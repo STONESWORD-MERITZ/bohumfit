@@ -11,6 +11,7 @@ from __future__ import annotations
 import html as _html
 from datetime import datetime
 
+from .amount import format_krw, format_krw_delta
 from .compare import ensure_comparison
 from .constants import GROUP13
 
@@ -24,18 +25,8 @@ AMBER_SOFT = "#FBEEDD"
 LINE = "#E8E8E4"
 
 def _fmt_krw(n) -> str:
-    if n is None:
-        return "-"
-    if n == 0:
-        return "0"
-    n = int(n)
-    eok, man = n // 100_000_000, (n % 100_000_000) // 10_000
-    parts = []
-    if eok:
-        parts.append(f"{eok}억")
-    if man:
-        parts.append(f"{man:,}만")
-    return " ".join(parts) if parts else f"{n:,}"
+    # BOHUMFIT-237 A: 보장금액 한글 단위 표기 공용 포맷터로 통일("1억 2,000만원").
+    return format_krw(n)
 
 
 def _won(n) -> str:
@@ -91,11 +82,7 @@ def _delta_won(n) -> str:
 
 
 def _fmt_delta_krw(n) -> str:
-    if n is None:
-        return "-"
-    if n == 0:
-        return "0"
-    return ("+" if n > 0 else "−") + _fmt_krw(abs(n))
+    return format_krw_delta(n)
 
 
 def _group_value_summary(comparison: dict) -> list[dict]:

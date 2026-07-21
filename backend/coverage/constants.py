@@ -197,10 +197,26 @@ EXTRA_PATTERNS: tuple[tuple[re.Pattern[str], str, str, bool], ...] = (
     (re.compile(r"중환자실\S*일당"), "중환자실 입원일당", AGG_SUM, False),
     (re.compile(r"80[%％]이상\S*후유장해"), "80%이상 후유장해", AGG_SUM, False),
     (re.compile(r"\d+종수술"), "종수술비", AGG_SUM, True),
+    # BOHUMFIT-237 C: "5대골절수술비"류가 N대수술비 N 병기에 혼입되지 않도록 분리
+    # (234에서 기록만 했던 잔존 포섭 해소 — 골절 그룹).
+    (re.compile(r"골절수술"), "골절수술비", AGG_SUM, False),
     (re.compile(r"혈관수술"), "심·뇌혈관수술비", AGG_SUM, False),
     (re.compile(r"\d+대\S*수술"), "N대수술비", AGG_SUM, True),
     (re.compile(r"통원일당"), "통원일당", AGG_SUM, False),
+    # BOHUMFIT-237 B: 운전자 6주미만 계열 — 실측 원문 "교통사고 처리지원금(6주미만 진단)"
+    # (실손 유형·C/D/H 케이스 실재). 기존 교통사고처리지원금(기준담보)과 별도 담보로 표시.
+    (re.compile(r"6주미만"), "교통사고처리지원금(6주미만)", AGG_SUM, False),
 )
+
+# BOHUMFIT-237 C: N대수술비의 N 병기용 — 괄호 수식어 제거본에서 매칭된 N을 추출.
+_N_SURGERY_RE = re.compile(r"(\d+)대\S*수술")
+
+
+def extract_n_surgery(text: str):
+    """상세 라인에서 N대수술비의 N(예: 131) 추출 — 미매칭 시 None."""
+    name, _cls = split_detail_parts(text)
+    match = _N_SURGERY_RE.search(_strip_brackets(_despace(name)))
+    return int(match.group(1)) if match else None
 
 EXTRA_LABEL_GROUP = {
     "골절보철치료비": "골절",
@@ -209,6 +225,8 @@ EXTRA_LABEL_GROUP = {
     "화상수술비": "골절",
     "중환자실 입원일당": "입원(간병 포함)",
     "80%이상 후유장해": "후유장해",
+    "교통사고처리지원금(6주미만)": "운전자",
+    "골절수술비": "골절",
 }
 
 

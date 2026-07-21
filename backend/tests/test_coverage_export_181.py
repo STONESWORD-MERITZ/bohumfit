@@ -53,11 +53,12 @@ def test_excel_sheets_and_values():
     assert wb.sheetnames == ["최종 보장진단", "전 회사별세부"]
     fin = wb["최종 보장진단"]
     assert fin["B2"].value == 573227 and fin["E2"].value == 181984128
+    # BOHUMFIT-237 A: 보장금액 셀은 한글 단위 문자열(만/억은 엑셀 표시 포맷으로 불가 — 문자열 전환).
     vals = [c.value for row in fin.iter_rows(min_row=5) for c in row]
-    assert 550000000 in vals and 200000000 in vals   # 상해사망 가입/권장
+    assert "5억 5,000만원" in vals and "2억원" in vals   # 상해사망 가입/권장
     bef = wb["전 회사별세부"]
     bvals = [c.value for row in bef.iter_rows() for c in row]
-    assert 550000000 in bvals and 40900000 in bvals   # 상해사망 합산 + 기타 N대수술비
+    assert "5억 5,000만원" in bvals and "4,090만원" in bvals   # 상해사망 합산 + 기타 N대수술비
     text = " ".join(str(c.value) for row in bef.iter_rows() for c in row if c.value is not None)
     assert "계피동일" in text and "N대수술비" in text
 
@@ -75,11 +76,14 @@ def test_pdf_html_brand_and_values():
 
 
 def test_fmt_krw():
-    assert _fmt_krw(550000000) == "5억 5,000만"
-    assert _fmt_krw(200000000) == "2억"
-    assert _fmt_krw(300000) == "30만"
+    # BOHUMFIT-237 A: 보장금액 한글 단위 표기 — "만원/억원" 접미 통일.
+    assert _fmt_krw(550000000) == "5억 5,000만원"
+    assert _fmt_krw(200000000) == "2억원"
+    assert _fmt_krw(300000) == "30만원"
+    assert _fmt_krw(120000000) == "1억 2,000만원"
+    assert _fmt_krw(5000) == "5,000원"
     assert _fmt_krw(None) == "-"
-    assert _fmt_krw(0) == "0"
+    assert _fmt_krw(0) == "0원"
 
 
 def _safe_name(label, ext):

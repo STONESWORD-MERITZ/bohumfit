@@ -77,12 +77,13 @@ def test_excel_compare_sheet_uses_amount_columns_only() -> None:
     )
 
     surgery = next(row for row in sheet.iter_rows(values_only=True) if row[1] == "수술비")
+    # BOHUMFIT-237 A: 보장금액 셀 한글 단위 문자열 전환(증감은 부호 병기).
     assert surgery[:5] == (
         "수술",
         "수술비",
-        10_000_000,
-        20_000_000,
-        10_000_000,
+        "1,000만원",
+        "2,000만원",
+        "+1,000만원",
     )
     assert "부족" not in surgery
     assert "충분" not in surgery

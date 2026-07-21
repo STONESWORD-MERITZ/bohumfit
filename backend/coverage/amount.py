@@ -78,3 +78,34 @@ def diag_status(text: str) -> Optional[str]:
 
 def extract_diag_cells(text: str) -> list[str]:
     return extract_cells(text)
+
+
+# ── BOHUMFIT-237 A: 금액 한글 단위 공용 포맷터(보장금액 표기 전용 — 월납 원 단위는 별도) ──
+def format_krw(value) -> str:
+    """1억 2,000만원 / 2,000만원 / 5,000원 형식. None은 '-', 0은 '0원'."""
+    if value is None:
+        return "-"
+    n = int(value)
+    if n == 0:
+        return "0원"
+    sign = "-" if n < 0 else ""
+    n = abs(n)
+    eok, man, won = n // 100_000_000, (n % 100_000_000) // 10_000, n % 10_000
+    parts = []
+    if eok:
+        parts.append(f"{eok:,}억")
+    if man:
+        parts.append(f"{man:,}만")
+    if won or not parts:
+        parts.append(f"{won:,}")
+    return sign + " ".join(parts) + "원"
+
+
+def format_krw_delta(value) -> str:
+    """증감 표기 — 0은 '0', 양수 '+', 음수 '−'(마이너스 부호 통일)."""
+    if value is None:
+        return "-"
+    n = int(value)
+    if n == 0:
+        return "0"
+    return ("+" if n > 0 else "−") + format_krw(abs(n))

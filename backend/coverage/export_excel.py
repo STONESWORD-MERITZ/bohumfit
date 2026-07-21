@@ -13,6 +13,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
+from .amount import format_krw, format_krw_delta
 from .compare import ensure_comparison
 from .constants import GROUP13
 
@@ -47,6 +48,16 @@ def _num(cell, value, fmt="#,##0"):
     cell.value = value
     if isinstance(value, (int, float)):
         cell.number_format = fmt
+    cell.alignment = Alignment(horizontal="right", vertical="center")
+    cell.border = _BORDER
+
+
+# BOHUMFIT-237 A: 보장금액 셀은 한글 단위 문자열("1억 2,000만원")로 표기한다.
+# 사유: 엑셀 표시 포맷의 자릿수 스케일링은 1,000 단위(콤마)만 지원 — 만(10^4)·억(10^8)
+# 단위는 표시 포맷으로 표현 불가 → 문자열 전환(숫자 정렬·수식 호환은 상실, 기록).
+# 월납 보험료·총납입 등 원 단위 셀은 숫자+#,##0"원" 포맷 현행 유지.
+def _krw(cell, value, delta=False):
+    cell.value = format_krw_delta(value) if delta else format_krw(value)
     cell.alignment = Alignment(horizontal="right", vertical="center")
     cell.border = _BORDER
 
@@ -195,8 +206,9 @@ def _sheet_proposals(ws, plan: dict) -> None:
     if not proposals:
         ws.cell(row=r, column=1, value="신규 제안이 없습니다.").border = _BORDER
     for index, proposal in enumerate(proposals, start=1):
+        # BOHUMFIT-237 A: 핵심 보장금액도 한글 단위 표기("일반암 2,000만원").
         coverage_label = ", ".join(
-            f"{item.get('kb_name')} {item.get('amount'):,}" if isinstance(item.get("amount"), (int, float)) else str(item.get("kb_name"))
+            f"{item.get('kb_name')} {format_krw(item.get('amount'))}" if isinstance(item.get("amount"), (int, float)) else str(item.get("kb_name"))
             for item in proposal.get("coverages", [])
             if isinstance(item, dict) and item.get("kb_name")
         )
@@ -248,10 +260,10 @@ def _sheet_final(ws, final: dict, before: dict) -> None:
         ws.cell(row=r, column=1, value=c.get("group12")).border = _BORDER
         ws.cell(row=r, column=1).font = Font(color=GRAY_TX, size=9)
         b = ws.cell(row=r, column=2, value=c.get("kb_name")); b.border = _BORDER; b.font = Font(color=INK, size=10)
-        _num(ws.cell(row=r, column=3), c.get("recommended"))
-        _num(ws.cell(row=r, column=4), c.get("value"))
+        _krw(ws.cell(row=r, column=3), c.get("recommended"))
+        _krw(ws.cell(row=r, column=4), c.get("value"))
         gap = c.get("gap")
-        gcell = ws.cell(row=r, column=5); _num(gcell, gap)
+        gcell = ws.cell(row=r, column=5); _krw(gcell, gap, delta=True)
         if isinstance(gap, (int, float)):
             gcell.font = Font(color=(AMBER_TX if gap < 0 else EMERALD if gap > 0 else GRAY_TX))
         st = c.get("status")
@@ -311,10 +323,10 @@ def _sheet_before(ws, before: dict, title: str = "회사별 세부 (전)") -> No
         ws.cell(row=r, column=1, value=c.get("group12")).font = Font(color=GRAY_TX, size=9)
         ws.cell(row=r, column=1).border = _BORDER
         nm = ws.cell(row=r, column=2, value=c.get("kb_name")); nm.border = _BORDER; nm.font = Font(color=INK, size=10)
-        sc = ws.cell(row=r, column=3); _num(sc, c.get("summary")); sc.font = Font(bold=True, color=INK)
+        sc = ws.cell(row=r, column=3); _krw(sc, c.get("summary")); sc.font = Font(bold=True, color=INK)
         by = c.get("by_company", {})
         for j, co in enumerate(companies, start=4):
-            _num(ws.cell(row=r, column=j), by.get(str(co.get("idx"))))
+            _krw(ws.cell(row=r, column=j), by.get(str(co.get("idx"))))
         r += 1
 
     for j in range(3, 4 + len(companies)):
@@ -358,20 +370,16 @@ def _sheet_compare(ws, comparison: dict) -> None:
         _hdr(ws.cell(row=r, column=col), header)
     r += 1
     for group in _group_value_summary(comparison):
-        values = [
-            group.get("group12"),
-            group.get("before_value"),
-            group.get("after_value"),
-            group.get("delta_value"),
-        ]
-        for col, value in enumerate(values, start=1):
-            cell = ws.cell(row=r, column=col, value=value)
-            cell.border = _BORDER
-            cell.alignment = Alignment(horizontal="right" if col > 1 else "left", vertical="center")
-            if col in (2, 3, 4) and isinstance(value, (int, float)):
-                cell.number_format = '#,##0'
-            if col == 4 and isinstance(value, (int, float)):
-                cell.font = Font(color=(EMERALD if value > 0 else AMBER_TX if value < 0 else GRAY_TX))
+        cell = ws.cell(row=r, column=1, value=group.get("group12"))
+        cell.border = _BORDER
+        cell.alignment = Alignment(horizontal="left", vertical="center")
+        _krw(ws.cell(row=r, column=2), group.get("before_value"))
+        _krw(ws.cell(row=r, column=3), group.get("after_value"))
+        delta = group.get("delta_value")
+        dcell = ws.cell(row=r, column=4)
+        _krw(dcell, delta, delta=True)
+        if isinstance(delta, (int, float)):
+            dcell.font = Font(color=(EMERALD if delta > 0 else AMBER_TX if delta < 0 else GRAY_TX))
         r += 1
     if r == 7:
         ws.cell(row=r, column=1, value="대분류별 확대 변화가 없습니다.").border = _BORDER
@@ -391,27 +399,18 @@ def _sheet_compare(ws, comparison: dict) -> None:
         _hdr(ws.cell(row=header_row, column=col), header)
     r += 1
     for row in comparison.get("coverages", []):
-        values = [
-            row.get("group12"),
-            row.get("kb_name"),
-            row.get("before_value"),
-            row.get("after_value"),
-            row.get("delta_value"),
-        ]
-        for col, value in enumerate(values, start=1):
+        for col, value in ((1, row.get("group12")), (2, row.get("kb_name"))):
             cell = ws.cell(row=r, column=col, value=value)
             cell.border = _BORDER
-            cell.alignment = Alignment(
-                horizontal="right" if col in (3, 4, 5) else "left",
-                vertical="center",
-                wrap_text=True,
-            )
-            if col in (3, 4, 5) and isinstance(value, (int, float)):
-                cell.number_format = '#,##0'
-            if col == 5 and isinstance(value, (int, float)):
-                cell.font = Font(color=(EMERALD if value > 0 else AMBER_TX if value < 0 else GRAY_TX), size=9)
-            else:
-                cell.font = Font(color=INK if col == 2 else GRAY_TX, size=9)
+            cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+            cell.font = Font(color=INK if col == 2 else GRAY_TX, size=9)
+        _krw(ws.cell(row=r, column=3), row.get("before_value"))
+        _krw(ws.cell(row=r, column=4), row.get("after_value"))
+        delta = row.get("delta_value")
+        dcell = ws.cell(row=r, column=5)
+        _krw(dcell, delta, delta=True)
+        if isinstance(delta, (int, float)):
+            dcell.font = Font(color=(EMERALD if delta > 0 else AMBER_TX if delta < 0 else GRAY_TX), size=9)
         r += 1
 
     widths = (12, 22, 16, 16, 14)

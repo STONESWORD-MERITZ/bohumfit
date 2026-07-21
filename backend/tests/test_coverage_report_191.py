@@ -74,5 +74,6 @@ def test_excel_compare_sheet_includes_before_after_premium_and_group_summary() -
     assert -20_000 in values
     assert "대분류별 보장 변화" in values
     assert "암" in values and "수술" in values
-    assert 50_000_000 in values
-    assert 10_000_000 in values
+    # BOHUMFIT-237 A: 보장금액 셀은 한글 단위 문자열(월납·총납입 원 단위는 숫자 유지).
+    assert "5,000만원" in values
+    assert "1,000만원" in values

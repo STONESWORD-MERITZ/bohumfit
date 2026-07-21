@@ -11,6 +11,7 @@ from .constants import (
     KNOWN_INSURERS,
     ROLE_MARKERS,
     classify_extra,
+    extract_n_surgery,
     match_coverage,
     match_coverage_span,
 )
@@ -461,6 +462,13 @@ def parse_detail_pages(detail_pages: list[list[str]], contracts: list[dict]):
             entry = extra.setdefault(label, {"agg": agg, "by_company": {}})
             key = str(idx) if idx is not None else "?"
             entry["by_company"][key] = entry["by_company"].get(key, 0) + amount
+            # BOHUMFIT-237 C: N대수술비는 원문의 N(131대 등)을 채집해 표시명 병기에 쓴다.
+            if label == "N대수술비":
+                n = extract_n_surgery(line)
+                if n is not None:
+                    values = entry.setdefault("n_values", [])
+                    if n not in values:
+                        values.append(n)
 
     return notes, extra
 

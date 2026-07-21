@@ -117,9 +117,15 @@ def build_before(raw: dict, today: str | None = None) -> dict:
         agg = extra.get("agg", AGG_SUM)
         group12 = EXTRA_LABEL_GROUP.get(label, GROUP_ETC)
         summary = _aggregate(by_company, agg)
+        display_label = label
+        # BOHUMFIT-237 C: N대수술비는 원문의 N을 병기 — 복수면 나열(정보 무손실 표기.
+        # 최대값 단일 표기는 계약별 상이 정보를 잃어 나열을 대표 규칙으로 채택).
+        n_values = extra.get("n_values") or []
+        if label == "N대수술비" and n_values:
+            display_label = f"N대수술비({'·'.join(str(n) for n in sorted(set(n_values)))}대)"
         coverages.append(
             before_coverage(
-                label,
+                display_label,
                 group12,
                 group12,
                 agg,

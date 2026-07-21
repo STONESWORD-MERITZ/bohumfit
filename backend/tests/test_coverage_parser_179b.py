@@ -118,9 +118,15 @@ def test_179_regression_core_coverages_unchanged(name, expected):
 
 
 def test_179_base_coverage_count_unchanged():
+    # BOHUMFIT-237: EXTRA 라벨이 비-기타 그룹(골절·후유장해 등)에도 생기므로
+    # "기본형 37담보(제외 1)" 불변 검증은 KB 기준담보명 기준으로 계수한다.
+    from coverage.constants import KB_COVERAGES
+
     _, before, _ = _build()
-    base = [c for c in before["coverages"] if c["group12"] != GROUP_ETC]
-    assert len(base) == 36
+    kb_names = {name for (name, _g, _g12, _a) in KB_COVERAGES}
+    base = [c for c in before["coverages"] if c["kb_name"] in kb_names]
+    # 기본형 37담보 − 제외(치매/간병 2) = 35. (구 36은 "그룹≠기타" 계수라 화상 1건이 섞인 값)
+    assert len(base) == 35
 
 
 @pytest.mark.parametrize(
@@ -156,9 +162,11 @@ def test_classify_extra_skips_class_only_burn_line():
 @pytest.mark.parametrize(
     ("name", "expected"),
     [
-        # BOHUMFIT-234 재계산: 구 N대수술비 4,090만에는 5대장기이식 3,000만이 과포섭돼
-        # 있었다(112대 6건 1,040만 + 5대골절수술비 50만 = 1,090만이 정밀값).
-        ("N대수술비", 1090 * MAN),
+        # BOHUMFIT-234 재계산: 구 N대수술비 4,090만에는 5대장기이식 3,000만이 과포섭돼 있었다.
+        # BOHUMFIT-237 C: 원문 N 병기(112대) + 5대골절수술비 50만은 골절수술비로 분리
+        # (N 병기에 골절 N 혼입 방지) → N대 = 112대 6건 1,040만.
+        ("N대수술비(112대)", 1040 * MAN),
+        ("골절수술비", 50 * MAN),
         ("장기이식수술비", 3000 * MAN),
         # 구 화상 6,000만에는 담보명 없는 상품명 라인(중대화상진단 분류 5,000만)이
         # 포함돼 있었다 — 234 ⑨류 제거 후 중대화상·부식진단비 1,000만만 화상진단비로.
@@ -170,7 +178,7 @@ def test_classify_extra_skips_class_only_burn_line():
 def test_extra_coverages_summary(name, expected):
     _, before, _ = _build()
     assert _cov(before, name)["summary"] == expected
-    expected_group = "골절" if name in ("화상", "화상진단비", "화상수술비") else GROUP_ETC
+    expected_group = "골절" if name in ("화상", "화상진단비", "화상수술비", "골절수술비") else GROUP_ETC
     assert _cov(before, name)["group12"] == expected_group
     assert _cov(before, name)["agg"] == "sum"
 
