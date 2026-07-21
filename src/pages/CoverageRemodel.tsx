@@ -8,6 +8,7 @@ import {
   groupKey,
   keyOf,
   toNumberOrNull,
+  GROUP_ORDER,
   type AnalyzeResult,
   type Company,
   type ComparisonRow,
@@ -16,6 +17,7 @@ import {
   type ProposalCoverageDraft,
   type ProposalDraft,
 } from "../lib/coverageAfterDisplayCache";
+import { mergeManualRiders, type ManualRider } from "../lib/coverageManualRiders";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
@@ -230,10 +232,19 @@ export default function CoverageRemodel() {
   const [proposalParseNotes, setProposalParseNotes] = useState<string[]>([]);
   const [reportCover, setReportCover] = useState<ReportCoverDraft>(() => makeReportCover());
   const [exporting, setExporting] = useState<"" | "excel" | "pdf">("");
+  // BOHUMFIT-236 C/E: [전] 표 방향 토글 + 수동 담보(세션 상태만 — 서버 저장 없음).
+  const [matrixByRows, setMatrixByRows] = useState(false);
+  const [manualRiders, setManualRiders] = useState<ManualRider[]>([]);
+  const [manualDraft, setManualDraft] = useState({ name: "", group12: "기타", amount: "", contractIdx: "" });
 
   const companies = useMemo(() => result?.before.contract_list || result?.before.companies || [], [result]);
-  const comparisonGroups = useMemo(() => groupComparisonRows(afterResult?.comparison.coverages || []), [afterResult]);
-  const comparisonValueGroups = useMemo(() => groupComparisonValues(afterResult?.comparison.coverages || []), [afterResult]);
+  // BOHUMFIT-236 E: 수동 담보를 비교표에 병합 — 화면 표시와 내보내기 payload가 같은 값을 쓴다.
+  const displayComparison = useMemo(
+    () => (afterResult ? mergeManualRiders(afterResult.comparison, manualRiders) : null),
+    [afterResult, manualRiders],
+  );
+  const comparisonGroups = useMemo(() => groupComparisonRows(displayComparison?.coverages || []), [displayComparison]);
+  const comparisonValueGroups = useMemo(() => groupComparisonValues(displayComparison?.coverages || []), [displayComparison]);
   const coverageOptions = useMemo(() => {
     const options = [...(result?.before.coverages || [])];
     const seen = new Set(options.map((coverage) => coverage.kb_name));
@@ -273,6 +284,8 @@ export default function CoverageRemodel() {
     setProposalFileNames([]);
     setProposalParseNotes([]);
     setReportCover(makeReportCover());
+    setManualRiders([]);
+    setManualDraft({ name: "", group12: "기타", amount: "", contractIdx: "" });
     setFileName(file.name);
     try {
       const formData = new FormData();
@@ -305,10 +318,13 @@ export default function CoverageRemodel() {
     setExporting(kind);
     setError("");
     try {
+      // BOHUMFIT-236 E: 수동 담보가 병합된 comparison을 내보내기에도 동일 반영(구분 필드 포함).
+      const exportAnalysis =
+        afterResult && displayComparison ? { ...afterResult, comparison: displayComparison } : afterResult || result;
       const response = await fetch(`${API_BASE}/coverage/export/${kind}`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify(withReportCover(afterResult || result, reportCover)),
+        body: JSON.stringify(withReportCover(exportAnalysis, reportCover)),
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
@@ -429,6 +445,32 @@ export default function CoverageRemodel() {
     if (!result) return;
     setError("");
     setAfterResult(buildAfterResult(result, decisions, proposals));
+  }
+
+  // BOHUMFIT-236 E: 수동 담보 추가/삭제 — 세션 상태만(서버 저장 없음).
+  function addManualRider() {
+    const name = manualDraft.name.trim();
+    const amount = toNumberOrNull(manualDraft.amount);
+    if (!name || amount == null || amount <= 0) {
+      setError("수동 담보는 담보명과 0보다 큰 가입금액이 필요합니다.");
+      return;
+    }
+    setError("");
+    setManualRiders((current) => [
+      ...current,
+      {
+        id: `M${Date.now().toString(36)}${current.length}`,
+        name,
+        group12: manualDraft.group12 || "기타",
+        amount,
+        contractIdx: manualDraft.contractIdx || undefined,
+      },
+    ]);
+    setManualDraft({ name: "", group12: manualDraft.group12, amount: "", contractIdx: "" });
+  }
+
+  function removeManualRider(id: string) {
+    setManualRiders((current) => current.filter((rider) => rider.id !== id));
   }
 
   async function handleProposalSlotUpload(event: ChangeEvent<HTMLInputElement>) {
@@ -670,6 +712,16 @@ export default function CoverageRemodel() {
                   기존 계약은 목록에서 바로 유지·해지를 체크합니다.
                 </p>
               </div>
+              {/* BOHUMFIT-236 A: 월납 합계 병기 — 주값=전체, 부값=납입완료 제외(KB 원본 헤더 산식). */}
+              <div className="shrink-0 text-right">
+                <p className="text-sm font-extrabold text-ink-900">월납 합계 {formatWon(result.before.premium.monthly_total)}</p>
+                {result.before.premium.monthly_total_active != null &&
+                  result.before.premium.monthly_total_active !== result.before.premium.monthly_total && (
+                    <p className="text-[12px] font-semibold text-ink-soft">
+                      납입완료 제외 시 {formatWon(result.before.premium.monthly_total_active)}
+                    </p>
+                  )}
+              </div>
             </div>
 
             <div className="mt-5 grid gap-4 lg:grid-cols-2">
@@ -687,14 +739,33 @@ export default function CoverageRemodel() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className={isCanceled ? "text-ink-soft line-through decoration-2" : ""}>
-                        <p className="font-bold text-ink-900">{company.insurer || `계약 ${company.idx}`}</p>
+                        <p className="font-bold text-ink-900">
+                          <span className="mr-1.5 text-[11px] font-extrabold text-ink-400">계약 {company.idx}</span>
+                          {company.insurer || "보험사 미제공"}
+                        </p>
                         <p className="mt-1 text-xs text-ink-soft">{company.product || "상품명 확인 필요"}</p>
                         <p className="mt-1 text-[11px] font-semibold text-ink-soft">{formatPeriod(company)}</p>
+                        {/* BOHUMFIT-236 D: 계피관계 표시 — 상이 시 강조. */}
+                        {company.remark && (
+                          <p
+                            className={`mt-1 text-[11px] font-semibold ${
+                              company.remark.includes("계피상이") ? "text-amber-700" : "text-ink-soft"
+                            }`}
+                          >
+                            {company.remark}
+                          </p>
+                        )}
                       </div>
                       <div className="flex shrink-0 flex-col items-end gap-2">
                         {isCanceled && (
                           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">
                             해지
+                          </span>
+                        )}
+                        {/* BOHUMFIT-236 A: 납입완료 배지 — 금액 표기는 유지. */}
+                        {company.paid_up && (
+                          <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[11px] font-bold text-ink-soft">
+                            납입완료
                           </span>
                         )}
                         <p className={`text-sm font-extrabold text-ink-900 ${isCanceled ? "line-through decoration-2" : ""}`}>
@@ -1039,6 +1110,85 @@ export default function CoverageRemodel() {
                 </div>
               )}
 
+              {/* BOHUMFIT-236 E: 수동 담보 추가 — 표·합계·엑셀/PDF에 "(수동)" 구분으로 반영. */}
+              <div className="mt-5 rounded-card border border-accent-200 bg-accent-50/60 p-4">
+                <h3 className="ko-heading text-sm font-bold text-ink-900">수동 담보 추가</h3>
+                <p className="mt-1 text-[12px] text-ink-soft">
+                  파서가 놓친 담보(예: 2대주요치료비)를 직접 추가합니다. 세션에서만 유지되고 저장되지 않습니다.
+                </p>
+                <div className="mt-3 grid gap-2 md:grid-cols-[1fr_150px_140px_150px_88px]">
+                  <input
+                    className="rounded-[8px] border border-line bg-white px-3 py-2 text-sm"
+                    placeholder="담보명 (예: 2대주요치료비(뇌·심) 수술비)"
+                    value={manualDraft.name}
+                    onChange={(event) => setManualDraft((current) => ({ ...current, name: event.target.value }))}
+                  />
+                  <select
+                    className="rounded-[8px] border border-line bg-white px-3 py-2 text-sm"
+                    value={manualDraft.group12}
+                    aria-label="대분류 선택"
+                    onChange={(event) => setManualDraft((current) => ({ ...current, group12: event.target.value }))}
+                  >
+                    {GROUP_ORDER.map((group) => (
+                      <option key={group} value={group}>
+                        {group}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className="rounded-[8px] border border-line bg-white px-3 py-2 text-right text-sm"
+                    inputMode="numeric"
+                    placeholder="가입금액(원)"
+                    value={manualDraft.amount}
+                    onChange={(event) => setManualDraft((current) => ({ ...current, amount: event.target.value }))}
+                  />
+                  <select
+                    className="rounded-[8px] border border-line bg-white px-3 py-2 text-sm"
+                    value={manualDraft.contractIdx}
+                    aria-label="소속 계약 선택"
+                    onChange={(event) => setManualDraft((current) => ({ ...current, contractIdx: event.target.value }))}
+                  >
+                    <option value="">소속 계약(선택)</option>
+                    {companies.map((company) => (
+                      <option key={company.idx} value={String(company.idx)}>
+                        계약 {company.idx} · {company.insurer || "보험사 미제공"}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={addManualRider}
+                    className="rounded-btn bg-accent-600 px-3 py-2 text-[13px] font-bold text-white hover:bg-accent-700"
+                  >
+                    추가
+                  </button>
+                </div>
+                {manualRiders.length > 0 && (
+                  <ul className="mt-3 divide-y divide-line rounded-[8px] border border-line bg-white">
+                    {manualRiders.map((rider) => (
+                      <li key={rider.id} className="flex items-center gap-2 px-3 py-2">
+                        <span className="rounded-[4px] bg-accent-100 px-1.5 py-0.5 text-[11px] font-bold text-accent-700">수동</span>
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink-800">
+                          {rider.group12} · {rider.name}
+                          {rider.contractIdx ? ` (계약 ${rider.contractIdx})` : ""}
+                        </span>
+                        <span className="shrink-0 text-[13px] font-bold tabular-nums text-ink-900">
+                          {formatCoverageAmount(rider.amount)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeManualRider(rider.id)}
+                          className="shrink-0 rounded-btn border border-line-strong bg-white p-1.5 text-ink-600 hover:bg-ink-50"
+                          aria-label={`수동 담보 ${rider.name} 삭제`}
+                        >
+                          <Trash2 size={14} aria-hidden="true" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
               <div className="mt-5 space-y-5">
                 {comparisonGroups.map(({ group, rows }) => (
                   <div key={group}>
@@ -1081,9 +1231,34 @@ export default function CoverageRemodel() {
             </section>
 
             <section className="mt-6 rounded-card border border-line bg-white p-6">
-              <div>
-                <h2 className="ko-heading text-lg font-bold text-ink-900">⑤ 최종 전 VS 후 — 회사별 보장 세부</h2>
-                <p className="mt-1 text-xs text-ink-soft">유지 계약과 신규 제안을 합친 후 기준 계약 단위 보장입니다.</p>
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <h2 className="ko-heading text-lg font-bold text-ink-900">⑤ 최종 전 VS 후 — 회사별 보장 세부</h2>
+                  <p className="mt-1 text-xs text-ink-soft">유지 계약과 신규 제안을 합친 후 기준 계약 단위 보장입니다.</p>
+                </div>
+                {/* BOHUMFIT-236 C: 표 방향 전환 — 계약=열(기본) ↔ 계약=행(계약 많을 때 세로). */}
+                <div className="flex shrink-0 gap-1 rounded-[8px] border border-line bg-canvas p-1" role="group" aria-label="표 방향 전환">
+                  <button
+                    type="button"
+                    aria-pressed={!matrixByRows}
+                    onClick={() => setMatrixByRows(false)}
+                    className={`rounded-[6px] px-3 py-1.5 text-[12px] font-bold ${
+                      !matrixByRows ? "bg-accent-600 text-white" : "text-ink-600 hover:bg-ink-50"
+                    }`}
+                  >
+                    계약=열
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={matrixByRows}
+                    onClick={() => setMatrixByRows(true)}
+                    className={`rounded-[6px] px-3 py-1.5 text-[12px] font-bold ${
+                      matrixByRows ? "bg-accent-600 text-white" : "text-ink-600 hover:bg-ink-50"
+                    }`}
+                  >
+                    계약=행
+                  </button>
+                </div>
               </div>
 
               <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -1108,43 +1283,101 @@ export default function CoverageRemodel() {
                 ))}
               </div>
 
-              <div className="mt-5 overflow-x-auto">
-                <table className="w-full min-w-[720px] text-[12px]">
-                  <thead>
-                    <tr className="border-b border-line text-ink-500">
-                      <th rowSpan={2} className="py-2 pr-2 text-left align-middle">담보</th>
-                      <th rowSpan={2} className="px-2 py-2 text-right align-middle">후 보장금액</th>
-                      {afterResult.after.before.companies.map((company) => (
-                        <th key={company.idx} className="px-2 py-2 text-right">
-                          {company.insurer || `계약 ${company.idx}`}
-                        </th>
-                      ))}
-                    </tr>
-                    <tr className="border-b border-line text-ink-500">
-                      {afterResult.after.before.companies.map((company) => (
-                        <th key={company.idx} className="px-2 py-2 text-right text-[11px] font-semibold text-accent-700">
-                          {formatPremium(company.monthly_premium)}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {afterResult.after.before.coverages.map((coverage) => (
-                      <tr key={coverage.kb_name} className="border-b border-line/60">
-                        <td className="break-keep py-1.5 pr-2 font-semibold text-ink-800">{coverage.kb_name}</td>
-                        <td className="px-2 py-1.5 text-right font-semibold text-ink-900">
-                          {formatCoverageAmount(coverage.summary)}
-                        </td>
+              {!matrixByRows ? (
+                <div className="mt-5 overflow-x-auto">
+                  <table className="w-full min-w-[720px] text-[12px]">
+                    <thead>
+                      <tr className="border-b border-line text-ink-500">
+                        <th rowSpan={3} className="whitespace-nowrap py-2 pr-2 text-left align-middle">담보</th>
+                        <th rowSpan={3} className="whitespace-nowrap px-2 py-2 text-right align-middle">후 보장금액</th>
                         {afterResult.after.before.companies.map((company) => (
-                          <td key={company.idx} className="px-2 py-1.5 text-right text-ink-soft">
-                            {formatCoverageAmount(coverage.by_company[keyOf(company.idx)])}
-                          </td>
+                          <th key={company.idx} className="whitespace-nowrap px-2 py-2 text-right align-middle">
+                            {/* BOHUMFIT-236 B: 헤더 라벨 "계약 N" 통일 — 회사명은 계약 카드/행 모드 참조. */}
+                            계약 {company.idx}
+                          </th>
                         ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                      <tr className="border-b border-line text-ink-500">
+                        {afterResult.after.before.companies.map((company) => (
+                          <th key={company.idx} className="whitespace-nowrap px-2 py-2 text-right align-middle text-[11px] font-semibold text-accent-700">
+                            {formatPremium(company.monthly_premium)}
+                          </th>
+                        ))}
+                      </tr>
+                      {/* BOHUMFIT-236 D: 납만기·계피관계 헤더 행. */}
+                      <tr className="border-b border-line text-ink-500">
+                        {afterResult.after.before.companies.map((company) => (
+                          <th key={company.idx} className="whitespace-nowrap px-2 py-1.5 text-right align-middle text-[10px] font-semibold">
+                            {company.pay_years ? `${company.pay_years}년납` : "-"} · {company.maturity || "-"}
+                            {company.remark?.includes("계피상이") ? " · 계피상이" : company.remark ? " · 계피동일" : ""}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {afterResult.after.before.coverages.map((coverage) => (
+                        <tr key={coverage.kb_name} className="border-b border-line/60">
+                          <td className="break-keep py-1.5 pr-2 font-semibold text-ink-800">{coverage.kb_name}</td>
+                          <td className="px-2 py-1.5 text-right font-semibold text-ink-900">
+                            {formatCoverageAmount(coverage.summary)}
+                          </td>
+                          {afterResult.after.before.companies.map((company) => (
+                            <td key={company.idx} className="px-2 py-1.5 text-right text-ink-soft">
+                              {formatCoverageAmount(coverage.by_company[keyOf(company.idx)])}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                /* BOHUMFIT-236 C: 계약=행 모드 — 계약별 블록에 가입 담보를 세로로 나열(15계약 대응). */
+                <div className="mt-5 space-y-3">
+                  {afterResult.after.before.companies.map((company) => {
+                    const enrolledRows = afterResult.after.before.coverages.filter(
+                      (coverage) => coverage.by_company[keyOf(company.idx)] != null,
+                    );
+                    return (
+                      <div key={company.idx} className="rounded-card border border-line bg-canvas p-4">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                          <span className="rounded-[4px] bg-accent-600 px-1.5 py-0.5 text-[11px] font-extrabold text-white">
+                            계약 {company.idx}
+                          </span>
+                          <span className="font-bold text-ink-900">{company.insurer || "보험사 미제공"}</span>
+                          <span className="text-[12px] font-bold text-accent-700">{formatPremium(company.monthly_premium)}</span>
+                          <span className="text-[11px] font-semibold text-ink-soft">
+                            {company.pay_years ? `${company.pay_years}년납` : "납입기간 미제공"} · {company.maturity || "만기 미제공"}
+                          </span>
+                          {company.remark && (
+                            <span
+                              className={`text-[11px] font-semibold ${
+                                company.remark.includes("계피상이") ? "text-amber-700" : "text-ink-soft"
+                              }`}
+                            >
+                              {company.remark.includes("계피상이") ? "계피상이" : "계피동일"}
+                            </span>
+                          )}
+                        </div>
+                        {enrolledRows.length === 0 ? (
+                          <p className="mt-2 text-[12px] text-ink-soft">담보 매트릭스에 잡힌 항목이 없습니다.</p>
+                        ) : (
+                          <ul className="mt-2 grid gap-x-4 gap-y-1 sm:grid-cols-2">
+                            {enrolledRows.map((coverage) => (
+                              <li key={coverage.kb_name} className="flex items-center justify-between gap-2 text-[12px]">
+                                <span className="min-w-0 flex-1 truncate text-ink-700">{coverage.kb_name}</span>
+                                <span className="shrink-0 font-semibold tabular-nums text-ink-900">
+                                  {formatCoverageAmount(coverage.by_company[keyOf(company.idx)])}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </section>
             </>
           )}

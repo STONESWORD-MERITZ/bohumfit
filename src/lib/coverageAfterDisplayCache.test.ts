@@ -112,7 +112,8 @@ describe("coverage after display cache", () => {
         expect.objectContaining({ kb_name: "표적항암치료비", value: 80000000, status: null }),
       ]),
     );
-    expect(frontend.companies.map((company) => company.insurer)).toEqual(["가나생명", "나눔손보", "마바손보"]);
+    // BOHUMFIT-236 B: 계약 번호 숫자 정렬(보험사 가나다 정렬 대체 — 양측 동일 규칙).
+    expect(frontend.companies.map((company) => company.insurer)).toEqual(["가나생명", "마바손보", "나눔손보"]);
 
     const backendExpected = process.env.BOHUMFIT_PARITY_EXPECTED
       ? (JSON.parse(process.env.BOHUMFIT_PARITY_EXPECTED) as ReturnType<typeof normalizeAfterResult>)

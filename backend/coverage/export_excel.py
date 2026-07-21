@@ -126,6 +126,16 @@ def _sheet_contract_decisions(ws, before: dict, plan: dict) -> None:
     ws.title = "② 전 계약"
     ws["A1"] = "② 컨설팅 전 계약 - 유지/해지"
     ws["A1"].font = Font(bold=True, size=14, color=INK)
+    # BOHUMFIT-236 A: 월납 합계 병기 — 주값=전체 합산, 부값=납입완료 제외(KB 원본 헤더 산식).
+    premium = before.get("premium") or {}
+    monthly_total = premium.get("monthly_total")
+    monthly_active = premium.get("monthly_total_active")
+    if isinstance(monthly_total, (int, float)):
+        label = f"월납 합계 {int(monthly_total):,}원"
+        if isinstance(monthly_active, (int, float)) and monthly_active != monthly_total:
+            label += f" (납입완료 제외 시 {int(monthly_active):,}원)"
+        ws["A2"] = label
+        ws["A2"].font = Font(bold=True, color=EMERALD, size=10)
     canceled = {
         str(item.get("contract_idx"))
         for item in plan.get("existing", [])
@@ -138,6 +148,10 @@ def _sheet_contract_decisions(ws, before: dict, plan: dict) -> None:
     r += 1
     for co in before.get("contract_list") or before.get("companies", []):
         is_cancel = str(co.get("idx")) in canceled
+        # BOHUMFIT-236 A: 납입완료 계약은 원 금액 표기 유지 + 비고에 "납입완료" 병기.
+        remark = co.get("remark") or ""
+        if co.get("paid_up"):
+            remark = f"납입완료{' · ' + remark if remark else ''}"
         values = [
             co.get("idx"),
             "해지" if is_cancel else "유지",
@@ -146,7 +160,7 @@ def _sheet_contract_decisions(ws, before: dict, plan: dict) -> None:
             _period_label(co),
             co.get("maturity") or "미제공",
             co.get("monthly_premium"),
-            co.get("remark") or "",
+            remark,
         ]
         for col, value in enumerate(values, start=1):
             cell = ws.cell(row=r, column=col, value=value)
@@ -288,8 +302,8 @@ def _sheet_before(ws, before: dict, title: str = "회사별 세부 (전)") -> No
         ws.merge_cells(start_row=header_row, start_column=col, end_row=header_row + 1, end_column=col)
         _hdr(ws.cell(row=header_row, column=col), header)
     for j, co in enumerate(companies, start=4):
-        label = f"{co.get('insurer') or '계약'} {co.get('idx')}"
-        _hdr(ws.cell(row=header_row, column=j), label)
+        # BOHUMFIT-236 B: 헤더 라벨 "계약 N" 통일(회사명 혼입 제거 — 회사명은 상단 계약표 참조).
+        _hdr(ws.cell(row=header_row, column=j), f"계약 {co.get('idx')}")
         _hdr(ws.cell(row=header_row + 1, column=j), _premium_label(co.get("monthly_premium")), EMERALD_SOFT, EMERALD)
     r += 2
 

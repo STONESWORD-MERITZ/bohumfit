@@ -177,8 +177,9 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
     if after_before and after_final:
         after_prem = after_final.get("premium") or after_before.get("premium") or {}
         after_companies = after_before.get("contract_list") or after_before.get("companies", [])
+        # BOHUMFIT-236 B: 헤더 라벨 "계약 N" 통일(회사명은 상단 계약표 참조).
         after_comp_name_head = "".join(
-            f'<th class="num company-name">{_esc(co.get("insurer") or "계약")} {_esc(co.get("idx"))}</th>'
+            f'<th class="num company-name">계약 {_esc(co.get("idx"))}</th>'
             for co in after_companies
         )
         after_comp_premium_head = "".join(
@@ -276,6 +277,8 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
         is_cancelled = str(co.get("idx")) in canceled_ids
         status = "해지" if is_cancelled else "유지"
         row_class = ' class="cancelled"' if is_cancelled else ""
+        # BOHUMFIT-236 A: 납입완료 배지 — 금액 표기는 유지하고 배지로만 구분.
+        paid_up_chip = '<span class="status-chip paid-bg">납입완료</span> ' if co.get("paid_up") else ""
         contract_rows.append(
             f"<tr{row_class}>"
             f"<td>{_esc(co.get('idx'))}</td>"
@@ -284,10 +287,20 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
             f"<td class=\"nm\">{_esc(co.get('product') or '미제공')}</td>"
             f"<td>{_esc(_period_label(co))}</td>"
             f"<td>{_esc(co.get('maturity') or '미제공')}</td>"
-            f"<td class=\"num\">{_esc(_premium_label(co.get('monthly_premium')))}</td>"
+            f"<td class=\"num\">{paid_up_chip}{_esc(_premium_label(co.get('monthly_premium')))}</td>"
             f"<td>{_esc(_mask_known_names(co.get('remark'), *mask_names))}</td>"
             "</tr>"
         )
+    # BOHUMFIT-236 A: ② 월납 합계 병기(주값=전체, 부값=납입완료 제외 — KB 원본 헤더 산식).
+    before_premium = before.get("premium") or {}
+    monthly_total = before_premium.get("monthly_total")
+    monthly_active = before_premium.get("monthly_total_active")
+    premium_note = ""
+    if isinstance(monthly_total, (int, float)):
+        premium_note = f"월납 합계 {int(monthly_total):,}원"
+        if isinstance(monthly_active, (int, float)) and monthly_active != monthly_total:
+            premium_note += f" <small>(납입완료 제외 시 {int(monthly_active):,}원)</small>"
+        premium_note = f'<p class="premium-note">{premium_note}</p>'
 
     proposal_rows = []
     for index, proposal in enumerate(proposal_plan, start=1):
@@ -380,8 +393,15 @@ td.st {{ text-align: center; }}
 .notes {{ margin-top: 8px; font-size: 8pt; color: {GRAY}; }}
 .notes li {{ list-style: none; margin: 1px 0; }}
 .contract-list th, .contract-list td {{ font-size: 8.3pt; }}
+/* BOHUMFIT-236 B: 헤더 줄바꿈 불일치 해소 — 헤더 nowrap + 셀 세로 중앙 통일. */
+th {{ white-space: nowrap; vertical-align: middle; }}
+td {{ vertical-align: middle; }}
 .contract-list td {{ text-align: center; }}
+.contract-list td:first-child {{ white-space: nowrap; }}
 .contract-list td.nm {{ text-align: left; }}
+.paid-bg {{ color: {GRAY}; background: {LINE}; }}
+.premium-note {{ margin: 2px 0 6px; font-size: 9.5pt; font-weight: 800; color: {INK}; }}
+.premium-note small {{ color: {GRAY}; font-weight: 700; font-size: 8.5pt; }}
 .disclaimer {{ margin-top: 16px; font-size: 7.5pt; color: {GRAY}; line-height: 1.5; }}
 </style></head><body>
 {cover_page}
@@ -393,6 +413,7 @@ td.st {{ text-align: center; }}
 
 <section class="report-section">
 <h2>② 컨설팅 전 계약 — 유지/해지</h2>
+{premium_note}
 <table class="contract-list"><thead><tr><th>번호</th><th>처리</th><th>회사명</th><th>상품명</th><th>납입기간</th><th>만기</th><th class="num">월보험료</th><th>비고</th></tr></thead>
 <tbody>{''.join(contract_rows)}</tbody></table>
 </section>

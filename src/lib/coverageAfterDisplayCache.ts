@@ -19,6 +19,7 @@ export type Company = {
   paid_total: number | null;
   remark: string | null;
   consulting_status?: string | null;
+  paid_up?: boolean; // BOHUMFIT-236 A: 납입완료(백엔드 판별 — 일시납 또는 납입기간 경과)
 };
 
 export type BeforeCoverage = {
@@ -43,6 +44,7 @@ export type FinalCoverage = {
 
 export type PremiumSummary = {
   monthly_total: number;
+  monthly_total_active?: number | null; // BOHUMFIT-236 A: 납입완료 제외 병기 부값(KB 헤더 산식)
   paid_total: number | null;
   currency?: string;
 };
@@ -121,6 +123,7 @@ export type ComparisonRow = {
   delta_value: number | null;
   improved: boolean;
   worsened: boolean;
+  manual?: boolean; // BOHUMFIT-236 E: 설계사 수동 입력 담보 구분(세션 상태 — 서버 저장 없음)
 };
 
 export type CoverageComparison = {
@@ -229,13 +232,15 @@ export function groupKey(group: string | null | undefined): number {
 }
 
 function sortCompanies(companies: Company[]): Company[] {
+  // BOHUMFIT-236 B: 계약 번호 숫자 오름차순(백엔드 _company_sort_key와 동일 규칙) —
+  // 보험사 가나다 + 문자열 idx 사전식("1,10,11,…,2") 정렬을 대체. 숫자 아님(신규제안 P1 등)은 뒤로.
   return [...companies].sort((left, right) => {
-    const leftInsurer = left.insurer || "";
-    const rightInsurer = right.insurer || "";
-    if (leftInsurer !== rightInsurer) return leftInsurer < rightInsurer ? -1 : 1;
-    const leftProduct = left.product || "";
-    const rightProduct = right.product || "";
-    if (leftProduct !== rightProduct) return leftProduct < rightProduct ? -1 : 1;
+    const leftNum = Number(left.idx);
+    const rightNum = Number(right.idx);
+    const leftIsNum = Number.isFinite(leftNum);
+    const rightIsNum = Number.isFinite(rightNum);
+    if (leftIsNum && rightIsNum && leftNum !== rightNum) return leftNum - rightNum;
+    if (leftIsNum !== rightIsNum) return leftIsNum ? -1 : 1;
     const leftId = keyOf(left.idx);
     const rightId = keyOf(right.idx);
     if (leftId !== rightId) return leftId < rightId ? -1 : 1;
@@ -474,13 +479,22 @@ export function buildAfterResult(
     });
   }
 
-  const monthlyTotal = afterCompanies.reduce((sum, company) => sum + (company.monthly_premium || 0), 0);
+  // BOHUMFIT-234/236: 일시납은 월납 합산 제외, 납입완료 제외 부값 병기(백엔드 compare.py와 동일 규칙).
+  const monthlyTotal = afterCompanies.reduce(
+    (sum, company) => sum + (company.pay_cycle === "일시납" ? 0 : company.monthly_premium || 0),
+    0,
+  );
+  const monthlyTotalActive = afterCompanies.reduce(
+    (sum, company) => sum + (company.pay_cycle === "일시납" || company.paid_up ? 0 : company.monthly_premium || 0),
+    0,
+  );
   const paidTotal = paidUnknown ? null : afterCompanies.reduce((sum, company) => sum + (company.paid_total || 0), 0);
   const sortedCompanies = sortCompanies(afterCompanies);
   const afterBefore: AnalyzeResult["before"] = {
     ...analysis.before,
     premium: {
       monthly_total: monthlyTotal,
+      monthly_total_active: monthlyTotalActive,
       paid_total: paidTotal,
       currency: analysis.before.premium.currency || "KRW",
     },

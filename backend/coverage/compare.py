@@ -78,15 +78,16 @@ def _group_key(group: str | None) -> int:
 
 
 def _sort_contracts(contracts: list[dict]) -> list[dict]:
-    return sorted(
-        contracts,
-        key=lambda contract: (
-            not bool(contract.get("insurer")),
-            str(contract.get("insurer") or ""),
-            str(contract.get("product") or ""),
-            _contract_id(contract.get("idx")),
-        ),
-    )
+    # BOHUMFIT-236 B: 계약 번호 숫자 오름차순(aggregator._company_sort_key·프런트 캐시와 동일 규칙).
+    # 숫자가 아닌 idx(신규제안 P1 등)는 뒤에 문자열 순으로 붙인다.
+    def _key(contract: dict):
+        idx = contract.get("idx")
+        try:
+            return (0, int(idx), "")
+        except (TypeError, ValueError):
+            return (1, 0, _contract_id(idx))
+
+    return sorted(contracts, key=_key)
 
 
 def compare_before_after(before_final: dict, after_final: dict) -> dict:
@@ -356,10 +357,20 @@ def build_after_analysis(analysis: dict, plan: dict | None = None) -> dict:
         })
 
     paid_total = None if paid_unknown else sum((contract.get("paid_total") or 0) for contract in after_companies)
+    # BOHUMFIT-234/236: 일시납 월납 합산 제외 + 납입완료 제외 부값 병기(build_before·프런트 캐시와 동일 규칙).
     after_before = {
         **before,
         "premium": {
-            "monthly_total": sum((contract.get("monthly_premium") or 0) for contract in after_companies),
+            "monthly_total": sum(
+                (contract.get("monthly_premium") or 0)
+                for contract in after_companies
+                if contract.get("pay_cycle") != "일시납"
+            ),
+            "monthly_total_active": sum(
+                (contract.get("monthly_premium") or 0)
+                for contract in after_companies
+                if contract.get("pay_cycle") != "일시납" and not contract.get("paid_up")
+            ),
             "paid_total": paid_total,
             "currency": (before.get("premium") or {}).get("currency", "KRW"),
         },

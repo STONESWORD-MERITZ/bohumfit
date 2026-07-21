@@ -190,6 +190,12 @@ EXTRA_PATTERNS: tuple[tuple[re.Pattern[str], str, str, bool], ...] = (
     (re.compile(r"(?:상급종합|종합)병원.*수술"), "상급/종합병원 수술비", AGG_SUM, False),
     (re.compile(r"장기이식"), "장기이식수술비", AGG_SUM, False),
     (re.compile(r"폴립|양성종양"), "양성종양·폴립", AGG_SUM, False),
+    # BOHUMFIT-236 E: 2대주요치료비(뇌·심) — 혈전용해·뇌심수술·중환자실 치료비 계열.
+    # 타 보험사 문서에서 텍스트로 등장 시 자동 분류(수동 입력과 병행). N대수술보다 선순위.
+    (re.compile(r"2대주요치료"), "2대주요치료비(뇌·심)", AGG_SUM, False),
+    # BOHUMFIT-236 F: 실사용 A 케이스 c4 실측 — 간편보험의 비표준 담보 2종 가시화.
+    (re.compile(r"중환자실\S*일당"), "중환자실 입원일당", AGG_SUM, False),
+    (re.compile(r"80[%％]이상\S*후유장해"), "80%이상 후유장해", AGG_SUM, False),
     (re.compile(r"\d+종수술"), "종수술비", AGG_SUM, True),
     (re.compile(r"혈관수술"), "심·뇌혈관수술비", AGG_SUM, False),
     (re.compile(r"\d+대\S*수술"), "N대수술비", AGG_SUM, True),
@@ -201,6 +207,8 @@ EXTRA_LABEL_GROUP = {
     "화상": "골절",
     "화상진단비": "골절",
     "화상수술비": "골절",
+    "중환자실 입원일당": "입원(간병 포함)",
+    "80%이상 후유장해": "후유장해",
 }
 
 

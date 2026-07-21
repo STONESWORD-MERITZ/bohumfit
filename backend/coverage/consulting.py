@@ -114,13 +114,28 @@ def apply_consulting_plan(before: dict, plan: dict | None) -> dict:
         updated["enrolled"] = any(value is not None for value in by_company.values())
         coverages.append(updated)
 
-    monthly_total = sum(company.get("monthly_premium") or 0 for company in kept_companies)
+    # BOHUMFIT-234/236: 일시납 월납 합산 제외 + 납입완료 제외 부값 병기(build_before와 동일 규칙).
+    monthly_total = sum(
+        company.get("monthly_premium") or 0
+        for company in kept_companies
+        if company.get("pay_cycle") != "일시납"
+    )
+    monthly_total_active = sum(
+        company.get("monthly_premium") or 0
+        for company in kept_companies
+        if company.get("pay_cycle") != "일시납" and not company.get("paid_up")
+    )
     paid_values = [company.get("paid_total") for company in kept_companies if company.get("paid_total") is not None]
     paid_total = sum(paid_values) if paid_values else 0
     sorted_companies = sorted(kept_companies, key=_company_sort_key)
     return {
         "customer": deepcopy(before.get("customer")),
-        "premium": {"monthly_total": monthly_total, "paid_total": paid_total, "currency": "KRW"},
+        "premium": {
+            "monthly_total": monthly_total,
+            "monthly_total_active": monthly_total_active,
+            "paid_total": paid_total,
+            "currency": "KRW",
+        },
         "companies": sorted_companies,
         "contract_list": sorted_companies,
         "coverages": coverages,

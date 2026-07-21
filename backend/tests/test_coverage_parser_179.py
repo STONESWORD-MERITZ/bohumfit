@@ -255,11 +255,14 @@ def test_premium_totals():
     assert before["premium"]["paid_total"] == 181_984_128
 
 
-def test_companies_sorted_by_insurer_name():
+def test_companies_sorted_by_contract_number():
+    # BOHUMFIT-236 B: 계약 번호 숫자 오름차순으로 통일(KB 원본 번호 순서 보존 —
+    # 과거 보험사 가나다 + str(idx) 사전식 정렬을 대체, Human 결정 확정본).
     _, before, _ = _build()
+    assert [c["idx"] for c in before["companies"]] == [1, 2, 3, 4, 5, 6]
     insurers = [c["insurer"] for c in before["companies"]]
-    assert insurers == ["KB손보", "KB손보", "삼성생명", "삼성화재", "삼성화재", "한화손보"]
-    assert before["companies"][0]["monthly_premium"] == 101463
+    assert insurers == ["KB손보", "KB손보", "한화손보", "삼성화재", "삼성화재", "삼성생명"]
+    assert before["companies"][0]["monthly_premium"] == 10000
 
 
 def _cov(before, name):
