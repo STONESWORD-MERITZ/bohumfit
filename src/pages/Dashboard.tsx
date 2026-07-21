@@ -1,5 +1,6 @@
 // BOHUMFIT-163: 로그인 대시보드 홈 — 최근 분석·사용량·저장 리포트·바로가기·Pro 업셀.
-//   ★신규 백엔드 API 0 — 기존 3개 엔드포인트 조합만:
+//   BOHUMFIT-233: admin 전용 "직원 관리" 섹션 추가(/admin/tier/* — AdminTierSection).
+//   ★163 당시 신규 백엔드 API 0 — 기존 3개 엔드포인트 조합만:
 //     GET /history?track=recent&limit=5 (최근 분석) · GET /history?track=saved&limit=1 (total=저장 수)
 //     GET /billing/status (used/limit·trial_used/trial_limit·role/quota_scope — 159 업셀 톤 재사용)
 //   위젯별 독립 상태·독립 fetch — 한 위젯 실패가 페이지 전체를 깨지 않는다(graceful).
@@ -8,6 +9,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, FileSearch, Link2, CreditCard } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
+import AdminTierSection from "../components/AdminTierSection"; // BOHUMFIT-233: admin 전용 직원 관리
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
@@ -233,6 +235,9 @@ export default function Dashboard() {
         </Widget>
 
         {/* ── 5. Pro 업셀 (무료 유저 한정·internal 미노출 — 159 카드 톤 재사용) ── */}
+        {/* ── 6. 직원 관리 (BOHUMFIT-233 — admin 전용·서버가 403 재검증) ── */}
+        {isAdmin && token && <AdminTierSection apiBase={API_BASE} token={token} />}
+
         {showUpsell && (
           <Widget title="더 많은 분석이 필요하다면" tone="accent">
             <p className="ko-text text-[13px] leading-6 text-ink-soft break-keep">

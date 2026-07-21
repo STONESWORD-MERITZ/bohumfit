@@ -1,3 +1,42 @@
+## 2026-07-21 BOHUMFIT-233 - Codex Windows 2차 검증 완료
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human
+Commit: 본 기록을 포함하는 단일 커밋으로 완료(자기참조 불가로 최종 해시는 Codex 완료 응답에 명시). 프로덕션 DB 연결·실행 0.
+
+### Verified
+- 루트 게이트 통과. Windows Python 환경에서 신규 보안 테스트 **9 passed**, 전체 backend pytest **632 passed, 8 skipped**(기준선 623+9)를 재현했다. 최초 Code 검증 때의 `charset_normalizer` 차단은 재발하지 않아 재설치하지 않았고 `backend/requirements*.txt`는 무변경이다.
+- 보안 계약을 테스트와 구현에서 대조했다: 비admin 403, `tier='admin'` 지정 422, 자기 자신 400, 대상 admin 강등 400, 미가입 404, 대소문자 이메일 매칭, `auth.users` 기준 탐색으로 `profiles.email IS NULL` 안전. service-role upsert 페이로드는 `{id, bohumfit_tier}` 두 필드뿐이며 `role` 등 다른 컬럼은 건드리지 않는다.
+- 프런트 게이트: tsc app/node, lint 통과, `npm test` **73 passed**(68+5), build 통과. 청크 **343.22 kB**는 관찰값만 기록하며 새 기준선으로 등록하지 않는다.
+- diff 범위는 `backend/main.py`, backend 신규 테스트, `AdminTierSection.tsx`·테스트, `Dashboard.tsx`, task/handoff/locks뿐이다. `backend/pipeline/`, `backend/coverage/`, `supabase/` diff 0, SURIT 0, 구브랜드 색상 0, 면 전용 색상 텍스트 사용 0, `git diff --check` 통과.
+- 로컬 `/dashboard` 스모크는 공개 Supabase 환경 변수 부재로 앱 초기화 단계에서 중단됐다. `.env.txt`는 지시대로 조회하지 않았다. 비admin 직원 관리 섹션 미노출은 통과한 Dashboard 자동화 테스트로 확인했고, admin 실사용 지정→해제 왕복은 배포 후 Human 확인으로 이관한다.
+
+### Next
+1. **Human**: 배포 후 qqqwe6701로 "직원 관리" 지정→해제 왕복 1회 + 새 기준선 backend **632/8**, frontend **73** 확인.
+2. **Chat**: BOHUMFIT-234(보장분석 파서 결함) Code 투입 대기 중 — 233 잠금 해제 확인 후 진행.
+3. **계류**: phoneGate tier 이관·history 이관·billing role 키·vite(230)·FitHere 대표계정 이전.
+
+## 2026-07-21 BOHUMFIT-233 - 관리자 tier 관리 화면 (S0~S3 완료)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex
+Commit: 없음 — git 쓰기 금지 지시(중위험 풀 하네스). 프로덕션 DB 연결·실행 0(DB 변경 없음 — API·UI만).
+
+### Changed
+- 백엔드(main.py): `GET /admin/tier/list`(admin/internal 목록 — PII 최소화: email·tier만, auth admin API로 이메일 해석) + `POST /admin/tier/set`(email·tier — 'internal'/'customer'만). 요청자 `bohumfit_tier='admin'` 검증(403, 231 게이트와 동일 원천·fail-closed). 대상 탐색은 auth.users 이메일 lower 매칭(페이지네이션·profiles.email NULL 안전). 미가입 404·이메일/tier 형식 422·자기 자신 400·★대상 admin 400(스펙 보강 — 상호 강등·마지막 admin 잠금 방지, admin 변경은 SQL 일원화). 갱신은 1004 패턴 재사용(service role upsert, `{id, bohumfit_tier}`만 — 232 봉인과 무충돌). 212 게이트 판정 로직 무변경.
+- 프런트: `src/components/AdminTierSection.tsx` 신규(목록·이메일 입력·internal 지정/해제·피드백, 404 시 "가입 이력 없음 — 가입 후 재시도" 안내, FIT accent 토큰·aria) + Dashboard에 admin 분기 1블록(`isAdmin && token` — 서버가 403 재검증) + 상단 주석 갱신.
+- 테스트: backend `test_admin_tier_233.py` 9건(admin 200/비admin 403/미가입 404/admin 지정 422/형식 422/자기 자신 400/대상 admin 400/지정·해제 왕복+대소문자 이메일) + 프런트 `AdminTierSection.test.tsx` 5건(목록 렌더·지정 성공 payload·404 안내·Dashboard admin 노출/비admin 미노출).
+
+### Verified (1차 — Code)
+- backend pytest **632 passed, 8 skipped**(기준선 623+9). tsc app/node·lint 통과, `npm test` **73 passed**(68+5), build 통과(343.22 kB — 기록만).
+- grep 계약: 구브랜드 0·SURIT 0·면 전용 텍스트 0. diff 범위 = main.py·backend 테스트·src 3파일·harness만. `git diff --check` 통과.
+
+### ★이상 신호 1건 — 복구 완료 (환경, 코드 무관)
+- 최초 pytest 전 테스트 ImportError: `charset_normalizer` mypyc .pyd가 Windows 앱 제어 정책에 차단(231 턴까지 정상·타 네이티브 모듈 정상 → 파일 1개 오탐 특정). 동일 버전 재설치 무효 → **동일 버전 3.4.9 소스 빌드(--no-binary·순수 파이썬) 교체로 해소**. requirements 무변경·로컬 환경만. Codex도 같은 증상이면 동일 절차.
+
+### Next
+1. **Codex**: 2차 검증(632/8·73·tsc·lint·build 재확인 + 가능 시 로컬 admin 계정 실화면 스모크) → stage(backend/main.py, backend/tests/test_admin_tier_233.py, src/components/AdminTierSection.tsx·test, src/pages/Dashboard.tsx, tasks/233, handoff, locks — .env* 제외) → 커밋 메시지 `feat(BOHUMFIT-233): 관리자 tier 관리 화면 — internal 지정/해제 API + 대시보드 섹션` → push.
+2. **Human**: 배포 후 qqqwe6701 계정으로 대시보드 "직원 관리" 실사용 1회(지정→해제 왕복). 미가입 직원은 가입 후 지정.
+3. **Chat**: 계류 후속 — phoneGate tier 이관·history 이관·billing role 키 개명·vite(230)·메일 템플릿.
+
 ## 2026-07-21 BOHUMFIT-232 - Codex Windows 2차 검증 완료
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human

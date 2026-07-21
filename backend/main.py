@@ -976,6 +976,129 @@ async def billing_status(user_id: str = Depends(verify_jwt)):
     return await asyncio.to_thread(_query)
 
 
+# ── 관리자 tier 관리 (BOHUMFIT-233) ─────────────────────────────────────────
+# 231/232 이후 tier 변경은 service role 경유만 가능 — admin 전용 API로 SQL 운영을 졸업한다.
+# ★'admin' 지정은 API로 불가(422): 권한 상승 오남용 방지를 위해 admin 추가만은 SQL 절차 유지.
+# 212 게이트 판정 로직은 무변경 — tier를 "쓰는" API만 신설한다.
+ADMIN_TIER_ALLOWED = ("internal", "customer")
+ADMIN_TIER_PAGE_SIZE = 200
+ADMIN_TIER_MAX_PAGES = 25  # ≤5,000 계정 탐색 상한 — 초과 시 미발견 처리(안전 상한)
+
+
+def _fetch_bohumfit_tier(admin, user_id: str) -> str:
+    """요청자/대상의 현재 tier — 231 게이트와 동일 원천·동일 fail-closed(customer)."""
+    try:
+        prof = admin.table("profiles").select("bohumfit_tier").eq("id", user_id).single().execute()
+        return _normalize_bohumfit_tier((getattr(prof, "data", None) or {}).get("bohumfit_tier"))
+    except Exception:
+        return "customer"
+
+
+def _require_tier_admin(user_id: str):
+    """admin 클라이언트 확보 + 요청자 bohumfit_tier='admin' 검증. 아니면 403."""
+    admin = _get_supabase_admin()
+    if admin is None:
+        raise HTTPException(status_code=503, detail="관리 기능을 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.")
+    if _fetch_bohumfit_tier(admin, user_id) != ADMIN_ROLE:
+        raise HTTPException(status_code=403, detail="관리자만 사용할 수 있는 기능입니다.")
+    return admin
+
+
+def _auth_users_page(admin, page: int) -> list:
+    """auth.users 페이지 조회 — supabase-py 버전에 따라 list 또는 .users 래핑 응답을 흡수."""
+    res = admin.auth.admin.list_users(page=page, per_page=ADMIN_TIER_PAGE_SIZE)
+    users = getattr(res, "users", res)
+    return list(users or [])
+
+
+def _auth_email_of(admin, target_id: str) -> str | None:
+    try:
+        res = admin.auth.admin.get_user_by_id(target_id)
+        user = getattr(res, "user", res)
+        return getattr(user, "email", None)
+    except Exception:
+        return None
+
+
+def _find_auth_user_by_email(admin, email: str):
+    """auth.users에서 이메일(lower) 일치 사용자 탐색 — profiles.email NULL 계정 안전.
+    SQL JOIN은 PostgREST로 불가하므로 admin API 페이지네이션으로 대체(서비스 롤 전용)."""
+    target = email.strip().lower()
+    for page in range(1, ADMIN_TIER_MAX_PAGES + 1):
+        try:
+            users = _auth_users_page(admin, page)
+        except Exception:
+            return None
+        for user in users:
+            if (getattr(user, "email", "") or "").strip().lower() == target:
+                return user
+        if len(users) < ADMIN_TIER_PAGE_SIZE:
+            return None
+    return None
+
+
+@app.get("/admin/tier/list")
+async def admin_tier_list(user_id: str = Depends(verify_jwt)):
+    """admin/internal 계정 목록 — PII 최소화: 이메일·tier만 반환(이름·전화 등 미반환)."""
+    def _q() -> dict:
+        admin = _require_tier_admin(user_id)
+        try:
+            rows = (
+                admin.table("profiles")
+                .select("id, bohumfit_tier")
+                .in_("bohumfit_tier", ["admin", "internal"])
+                .execute()
+            )
+            data = getattr(rows, "data", None) or []
+        except Exception:
+            raise HTTPException(status_code=502, detail="목록 조회에 실패했습니다. 잠시 후 다시 시도해 주세요.")
+        members = []
+        for row in data:
+            members.append({
+                "email": _auth_email_of(admin, row.get("id")) or "(이메일 확인 불가)",
+                "tier": row.get("bohumfit_tier"),
+            })
+        members.sort(key=lambda m: (m["tier"] != ADMIN_ROLE, m["email"]))
+        return {"members": members}
+
+    return await asyncio.to_thread(_q)
+
+
+@app.post("/admin/tier/set")
+async def admin_tier_set(payload: dict = Body(...), user_id: str = Depends(verify_jwt)):
+    """이메일로 대상 지정 → bohumfit_tier 'internal'(지정)/'customer'(해제)."""
+    def _q() -> dict:
+        admin = _require_tier_admin(user_id)
+        email = str(payload.get("email") or "").strip()
+        tier = str(payload.get("tier") or "").strip().lower()
+        if not email or "@" not in email:
+            raise HTTPException(status_code=422, detail="올바른 이메일을 입력해 주세요.")
+        if tier not in ADMIN_TIER_ALLOWED:
+            # 'admin' 포함 그 외 값 전부 거부 — admin 추가는 SQL 절차 유지(파일 상단 주석).
+            raise HTTPException(status_code=422, detail="지정 가능한 등급은 internal 또는 customer뿐입니다.")
+        target = _find_auth_user_by_email(admin, email)
+        if target is None:
+            raise HTTPException(status_code=404, detail="해당 이메일로 가입된 계정이 없습니다. 가입 후 다시 시도해 주세요.")
+        target_id = str(getattr(target, "id", "") or "")
+        if not target_id:
+            raise HTTPException(status_code=502, detail="대상 계정 정보를 확인하지 못했습니다.")
+        if target_id == user_id:
+            raise HTTPException(status_code=400, detail="자기 자신의 등급은 변경할 수 없습니다.")
+        if _fetch_bohumfit_tier(admin, target_id) == ADMIN_ROLE:
+            # admin 강등도 API로 불가 — 마지막 admin 잠금·상호 강등 사고 방지(SQL 절차 유지).
+            raise HTTPException(status_code=400, detail="admin 계정의 등급은 API로 변경할 수 없습니다.")
+        try:
+            # 1004 phone_verified와 동일 패턴 — 행 없어도 생성되도록 upsert. tier 외 컬럼 무접촉.
+            admin.table("profiles").upsert(
+                {"id": target_id, "bohumfit_tier": tier}, on_conflict="id"
+            ).execute()
+        except Exception:
+            raise HTTPException(status_code=502, detail="등급 반영에 실패했습니다. 잠시 후 다시 시도해 주세요.")
+        return {"ok": True, "email": email, "tier": tier}
+
+    return await asyncio.to_thread(_q)
+
+
 # ── 휴대폰 본인인증 (BOHUMFIT-074 — 현재 스텁, 추후 토스 본인인증 라이브 키 후 실연동) ──
 @app.post("/auth/verify-phone")
 @limiter.limit("10/minute")
