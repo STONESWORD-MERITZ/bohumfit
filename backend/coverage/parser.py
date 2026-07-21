@@ -205,6 +205,13 @@ def _join_split_insurer_fragments(
     return None, after_parts, False
 
 
+# BOHUMFIT-239: 페이지 역할은 번호가 아니라 헤더 문구로 감지한다(179 원설계 원칙).
+# "전체 보장현황"은 '상품별 가입현황' 매트릭스가 없는 KB 변형 문서(239 실사용 케이스)의
+# fallback 매트릭스 소스다 — 계약별 열이 아니라 담보별 합계만 제공(parse_overview 참조).
+# 파서 로컬 상수로 둔다(constants.ROLE_MARKERS는 무변경 — 태스크 범위 = parser.py).
+OVERVIEW_MARKER = "전체 보장현황"
+
+
 def classify_page(lines: list[str]) -> Optional[str]:
     head = " ".join(lines[:8])
     compact_head = "".join(head.split())
@@ -213,6 +220,7 @@ def classify_page(lines: list[str]) -> Optional[str]:
         ("contracts", ROLE_MARKERS["contracts"]),
         ("detail", ROLE_MARKERS["detail"]),
         ("matrix", ROLE_MARKERS["matrix"]),
+        ("overview", OVERVIEW_MARKER),  # BOHUMFIT-239: 상품별 가입현황 부재 시 fallback
     ):
         if "".join(marker.split()) in compact_head:
             return role
@@ -352,6 +360,40 @@ def parse_matrix(pages_lines: list[list[str]]) -> dict:
                 entry["by_company"][str(idx)] = val
         if col_indices:
             next_fallback_idx = max(next_fallback_idx, max(col_indices) + 1)
+    return acc
+
+
+def parse_overview(pages_lines: list[list[str]]) -> dict:
+    """BOHUMFIT-239: '전체 보장현황' 페이지에서 담보별 합계(첫 셀)만 채집한다.
+
+    이 페이지의 금액 열은 계약별이 아니라 집계 그룹(생보/손보 등, 헤더 count 행 '1 5 8 1')
+    이므로 계약별 by_company를 만들 수 없다. 담보별 **합계(첫 셀)**만 신뢰하며(진단 페이지
+    enrolled 값과 일치 실측), 이를 매트릭스 호환 dict로 반환하되 by_company는 비우고
+    `overview` 플래그를 세운다. build_before가 이 플래그를 보고 summary/enrolled를 산출한다.
+    '상품별 가입현황' 매트릭스가 아예 없는 변형 문서(239 실사용)의 fallback 전용 — 표준 문서는
+    매트릭스가 있어 이 경로를 타지 않는다(회귀 0).
+    """
+    acc: dict[str, dict] = {}
+    for page in pages_lines:
+        for line in page:
+            meta, _start, end = match_coverage_span(line)
+            if not meta or end is None:
+                continue
+            kb_name, kb_group, group12, agg = meta
+            if kb_name in acc:
+                continue
+            cells = [parse_amount(c) for c in extract_cells(line[end:])]
+            if not cells or cells[0] is None:
+                continue
+            acc[kb_name] = {
+                "kb_name": kb_name,
+                "kb_group": kb_group,
+                "group12": group12,
+                "agg": agg,
+                "summary": cells[0],
+                "by_company": {},
+                "overview": True,
+            }
     return acc
 
 
@@ -508,6 +550,7 @@ def parse_document(pdf_bytes: bytes, jong_table: dict | None = None) -> dict:
     warnings: list[str] = []
     contracts_pages: list[list[str]] = []
     matrix_pages: list[list[str]] = []
+    overview_pages: list[list[str]] = []  # BOHUMFIT-239: 전체 보장현황(매트릭스 fallback)
     detail_pages: list[list[str]] = []
     diagnosis_lines: list[str] = []
     customer = {"name": None, "age": None, "sex": None}
@@ -523,7 +566,10 @@ def parse_document(pdf_bytes: bytes, jong_table: dict | None = None) -> dict:
             # 마지막 페이지만 남기던 덮어쓰기를 누적으로 교체(234 실사용: 15계약 중 1건만 파싱되던 결함).
             contracts_pages.append(lines)
         elif role == "matrix":
+            # BOHUMFIT-239: 매트릭스는 헤더 기반 감지 + 다페이지 누적(표준 문서 p6~8 등 — 기존 정상).
             matrix_pages.append(lines)
+        elif role == "overview":
+            overview_pages.append(lines)
         elif role == "detail":
             detail_pages.append(lines)
         elif role == "diagnosis":
@@ -539,7 +585,13 @@ def parse_document(pdf_bytes: bytes, jong_table: dict | None = None) -> dict:
             contracts.append(contract)
     contracts.sort(key=lambda c: c["idx"])
     matrix = parse_matrix(matrix_pages) if matrix_pages else {}
-    if contracts and matrix:
+    # BOHUMFIT-239: '상품별 가입현황' 매트릭스가 없는 변형 문서는 '전체 보장현황'의
+    # 담보별 합계로 대체한다(fallback). 표준 문서는 매트릭스가 있어 이 경로를 타지 않는다.
+    matrix_from_overview = False
+    if not matrix and overview_pages:
+        matrix = parse_overview(overview_pages)
+        matrix_from_overview = bool(matrix)
+    if contracts and matrix and not matrix_from_overview:
         contracts = _ensure_contracts_for_matrix_columns(contracts, matrix)
     diagnosis = parse_diagnosis(diagnosis_lines) if diagnosis_lines else {}
     notes, extra = parse_detail_pages(detail_pages, contracts, jong_table) if detail_pages else ({}, {})
@@ -548,7 +600,10 @@ def parse_document(pdf_bytes: bytes, jong_table: dict | None = None) -> dict:
         warnings.append("p5 계약리스트를 찾지 못했습니다.")
     if not matrix:
         warnings.append("p6~7 상품별 가입현황 매트릭스를 찾지 못했습니다.")
-    if contracts and matrix:
+    elif matrix_from_overview:
+        # 담보별 합계는 확보했으나 계약별 상세 금액은 이 문서에 없음(정직 표기).
+        warnings.append("상품별 가입현황 페이지가 없어 전체 보장현황의 담보별 합계로 대체했습니다. 계약별 상세 금액은 표시되지 않을 수 있습니다.")
+    if contracts and matrix and not matrix_from_overview:
         contract_indices = {int(c["idx"]) for c in contracts if c.get("idx") is not None}
         matrix_indices = _matrix_contract_indices(matrix)
         if matrix_indices != contract_indices:

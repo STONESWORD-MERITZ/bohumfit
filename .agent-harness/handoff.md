@@ -1,7 +1,51 @@
+## 2026-07-22 BOHUMFIT-239 - Codex Windows 2차 검증 완료
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human
+Commit: 커밋·push 후 본 항목에 해시와 배포 스모크 결과를 기록한다.
+
+### Verified
+- 루트 게이트 통과. Windows Python 3.12.10에서 backend pytest **683 passed, 8 skipped**(기준선 677+6)를 재현했고, 신규 `test_coverage_matrix_239.py` 6건도 별도 통과했다. tsc app/node·lint·`npm test` **77 passed**·build가 모두 통과했으며 JS 청크 **343.22 kB**는 관찰값만 기록한다.
+- 표준 실 PDF A~D는 모두 matrix 페이지를 각각 3/4/1/3개 감지했고 overview 페이지가 있어도 fallback 사용량은 전부 0이었다. 기존 matrix 경로에서 경고 0, 월납/납입중 A **2,835,744/2,282,564**, B **681,312/681,312**, C **183,621/183,621**, D **763,089/495,389**, 상해사망 A/B/C/D **512,610,000/210,000,000/10,000,000/383,080,000**, 가입담보 37/26/26/35가 불변이다.
+- 239 실사용 문서는 matrix 0·overview 2페이지(10+17행)를 감지해 fallback 27행을 누적했고, 계약별 `by_company`는 빈 상태로 유지했다. 데이터 손실 경고는 계약별 상세 미지원 안내 1건으로 대체됐고 월납 **4,675,189**, 상해사망 **332,100,000**, overview 기본담보 27건과 detail 유래 추가담보를 합친 진단 value **37건**을 재현했다. 진단 enrolled가 숫자인 25개 기본담보는 overview 합계와 전부 일치했고 2개는 원문 enrolled가 null이다.
+- 코드상 fallback은 `not matrix` 가드 아래에서만 발동하고 overview 다페이지를 누적하며 합계만 사용한다. `aggregator.py`의 스코프 확장은 `row.get("overview")` 전용 additive 분기이고, 표준 문서의 기존 else 경로는 그대로다.
+- 변경 범위는 `backend/coverage/parser.py`, `backend/coverage/aggregator.py`, 신규 테스트, 239 task/handoff/locks뿐이다. `backend/pipeline/`·`supabase/migrations/` diff 0, 실 PDF·`보장분석/` stage 0, 실명 5인 PII grep 0을 확인했다.
+
+### Next
+1. **Human**: 239 실사용 문서를 재업로드해 경고 해소·합계 산출을 확인하고, 계약별 상세는 미지원이라는 안내를 확인한다.
+2. **Chat**: BOHUMFIT-240(리포트 표시 개선) 투입.
+
+## 2026-07-22 BOHUMFIT-239 - 상품별 가입현황 매트릭스 페이지 감지 고정 해소 (S0~S3 완료)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex
+Commit: 없음 — git 쓰기 금지 지시. 실 PDF 로컬 참조만·stage 0. 상세는 tasks/BOHUMFIT-239.
+
+### 진단 (★태스크 가정과 근본 원인 상이)
+- 태스크 추정(페이지 번호 고정/다페이지 미누적)은 실제 원인 아님 — 현행 감지는 이미 헤더 기반·다페이지 누적 정상(표준 4케이스 검출됨).
+- **진짜 원인**: 239 실사용 문서는 **'상품별 가입현황' 페이지가 아예 없는 KB 변형 문서**로, '전체 보장현황'이 대체. classify_page가 이 헤더를 몰라 매트릭스 0 → 경고 + 담보 가입금액 None.
+- 구조 실측: '전체 보장현황' 금액 열은 계약별 `(N)` 인덱스 없이 **집계 그룹**(생보/손보) — **담보별 합계(첫 셀)만 신뢰**. 진단 페이지 enrolled가 숫자로 존재하는 25개 기본담보는 overview 합계와 전부 정확 일치하고, 2개는 진단 원문 enrolled가 null이다. ★표준 4케이스는 '전체 보장현황'+'상품별 가입현황' 둘 다 가짐 → 무조건 대체 시 이중검출로 파손 → **매트릭스 부재 시에만 fallback**.
+
+### Changed
+- **parser.py**: `OVERVIEW_MARKER="전체 보장현황"`(파서 로컬 — constants 무변경) + classify_page overview 역할 + `parse_overview`(합계만·by_company 빈·`overview:True`·다페이지 누적) + parse_document 매트릭스 부재 시에만 fallback·경고를 데이터 손실→안내로 교체·fallback 시 열수불일치 경고 skip.
+- **aggregator.py** (★스코프 확장): build_before가 summary를 by_company에서 재계산하므로 overview(빈 by_company)는 None이 됨 → `row.get("overview")` 전용 분기(summary=row summary·enrolled=존재)로 산출. **표준 문서는 플래그 없어 else 경로 완전 무변경**. 사유: parser만으론 합계가 화면/진단에 안 흐름. 합성키 주입 대안은 전후 흐름 파손으로 기각. 234~238 로직 재변경 아님(additive).
+
+### Verified (1차 — Code)
+- backend pytest **683 passed, 8 skipped**(기준선 677+6; test_coverage_matrix_239). tsc·lint·npm test **77**(프런트 무변경)·build 통과.
+- 실 PDF 5건: **4케이스 완전 불변**(경고 0·월납·상해사망 합계·enrolled), **239 케이스 신규 검출**(경고 해소·overview 기본담보 27건 + detail 유래 추가담보 포함 진단 value 37건, 월납 4,675,189·상해사망 332,100,000=진단 일치).
+- PII grep 0(코드·테스트·문서 실명 마스킹). 보호영역 pipeline/ diff 0. diff 범위 = parser.py·aggregator.py·테스트 신규 + harness만.
+
+### Notes
+- 알려진 한계(변형 본질): 239 문서는 계약별 금액이 원천에 없어 [전] 회사별 계약 셀·전후 재계산은 담보 합계 수준까지만. 계약별 상세는 detail 페이지 유도 별도 작업(범위 밖).
+- 별건 잠재 PII: `backend/tests/test_drug_change_205.py:3` 실명 잔존(205 산물·내 diff 밖) — 후속 정리 후보.
+
+### Next
+1. **Codex**: 2차 검증(실 PDF 5건·배포 스모크) → stage(parser.py·aggregator.py·test_coverage_matrix_239·tasks/239·handoff·locks — 실 PDF 제외) → 커밋 `fix(BOHUMFIT-239): 상품별 가입현황 매트릭스 페이지 감지 고정 해소 — 헤더 기반·다페이지 누적·전체보장현황 fallback` → push. ★aggregator.py 스코프 확장 사유는 위/태스크 문서.
+2. **Human**: 239 실사용 문서 재업로드로 경고 해소·합계 산출 확인(계약별 상세는 미지원 안내 확인).
+3. **Chat**: BOHUMFIT-240(리포트 표시 개선) 투입.
+
 ## 2026-07-21 BOHUMFIT-238 - Codex Windows 2차 검증 완료
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human
-Commit: 본 기록을 포함하는 단일 커밋으로 완료하며 자기참조 불가로 최종 해시는 Codex 완료 응답과 push 후 사후 기록에 명시. 프로덕션 DB 연결·실행 **0**(SQL은 파일 산출만), 실 PDF는 로컬 입력으로만 사용.
+Commit: `e768e4932ce9163647b7e644bc22c5235f98040a` (`origin/main`, local/remote 0/0). 프로덕션 DB 연결·실행 **0**(SQL은 파일 산출만), 실 PDF는 로컬 입력으로만 사용. 이 push 이후 사후 기록은 다음 하네스 커밋에 편승.
 
 ### Verified
 - 루트 게이트 통과. Windows Python 3.12.10에서 backend pytest **677 passed, 8 skipped**(기준선 657+20)를 재현했다. `test_fallback_matches_sql_seed`와 750만→700행·1,500만→1,000행·종별 마커 원문우선 targeted 3건도 별도 통과. tsc app/node·lint·`npm test` **77 passed**·build 통과, 번들 **343.22 kB**는 관찰값만 기록한다.
@@ -10,6 +54,7 @@ Commit: 본 기록을 포함하는 단일 커밋으로 완료하며 자기참조
 - 실 PDF A~D를 재분석했다. 월납/납입중 값은 A **2,835,744/2,282,564**, B **681,312/681,312**, C **183,621/183,621**, D **763,089/495,389**로 불변이며 N대·6주미만·한글 단위도 유지된다. A 원문은 종별 마커 없는 1,000만원 기준액 2건으로, 환산 1/2/3/4/5종 합계가 **40/100/200/1,000/2,000만원**이고 5종 합 2,000만원=종전 통합값이다. D는 종별 마커 15행을 전부 원문 우선 처리해 통합 **3,410만원** 보존, B·C는 적용 대상 0이다.
 - 화면 ④·⑤, Excel [전], PDF ⑤의 환산 안내문 조건부 경로를 코드 대조했다. 기존 테스트 갱신 2곳은 각각 234 환산 기대값과 API 인자 파급이며 BOHUMFIT-238 근거 주석이 존재한다.
 - 변경은 Stage 목록 **15파일**과 정확히 일치하고 `backend/pipeline/`·`supabase/migrations/` diff 0이다. A~D 실제 고객명 4개를 556개 텍스트 파일에 역검색해 PII 0, `보장분석/` ignore 유지, 실 PDF·`.env*` stage 0. SURIT·구브랜드 색상·면 전용 색상 위반 0, `git diff --check` 통과.
+- push 후 표준 배포 스모크: Railway `https://bohumfit.up.railway.app/api/health` **200**, Vercel 공개 라우트 `https://bohumfit.ai/login` **200**. 인증정보·실 PDF 전송 없이 공개 GET만 수행했다.
 
 ### Next
 1. **Human**: `BOHUMFIT-238-01` SQL을 첫 줄 set 포함 파일 전체 한 번에 실행 → 확인쿼리 → `jong_surgery_conversion` 10행 시딩·SELECT-only grant 확인 → 종수술 케이스 재업로드 검수.

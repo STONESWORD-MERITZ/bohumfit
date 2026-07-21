@@ -108,8 +108,14 @@ def build_before(raw: dict, today: str | None = None) -> dict:
             continue
         row = matrix.get(kb_name)
         by_company = row["by_company"] if row else {}
-        summary = _aggregate(by_company, agg)
-        enrolled = any(v is not None for v in by_company.values())
+        if row and row.get("overview"):
+            # BOHUMFIT-239: 전체 보장현황 fallback — 담보별 합계만 제공(계약별 열 없음).
+            # 표준 문서(상품별 가입현황 매트릭스)는 이 플래그가 없어 else 경로로 무변경.
+            summary = row.get("summary")
+            enrolled = summary is not None
+        else:
+            summary = _aggregate(by_company, agg)
+            enrolled = any(v is not None for v in by_company.values())
         coverages.append(before_coverage(kb_name, kb_group, group12, agg, summary, by_company, enrolled))
 
     for label, extra in raw.get("extra", {}).items():
