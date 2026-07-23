@@ -94,9 +94,24 @@ def test_excel_matrix_header_and_paid_up_label():
     wb = openpyxl.load_workbook(io.BytesIO(data))
     sheet = wb["전 회사별세부"]
     headers = [cell.value for row in sheet.iter_rows() for cell in row if isinstance(cell.value, str)]
-    assert "계약 1" in headers and "계약 2" in headers
-    # 회사명 혼입("보험사1 1" 형태) 없음
-    assert not any(isinstance(h, str) and h.startswith("보험사") and h.split()[-1].isdigit() and " " in h for h in headers)
+    # BOHUMFIT-240 P1: 매트릭스 헤더가 회사명(고유 보험사 → 그대로). "계약 N"은 fallback 전용.
+    assert "보험사1" in headers and "보험사2" in headers
+    assert "계약 1" not in headers and "계약 2" not in headers
+
+
+def test_excel_matrix_header_duplicate_insurer_disambiguated():
+    """BOHUMFIT-240 P1: 동일 회사 복수 계약은 '회사명 (1)/(2)'로 구분."""
+    import openpyxl
+
+    contracts = [
+        {**_contract(1, 100_000), "insurer": "삼성화재"},
+        {**_contract(2, 200_000), "insurer": "삼성화재"},
+    ]
+    before = build_before(_raw(contracts), today=TODAY)
+    data = build_workbook_bytes({"before": before, "final": {"premium": before["premium"], "coverages": [], "rollup_by_group12": []}})
+    wb = openpyxl.load_workbook(io.BytesIO(data))
+    headers = [cell.value for row in wb["전 회사별세부"].iter_rows() for cell in row if isinstance(cell.value, str)]
+    assert "삼성화재 (1)" in headers and "삼성화재 (2)" in headers
 
 
 def test_pdf_html_dual_premium_and_paid_up_chip():

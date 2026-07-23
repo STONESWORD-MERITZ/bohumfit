@@ -36,6 +36,18 @@ def _grp_key(g: str) -> int:
     return GROUP13.index(g) if g in GROUP13 else len(GROUP13)
 
 
+def _company_label(co: dict, companies: list) -> str:
+    """BOHUMFIT-240 P1: 계약 라벨을 회사명으로. 동일 회사 복수 계약은 '회사명 (1)/(2)'."""
+    insurer = co.get("insurer")
+    if not insurer:
+        return f"계약 {co.get('idx')}"
+    same = [c for c in companies if c.get("insurer") == insurer]
+    if len(same) <= 1:
+        return insurer
+    ordinal = [str(c.get("idx")) for c in same].index(str(co.get("idx"))) + 1
+    return f"{insurer} ({ordinal})"
+
+
 def _hdr(cell, text, fill=EMERALD, color=WHITE):
     cell.value = text
     cell.font = Font(bold=True, color=color, size=10)
@@ -314,8 +326,8 @@ def _sheet_before(ws, before: dict, title: str = "회사별 세부 (전)") -> No
         ws.merge_cells(start_row=header_row, start_column=col, end_row=header_row + 1, end_column=col)
         _hdr(ws.cell(row=header_row, column=col), header)
     for j, co in enumerate(companies, start=4):
-        # BOHUMFIT-236 B: 헤더 라벨 "계약 N" 통일(회사명 혼입 제거 — 회사명은 상단 계약표 참조).
-        _hdr(ws.cell(row=header_row, column=j), f"계약 {co.get('idx')}")
+        # BOHUMFIT-240 P1: 헤더 라벨을 회사명으로(동일 회사 복수 계약은 (1)/(2) 구분).
+        _hdr(ws.cell(row=header_row, column=j), _company_label(co, companies))
         _hdr(ws.cell(row=header_row + 1, column=j), _premium_label(co.get("monthly_premium")), EMERALD_SOFT, EMERALD)
     r += 2
 

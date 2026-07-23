@@ -46,6 +46,26 @@ def _grp_key(g: str) -> int:
     return GROUP13.index(g) if g in GROUP13 else len(GROUP13)
 
 
+def _company_label(co: dict, companies: list) -> str:
+    """BOHUMFIT-240 P1: 계약 라벨을 회사명으로. 동일 회사 복수 계약은 '회사명 (1)/(2)'."""
+    insurer = co.get("insurer")
+    if not insurer:
+        return f"계약 {co.get('idx')}"
+    same = [c for c in companies if c.get("insurer") == insurer]
+    if len(same) <= 1:
+        return insurer
+    ordinal = [str(c.get("idx")) for c in same].index(str(co.get("idx"))) + 1
+    return f"{insurer} ({ordinal})"
+
+
+def _group_coverages(coverages: list) -> list:
+    """BOHUMFIT-240 P3: 담보를 13대분류 순서로 그룹핑. [(group, [rows]), ...]."""
+    grouped: dict[str, list] = {}
+    for c in coverages:
+        grouped.setdefault(c.get("group12") or "기타", []).append(c)
+    return [(g, grouped[g]) for g in sorted(grouped, key=_grp_key)]
+
+
 def _esc(s) -> str:
     return _html.escape(str(s)) if s is not None else ""
 
@@ -164,24 +184,28 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
     if after_before and after_final:
         after_prem = after_final.get("premium") or after_before.get("premium") or {}
         after_companies = after_before.get("contract_list") or after_before.get("companies", [])
-        # BOHUMFIT-236 B: 헤더 라벨 "계약 N" 통일(회사명은 상단 계약표 참조).
+        # BOHUMFIT-240 P1: 헤더 라벨을 회사명으로(동일 회사 복수 계약은 (1)/(2) 구분).
         after_comp_name_head = "".join(
-            f'<th class="num company-name">계약 {_esc(co.get("idx"))}</th>'
+            f'<th class="num company-name">{_esc(_company_label(co, after_companies))}</th>'
             for co in after_companies
         )
         after_comp_premium_head = "".join(
             f'<th class="num company-premium">{_won(co.get("monthly_premium"))}</th>'
             for co in after_companies
         )
+        # BOHUMFIT-240 P3: 담보를 13대분류 섹션으로 그룹핑(대분류 헤더 행 + 소속 담보).
+        #   대분류는 섹션 헤더 행으로 제공하므로 per-row 대분류 열은 제거한다.
+        col_span = 2 + len(after_companies)
         after_rows = []
-        for c in sorted(after_before.get("coverages", []), key=lambda row: _grp_key(row.get("group12", ""))):
-            by = c.get("by_company", {})
-            cells = "".join(f'<td class="num">{_fmt_krw(by.get(str(co.get("idx"))))}</td>' for co in after_companies)
-            after_rows.append(
-                f'<tr><td class="grp">{_esc(c.get("group12"))}</td>'
-                f'<td class="nm">{_esc(c.get("kb_name"))}</td>'
-                f'<td class="num strong">{_fmt_krw(c.get("summary"))}</td>{cells}</tr>'
-            )
+        for group, group_rows in _group_coverages(after_before.get("coverages", [])):
+            after_rows.append(f'<tr class="grp-head"><td colspan="{col_span}">{_esc(group)}</td></tr>')
+            for c in group_rows:
+                by = c.get("by_company", {})
+                cells = "".join(f'<td class="num">{_fmt_krw(by.get(str(co.get("idx"))))}</td>' for co in after_companies)
+                after_rows.append(
+                    f'<tr><td class="nm indent">{_esc(c.get("kb_name"))}</td>'
+                    f'<td class="num strong">{_fmt_krw(c.get("summary"))}</td>{cells}</tr>'
+                )
         after_contract_rows = []
         for co in after_companies:
             after_contract_rows.append(
@@ -209,7 +233,7 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
 <table class="contract-list"><thead><tr><th>번호</th><th>구분</th><th>회사명</th><th>상품명</th><th>납입기간</th><th>만기</th><th class="num">월보험료</th></tr></thead>
 <tbody>{''.join(after_contract_rows)}</tbody></table>
 <table><thead>
-<tr><th rowspan="2">대분류</th><th rowspan="2">담보</th><th rowspan="2" class="num">후 보장금액</th>{after_comp_name_head}</tr>
+<tr><th rowspan="2">담보</th><th rowspan="2" class="num">후 보장금액</th>{after_comp_name_head}</tr>
 <tr>{after_comp_premium_head}</tr>
 </thead>
 <tbody>{''.join(after_rows)}</tbody></table>
@@ -392,6 +416,9 @@ td {{ vertical-align: middle; }}
 .contract-list td:first-child {{ white-space: nowrap; }}
 .contract-list td.nm {{ text-align: left; }}
 .paid-bg {{ color: {GRAY}; background: {LINE}; }}
+/* BOHUMFIT-240 P3: 대분류 섹션 헤더 행·담보 들여쓰기. */
+tr.grp-head td {{ background: {EMERALD_SOFT}; color: {EMERALD}; font-weight: 800; font-size: 8.5pt; }}
+td.indent {{ padding-left: 12px; }}
 .premium-note {{ margin: 2px 0 6px; font-size: 9.5pt; font-weight: 800; color: {INK}; }}
 .premium-note small {{ color: {GRAY}; font-weight: 700; font-size: 8.5pt; }}
 .disclaimer {{ margin-top: 16px; font-size: 7.5pt; color: {GRAY}; line-height: 1.5; }}
