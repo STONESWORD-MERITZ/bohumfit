@@ -88,7 +88,7 @@ class _FakeQuery:
         if self._name == "profiles":
             uid = next((v for op, c, v in self._filters if c == "id"), None)
             role = self._admin.roles.get(uid)
-            return _Resp({"role": role} if role else None)
+            return _Resp({"bohumfit_tier": role} if role else None)
         if self._name == "usage_logs":
             if self._op == "insert":
                 return _Resp([{"id": "u"}])

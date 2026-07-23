@@ -21,7 +21,8 @@ export function usePhoneGateStatus(): PhoneGateStatus {
     let alive = true;
     supabase
       .from("profiles")
-      .select("phone_verified, role")
+      // BOHUMFIT-240 P5: 내부직 우회 기준을 bohumfit_tier로 이관(role은 FitHere 전용).
+      .select("phone_verified, bohumfit_tier")
       .eq("id", user.id)
       .maybeSingle()
       .then(({ data, error }) => {

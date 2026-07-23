@@ -1402,9 +1402,12 @@ def _require_history_admin():
 
 
 def _history_is_internal(admin, user_id: str) -> bool:
+    # BOHUMFIT-240 P5(231 후속): 히스토리 무제한 판정을 role → bohumfit_tier로 이관.
+    #   role은 FitHere 전용(advisor 전환 시 내부직 무제한이 소실되던 231 계열 결함).
+    #   조회 실패·미지값·null → False(fail-closed: 무료 한도 적용).
     try:
-        prof = admin.table("profiles").select("role").eq("id", user_id).single().execute()
-        return ((getattr(prof, "data", None) or {}).get("role")) == "internal"
+        prof = admin.table("profiles").select("bohumfit_tier").eq("id", user_id).single().execute()
+        return _normalize_bohumfit_tier((getattr(prof, "data", None) or {}).get("bohumfit_tier")) == INTERNAL_ROLE
     except Exception:
         return False
 

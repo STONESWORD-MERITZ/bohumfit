@@ -44,14 +44,43 @@ describe("decidePhoneGate", () => {
     ).toBe("verified");
   });
 
-  it("role=internal 은 phone_verified 와 무관하게 우회(통과)", () => {
+  it("bohumfit_tier=internal 은 phone_verified 와 무관하게 우회(통과) — BOHUMFIT-240 P5", () => {
     expect(
       decidePhoneGate({
         authLoading: false,
         hasUser: true,
-        query: { data: { role: "internal", phone_verified: false }, error: false },
+        query: { data: { bohumfit_tier: "internal", phone_verified: false }, error: false },
       }),
     ).toBe("verified");
+  });
+
+  it("★role=advisor 여도 bohumfit_tier 가 internal 아니면 우회 안 함(fail-closed) — 231 계열 결함 차단", () => {
+    // FitHere 전문가 등록으로 role=advisor가 되어도 tier=customer면 본인인증 요구.
+    expect(
+      decidePhoneGate({
+        authLoading: false,
+        hasUser: true,
+        query: { data: { role: "advisor", bohumfit_tier: "customer", phone_verified: false }, error: false },
+      }),
+    ).toBe("unverified");
+  });
+
+  it("bohumfit_tier 미지값·부재는 우회 안 함(fail-closed)", () => {
+    expect(
+      decidePhoneGate({
+        authLoading: false,
+        hasUser: true,
+        query: { data: { phone_verified: false }, error: false },
+      }),
+    ).toBe("unverified");
+    // tier=internal 이 아닌 advisor 등 미지값도 우회 안 함
+    expect(
+      decidePhoneGate({
+        authLoading: false,
+        hasUser: true,
+        query: { data: { bohumfit_tier: "advisor", phone_verified: true }, error: false },
+      }),
+    ).toBe("verified"); // phone_verified=true 라 통과(우회가 아니라 실인증 통과)
   });
 
   it("조회 오류(스키마 부재·일시 오류)는 deploy-safe 통과", () => {
