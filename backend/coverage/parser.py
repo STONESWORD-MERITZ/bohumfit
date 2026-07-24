@@ -95,7 +95,8 @@ def _fallback_insurer(value: str) -> str | None:
     value = _clean(value)
     if not value:
         return None
-    if re.search(r"(손보|화재|생명|해상|손해보험|생명보험)$", value):
+    # BOHUMFIT-243 ①: 공제·금고·수협 등 비보험사 기관 접미도 보험사 필드로 인식한다.
+    if re.search(r"(손보|화재|생명|해상|손해보험|생명보험|중앙회|공제회|공제조합|금고|수협|신협)$", value):
         return value
     return None
 
@@ -144,8 +145,13 @@ def _contract_prefix_source(lines: list[str], row_idx: int, row_prefix: str, use
     return _clean(" ".join(prefix))
 
 
-_INSURER_HEAD_RE = re.compile(r"^([가-힣A-Za-z()·]{0,14}?(?:손해보험|생명보험|손보|생명|화재|해상))")
-_INSURER_JOINED_RE = re.compile(r"^[가-힣A-Z][가-힣A-Za-z()·]*(?:손해보험|생명보험|손보|생명|화재|해상)$")
+# BOHUMFIT-243 ①: 보험사 접미에 공제·금고·수협 등 비보험사 기관 형태를 추가한다.
+#   실측(243): 계약리스트에서 "새마을금"(윗줄)+"고중앙회"(아랫줄)로 쪼개진 기관명이 기존
+#   접미(손보·생명·화재·해상)에 걸리지 않아 보험사 필드가 비고 상품명 칸으로 밀려났다.
+#   KNOWN_INSURERS 사전 매칭이 우선이고, 이 접미 규칙은 미등록 기관의 일반 폴백이다.
+_INSURER_SUFFIX = r"손해보험|생명보험|손보|생명|화재|해상|중앙회|공제회|공제조합|금고|수협|신협"
+_INSURER_HEAD_RE = re.compile(rf"^([가-힣A-Za-z()·]{{0,14}}?(?:{_INSURER_SUFFIX}))")
+_INSURER_JOINED_RE = re.compile(rf"^[가-힣A-Z][가-힣A-Za-z()·]*(?:{_INSURER_SUFFIX})$")
 
 
 def _join_split_insurer_fragments(
@@ -291,16 +297,23 @@ def parse_contract_list(lines: list[str]) -> list[dict]:
             if insurer is not None and row_frag_used:
                 # 행 안의 보험사 조각은 상품명에서 제거한다(무배당 등 비조각 토큰은 보존).
                 prefix_source = _strip_despace_fragment(prefix_source, pm.group("insurer"))
+        # BOHUMFIT-243 ①: 보험사명이 prefix와 다음 줄에 걸쳐 쪼개진 경우(예: "새마을금"+"고중앙회")
+        #   prefix_source 단독 strip이 무효(no-op)라 조각이 상품명에 남았다. 이때만 결합 문자열에서
+        #   despace 기준으로 한 번 더 제거한다(연속 표기 케이스는 기존 경로라 동작 불변).
+        insurer_split_across_lines = False
         if split_insurer:
             product = row_product
         elif insurer and _despace(pm.group("insurer")) == _despace(insurer):
             product = row_product
         elif insurer:
-            product = _strip_despace_fragment(prefix_source, insurer)
-            product = re.sub(r"^\s*\d+\s+", "", product)
+            stripped = _strip_despace_fragment(prefix_source, insurer)
+            insurer_split_across_lines = stripped == prefix_source
+            product = re.sub(r"^\s*\d+\s+", "", stripped)
         else:
             product = row_product
         product = _clean(" ".join([product, *after_parts]))
+        if insurer and insurer_split_across_lines:
+            product = _strip_despace_fragment(product, insurer)
         years = m.group("years")
         contracts.append(
             {
