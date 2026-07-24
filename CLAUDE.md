@@ -296,8 +296,12 @@ src/                        React 19 · TypeScript · Vite (Vercel 배포)
 ### 검증 게이트 (변경 후 필수)
 
 - 백엔드: `cd backend && python -m pytest -q`
-  - 현재 기준선(BOHUMFIT-217 판정라인/입원배지 표시 보정 테스트 반영): `618 passed, 8 skipped`
+  - 현재 기준선(BOHUMFIT-242 실측 · 2026-07-23 갱신): `684 passed, 8 skipped`
+- 프런트 테스트: `npm test` — 현재 기준선 `79 passed`(라우트 스모크 18건 포함)
 - 프런트 타입체크: `npx tsc -p tsconfig.app.json --noEmit` 및 `tsconfig.node.json`
-- 빌드: `npm run build`
+- 빌드: `npm run build` — 청크 `dist/assets/index-*.js` **343 kB대**가 정상(2026-07-23 실측 343.22 kB).
+  Vite 청크 크기 경고가 없는 것이 정상이며, 과거의 "500 kB 경고만 허용" 표현은 폐기됐다(BOHUMFIT-240 조사).
+  ±10% 초과 변동 시 진행을 멈추고 원인을 조사·기록한다.
+  - 기준선 수치 변경 시 `.agent-harness/verify.md`·`AGENTS.md`를 함께 갱신한다.
 - 배포: `main` 브랜치 푸시 시 Vercel(프런트)·Railway(백엔드) 자동 배포.
 - git 반영: Claude Code는 로컬에서 직접 실행·1차 검증하되 git 쓰기(add/commit/push)는 기본 금지, **권위 커밋은 Codex가 담당**한다. Codex(또는 저위험 + "Code 커밋 허용" 명시 시 Claude Code)가 태스크 범위 파일만 `git add` 후 한국어 커밋 메시지(`{태스크ID}: {변경 요지}`)로 `git push origin main` 한다.

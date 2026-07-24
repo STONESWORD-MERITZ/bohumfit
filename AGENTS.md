@@ -96,8 +96,11 @@ For UI changes, also run the app locally and perform a browser smoke check when 
 커밋 주체(Codex 또는 저위험 허용 시 Claude Code)와 무관하게, 커밋 전에 아래를 모두 만족해야 한다.
 
 - `npx tsc -p tsconfig.app.json --noEmit` / `npx tsc -p tsconfig.node.json --noEmit`
-- `npm run lint` / `npm run build`
-- `cd backend && python -m pytest -q` — 기준선 `618 passed, 8 skipped` (기준선 변경 시 `verify.md` 동시 갱신)
+- `npm run lint` / `npm run build` — 청크 `dist/assets/index-*.js` **343 kB대** 정상(2026-07-23 실측 343.22 kB,
+  Vite 청크 경고 없음이 정상). ±10% 초과 변동 시 중단·원인 조사
+- `npm test` — 기준선 `79 passed`(라우트 스모크 18건 포함)
+- `cd backend && python -m pytest -q` — 기준선 `684 passed, 8 skipped` (BOHUMFIT-242 실측·2026-07-23.
+  기준선 변경 시 `verify.md`·`CLAUDE.md` 동시 갱신)
 - 도메인 계약 grep: `SURIT` 0건, 구브랜드 색상(`#15663D` 등 구 그린) 0건 — 기존 계약 유지
 - 보호 영역 diff 검사: `backend/pipeline/`, `backend/coverage/` 코어, `supabase/`, 인증(auth) 관련 파일에 diff가 발생했는데 태스크에 명시돼 있지 않으면 커밋 금지
 

@@ -1,7 +1,30 @@
+## 2026-07-24 BOHUMFIT-242 - 검증 기준선 문서 갱신 (실측 동기화)
+
+Owner flow: Claude Chat -> Claude Code (커밋 허용) | Current owner: Human/Chat
+Commit: Claude Code 직접 커밋·push(저위험 — Chat "Code 커밋 허용" 명시, Codex 생략). 해시는 최종 응답 기록.
+
+### Changed
+- **`.agent-harness/verify.md`**: 단일 "Backend pytest baseline"(618/8) → **`## 검증 기준선(BOHUMFIT-242 실측·2026-07-23 갱신)`** 섹션 확장 — 백엔드 **684/8**, 프런트 `npm test` **79**, tsc 양쪽 명령, 빌드 청크 **343 kB대**(실측 343.22 kB·경고 없음이 정상) + "500 kB 경고만 허용" 폐기 근거(240 조사: `2f041fc` 격리 빌드 342.66 kB = 현행 343.22 kB) + **±10% 초과 변동 시 중단·원인 조사** 규칙 + 3문서 동시 갱신 안내.
+- **CLAUDE.md 검증 게이트**: 백엔드 684/8(출처를 217→242로), `npm test` 79 신설, 청크 343 kB대·±10% 규칙 추가.
+- **AGENTS.md 커밋 전 검증 계약**: 백엔드 684/8, `npm test` 79 신설, build 청크 기준·±10% 규칙 추가, 기준선 변경 시 동시 갱신 명시.
+- 하네스 운영 규칙(3트랙·위험도·루트 게이트) 내용 변경 **0** — 수치·기준선 문구만 동기화. 코드 diff **0**.
+
+### ★명세와 다른 실측 1건 (기록)
+- 명세는 `"500 kB chunk size warning만 허용" 문구 교체`를 지시했으나 **기준선 문서 4개에는 해당 문구가 0건**(grep 실측) — handoff·locks 등 **이력 기록에만** 존재. 따라서 교체가 아니라 **청크 기준선 신설(추가)**로 처리하고 폐기 사실을 새 문구에 명시(과거 이력 무수정).
+- 무변경 판정: **README.md**(기준선 수치 부재 — 명령만), **PROGRESS.md**(`91개`·`201 passed` 등은 "① 완료된 작업" 하위 과거 태스크 이력), locks·handoff·audit(이력).
+
+### Verified
+- 게이트 1회 실측 = 문서 기재값 일치: pytest **684 passed, 8 skipped** · `npm test` **79 passed** · build **343.22 kB**(gzip 101.81·청크 경고 없음).
+- 구 기준선 `618 passed` 잔존 **0건**(기준선 문서 기준·이력 보존). diff = 문서 3 + tasks/242 + handoff·locks만, **코드 diff 0**. `git diff --check` 통과.
+
+### Next
+1. **Human**: 계류 검수 — 회사명 라벨·대분류 문단·토글 제거(240 P1~P3), 239 실사용 케이스 경고 해소, P5 본인인증·히스토리·구독 회귀.
+2. **Chat**: 239 실사용 케이스 계약별 상세 필요 여부 · 235 자동승격 · 분류표 부록 에셋 · 가입제안서 [후] 샘플 대기.
+
 ## 2026-07-24 BOHUMFIT-241 - vite 보안 업그레이드 지연(수용) 결정 (1안 채택)
 
-Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex
-Commit: 코드/패키지 변경 없음(롤백) — harness 문서만 커밋·push 후 해시를 보완한다. 상세는 tasks/BOHUMFIT-241.
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human
+Commit: `90049768992421600004873a104aabe5000d15b3` (`origin/main`, local/remote 0/0). 코드·패키지 변경 없음(롤백), harness 문서만 커밋. 이 push 이후 사후 기록은 다음 하네스 커밋에 편승.
 
 ### 결정 (지연·저위험 수용 — 1안 채택)
 - 240 청크 조사로 보류 사유는 소멸(343kB대=정상 기준선)했으나, 실제 업그레이드가 **환경 버그로 차단**.
