@@ -1,7 +1,31 @@
-## 2026-07-23 BOHUMFIT-240 - Codex Windows 2차 검증 완료
+## 2026-07-24 BOHUMFIT-241 - vite 보안 업그레이드 지연(수용) 결정 (1안 채택)
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex
-Commits: P6 `c2196d893b25134a75daa7b005f70d6bcc424e43`, P1~P3 `87f7e967bb67f421e1eced3d08873de698c4d592`, P5는 본 기록과 함께 커밋·push 후 해시를 보완한다.
+Commit: 코드/패키지 변경 없음(롤백) — harness 문서만 커밋·push 후 해시를 보완한다. 상세는 tasks/BOHUMFIT-241.
+
+### 결정 (지연·저위험 수용 — 1안 채택)
+- 240 청크 조사로 보류 사유는 소멸(343kB대=정상 기준선)했으나, 실제 업그레이드가 **환경 버그로 차단**.
+- `npm update vite`: 8.0.10 → **8.1.5**(semver 호환·non-major), **npm audit 0 vulnerabilities** 달성. 앱 런타임 의존성(react·supabase·sentry·router·lucide) 이동 0.
+- ★검증 실패: vite 8.1.x가 끌어온 rolldown 네이티브 바인딩이 win32-x64에서 로드 실패(`ERR_DLOPEN_FAILED`, npm optionalDependencies 버그 npm/cli#4828) → **build·test 전부 깨짐**. `npm install`·클린 `npm ci`로도 재현(증분 버그 아님 — 커밋될 lockfile 자체가 이 환경 불가).
+- ★재발송 추가 조사(2026-07-23): 취약 8.0.0–8.0.15 → **8.0.16 패치**(rolldown 1.0.3·현행 1.0.x 라인) 최소 시도도 **동일 `ERR_DLOPEN_FAILED`**. 버그는 8.1.x 특정이 아니라 **rolldown 버전 변경 자체가 트리거**(버전 무관). 8.0.16도 롤백 → build 343.22kB·test 79 그린 복구.
+- 에러 요구 해법(lockfile+node_modules 전체 삭제·재생성)은 이번 "vite 계열 한정" 스코프 위반 + "무리한 진행 금지" 가드 → **롤백**. lockfile 8.0.10 복원 후 `npm ci`로 **build 343.22 kB·npm test 79 그린 복구**. package diff 0.
+- ★Chat 결정: 잔여 취약점은 **Windows dev 서버 한정·프로덕션 번들 무포함이라 사용자 노출 0**으로 판단해 1안(지연·수용)을 채택한다. 프로덕션은 **Vercel Linux 빌드**이므로 win32 바인딩 문제가 발생하지 않는다.
+- 실패 원인은 vite 버전 특정이 아니라 npm optionalDependencies 배선(`npm/cli#4828`)이며 **8.0.16·8.1.5 모두 동일 실패**로 확인됐다. 2안(전체 클린 재생성)은 조건부 승인하되 React/Tailwind 메이저·Node 교체·신규 개발 환경 세팅 등 **차기 대규모 의존성 작업에 편승**한다.
+
+### Verified
+- Codex 2차: clean `npm ci` 후 `npm test` **79 passed**, `npm run build` **343.22 kB**(gzip 101.81 kB)를 재현했다. 워킹트리 = harness 문서 3개만(package.json·lock·코드 diff 0). vite.config·tsconfig 무접촉.
+- 잔여 vite 취약점(GHSA-v6wh NTLMv2·GHSA-fx2h fs.deny 우회)은 **dev 서버+Windows 로컬 한정·프로덕션(Vercel/Linux) 무영향** — 실사용 리스크 낮음.
+- backend는 코드·requirements·lock 무접촉이고 직전 Windows 권위 기준선 **684 passed, 8 skipped**가 유지되므로 pytest를 재실행하지 않았다.
+
+### Next
+1. **Chat**: `verify.md`·`CLAUDE.md` 기준선 갱신(684/8·79·청크 343 kB대) 후속 발번.
+2. **Human**: 계류 검수(회사명 라벨·문단 구분·토글 제거·239 실사용 케이스·P5 본인인증).
+3. **백로그**: vite는 차기 대규모 의존성 작업에 편승(2안 조건부 승인 상태).
+
+## 2026-07-23 BOHUMFIT-240 - Codex Windows 2차 검증 완료
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human
+Commits: P6 `c2196d893b25134a75daa7b005f70d6bcc424e43`, P1~P3 `87f7e967bb67f421e1eced3d08873de698c4d592`, P5+harness `430b432d856df98d34e330fb14b8dfba25c7449c` (`origin/main`, local/remote 0/0). 이 push 이후 사후 기록은 다음 하네스 커밋에 편승.
 
 ### Verified
 - 루트 게이트 통과. Windows Python 3.12.10에서 backend pytest **684 passed, 8 skipped**(기준선 683+1)를 재현했다. tsc app/node·lint·`npm test` **79 passed**(77+2)·build 모두 통과했고 현재 JS 청크 **343.22 kB**(gzip 101.81 kB)를 기록했다.
@@ -10,7 +34,8 @@ Commits: P6 `c2196d893b25134a75daa7b005f70d6bcc424e43`, P1~P3 `87f7e967bb67f421e
 - P3 PDF HTML 그룹 헤더와 화면 `GROUP_ORDER`가 모두 **사망>후유장해>암>뇌>심장>수술>입원(간병 포함)>운전자>골절>실손>화재>배상책임>기타** 순서와 일치한다.
 - P5는 `advisor + bohumfit_tier=internal`이 우회를 유지하고 미지값/null은 우회하지 않음을 순수 판정으로 재현했다. history도 internal=True·미지값/null=False이며 profiles select가 `bohumfit_tier` 단독임을 확인했다. `usePhoneGate`는 `phone_verified, bohumfit_tier`를 조회하고 role select는 0이다.
 - 변경은 task Stage 목록 **14파일**과 정확히 일치한다. 코드·테스트·task 및 새 handoff diff의 실명 PII 0, `backend/pipeline/`·`supabase/migrations/`·package 파일 diff 0, 실 PDF·`보장분석/`·pycache stage 0, SURIT·구브랜드 색상 0을 확인했다. P4 변경은 없다.
-- 배포 스모크와 222~223 격리 worktree 청크 비교는 3개 파트 push 후 수행하고 본 항목에 사후 기록한다.
+- push 후 표준 배포 스모크에서 Railway `/api/health` **200**, Vercel 공개 `/login` **200**을 확인했다.
+- 청크 가설을 격리 검증했다. 임시 detached worktree에서 `2f041fc`(BOHUMFIT-223)를 체크아웃하고 동일 Node **24.18.0**·npm **11.16.0**, 해당 lockfile 기준 `npm ci` 후 build한 결과 **342.66 kB**(gzip 101.51 kB)였다. 현재 **343.22 kB**(gzip 101.81 kB)와 같은 정상 범위이므로 **222의 500 kB 경고는 구 빌드 상태 산물이고 343 kB대가 정상값**이라는 가설을 확정한다. 코드 외 요인 차이 신호는 없고 임시 worktree는 제거했다. `.env*` 조회 0·메인 워킹트리 무접촉.
 
 ### Next
 1. **Human**: 재업로드 검수(회사명 라벨·대분류 문단·토글 제거) + 239 실사용 케이스 경고 해소 확인 + 배포 후 내근직 계정의 본인인증 우회 유지 확인.
