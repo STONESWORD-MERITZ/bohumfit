@@ -1,7 +1,39 @@
+## 2026-07-25 BOHUMFIT-245 - 신 체계 1단계: 신규 담보 7종 패턴 additive + 표적항암 통합
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex(2차 검증·커밋)
+Commit: Codex 2차 검증 완료, 커밋 대기. 실 PDF 로컬 참조만·stage 0. 상세는 tasks/BOHUMFIT-245.
+
+### 구현 (S0 실측 근거 — 상세는 태스크 문서)
+- **신규 패턴 7종**(`constants.py` EXTRA_PATTERNS 말미 — 기존 캡처 우선순위 불변, S0 시뮬레이션 교집합 0): 중입자방사선 → 항암약물방사선(`(?<!표적)` 배제) → 일반사망(`^`접두) → 재해사망 → 순환계 치료비 → 응급실 → 깁스치료비(`깁스치료(비|특약)` 종결형 — C 복합특약 분류 전용 행 배제·234 ⑨ 원칙). 그룹: 깁스→골절만, 나머지 6종 기타(의도적 — 주석 명기).
+- **사망 상호배타 가드("그 역" 방식)**: 매트릭스 상해/질병사망 무변경 + 일반/재해사망은 기타 귀속(사망 대분류 미가산) + `parser.py` dedup(동일 계약·담보명·금액 재등장 1회 — A 실측: 일반사망 6,000만이 지급사유 2행).
+- **표적항암 통합**: 표준행 `고액(표적)항암치료비`→`표적항암치료` 개명 + `KB_NAME_ALIASES`로 원문 매칭 유지(매트릭스·진단·overview 공통). EXTRA 패턴 미작성 — KB가 표적 상세 라인을 이 행에 이미 합산함을 수치 검증(B 7,000만=matrix 일치·D 6,000만+중입자 5,000만=1.1억 일치) → 이중 계상 0.
+- ★스코프 인접 1건(사유): `proposal_registry.py` 동일 개명 — compare가 kb_name 문자열 결합이라 미개명 시 제안 담보 미매핑 강등(값 유실). test_193 기대값 2건 갱신(근거 주석).
+
+### Verified (1차 — Code)
+- backend pytest **694 passed, 8 skipped**(기준선 688+6). tsc·lint·npm test **79**·build **343.22 kB** 불변.
+- 실 PDF 5건 HEAD 코드 대조 전/후 비교표: **사망·암 그룹 5케이스 완전 불변**(배타·값 이관 검증), 골절=깁스 가산분만(B +80만·C +10만·D +50만·E +100만), 기타=신규 6종 가산분만(A +1.12억·D +1.7억·E +7,565만 등 산식 일치), 그 외 대분류·월납·부값 전부 불변.
+- 신규 검출 244 S2 대조 일치: A 일반사망 6,000만(dedup)·D 재해사망 1억·D/E 중입자 5,000만·B 표적 7,000만(개명 행)·E overview 별칭 경로 검증.
+- PII 0. diff = constants·parser·proposal_registry·테스트 2 + harness. pipeline/·supabase/ 0.
+
+### Verified (2차 — Codex, Windows)
+- backend 전체 **694 passed, 8 skipped**(기준선 688+6), test_193 기대값 2건의 개명·값 이관 근거 주석을 확인했다. tsc app/node·lint·frontend **79 passed**·build **343.22 kB**(gzip 101.81 kB, 기준선 ±10% 이내)도 재현했다.
+- `c889adf` 격리 worktree의 변경 전 파서와 현재 파서를 같은 실 PDF 5건에 적용했다. 사망·암을 포함한 기존 그룹, 월납(A 2,835,744/B 681,312/C 183,621/D 763,089/E 4,675,189), 병기 부값(A 2,282,564/B 681,312/C 183,621/D 495,389/E 4,675,189)은 모두 불변이다. 골절 증분은 A 0/B +80만/C +10만/D +50만/E +100만, 기타 증분은 A +1.12억/B +504만/C +100만/D +1.7억/E +7,565만으로 명세와 일치했다.
+- A 일반사망 6,000만·D 재해사망 1억·D/E 중입자 5,000만을 재현했다. B 표준행은 `표적항암치료` 단일 행 7,000만이고 구 라벨·EXTRA 중복은 0, E overview 별칭 경로도 5,000만으로 통과했다. C 깁스는 10만만 검출되어 `상해 통합치료비 … 깁스치료` 분류 행의 오매칭이 없었다.
+- proposal compare 경로에서 표적항암 값 **80,500,000**, 미매핑 경고 **0**을 확인했다. diff는 선언한 8파일뿐이며 pipeline/·supabase/·src/·package diff 0, PII grep 0, `git diff --check` 통과다. stage 직전 handoff 상단의 **245 → 244-S3 → 244** 엔트리와 244-S3 커밋 해시 `c889adf…` 보존을 재확인한다.
+
+### 관찰 (기록만)
+- A 항암약물방사선 동일 표기 100만 2행 합산 200만 — 별개 담보 여부 판별 불가, 사망 외 dedup은 범위 밖(2단계 규칙 결정 권장).
+- 레지스트리 `항암방사선약물치료` vs EXTRA `항암약물방사선` 명칭 유사·상이 — 기존 동작 무변경, 통일은 2단계.
+
+### Next
+1. **Chat** — BOHUMFIT-246(집계·스키마 전환, 고위험) 투입. 프롬프트는 기수령 상태.
+2. **Human** — 재업로드로 기타 그룹 신규 6종 표시 확인(선택 — 246 후 통합 검수 가능).
+3. **246 결정 이관** — A 항암약물방사선 100만×2의 dedup 여부는 detail 원문 대조 후 판정.
+
 ## 2026-07-25 BOHUMFIT-244-S3 - 엑셀 양식 실측 명세 (차단 해소)
 
-Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex(문서 커밋)
-Commit: 없음 — Codex 문서 커밋 대기. **코드 diff 0**(조사·문서 전용). 엑셀 원본 stage 0. 상세는 tasks/BOHUMFIT-244의 S3 섹션(갱신).
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human
+Commit: `c889adfb7b8c23af111a29bdfe73267192ff9818` (`origin/main`, local/remote 0/0). **코드 diff 0**(조사·문서 전용), 엑셀 원본 stage 0. 이 push 이후 사후 기록은 다음 하네스 커밋에 편승.
 ※기록 복구: 아래 2026-07-24 BOHUMFIT-244 엔트리는 Codex의 243 커밋(c808348) 과정에서 handoff 워킹트리 정리로 소실 → 이번 엔트리와 함께 재기록.
 
 ### 차단 해소

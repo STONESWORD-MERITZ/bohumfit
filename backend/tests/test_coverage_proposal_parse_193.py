@@ -185,10 +185,12 @@ def test_parse_real_trace_193_synthetic_five_pdfs() -> None:
     cancer = _proposal(result, "meritz-cancer")
     bundle = {(item["kb_name"], item["amount"]) for item in cancer["metadata"]["bundle_subbenefits"]}
     assert ("암수술비", 17_500_000) in bundle
-    assert ("고액(표적)항암치료비", 80_500_000) in bundle
+    # BOHUMFIT-245 ⑦: 표적항암 통합 — 표준행·레지스트리 개명(고액(표적)항암치료비→표적항암치료,
+    # 값 이관·금액 불변). compare kb_name 결합 정합을 위해 레지스트리도 동일 명칭 사용.
+    assert ("표적항암치료", 80_500_000) in bundle
     assert ("항암방사선약물치료", 20_500_000) in bundle
     assert _amount(cancer, "암수술비") == 17_500_000
-    assert _amount(cancer, "고액(표적)항암치료비") == 80_500_000
+    assert _amount(cancer, "표적항암치료") == 80_500_000
 
     assert _amount(_proposal(result, "mirae-mcare"), "유사암") == 20_000_000
     assert _amount(_proposal(result, "kb-hope"), "급성심근경색증") == 50_000_000

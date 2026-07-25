@@ -103,7 +103,9 @@ PRODUCT_PROFILES: tuple[ProductProfile, ...] = (
         ),
         bundle_coverages=(
             RegistryCoverage("암수술비", 17_500_000, "수술", AGG_SUM, "암 통합치료비 bundle 분해"),
-            RegistryCoverage("고액(표적)항암치료비", 80_500_000, "암", AGG_SUM, "암 통합치료비 bundle 분해"),
+            # BOHUMFIT-245 ⑦: 표준행 개명(고액(표적)항암치료비→표적항암치료)과 kb_name 결합 정합
+            #   — compare.known_coverages가 이름 문자열로 결합하므로 미개명 시 미매핑 강등(값 유실).
+            RegistryCoverage("표적항암치료", 80_500_000, "암", AGG_SUM, "암 통합치료비 bundle 분해"),
             RegistryCoverage("항암방사선약물치료", 20_500_000, "암", AGG_SUM, "암 통합치료비 bundle 분해"),
         ),
     ),

@@ -2,7 +2,11 @@
 
 Use this file to record active Codex file ownership during a task.
 
+## Active
+
 ### Released
+- 2026-07-25 `BOHUMFIT-245-new-patterns-additive` - Codex Windows - Released. backend **694/8**, tsc app/node·lint·frontend **79**·build **343.22 kB**, 실 PDF 5건의 변경 전(`c889adf`) 대비 기존 그룹·월납·부값 불변과 골절/기타 신규 증분을 2차 확인. A 일반사망·D 재해사망·D/E 중입자, 표적항암 단일 행·E overview 별칭, C 깁스 오매칭 배제, proposal compare 미매핑 0을 재현. PII 0·Stage 8파일·pipeline/supabase/src/package diff 0. handoff 245→244-S3→244 보존 확인 후 Codex 커밋·push 대기.
+- 2026-07-25 `BOHUMFIT-245-new-patterns-additive` - Claude Code - Released. 신규 패턴 7종(중입자>항암약물 선순위·`(?<!표적)` 배제·깁스 종결형 정밀화) + 사망 배타 가드("그 역": 기타 귀속+dedup) + 표적항암 통합(표준행 개명+KB_NAME_ALIASES·EXTRA 미작성 — 매트릭스 포함 수치 검증). ★스코프 인접 1건: proposal_registry 개명(compare kb_name 결합 정합·값 유실 방지, 사유 기록). pytest **694/8**(688+6)·npm 79·tsc·lint·build 343.22 kB. 실 PDF 5건 HEAD 대조: 사망·암 그룹 완전 불변, 골절=깁스 가산분만, 기타=신규 6종 가산분만, 월납·부값 불변. PII 0·pipeline/supabase diff 0. git 쓰기 0 — Codex 2차 검증·커밋 대기.
 - 2026-07-25 `BOHUMFIT-244-taxonomy-redefinition-spec` - Codex Windows - Released. 243 선행 커밋 `c808348` HEAD/origin 확인, 244 문서 S1~S4·Human 결정지·PII 0, 변경 범위 task/handoff/locks 3개·코드 diff 0·엑셀/PDF stage 0을 2차 검증. 문서 전용으로 코드 테스트 미실행. Human 결정 2·3·4 후 Chat 245(S4 1단계) 발번.
 - 2026-07-25 `BOHUMFIT-244-S3-excel-form-survey` - Claude Code - Released. Human 배치 `비분양식.xlsx` 실측 완료 — 244 문서 S3 갱신(시트3종 병합 9/51/44·문구·수식 원본 수록). 핵심: [전] B~D 3열 확정·확장 규칙 부재(Human 결정 8), Y/N=COUNTA 수식, H10=심장중기 오타 수식 대역으로 확정, 뇌·심장 단계 규칙 수식으로 해소(기존 결정 항목 5 제거), K7 이중합산·차액 부호 이상 기록, [후] 공란=0/N 오독 위험 확인·정책안 제시, export_excel 요건 7항. 코드 diff 0·엑셀 stage 0. Codex 문서 커밋 대기.
 - 2026-07-24 `BOHUMFIT-243-parser-defects-2` - Claude Code - Released. ① 계약리스트 기관명 복원(KNOWN에 새마을금고중앙회 등 + 접미에 중앙회/공제/금고/수협/신협 + 분할 시에만 상품명 잔재 재제거 — 연속표기 케이스 동작 불변): E 계약15 복원, 5케이스 미제공 0. ② 후유장해 80%이상 — 진단상 오분류는 **재현 불가**(이미 분리·산술 검증)이나 2026-07-24 Human 결정대로 후유장해 집계에서 **제외(기타로 이동·정보 보존)**: A 121,000,000→110,000,000·B 20,000,000→0·C 850,000,000→780,000,000·D 불변·E 73,000,000→71,000,000. pytest **688/8**(684+4)·npm 79·tsc·lint·build 343.22 kB·실 PDF 월납 전부 불변·PII 0·pipeline/supabase diff 0. git 쓰기 0 — Codex 2차 검증·커밋 대기.

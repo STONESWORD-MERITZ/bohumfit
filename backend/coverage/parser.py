@@ -496,6 +496,11 @@ def parse_detail_pages(detail_pages: list[list[str]], contracts: list[dict], jon
     premium_to_idx = {c["monthly_premium"]: c["idx"] for c in contracts if c.get("monthly_premium")}
     notes: dict[int, dict] = {}
     extra: dict[str, dict] = {}
+    # BOHUMFIT-245 ①②: 일반/재해사망은 KB가 동일 담보를 상해·질병사망 지급사유 행으로
+    #   중복 표기한다(A 실측: `일반사망` 6,000만이 두 행) — 동일 (계약, 담보명, 금액)의
+    #   재등장은 1회만 계상해 담보 자체의 이중 합산을 막는다(사망 배타 가드의 일부).
+    _DEATH_DEDUP_LABELS = ("일반사망", "재해사망")
+    death_seen: set[tuple] = set()
 
     for lines in detail_pages:
         idx = _detail_contract_idx(lines, premium_to_idx)
@@ -541,6 +546,12 @@ def parse_detail_pages(detail_pages: list[list[str]], contracts: list[dict], jon
                             )
                             entry["by_company"][key] = entry["by_company"].get(key, 0) + tier_amount
                     continue
+            if label in _DEATH_DEDUP_LABELS:
+                name, _cls = split_detail_parts(line)
+                dedup_key = (label, key, _despace(name), amount)
+                if dedup_key in death_seen:
+                    continue
+                death_seen.add(dedup_key)
             entry = extra.setdefault(label, {"agg": agg, "by_company": {}})
             entry["by_company"][key] = entry["by_company"].get(key, 0) + amount
             # BOHUMFIT-237 C: N대수술비는 원문의 N(131대 등)을 채집해 표시명 병기에 쓴다.
