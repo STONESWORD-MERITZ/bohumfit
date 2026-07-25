@@ -213,6 +213,11 @@ def _entry(
     merge_rule: str = AGG_REP,
 ) -> dict[str, Any]:
     kb_group, resolved_group, resolved_agg = _known_meta(kb_name, group12, agg)
+    # BOHUMFIT-246: 텍스트 룰의 구명칭(일반암 등)을 정식명으로 정규화 — 파서·레지스트리와
+    #   동일한 별칭 테이블(coverage_meta) 경유. compare kb_name 결합 정합(값 유실 방지).
+    meta = coverage_meta(kb_name)
+    if meta:
+        kb_name = meta[0]
     return {
         "kb_name": kb_name,
         "amount": amount,

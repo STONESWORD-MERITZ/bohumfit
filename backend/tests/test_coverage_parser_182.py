@@ -64,4 +64,4 @@ def test_moon_baseline_values_are_not_changed() -> None:
     assert contracts[0]["monthly_premium"] == 573_227
     assert paid == 181_984_128
     assert parser.parse_matrix(_matrix_pages())["상해사망"]["summary"] == 550_000_000
-    assert parser.parse_matrix(_matrix_pages())["일반암"]["summary"] == 100_000_000
+    assert parser.parse_matrix(_matrix_pages())["암진단금"]["summary"] == 100_000_000  # 246 정식명(원문 일반암=별칭)

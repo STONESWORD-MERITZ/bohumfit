@@ -1,7 +1,55 @@
+## 2026-07-25 BOHUMFIT-246 - 신 체계 2단계: 집계·스키마 전면 전환 (비분양식 정본화)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex(2차 재검증 통과·커밋/배포 스모크)
+Commit: Codex 2차 재검증 통과 — 커밋·push 직전. 실 PDF·엑셀 로컬 참조만·stage 0. 상세는 tasks/BOHUMFIT-246(회송 보정 절 포함).
+
+### 회송 보정 완료 (2026-07-25 · Claude Code)
+- **반려 원인**: E(239 합계-only overview)에서 [후] 이월 파손 — 합계-only 행을 빈 계약 셀로 재집계해 26행 소실·총합 1,542,990,000→142,750,000·Y/N 전부 N·단계 감소.
+- **해소**: ① `build_before`가 overview 유래 행에 `overview: True` 표식(표준 매트릭스 행 무변경 — 239 가드 방식) ② `apply_consulting_plan`이 overview 행을 ★합계 수준 그대로 이월(해지 체크 불가 = 유지 간주) ③ **보존+경고 정책 명시** — 해지 요청 + overview 행 공존 시 "합계형 문서는 해지를 보장 합계에 반영할 수 없다" warning(보험료는 유지 계약 기준 재계산).
+- **Codex 워킹트리 보정 3건 보존**(미회귀 확인): 일시납 `_paid_total` 1회 금액 · test_179 암진단금 정확값 · 246 전=후 의미 비교 강화(계약값·`?`·estimated).
+- **회귀 고정 +2**(test_taxonomy_246): overview 전=후 완전 동일 / 해지 시 overview 보존+경고·계약 키 EXTRA 정상 해지.
+- **검증**: backend pytest **705/8**(703+2). ★전=후 실 PDF 5건 전부 OK — **E 54행·1,542,990,000 유지(소실 0)**, A 1,373,510,000·B 604,560,000·C 1,670,740,000·D 1,733,820,000, 월납·Y/N·단계 전부 동일. ★총액 대사 5건 차이 0 불변(차감 A 1.2억·D 5,000만). tsc·lint·npm **79**·build **343.22 kB**. PII 0·pipeline diff 0·보정 diff = aggregator·consulting·test_taxonomy_246만.
+
+### Codex 2차 재검증 통과 (2026-07-25 · commit/push 전)
+- ★반려 해소 우선 검증: 합성 overview 회귀 **11 passed**. 실 PDF E는 overview 표식 행 **26개·1,400,240,000원**을 합계 수준으로 이월해 [후] **54행·1,542,990,000원** 유지, 월납·Y/N·뇌심 단계가 [전]과 완전 동일하다. 해지 요청 공존 시 overview 보장 합계 보존+경고, 계약 키가 있는 EXTRA의 정상 해지는 회귀로 고정했다.
+- 표준 A~D는 overview 행 **0개**로 기존 매트릭스 재집계 경로를 유지하고, [후] 총합 A **1,373,510,000** / B **604,560,000** / C **1,670,740,000** / D **1,733,820,000**, 행수·전 계약값·premium·Y/N·단계가 [전]과 모두 동일하다. `235cb09` 격리 파서 대비 구총합−신총합−차감은 5건 모두 0(A 1.2억·D 5,000만·B/C/E 0), 월납·납입완료 제외 부값도 불변이다.
+- 전체 Windows 게이트: backend **705 passed, 8 skipped**, tsc app/node·lint·frontend **79 passed**, build **343.22 kB**(gzip 101.81 kB). Codex 보정 3건(일시납 `_paid_total`·test_179 암진단금 1억 정확값·전=후 의미 비교 강화)도 유지됐다.
+- 엑셀 번들 렌더러는 Windows Application Control이 `skia.node`를 차단해 원본을 변경하지 않고 `.xlsx` 표준 XML로 재대조했다. 금액행 **35개**와 Y/N **5개**를 합친 양식 40행 순서가 코드 투영과 일치하고, GROUP13 **11개**·KB_COVERAGES **40개**를 확인했다. 시트3 I5:I11 수식 7개는 주석과 정확히 일치하며 H10은 원본 중복 문구를 `심장중기`로 정정, K7의 F22 이중합산은 미이식이다.
+- ★이전 Codex 기록의 “47~49행 고정 N”은 OOXML 공유 수식의 follower 셀에 수식 본문이 생략되는 저장 방식을 오독한 것이었다. E/I 46~49는 각각 shared formula 범위이고, 따라서 양식 45~49행 **5개 모두 COUNTA 수식**이다. 현행 `YN_ITEMS` 5항목 파생은 원본과 정확히 등가다.
+- 범위: 246 선언 파일 **22개**만, PII 0·`backend/pipeline/`·`supabase/migrations/`·package diff 0·실 PDF/엑셀 tracked 0·`git diff --check` 통과. 런타임 SURIT·구브랜드 색상 0.
+
+### 핵심 (상세·표는 태스크 문서)
+- **대분류 정본화**: GROUP13 → 사망·후유장해·암·뇌·심장·종수술·수술·의료이용·골절·가입특약(Y/N)·기타. KB_COVERAGES 40행(37+신담보 3: 면역항암·암 주요치료비·심혈관질환 — [후] 전용 자리), 정식명 12건 개명(암진단금·암수술·뇌혈관수술·심혈관수술 등) + KB_NAME_ALIASES로 원문 매칭 유지. 소비처(compare·export·프런트)는 GROUP13/GROUP_ORDER 상수 구동이라 자동 전파 — CoverageRemodel.tsx 직접 수정 0.
+- **사망 상호배타(승격+차감)**: parser가 지급사유 근거(class_amounts)를 기록 → aggregator가 상해/질병사망 셀에서 계약별 차감 후 사망 그룹 승격. 근거 없으면 `(계약 미확인)` 기타 보존(이중 계상 0 > 승격). 중입자도 표적 셀 차감(D 실측 정합).
+- **★총액 대사 5건 차이 0**: 구총합(HEAD 235cb09) = 신총합 + 배타 차감(A 1.2억·D 5,000만·B/C/E 0). 월납·부값 5건 불변.
+- **뇌·심장 단계 파생**: 시트3 수식 이식(원문 7행 주석 병기·H10 심장중기 정정·K7 이중합산 미이식). Y/N 파생(COUNTA 등가) + 시트2 항목 순서 정렬. 238 estimated 생존.
+- **[후] 이월 모델**: 기존 consulting.apply_consulting_plan 정본 유지 + 파생치 재계산. ★190 결함 보정: 계약 미상 키('?') 유실 → 이월로 수정(해지 0인데 전≠후가 되던 결함 — 전=후 완전 동일성 테스트 통과에 필수).
+- **지시 7 판정**: A 항암약물방사선 100만×2행 = **행번호 7·8이 다른 별개 담보**(원문 대조) → 합산 유지(dedup 확장 불필요).
+- 인접 수정(사유 기록): proposal_registry 19건·proposal_parser 정규화(compare kb_name 결합 — 값 유실 방지).
+
+### Verified (1차 — Code)
+- backend pytest **703/8**(694+9 — test_taxonomy_246: 대사·전=후·단계·Y/N·순서·estimated). 갱신 10파일 근거 주석.
+- tsc·lint·npm test **79**·build **343.22 kB** 불변. PII 0. pipeline/·supabase/ diff 0.
+
+### Codex 2차 검증 — 반려 / Code 회송
+- 통과: 루트 게이트, backend **703 passed, 8 skipped**, tsc app/node·lint·frontend **79 passed**·build **343.22 kB**. `235cb09` 격리 worktree 대비 실 PDF 5건의 구총합/신총합/차감은 Code 표와 일치하고 대사차이 전부 0(A 신 1,373,510,000·차감 120,000,000 / D 신 1,733,820,000·차감 50,000,000 / B·C·E 구=신), 월납·병기 부값도 불변이다. A/E `estimated` 환산 5행과 D `?` 1억의 [후] 이월도 확인했다.
+- 엑셀 원본은 번들 렌더러 네이티브 모듈이 Windows Application Control에 차단되어, 원본을 변경하지 않고 `.xlsx` 표준 XML로 대조했다. 양식 숫자 35행은 정보보존용 비양식 행을 제외해 투영하면 코드 순서와 정확히 일치하고 매핑 누락 0, KB_COVERAGES 40·대분류 11을 확인했다. 시트3 I5:I11 수식은 주석과 동일, H10만 `심장중기` 정정, K7의 F22 중복은 미이식이다. 원본 Y/N 45~49행은 OOXML 공유 수식으로 저장된 COUNTA 수식 5개이며, 코드 5항목 파생과 의미가 일치한다(위 재검증에서 이전 오독 정정).
+- Codex 최소 보정(같은 태스크 범위): test_179의 암진단금 truthy 검사를 정확값 1억으로 강화, 246 전=후 테스트를 비어 있지 않은 계약값·`?`·`estimated`까지 비교하도록 강화, consulting 일시납 `paid_total`을 1회 금액으로 유지(build_before 규칙과 정합). 관련 190/186/211 포함 targeted **30 passed**.
+- **반려 결함(실 PDF E overview)**: 239 합계-only 문서는 보장행 `summary`만 있고 `by_company={}`인데, `apply_consulting_plan`이 빈 계약 셀에서 summary를 재집계해 해지 0·신규 0에서도 26개 행을 미가입으로 소실한다. E 총합이 **1,542,990,000 → 142,750,000(-1,400,240,000)**, Y/N 전부 Y→N, 단계 합계도 감소한다. 합성 246 테스트에는 overview 행이 없어 미검출됐다.
+- 필요한 Code 보정: overview 합계-only 행은 해지 0에서 summary/enrolled를 그대로 이월하고, 계약별 귀속이 없어 해지 반영이 불가능한 경우의 보존+warning 정책을 코드·테스트로 명시한다. 표준 matrix와 overview 각각에 대해 전=후 의미론적 완전 동일(비어 있지 않은 by_company·`?`·estimated·premium·stage·Y/N) 회귀를 추가한 뒤 전체 **703/8 이상**을 재실행한다.
+
+### Human 확인 항목 (기록)
+- D 재해사망 1억 — 계약 미확인으로 기타 보존(증권 대조 후 승격 여부).
+- E 중입자 5,000만 vs overview 표적 5,000만 — 금액 우연 일치 여부(overview라 배타 차감 불가·잠재 이중 표시).
+
+### Next
+1. **Codex** — 반려 항목 재검증(E [후] 총합 1,542,990,000·행수 54·Y/N·단계 + 표준 4건 전=후) → 범위 stage(기존 246 선언 파일 + 보정분 aggregator·consulting·test_taxonomy_246) → 커밋 `feat(BOHUMFIT-246): 담보 체계 비분양식 정본화 — 집계·스키마 전환 + 뇌심 단계 파생 + 후 이월(overview 포함)` → push → 배포 스모크.
+2. 통과 후 **Human** 재업로드 확인 2건(D 재해사망·E 중입자 vs overview 표적), **Chat** 247→248→249 순차 발번.
+
 ## 2026-07-25 BOHUMFIT-245 - 신 체계 1단계: 신규 담보 7종 패턴 additive + 표적항암 통합
 
-Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex(2차 검증·커밋)
-Commit: Codex 2차 검증 완료, 커밋 대기. 실 PDF 로컬 참조만·stage 0. 상세는 tasks/BOHUMFIT-245.
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Chat(BOHUMFIT-246) / Human(선택 검수)
+Commit: `235cb0959b919590843cc1fe75188038c2c4d832` (`origin/main`, local/remote 0/0). 실 PDF 로컬 참조만·stage 0. 이 push 이후 사후 기록은 다음 하네스 커밋에 편승.
 
 ### 구현 (S0 실측 근거 — 상세는 태스크 문서)
 - **신규 패턴 7종**(`constants.py` EXTRA_PATTERNS 말미 — 기존 캡처 우선순위 불변, S0 시뮬레이션 교집합 0): 중입자방사선 → 항암약물방사선(`(?<!표적)` 배제) → 일반사망(`^`접두) → 재해사망 → 순환계 치료비 → 응급실 → 깁스치료비(`깁스치료(비|특약)` 종결형 — C 복합특약 분류 전용 행 배제·234 ⑨ 원칙). 그룹: 깁스→골절만, 나머지 6종 기타(의도적 — 주석 명기).
@@ -20,6 +68,7 @@ Commit: Codex 2차 검증 완료, 커밋 대기. 실 PDF 로컬 참조만·stage
 - `c889adf` 격리 worktree의 변경 전 파서와 현재 파서를 같은 실 PDF 5건에 적용했다. 사망·암을 포함한 기존 그룹, 월납(A 2,835,744/B 681,312/C 183,621/D 763,089/E 4,675,189), 병기 부값(A 2,282,564/B 681,312/C 183,621/D 495,389/E 4,675,189)은 모두 불변이다. 골절 증분은 A 0/B +80만/C +10만/D +50만/E +100만, 기타 증분은 A +1.12억/B +504만/C +100만/D +1.7억/E +7,565만으로 명세와 일치했다.
 - A 일반사망 6,000만·D 재해사망 1억·D/E 중입자 5,000만을 재현했다. B 표준행은 `표적항암치료` 단일 행 7,000만이고 구 라벨·EXTRA 중복은 0, E overview 별칭 경로도 5,000만으로 통과했다. C 깁스는 10만만 검출되어 `상해 통합치료비 … 깁스치료` 분류 행의 오매칭이 없었다.
 - proposal compare 경로에서 표적항암 값 **80,500,000**, 미매핑 경고 **0**을 확인했다. diff는 선언한 8파일뿐이며 pipeline/·supabase/·src/·package diff 0, PII grep 0, `git diff --check` 통과다. stage 직전 handoff 상단의 **245 → 244-S3 → 244** 엔트리와 244-S3 커밋 해시 `c889adf…` 보존을 재확인한다.
+- push 후 표준 배포 스모크: Railway `/api/health` **200**, Vercel 공개 `/login` **200**. HEAD와 `origin/main`은 `235cb095…`, ahead/behind **0/0**이다.
 
 ### 관찰 (기록만)
 - A 항암약물방사선 동일 표기 100만 2행 합산 200만 — 별개 담보 여부 판별 불가, 사망 외 dedup은 범위 밖(2단계 규칙 결정 권장).

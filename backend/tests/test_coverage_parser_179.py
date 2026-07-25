@@ -161,11 +161,13 @@ def test_amount_tokenizer():
 
 
 def test_mapping_37_12_rep():
-    assert STANDARD_COUNT == 37
-    assert len(GROUP12) == 12
+    # BOHUMFIT-246: 비분양식 정본화 — 표준 40행(37 + 신담보 3: 면역항암·암 주요치료비·심혈관질환),
+    #   대분류 10+기타. 값 변경 없음(개명·재귀속) — 총액 대사는 test_taxonomy_246에서 증명.
+    assert STANDARD_COUNT == 40
+    assert len(GROUP12) == 10
     reps = [n for (n, _, _, a) in KB_COVERAGES if a == AGG_REP]
-    assert reps == ["상해입원의료비", "상해통원의료비", "질병입원의료비",
-                    "질병통원의료비", "3대비급여실손", "가족/일상/자녀배상"]
+    assert reps == ["가족/일상/자녀배상", "상해입원의료비", "상해통원의료비",
+                    "질병입원의료비", "질병통원의료비", "3대비급여실손"]  # 246: 양식 순서
 
 
 def test_aggregate_sum_vs_rep():
@@ -272,14 +274,14 @@ def _cov(before, name):
 def test_matrix_sum_coverages():
     _, before, _ = _build()
     assert _cov(before, "상해사망")["summary"] == 5 * EOK + 5000 * MAN     # 5억5천
-    assert _cov(before, "일반암")["summary"] == 1 * EOK                    # 1억
+    assert _cov(before, "암진단금")["summary"] == 1 * EOK  # 246 개명(구 일반암) — 값 1억 불변
     assert _cov(before, "교통사고처리지원금")["summary"] == 1 * EOK + 8000 * MAN  # 1억8천
 
 
 def test_ildang_sum_and_silson_rep():
     _, before, _ = _build()
     # 입원일당 합산: (4)3만 + (6)3만 = 6만
-    assert _cov(before, "상해입원일당")["summary"] == 6 * MAN
+    assert _cov(before, "상해입원")["summary"] == 6 * MAN  # 246 개명(구 상해입원일당)
     # 실손 대표값(문건주는 단건 5,000만)
     assert _cov(before, "상해입원의료비")["summary"] == 5000 * MAN
     assert _cov(before, "상해입원의료비")["agg"] == "rep"
@@ -287,7 +289,7 @@ def test_ildang_sum_and_silson_rep():
 
 def test_all_37_present_and_matrix_columns():
     raw, before, _ = _build()
-    assert len(before["coverages"]) == 35
+    assert len(before["coverages"]) == 38  # 246: 40 - 제외 2(장기요양·경증치매)
     # 매트릭스 열 = 계약 6
     ncol = max(len(v["by_company"]) for v in raw["matrix"].values())
     assert ncol == 6, ncol
@@ -300,8 +302,8 @@ def test_diagnosis_and_final():
     _, _, final = _build()
     d = {c["kb_name"]: c for c in final["coverages"]}
     assert d["상해사망"]["recommended"] == 2 * EOK and d["상해사망"]["status"] == "충분"
-    assert d["유사암"]["status"] == "부족"
-    assert d["질병80%미만후유장해"]["status"] == "미가입"
+    assert d["유사암진단금"]["status"] == "부족"  # 246 개명
+    assert d["질병후유장해"]["status"] == "미가입"  # 246 개명
     # value = 집계값(합산) 유지
     assert d["상해사망"]["value"] == 5 * EOK + 5000 * MAN
 

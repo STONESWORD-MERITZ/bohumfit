@@ -66,8 +66,9 @@ def test_over80_disability_excluded_from_disability_group():
             "monthly_premium": 50_000,
         }],
         "matrix": {
-            "상해80%미만후유장해": {"by_company": {"1": 5000 * MAN}},
-            "질병80%미만후유장해": {"by_company": {"1": 2000 * MAN}},
+            # BOHUMFIT-246: 파서 산출 키 = 정식명(상해후유장해 — 구 상해80%미만후유장해는 별칭).
+            "상해후유장해": {"by_company": {"1": 5000 * MAN}},
+            "질병후유장해": {"by_company": {"1": 2000 * MAN}},
         },
         "diagnosis": {}, "notes": {},
         "extra": {"80%이상 후유장해": {"agg": "sum", "by_company": {"1": 100 * MAN}}},
@@ -81,7 +82,7 @@ def test_over80_disability_excluded_from_disability_group():
 
     # 후유장해 집계 = 3-100%(80%미만) 담보만 = 5,000만 + 2,000만
     disability = by_group.get("후유장해", [])
-    assert sorted(disability) == sorted([("상해80%미만후유장해", 5000 * MAN), ("질병80%미만후유장해", 2000 * MAN)])
+    assert sorted(disability) == sorted([("상해후유장해", 5000 * MAN), ("질병후유장해", 2000 * MAN)])  # 246 정식명
     assert sum(v for _, v in disability) == 7000 * MAN
     # 80%이상은 기타로 표시(정보 보존) — 후유장해 합계에 미포함.
     assert ("80%이상 후유장해", 100 * MAN) in by_group.get(GROUP_ETC, [])

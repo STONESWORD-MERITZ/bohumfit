@@ -94,7 +94,8 @@ def _cov(table: dict, name: str):
 
 
 def test_group13_added():
-    assert len(GROUP13) == 13
+    # BOHUMFIT-246: 비분양식 대분류 10+기타(정본화).
+    assert len(GROUP13) == 11
     assert GROUP13[-1] == GROUP_ETC
 
 
@@ -108,8 +109,8 @@ def test_179_regression_totals_unchanged():
     ("name", "expected"),
     [
         ("상해사망", 5 * EOK + 5000 * MAN),
-        ("일반암", 1 * EOK),
-        ("상해입원일당", 6 * MAN),
+        ("암진단금", 1 * EOK),      # 246 개명(구 일반암) — 값 불변
+        ("상해입원", 6 * MAN),      # 246 개명(구 상해입원일당) — 값 불변
     ],
 )
 def test_179_regression_core_coverages_unchanged(name, expected):
@@ -125,8 +126,8 @@ def test_179_base_coverage_count_unchanged():
     _, before, _ = _build()
     kb_names = {name for (name, _g, _g12, _a) in KB_COVERAGES}
     base = [c for c in before["coverages"] if c["kb_name"] in kb_names]
-    # 기본형 37담보 − 제외(치매/간병 2) = 35. (구 36은 "그룹≠기타" 계수라 화상 1건이 섞인 값)
-    assert len(base) == 35
+    # BOHUMFIT-246: 표준 40행(37+신담보 3) − 제외 2 = 38.
+    assert len(base) == 38
 
 
 @pytest.mark.parametrize(
@@ -178,7 +179,8 @@ def test_classify_extra_skips_class_only_burn_line():
 def test_extra_coverages_summary(name, expected):
     _, before, _ = _build()
     assert _cov(before, name)["summary"] == expected
-    expected_group = "골절" if name in ("화상", "화상진단비", "화상수술비", "골절수술비") else GROUP_ETC
+    # BOHUMFIT-246: 화상류·골절수술비는 신 양식 비항목 → 기타 보존(값 불변 — 귀속만 이동).
+    expected_group = GROUP_ETC
     assert _cov(before, name)["group12"] == expected_group
     assert _cov(before, name)["agg"] == "sum"
 
@@ -187,7 +189,7 @@ def test_extra_not_pollute_base_rows():
     _, before, _ = _build()
     etc_names = {c["kb_name"] for c in before["coverages"] if c["group12"] == GROUP_ETC}
     assert "상해사망" not in etc_names
-    assert "일반암" not in etc_names
+    assert "암진단금" not in etc_names  # 246 개명
 
 
 def test_detail_premium_maps_to_contract_idx():
@@ -211,4 +213,9 @@ def test_final_includes_etc_rollup():
     groups = {r["group12"] for r in final["rollup_by_group12"]}
     assert GROUP_ETC in groups
     etc = [c for c in final["coverages"] if c["group12"] == GROUP_ETC]
-    assert etc and all(c["recommended"] is None for c in etc)
+    # BOHUMFIT-246: 고액암 등 표준행이 기타로 이동 — 진단(recommended)은 표준행만 가질 수
+    #   있고, EXTRA 검출 라벨은 여전히 recommended 없음.
+    from coverage.constants import KB_COVERAGES as _KB
+    kb_names = {name for (name, _g, _g12, _a) in _KB}
+    assert etc
+    assert all(c["recommended"] is None for c in etc if c["kb_name"] not in kb_names)

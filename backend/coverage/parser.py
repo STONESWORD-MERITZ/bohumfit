@@ -547,11 +547,29 @@ def parse_detail_pages(detail_pages: list[list[str]], contracts: list[dict], jon
                             entry["by_company"][key] = entry["by_company"].get(key, 0) + tier_amount
                     continue
             if label in _DEATH_DEDUP_LABELS:
-                name, _cls = split_detail_parts(line)
+                name, cls = split_detail_parts(line)
+                # BOHUMFIT-246: 배타 차감 근거 — 지급사유(KB분류) 행별 금액을 계약 키로 기록.
+                #   계상은 dedup으로 1회지만 매트릭스 상해/질병사망 셀에는 지급사유별로 반영돼
+                #   있어(A 실측: 일반사망 6,000만이 두 셀에 각각) 차감은 전 지급사유 행 기준.
+                #   검출·계상 결과는 245와 동일(주석 데이터만 추가).
+                compact_cls = _despace(cls)
+                if compact_cls in ("상해사망", "질병사망"):
+                    dead_entry = extra.setdefault(label, {"agg": agg, "by_company": {}})
+                    class_map = dead_entry.setdefault("class_amounts", {}).setdefault(key, {})
+                    class_map[compact_cls] = class_map.get(compact_cls, 0) + amount
                 dedup_key = (label, key, _despace(name), amount)
                 if dedup_key in death_seen:
                     continue
                 death_seen.add(dedup_key)
+            if label == "중입자방사선":
+                name, _cls = split_detail_parts(line)
+                if "고액항암치료비" in _despace(name):
+                    # BOHUMFIT-246: KB가 이 라인을 매트릭스 표적항암치료(구 고액(표적)) 행에
+                    #   합산함(D 실측: 표적 6,000만+중입자 5,000만=1.1억) — 배타 차감용 포함분
+                    #   기록(검출·계상 불변). E형("기타 인보험" 분류)은 미기록 → 차감 없음.
+                    ion_entry = extra.setdefault(label, {"agg": agg, "by_company": {}})
+                    included = ion_entry.setdefault("target_included", {})
+                    included[key] = included.get(key, 0) + amount
             entry = extra.setdefault(label, {"agg": agg, "by_company": {}})
             entry["by_company"][key] = entry["by_company"].get(key, 0) + amount
             # BOHUMFIT-237 C: N대수술비는 원문의 N(131대 등)을 채집해 표시명 병기에 쓴다.

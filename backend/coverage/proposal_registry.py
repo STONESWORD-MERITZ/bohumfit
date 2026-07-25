@@ -68,6 +68,8 @@ PROPOSAL_RULES: tuple[ProposalRule, ...] = (
 )
 
 
+# BOHUMFIT-246: 담보명·그룹을 비분양식 정식명으로 동반 개명(245 선례) — compare가
+#   kb_name 문자열로 [전] 행과 결합하므로 미개명 시 미매핑 강등(값 유실). 금액 무변경.
 PRODUCT_PROFILES: tuple[ProductProfile, ...] = (
     ProductProfile(
         "meritz-alpha",
@@ -77,18 +79,18 @@ PRODUCT_PROFILES: tuple[ProductProfile, ...] = (
         56_950,
         fallback_coverages=(
             RegistryCoverage("상해사망", 100_000_000, "사망", AGG_SUM, "종합 제안서 실측"),
-            RegistryCoverage("상해80%미만후유장해", 100_000_000, "후유장해", AGG_SUM, "종합 제안서 실측"),
-            RegistryCoverage("상해수술비", 1_000_000, "수술", AGG_SUM, "종합 제안서 실측"),
-            RegistryCoverage("질병수술비", 200_000, "수술", AGG_SUM, "종합 제안서 실측"),
+            RegistryCoverage("상해후유장해", 100_000_000, "후유장해", AGG_SUM, "종합 제안서 실측"),
+            RegistryCoverage("상해수술", 1_000_000, "수술", AGG_SUM, "종합 제안서 실측"),
+            RegistryCoverage("질병수술", 200_000, "수술", AGG_SUM, "종합 제안서 실측"),
             RegistryCoverage("뇌혈관질환", 10_000_000, "뇌", AGG_SUM, "회사 내부 대표값"),
             RegistryCoverage("허혈성심장질환", 10_000_000, "심장", AGG_SUM, "회사 내부 대표값"),
             RegistryCoverage("골절진단비", 300_000, "골절", AGG_SUM, "종합 제안서 실측"),
             RegistryCoverage("깁스치료비", 500_000, "골절", AGG_SUM, "종합 제안서 실측"),
-            RegistryCoverage("가족/일상/자녀배상", 100_000_000, "배상책임", AGG_REP, "대표 배상책임"),
+            RegistryCoverage("가족/일상/자녀배상", 100_000_000, "가입특약(Y/N)", AGG_REP, "대표 배상책임"),
         ),
         bundle_coverages=(
-            RegistryCoverage("뇌혈관질환수술비", 20_000_000, "수술", AGG_SUM, "특정순환계질환 통합치료비 분해"),
-            RegistryCoverage("허혈성심장질환수술비", 20_000_000, "수술", AGG_SUM, "특정순환계질환 통합치료비 분해"),
+            RegistryCoverage("뇌혈관수술", 20_000_000, "뇌", AGG_SUM, "특정순환계질환 통합치료비 분해"),
+            RegistryCoverage("심혈관수술", 20_000_000, "심장", AGG_SUM, "특정순환계질환 통합치료비 분해"),
         ),
     ),
     ProductProfile(
@@ -98,15 +100,15 @@ PRODUCT_PROFILES: tuple[ProductProfile, ...] = (
         ("또걸려도또받는암", "또받는암보험"),
         35_070,
         fallback_coverages=(
-            RegistryCoverage("일반암", 50_000_000, "암", AGG_SUM, "암종별통합암진단 대표값"),
-            RegistryCoverage("유사암", 10_000_000, "암", AGG_SUM, "또또암 유사암"),
+            RegistryCoverage("암진단금", 50_000_000, "암", AGG_SUM, "암종별통합암진단 대표값"),
+            RegistryCoverage("유사암진단금", 10_000_000, "암", AGG_SUM, "또또암 유사암"),
         ),
         bundle_coverages=(
-            RegistryCoverage("암수술비", 17_500_000, "수술", AGG_SUM, "암 통합치료비 bundle 분해"),
+            RegistryCoverage("암수술", 17_500_000, "암", AGG_SUM, "암 통합치료비 bundle 분해"),
             # BOHUMFIT-245 ⑦: 표준행 개명(고액(표적)항암치료비→표적항암치료)과 kb_name 결합 정합
             #   — compare.known_coverages가 이름 문자열로 결합하므로 미개명 시 미매핑 강등(값 유실).
             RegistryCoverage("표적항암치료", 80_500_000, "암", AGG_SUM, "암 통합치료비 bundle 분해"),
-            RegistryCoverage("항암방사선약물치료", 20_500_000, "암", AGG_SUM, "암 통합치료비 bundle 분해"),
+            RegistryCoverage("항암약물방사선", 20_500_000, "암", AGG_SUM, "암 통합치료비 bundle 분해"),
         ),
     ),
     ProductProfile(
@@ -116,11 +118,11 @@ PRODUCT_PROFILES: tuple[ProductProfile, ...] = (
         ("운전자상해종합보험", "운전자상해"),
         12_320,
         fallback_coverages=(
-            RegistryCoverage("교통사고처리지원금", 200_000_000, "운전자", AGG_SUM, "운전자 제안서 실측"),
-            RegistryCoverage("변호사선임비용", 5_000_000, "운전자", AGG_SUM, "운전자 제안서 실측"),
-            RegistryCoverage("벌금(대인/스쿨존/대물)", 30_000_000, "운전자", AGG_SUM, "운전자 제안서 실측"),
-            RegistryCoverage("교통사고처리지원금(6주미만)", 10_000_000, "운전자", AGG_SUM, "운전자 제안서 실측"),
-            RegistryCoverage("자동차사고부상", 300_000, "운전자", AGG_SUM, "14급 기준 대표값"),
+            RegistryCoverage("교통사고처리지원금", 200_000_000, "가입특약(Y/N)", AGG_SUM, "운전자 제안서 실측"),
+            RegistryCoverage("변호사선임비용", 5_000_000, "가입특약(Y/N)", AGG_SUM, "운전자 제안서 실측"),
+            RegistryCoverage("벌금(대인/스쿨존/대물)", 30_000_000, "가입특약(Y/N)", AGG_SUM, "운전자 제안서 실측"),
+            RegistryCoverage("교통사고처리지원금(6주미만)", 10_000_000, "기타", AGG_SUM, "운전자 제안서 실측"),
+            RegistryCoverage("자동차사고부상", 300_000, "가입특약(Y/N)", AGG_SUM, "14급 기준 대표값"),
         ),
     ),
     ProductProfile(
@@ -131,8 +133,8 @@ PRODUCT_PROFILES: tuple[ProductProfile, ...] = (
         36_874,
         fallback_coverages=(
             RegistryCoverage("상해사망", 20_000_000, "사망", AGG_SUM, "미래 재해사망"),
-            RegistryCoverage("일반암", 100_000_000, "암", AGG_SUM, "미래 암진단"),
-            RegistryCoverage("유사암", 20_000_000, "암", AGG_SUM, "미래 유사암 직접 추출"),
+            RegistryCoverage("암진단금", 100_000_000, "암", AGG_SUM, "미래 암진단"),
+            RegistryCoverage("유사암진단금", 20_000_000, "암", AGG_SUM, "미래 유사암 직접 추출"),
         ),
     ),
     ProductProfile(
@@ -143,10 +145,10 @@ PRODUCT_PROFILES: tuple[ProductProfile, ...] = (
         20_940,
         fallback_coverages=(
             RegistryCoverage("상해사망", 1_000_000, "사망", AGG_SUM, "KB 기본계약"),
-            RegistryCoverage("상해80%미만후유장해", 1_000_000, "후유장해", AGG_SUM, "KB 기본계약"),
+            RegistryCoverage("상해후유장해", 1_000_000, "후유장해", AGG_SUM, "KB 기본계약"),
             RegistryCoverage("뇌혈관질환", 30_000_000, "뇌", AGG_SUM, "KB 뇌혈관질환"),
             RegistryCoverage("허혈성심장질환", 10_000_000, "심장", AGG_SUM, "KB 허혈성"),
-            RegistryCoverage("급성심근경색증", 50_000_000, "심장", AGG_SUM, "KB 심장질환 특정Ⅱ"),
+            RegistryCoverage("급성심근경색", 50_000_000, "심장", AGG_SUM, "KB 심장질환 특정Ⅱ"),
             RegistryCoverage("심장질환(부정맥)", 20_000_000, "심장", AGG_SUM, "KB 심장질환 특정Ⅰ"),
         ),
     ),

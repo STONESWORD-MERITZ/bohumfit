@@ -62,10 +62,14 @@ def test_new_pattern_exclusions():
 
 
 def test_group_assignment():
-    # 깁스만 골절 귀속(244 S2 ⑧) — 나머지 신규 6종은 기타(사망 배타·2단계 이관 대비).
-    assert EXTRA_LABEL_GROUP["깁스치료비"] == "골절"
-    for label in ("일반사망", "재해사망", "중입자방사선", "항암약물방사선", "순환계 치료비", "응급실"):
-        assert label not in EXTRA_LABEL_GROUP, label
+    # BOHUMFIT-246: 신규 7종을 비분양식 그룹으로 승격(245 당시 기타 잠정 귀속을 대체).
+    expected = {
+        "일반사망": "사망", "재해사망": "사망",
+        "항암약물방사선": "암", "중입자방사선": "암",
+        "순환계 치료비": "심장", "응급실": "의료이용", "깁스치료비": "골절",
+    }
+    for label, group in expected.items():
+        assert EXTRA_LABEL_GROUP[label] == group, label
 
 
 # ── 사망 배타 가드: KB의 지급사유 중복 행 1회 계상 + 사망 그룹 총합 보존 ─────────
@@ -94,15 +98,27 @@ def test_death_dedup_and_group_total_preserved():
             "질병사망": {"by_company": {"1": 6000 * MAN}},
         },
         "diagnosis": {}, "notes": {},
+        # BOHUMFIT-246: 차감 근거(class_amounts) 없는 검출분은 승격하지 않고
+        #   "(계약 미확인)" 라벨로 기타 보존 — 이중 계상 0이 승격보다 우선.
         "extra": {"일반사망": {"agg": "sum", "by_company": {"1": 6000 * MAN}}},
         "warnings": [],
     }
     before = build_before(raw, today="2026-07-25")
     death = [c for c in before["coverages"] if c["group12"] == "사망" and c["enrolled"]]
     etc = [c for c in before["coverages"] if c["group12"] == GROUP_ETC and c["enrolled"]]
-    # 사망 그룹 = 매트릭스 상해/질병사망만(총합 보존 — 일반사망 미가산), 일반사망은 기타 표시.
+    # 근거 없음 → 매트릭스 무차감(사망 그룹 보존) + 일반사망은 기타(계약 미확인)로 표시.
     assert sum(c["summary"] for c in death) == 12000 * MAN
-    assert [(c["kb_name"], c["summary"]) for c in etc] == [("일반사망", 6000 * MAN)]
+    assert [(c["kb_name"], c["summary"]) for c in etc] == [("일반사망(계약 미확인)", 6000 * MAN)]
+    assert before["death_dedup"]["subtracted_total"] == 0
+    # 차감 근거가 있으면 승격 + 매트릭스 차감(상호배타) — 246 본검증은 test_taxonomy_246.
+    raw2 = {**raw, "extra": {"일반사망": {
+        "agg": "sum", "by_company": {"1": 6000 * MAN},
+        "class_amounts": {"1": {"상해사망": 6000 * MAN, "질병사망": 6000 * MAN}},
+    }}}
+    before2 = build_before(raw2, today="2026-07-25")
+    death2 = [c for c in before2["coverages"] if c["group12"] == "사망" and c["enrolled"]]
+    assert sum(c["summary"] for c in death2) == 6000 * MAN  # 일반사망 6,000만 단일 계상
+    assert before2["death_dedup"]["subtracted_total"] == 12000 * MAN
 
 
 def test_death_distinct_riders_not_deduped():

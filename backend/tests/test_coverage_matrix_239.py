@@ -79,7 +79,7 @@ def test_classify_overview_and_matrix_by_header():
 def test_parse_overview_summary_only():
     acc = parse_overview([OVERVIEW_PAGE])
     assert acc["상해사망"]["summary"] == 3 * EOK
-    assert acc["일반암"]["summary"] == 5000 * MAN
+    assert acc["암진단금"]["summary"] == 5000 * MAN  # 246 정식명(원문 일반암은 별칭 매칭)
     assert acc["상해사망"]["by_company"] == {}       # 계약별 열 없음
     assert acc["상해사망"]["overview"] is True
 
@@ -115,7 +115,7 @@ def test_matrix_present_ignores_overview(monkeypatch):
     # 매트릭스가 있으면 계약별 by_company가 채워지고 overview 플래그는 없다.
     assert "overview" not in raw["matrix"]["상해사망"]
     assert raw["matrix"]["상해사망"]["by_company"] == {"1": 2 * EOK, "2": 1 * EOK}
-    assert raw["matrix"]["일반암"]["by_company"] == {"1": 3000 * MAN, "2": 2000 * MAN}
+    assert raw["matrix"]["암진단금"]["by_company"] == {"1": 3000 * MAN, "2": 2000 * MAN}  # 246 정식명
     # fallback 안내·매트릭스 미검출 경고 모두 없다.
     assert not any("대체" in w for w in raw["warnings"])
     assert not any("찾지 못했습니다" in w for w in raw["warnings"])

@@ -10,7 +10,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
-from .aggregator import aggregate_coverage_values, build_final
+from .aggregator import aggregate_coverage_values, build_final, compute_stage_totals, compute_yn_flags
 
 VALID_DISPOSITIONS = {"keep", "cancel", "유지", "해지"}
 STATUS_ORDER = {"미가입": 0, "부족": 1, "충분": 2}
@@ -29,6 +29,8 @@ def _as_int(value: Any) -> int | None:
 def _paid_total(company: dict) -> int | None:
     monthly = _as_int(company.get("monthly_premium"))
     months = _as_int(company.get("pay_months"))
+    if company.get("pay_cycle") == "일시납":
+        return monthly
     return monthly * months if monthly is not None and months is not None else None
 
 
@@ -99,13 +101,26 @@ def apply_consulting_plan(before: dict, plan: dict | None) -> dict:
 
     kept_keys = {_contract_key(company) for company in kept_companies}
 
+    cancel_requested = any(decision.get("disposition") == "cancel" for decision in decisions.values())
+    overview_carryover = False
     coverages: list[dict] = []
     for row in before.get("coverages", []):
         kb_name = row.get("kb_name")
+        # BOHUMFIT-246 회송 보정: 전체 보장현황(239 합계-only) 유래 행은 계약별 셀이 없어
+        #   빈 by_company 재집계 시 값이 소실된다(E 실측: 26행·1,400,240,000 소실) —
+        #   해지 체크가 불가능한 행이므로 유지로 간주해 ★합계 수준(summary·enrolled) 그대로
+        #   이월한다. 표준 매트릭스 행은 이 플래그가 없어 아래 경로로 무변경(239 가드 방식).
+        if row.get("overview"):
+            overview_carryover = True
+            coverages.append(deepcopy(row))
+            continue
+        # BOHUMFIT-246 이월 모델: 계약 귀속이 확인된 값은 keep/cancel을 따르고, 계약 미상
+        #   키('?' 등 — 상세 페이지 idx 미해석 검출분)는 해지 대상이 아니므로 그대로 이월한다.
+        #   (종전 190 구현은 미상 키를 유실 → 해지 0인데도 전≠후가 되는 결함 — 246 보정.)
         by_company = {
             str(key): value
             for key, value in (row.get("by_company") or {}).items()
-            if str(key) in kept_keys and value is not None
+            if value is not None and (str(key) in kept_keys or str(key) not in known_contracts)
         }
 
         updated = deepcopy(row)
@@ -113,6 +128,14 @@ def apply_consulting_plan(before: dict, plan: dict | None) -> dict:
         updated["summary"] = aggregate_coverage_values(by_company, row.get("agg"))
         updated["enrolled"] = any(value is not None for value in by_company.values())
         coverages.append(updated)
+
+    if overview_carryover and cancel_requested:
+        # 보존+경고 정책(246 회송 보정 — Codex 요청 명시): 합계형 문서는 해지를 보장 합계에
+        # 반영할 수 없다. 보험료 합계는 유지 계약 기준으로 재계산되지만 보장행은 [전] 수준 유지.
+        warnings.append(
+            "전체 보장현황(합계형) 문서는 계약별 보장 귀속이 없어 해지를 보장 합계에 반영할 수 "
+            "없습니다 — 해당 보장행은 [전] 합계 수준으로 유지됩니다."
+        )
 
     # BOHUMFIT-234/236: 일시납 월납 합산 제외 + 납입완료 제외 부값 병기(build_before와 동일 규칙).
     monthly_total = sum(
@@ -139,6 +162,10 @@ def apply_consulting_plan(before: dict, plan: dict | None) -> dict:
         "companies": sorted_companies,
         "contract_list": sorted_companies,
         "coverages": coverages,
+        # BOHUMFIT-246: [후]도 동일 수식으로 파생치 재계산(이월 모델 — 해지 0·신규 0이면
+        #   coverages가 [전]과 동일하므로 파생치도 자동 동일. 시트3 K7 이중합산은 미이식).
+        "yn_flags": compute_yn_flags(coverages),
+        "stage_totals": compute_stage_totals(coverages),
         "warnings": warnings,
     }
 

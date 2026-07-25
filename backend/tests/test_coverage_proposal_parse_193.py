@@ -106,14 +106,16 @@ def _amount(proposal: dict, kb_name: str) -> int:
 
 
 def _analysis_for_after() -> dict:
+    # BOHUMFIT-246: 담보명·그룹을 비분양식 정식명으로 갱신(파서·레지스트리와 동일 명칭 —
+    #   compare가 kb_name 문자열로 결합하므로 합성 [전]도 정식명 기준).
     names = [
-        ("일반암", "암", 100_000_000),
-        ("유사암", "암", 20_000_000),
+        ("암진단금", "암", 100_000_000),
+        ("유사암진단금", "암", 20_000_000),
         ("뇌혈관질환", "뇌", 30_000_000),
-        ("급성심근경색증", "심장", 30_000_000),
-        ("뇌혈관질환수술비", "수술", 10_000_000),
-        ("허혈성심장질환수술비", "수술", 10_000_000),
-        ("자동차사고부상", "운전자", 1_000_000),
+        ("급성심근경색", "심장", 30_000_000),
+        ("뇌혈관수술", "뇌", 10_000_000),
+        ("심혈관수술", "심장", 10_000_000),
+        ("자동차사고부상", "가입특약(Y/N)", 1_000_000),
     ]
     before = {
         "customer": {"name": "테스트", "age": 34, "sex": "남"},
@@ -184,18 +186,19 @@ def test_parse_real_trace_193_synthetic_five_pdfs() -> None:
 
     cancer = _proposal(result, "meritz-cancer")
     bundle = {(item["kb_name"], item["amount"]) for item in cancer["metadata"]["bundle_subbenefits"]}
-    assert ("암수술비", 17_500_000) in bundle
+    assert ("암수술", 17_500_000) in bundle  # 246 개명
     # BOHUMFIT-245 ⑦: 표적항암 통합 — 표준행·레지스트리 개명(고액(표적)항암치료비→표적항암치료,
     # 값 이관·금액 불변). compare kb_name 결합 정합을 위해 레지스트리도 동일 명칭 사용.
     assert ("표적항암치료", 80_500_000) in bundle
-    assert ("항암방사선약물치료", 20_500_000) in bundle
-    assert _amount(cancer, "암수술비") == 17_500_000
+    assert ("항암약물방사선", 20_500_000) in bundle  # 246: EXTRA 라벨과 명칭 통일
+    assert _amount(cancer, "암수술") == 17_500_000  # 246 개명
     assert _amount(cancer, "표적항암치료") == 80_500_000
 
-    assert _amount(_proposal(result, "mirae-mcare"), "유사암") == 20_000_000
-    assert _amount(_proposal(result, "kb-hope"), "급성심근경색증") == 50_000_000
+    # BOHUMFIT-246: 레지스트리 정식명 개명분(값 불변).
+    assert _amount(_proposal(result, "mirae-mcare"), "유사암진단금") == 20_000_000
+    assert _amount(_proposal(result, "kb-hope"), "급성심근경색") == 50_000_000
     assert _amount(_proposal(result, "meritz-driver"), "자동차사고부상") == 300_000
-    assert _amount(_proposal(result, "meritz-alpha"), "뇌혈관질환수술비") == 20_000_000
+    assert _amount(_proposal(result, "meritz-alpha"), "뇌혈관수술") == 20_000_000
 
 
 def test_parsed_proposals_recalculate_after_and_use_two_stage_aggregation() -> None:
@@ -210,11 +213,12 @@ def test_parsed_proposals_recalculate_after_and_use_two_stage_aggregation() -> N
 
     assert result["comparison"]["premium"]["delta_monthly"] == -87_846
     after = {row["kb_name"]: row for row in result["after"]["final"]["coverages"]}
-    assert after["일반암"]["value"] == 151_000_000
-    assert after["유사암"]["value"] == 30_100_000
+    # BOHUMFIT-246 정식명 — 합산 값 자체는 불변(개명만).
+    assert after["암진단금"]["value"] == 151_000_000
+    assert after["유사암진단금"]["value"] == 30_100_000
     assert after["뇌혈관질환"]["value"] == 40_000_000
-    assert after["급성심근경색증"]["value"] == 50_000_000
-    assert after["뇌혈관질환수술비"]["value"] == 20_000_000
-    assert after["허혈성심장질환수술비"]["value"] == 20_000_000
+    assert after["급성심근경색"]["value"] == 50_000_000
+    assert after["뇌혈관수술"]["value"] == 20_000_000
+    assert after["심혈관수술"]["value"] == 20_000_000
     assert after["자동차사고부상"]["value"] == 300_000
     assert result["comparison"]["summary"]["missing_to_sufficient"] >= 5

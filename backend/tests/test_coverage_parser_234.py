@@ -113,6 +113,6 @@ def test_detail_burn_and_surgery_labels_precise():
     assert extra["장기이식수술비"]["by_company"] == {"1": 1000 * MAN}
     # BOHUMFIT-238: 종별 마커 없는 5종 기준 1,000만은 표준 환산으로 1~5종 세팅된다
     # (1,000만 행: 5종=1,000만). 상세 규칙은 test_coverage_jong_238이 담당.
-    assert extra["종수술비(5종·표준환산)"]["by_company"] == {"1": 1000 * MAN}
-    assert extra["종수술비(1종·표준환산)"]["by_company"] == {"1": 20 * MAN}
+    assert extra["일반종수술 5종(표준환산)"]["by_company"] == {"1": 1000 * MAN}  # 246 개명(구 종수술비(5종·표준환산))
+    assert extra["일반종수술 1종(표준환산)"]["by_company"] == {"1": 20 * MAN}  # 246 개명
     assert extra["N대수술비"]["by_company"] == {"1": 150 * MAN}  # 116대만 — 종수술·장기이식 미포함

@@ -166,19 +166,18 @@ export type CoverageAfterResponse = AnalyzeResult & {
   comparison: CoverageComparison;
 };
 
+// BOHUMFIT-246: 비분양식 대분류로 교체(백엔드 constants.GROUP13과 동일 순서 — 정본화).
 export const GROUP_ORDER = [
   "사망",
   "후유장해",
   "암",
   "뇌",
   "심장",
+  "종수술",
   "수술",
-  "입원(간병 포함)",
-  "운전자",
+  "의료이용",
   "골절",
-  "실손",
-  "화재",
-  "배상책임",
+  "가입특약(Y/N)",
   "기타",
 ];
 

@@ -56,8 +56,11 @@ def lookup_jong_tiers(base_won, table: dict | None = None):
 
 
 def estimated_tier_label(tier: int) -> str:
-    """환산 산출 행의 표시명 — '표준환산' 구분을 이름에 고정(렌더러 무수정 반영)."""
-    return f"종수술비({tier}종·표준환산)"
+    """환산 산출 행의 표시명 — '표준환산' 구분을 이름에 고정(렌더러 무수정 반영).
+
+    BOHUMFIT-246: 비분양식 항목명("일반종수술 N종")으로 개명 — 환산 구분 표기는 유지
+    (238 결정: 표준 환산 기준 병기·estimated 필드 유실 금지)."""
+    return f"일반종수술 {tier}종(표준환산)"
 
 
 OUT_OF_RANGE_LABEL = "종수술비(표 외)"

@@ -28,19 +28,18 @@ def _raw() -> dict:
 
 
 def test_group_order_reorganized_without_old_care_or_fracture_buckets() -> None:
+    # BOHUMFIT-246: 비분양식 대분류로 정본화(값 무변경 — 귀속·순서만 교체).
     assert GROUP13 == (
         "사망",
         "후유장해",
         "암",
         "뇌",
         "심장",
+        "종수술",
         "수술",
-        "입원(간병 포함)",
-        "운전자",
+        "의료이용",
         "골절",
-        "실손",
-        "화재",
-        "배상책임",
+        "가입특약(Y/N)",
         "기타",
     )
 
@@ -59,12 +58,13 @@ def test_care_fracture_and_burn_groups_move_without_amount_change() -> None:
     before = build_before(_raw())
     by_name = {row["kb_name"]: row for row in before["coverages"]}
 
-    assert by_name["간병인/간호간병상해일당"]["group12"] == "입원(간병 포함)"
+    # BOHUMFIT-246: 간병인·보철·화상은 신 양식 비항목 → 기타 보존(값 불변).
+    assert by_name["간병인/간호간병상해일당"]["group12"] == "기타"
     assert by_name["간병인/간호간병상해일당"]["summary"] == 30_000
     assert by_name["골절진단비"]["group12"] == "골절"
     assert by_name["골절진단비"]["summary"] == 1_000_000
-    assert by_name["보철치료비"]["group12"] == "골절"
-    assert by_name["화상"]["group12"] == "골절"
+    assert by_name["보철치료비"]["group12"] == "기타"
+    assert by_name["화상"]["group12"] == "기타"
     assert by_name["화상"]["summary"] == 2_000_000
 
 
