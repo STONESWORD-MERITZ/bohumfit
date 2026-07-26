@@ -96,8 +96,10 @@ For UI changes, also run the app locally and perform a browser smoke check when 
 커밋 주체(Codex 또는 저위험 허용 시 Claude Code)와 무관하게, 커밋 전에 아래를 모두 만족해야 한다.
 
 - `npx tsc -p tsconfig.app.json --noEmit` / `npx tsc -p tsconfig.node.json --noEmit`
-- `npm run lint` / `npm run build` — 청크 `dist/assets/index-*.js` **343 kB대** 정상(2026-07-23 실측 343.22 kB,
-  Vite 청크 경고 없음이 정상). ±10% 초과 변동 시 중단·원인 조사
+- `npm run lint` / `npm run build && npm run build:verify` — ★기준선 정정(248): "343 kB대 정상" 폐기.
+  로컬 번들 343 kB대는 앱 코드 없는 껍데기였음(247 실측). 정상 참조치 = 프로덕션 786 kB대(786,541 B).
+  현 로컬 Windows는 Application Control의 신규 네이티브 차단으로 정상 번들 생성 불가 — build:verify
+  FAIL이 정직 상태이며, 기능 판정은 소스 게이트 + Codex 프로덕션 번들 대체 검증(Human 결정 2026-07-26)
 - `npm test` — 기준선 `79 passed`(라우트 스모크 18건 포함)
 - `cd backend && python -m pytest -q` — 기준선 `684 passed, 8 skipped` (BOHUMFIT-242 실측·2026-07-23.
   기준선 변경 시 `verify.md`·`CLAUDE.md` 동시 갱신)

@@ -37,16 +37,22 @@ npx tsc -p tsconfig.app.json --noEmit
 npx tsc -p tsconfig.node.json --noEmit
 ```
 
-빌드 산출물 청크 — `npm run build`의 `dist/assets/index-*.js`:
+빌드 산출물 — `npm run build && npm run build:verify`(BOHUMFIT-248 게이트):
 
 ```text
-343 kB대 (2026-07-23 실측 343.22 kB · gzip 101.81 kB)
+정상 참조치: 프로덕션(Vercel) 786 kB대 (2026-07-26 실측 786,541 B)
+판정: scripts/build-verify.mjs — ①크기 하한 600 kB ②필수 앱 문자열 ③index.html 참조 무결
 ```
 
-- 청크가 343 kB대이고 Vite 청크 크기 경고가 없는 것이 **정상**이다. 과거 문서·기록의
-  "500 kB chunk size warning만 허용" 표현은 구 빌드 상태의 산물이며 더는 기준이 아니다
-  (BOHUMFIT-240 조사: 커밋 `2f041fc` 격리 빌드 342.66 kB = 당시 현행 343.22 kB로 확정).
-- **±10%를 초과해 변동하면 진행을 멈추고 원인을 조사·기록한다**(산출물 급감·급증은 이상 신호).
+- ★기준선 정정(BOHUMFIT-248 · 2026-07-26): 과거 "343 kB대 정상"(240 조사·242 문서화)은 **폐기**.
+  로컬 Windows 번들 343 kB대는 rolldown 네이티브 바인딩 부재로 앱 코드가 통째로 빠진 껍데기였고
+  (247 실측: 번들 내 앱 문자열 0건·vite preview 본문 공백·조용한 exit 0), 240의 격리 빌드 대조는
+  동일하게 고장난 로컬 빌더 위에서 수행돼 오판이 재생산됐다. 이력 보존을 위해 기록한다.
+- ※현 로컬 Windows: Application Control이 신규 네이티브 바이너리를 차단(248 P1 실측 — rolldown
+  1.1.5·tailwind oxide 4.3.3 로드 차단, 구 설치본은 허용)하고 rolldown WASI는 Windows 절대경로를
+  해석하지 못해 클린 재생성으로도 복구 불가. **로컬은 build:verify FAIL이 정직 상태**이며 기능
+  판정은 소스 게이트(tsc·lint·vitest) + Codex의 프로덕션 번들 대체 검증으로 한다(Human 결정).
+  근본 해결 후보: 정책 예외 등록(Human·관리자) / WSL·CI 빌드 검증 — 카탈로그 참조.
 
 기준선 수치가 바뀌면 이 파일과 `CLAUDE.md`·`AGENTS.md`를 함께 갱신한다.
 
