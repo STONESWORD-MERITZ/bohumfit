@@ -1,7 +1,47 @@
-## 2026-07-26 BOHUMFIT-247 - 화면 완성 (Codex 2차 검증 통과 — publish 대기)
+## 2026-07-27 BOHUMFIT-248 - 신 체계 완결(빌드 수리·엑셀·PDF) + 심층 QA + 카탈로그 (Codex 2차 검증 통과)
 
-Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex(commit·push·배포 대체 검증)
-Commit: 없음 — Codex 2차 검증 통과, 아래 범위만 publish 대기. 상세는 tasks/BOHUMFIT-247.
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex(최종 1회 검증·파트별 커밋)
+Commit: 없음 — git 쓰기 전면 금지 지시. 실 PDF·엑셀 원본·lock 백업 stage 0. 상세는 tasks/BOHUMFIT-248(본문·qa-report·improvement-catalog).
+
+### P1 — 빌드 수리 [★클린 재생성 실패 → 실패 경로 처리·게이트 신설·기준선 정정 완료]
+- 클린 재생성으로 vite 8.1.5·rolldown 1.1.5 + win32 바인딩 정상 설치(241 결손 해소·audit 5→2 high)까지 갔으나, **실패 원인 2중 신규 확정**: ① Windows **Application Control이 신규 다운로드 네이티브 바이너리를 전면 차단**(rolldown·tailwind oxide 4.3.3 실측 — 구 설치본 4.2.4는 LOAD-OK → 그랜드파더링형. 241 ERR_DLOPEN의 진범) ② rolldown WASI 대체는 Windows 절대경로 미해석(UNRESOLVED_ENTRY). 신 환경에선 vitest까지 파손 → **즉시 롤백**(구 node_modules·lock 복원 — 검증: 89·tsc 그린, lockfile diff 0).
+- **산출물 스모크 게이트 신설**: `scripts/build-verify.mjs`(크기 하한 600 kB·필수 앱 문자열 3종(원문+\uXXXX)·index.html 참조 무결) + `build:verify` 스크립트. 로컬 껍데기에 **정직 FAIL 실증**.
+- **기준선 정정**: verify.md·CLAUDE.md·AGENTS.md — "343 kB대 정상" 폐기, 프로덕션 786 kB대 + build:verify 판정, 240 조사 오판 이력 명기, 로컬 무효 상태·대체 검증 체계 명시.
+- 근본 해결(정책 예외 or WSL/CI)은 Human 조치 — 카탈로그 4-3.
+
+### P2 — 비분양식 엑셀 3시트 [완료]
+- export_excel 전면 재작성(표지(세로)·비교분석표·최종비교분석표): 계약 열 ★전부 전개(B 15열 실증)·overview 합계만·[후] 이월 값·차액 후−전·H10 심장중기·238 문구·**부록 블록(양식 밖 담보 전량 — 누락 0)**·236 납입완료 "구 분" 이관. **값 기입 채택**(패킷 허용 — 기계 대조 가능성·이월값 정본성. Y/N COUNTA 미채택 근거 모듈 주석). 단위: 보장 만원(추정·244 결정 11 대기)·보험료 원. 구 시트 고정 테스트 8건 신 양식 등가로 갱신.
+- ★검증: 실 PDF 5건 재판독 전수 대조(35행 합계+계약별 셀+Y/N+보험료+시트3) **차이 0**.
+
+### P3 — PDF 신 체계 [완료]
+- export_pdf: 시트2 항목순 정렬·종합비교(전→후·개선 +)·Y/N·특이사항(마스킹)·증감(후−전)·신담보 표기·기타 "정보 보존" 문구·부록 이미지 삽입 지점 주석(에셋 보류). 실 PDF 5건 HTML 대조 전 항목 OK(렌더는 정책 대비 HTML 검증 대체 — 패킷 명시 경로).
+
+### P4·P5 — 심층 QA + 결함 수정 [완료 — qa-report 참조]
+- A 3계층 교차 대조 5건 **차이 0** / B [후] 시나리오(해지 0·1·다건·전부 × A·B·E + overview+해지) **대사 전부 0** / C 경계값·D 견고성·E 236~240 회귀·F 브랜드/접근성 grep 0·G 성능 실측(파싱 2.7~5.8s 지배) / H는 P1 실패로 소스 게이트 대체.
+- **결함 1건 발견·수정**: overview 엑셀 부록 라벨 열 겹침(담보명 18행 덮임) → 열 분리 + 회귀 테스트. **잔존 결함 0**, [사양 결정] 4건 분리(단위·수식 보존·인쇄 배율·빌드 정책).
+
+### P6 — 카탈로그 [완료] 18항목(파싱4·UX4·산출물4·운영4·성능2) + 차기 태스크 권장안.
+
+### Verified (1차 — 전체)
+- backend pytest **707/8**(705+2 · 갱신 9파일 근거 주석) · tsc app/node · lint · npm test **89** · build:verify 게이트 동작 실증. PII 0 · pipeline/supabase diff 0 · lockfile diff 0(롤백).
+
+### Verified (2차 — Codex Windows · publish 전)
+- 소스 게이트: backend **707 passed, 8 skipped**, tsc app/node·lint·frontend **89 passed**. 로컬 build는 참고 수치 **343,225 B**였고, `build:verify`가 크기 하한 및 필수 문자열 3종 누락을 잡아 **exit 1**을 반환했다. 지시대로 로컬 산출물 합격 판정에는 사용하지 않았다.
+- P1 정합: package-lock diff 0, package.json은 `build:verify` 스크립트 1줄만, 기준선 3문서 모두 343 kB 폐기·프로덕션 786 kB 참조·240 오판 이력·Application Control 대체 검증을 명기했다.
+- 실 PDF 5건 재실행: payload 행/계약은 A 54/9·B 46/15·C 48/3·D 48/10·E 54/15. 총액 A **1,373,510,000**·B **604,560,000**·C **1,670,740,000**·D **1,733,820,000**·E **1,542,990,000**, [전]=[후] 대사차이 전부 0, 월납/납입완료 제외 부값 및 A/E estimated 5행이 유지됐다.
+- 엑셀은 5건을 메모리 생성 후 openpyxl로 재판독했다. 양식 35행+Y/N 5행의 합계·계약별 셀 차이 0, B 15계약 열 전개, E overview 합계열·경고·부록 라벨 18행/값 열 분리, 3시트명·표지 병합 9개·시트2/3 핵심 병합/문구·H10 심장중기를 원본과 대조했다. B/E 화면 payload↔엑셀↔PDF-HTML 행 단위 차이 0이다.
+- PDF-HTML 5건은 전 담보행·총액·월납/부값·단계·Y/N·개선(+)·특이사항·신담보 문구·238 표준환산 표기가 payload와 일치했다. 스프레드시트 시각 렌더는 번들 `skia.node`가 기존과 같은 Application Control 정책에 차단되어, 패킷 허용 경로인 openpyxl 구조/값 재판독으로 대체했다. 익명 임시 산출물은 검증 후 전부 삭제했다.
+- 범위는 선언 20파일뿐이며 package-lock·pipeline/·supabase/·src diff 0, 실명 PII 0, SURIT·구브랜드/면 전용 색상 0, 실 PDF·엑셀 원본·lock 백업 tracked 0, `git diff --check` 통과다.
+
+### Next
+1. **Codex** — 최종 1회 검증(3계층 대조 재현·707/8·89·grep) → 파트별 커밋 4건(패킷 Stage 목록·메시지 — 단 커밋1은 package-lock 제외(diff 0)·scripts+문서 3종) → push → 배포 후 프로덕션 번들 build 대체 검증.
+2. **Human/Chat** — QA 리포트 사양 결정 4건 + 카탈로그 권장안(합성 픽스처 CI화 → 가입제안서 트랙) 리뷰, 빌드 정책 예외(관리자).
+3. **Human** — 프로덕션 재업로드 최종 검수 + 계류 2건(D 재해사망·E 중입자/표적) + 엑셀/PDF 실물 확인.
+
+## 2026-07-26 BOHUMFIT-247 - 화면 완성 (publish·프로덕션 build 대체 검증 완료)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human(프로덕션 육안 검수) / Chat(248 발번)
+Commit: `6a2458762734fe214c966c0e4e38558a4d2092fe` (`origin/main`, local/remote 0/0). 이 push 이후 배포 확인 기록은 다음 하네스 커밋에 편승.
 
 ### 재개 결과 (Human 결정 반영 · 2026-07-26)
 - **Human 결정**: ① 343 kB 기준선 폐기 확정 ② 빌드 수리 = 248 별도(클린 재생성+vite+산출물 스모크 게이트) ③ 247 커밋 진행 — **build 게이트는 로컬 무효, Codex가 배포 후 프로덕션 번들로 대체 검증**.
@@ -15,6 +55,11 @@ Commit: 없음 — Codex 2차 검증 통과, 아래 범위만 publish 대기. �
 - 변경은 프런트 구현 5파일+테스트 2파일+harness 3파일뿐이다. backend/·pipeline/·supabase/·package diff 0, PII 실명 5인 0, 런타임 SURIT·구브랜드 색상 0, 실 PDF/엑셀 tracked 0, `git diff --check` 통과다.
 - 변경 TSX 2파일은 React 체크리스트(렌더 중 부작용·불안정한 key·이벤트 정리·불필요한 상태 동기화·기존 토큰/접근성)를 점검했고 커밋 차단 항목은 없다.
 
+### Codex publish·build 게이트 대체 검증 (push 후)
+- 지정 커밋 `6a245876…`을 `origin/main`에 push했고 HEAD와 원격은 일치, ahead/behind **0/0**이다.
+- Vercel 배포 완료 후 `https://bohumfit.ai`가 참조하는 JS `/assets/index-DoJlus5H.js`를 직접 fetch했다. 압축 해제 응답 **796,723 B**(786 kB 기대치 대비 약 +1.3%, ±20% 이내)이며 신규 문자열 `신규 설계 반영 대상`·`종합비교`와 236 기존 문자열 `수동 담보 추가`가 모두 포함됐다. 로컬 343.22 kB 산출물은 합격 근거로 사용하지 않았다.
+- 표준 배포 스모크: Railway `/api/health` **200**, Vercel `/login` **200**. 신규 번들 문자열 부재/크기 이탈이 없어 롤백 판단 사유는 발생하지 않았다.
+
 ### ★이상 신호 — 로컬 Windows 빌드 산출물이 앱 없는 껍데기 (즉시 중단·보고)
 - **증거**: ① 로컬 번들 343,225 B에 앱 문자열 0건(신규분은 물론 236 기존 화면 문구까지) — 한글 32자뿐(supabase env 오류 문구)·그 지점에서 파일 종료 ② `vite preview`로 빌드본 서빙 → **본문 완전 공백**(콘솔 에러 0 — 조용한 실패) ③ 프로덕션(Vercel Linux 독립 빌드) 엔트리 786,541 B = 로컬의 2.3배 → **배포는 정상 추정, 로컬 빌드만 파손**.
 - **판정**: 240 P4의 "500 kB대→343 kB대 급감"이 앱 코드 소실분이었을 가능성이 높다 — 이후 "343 kB대=정상" 기준선 재정의(242 문서화)는 이번 실측과 모순. 유력 원인은 241 확정 rolldown-vite Windows 바인딩 문제 계열(빌드가 exit 0·"✓ built"를 출력해 미감지). tsc·vitest·pytest 게이트는 소스 기준이라 유효 — 무효인 것은 "청크 343 kB대 정상" 기준선과 로컬 빌드 산출물의 기능 검증 가치.
@@ -26,9 +71,8 @@ Commit: 없음 — Codex 2차 검증 통과, 아래 범위만 publish 대기. �
 - 검증: tsc·lint·npm test **89**(79+10). build 판정 불가(상기)·실 PDF payload 검증 미수행(중단). PII 0·pipeline diff 0.
 
 ### Next
-1. **Codex** — 2차 검증(payload 재현·236~240 기능 회귀) → stage(CoverageRemodel.tsx·coverageAfterDisplayCache.ts·coverageFormat.ts·CoverageInsightBlocks.tsx·테스트 2·tasks/247·handoff·locks — 실 PDF 제외) → 커밋 `feat(BOHUMFIT-247): 신 체계 화면 완성 — 종합비교·차액·특이사항·Y/N·신담보 표시` → push → **배포 후 프로덕션 번들로 build 대체 검증**(크기·신규 문자열 존재 — 로컬 빌드 무효·Human 결정 ①③).
-2. **Human** — 재업로드 육안 검수(신 화면) + 계류 확인 2건(D 재해사망·E 중입자/표적).
-3. **Chat** — 248(빌드 수리: 클린 재생성+vite+산출물 스모크 게이트) 발번.
+1. **Chat** — BOHUMFIT-248(로컬 빌드 수리: 클린 재생성+vite+산출물 스모크 게이트+기준선 문서 정정) 발번.
+2. **Human** — 프로덕션 재업로드 육안 검수(신 화면 전체) + 계류 확인 2건(D 재해사망·E 중입자/표적).
 
 ## 2026-07-25 BOHUMFIT-246 - 신 체계 2단계: 집계·스키마 전면 전환 (비분양식 정본화)
 
