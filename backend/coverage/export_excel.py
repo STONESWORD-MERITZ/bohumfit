@@ -308,13 +308,11 @@ def _sheet_compare_form(ws, analysis: dict, before: dict, after_before: dict | N
         ordered = sorted(extras, key=lambda r: (_grp_key(r.get("group12")), r.get("kb_name") or ""))
         for offset, row_data in enumerate(ordered):
             row = appendix_row + 1 + offset
-            if overview:
-                _cell(ws, row, col_asum, f"[{row_data.get('group12') or GROUP_ETC}] {row_data.get('kb_name')}", align="left")
-                _cell(ws, row, col_asum, _man(row_data.get("summary")), fmt="#,##0")
-            else:
-                ws.merge_cells(start_row=row, start_column=col_b0, end_row=row, end_column=col_asum - 1)
-                _cell(ws, row, col_b0, f"[{row_data.get('group12') or GROUP_ETC}] {row_data.get('kb_name')}", align="left")
-                _cell(ws, row, col_asum, _man(row_data.get("summary")), fmt="#,##0")
+            # 라벨 = col_b0~col_asum-1 병합, 값 = col_asum — overview(계약 0열)에서도 열이
+            # 겹치지 않는다(248 P2 검증에서 라벨 덮임 결함 발견·수정: col_asum은 항상 +4 이상).
+            ws.merge_cells(start_row=row, start_column=col_b0, end_row=row, end_column=col_asum - 1)
+            _cell(ws, row, col_b0, f"[{row_data.get('group12') or GROUP_ETC}] {row_data.get('kb_name')}", align="left")
+            _cell(ws, row, col_asum, _man(row_data.get("summary")), fmt="#,##0")
         last_row = appendix_row + len(extras)
 
     ws.sheet_view.showGridLines = False
