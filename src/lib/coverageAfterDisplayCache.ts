@@ -30,6 +30,15 @@ export type BeforeCoverage = {
   summary: number | null;
   by_company: Record<string, number | null>;
   enrolled: boolean;
+  estimated?: boolean; // BOHUMFIT-238: 종수술 표준 환산 산출 행 구분
+  overview?: boolean; // BOHUMFIT-246: 전체 보장현황(합계-only) 유래 행 — [후] 이월 시 합계 수준 유지
+};
+
+// BOHUMFIT-246/247: 양식 45~49행 Y/N 파생(백엔드 compute_yn_flags와 동일 스키마).
+export type YnFlag = {
+  item: string;
+  value: "Y" | "N";
+  sources: { kb_name: string; summary: number | null }[];
 };
 
 export type FinalCoverage = {
@@ -56,6 +65,9 @@ export type AnalyzeResult = {
     companies: Company[];
     contract_list?: Company[];
     coverages: BeforeCoverage[];
+    // BOHUMFIT-246 파생치(백엔드 build_before 산출 — [전] 표시는 백엔드 값이 정본).
+    stage_totals?: Record<string, number>;
+    yn_flags?: YnFlag[];
   };
   final: {
     premium: PremiumSummary;
@@ -187,6 +199,75 @@ const STATUS_RANK: Record<string, number> = {
   [STATUS_SHORT]: 2,
   [STATUS_SUFFICIENT]: 3,
 };
+
+// BOHUMFIT-247: 표시 순서 = 비분양식 시트2 10~49행(백엔드 constants.NEW_ITEM_ORDER 미러 —
+// 계산이 아닌 표시 정렬 전용. 목록 밖 라벨은 그룹 내 뒤).
+export const ITEM_ORDER = [
+  "일반사망", "재해사망", "질병사망", "상해사망",
+  "상해후유장해", "질병후유장해",
+  "암진단금", "유사암진단금", "암수술", "항암약물방사선", "표적항암치료",
+  "면역항암치료", "중입자방사선", "암 주요치료비",
+  "뇌혈관질환", "뇌졸중", "뇌출혈", "뇌혈관수술",
+  "심혈관질환", "허혈성심장질환", "급성심근경색", "심혈관수술", "순환계 치료비",
+  "일반종수술 1종(표준환산)", "일반종수술 2종(표준환산)", "일반종수술 3종(표준환산)",
+  "일반종수술 4종(표준환산)", "일반종수술 5종(표준환산)", "종수술비", "종수술비(표 외)",
+  "상해수술", "질병수술",
+  "응급실", "질병입원", "상해입원",
+  "골절진단비", "깁스치료비",
+  "벌금(대인/스쿨존/대물)", "교통사고처리지원금", "변호사선임비용", "자동차사고부상",
+  "가족/일상/자녀배상", "상해입원의료비", "상해통원의료비", "질병입원의료비", "질병통원의료비",
+];
+
+const ITEM_ORDER_IDX = new Map(ITEM_ORDER.map((name, index) => [name, index]));
+
+export function itemOrderKey(name: string | null | undefined): number {
+  const idx = ITEM_ORDER_IDX.get(name || "");
+  return idx == null ? ITEM_ORDER.length : idx;
+}
+
+// BOHUMFIT-247: [전] 원문이 없는 신담보 3행 — "신규 설계 반영 대상" 구분(오독 방지 문구용).
+export const NEW_COVERAGE_PLACEHOLDERS = ["면역항암치료", "암 주요치료비", "심혈관질환"];
+
+// BOHUMFIT-246/247: Y/N 파생 미러(백엔드 constants.YN_ITEMS · COUNTA 수식 의미 등가) —
+// [후]는 클라이언트 이월 결과에서 재산출한다(211 패리티: 규칙 변경 시 백엔드와 동시 수정).
+export const YN_ITEMS: [string, string[]][] = [
+  ["운전자특약", ["벌금(대인/스쿨존/대물)", "교통사고처리지원금", "변호사선임비용"]],
+  ["자동차부상치료비", ["자동차사고부상"]],
+  ["가족일상배상책임", ["가족/일상/자녀배상"]],
+  ["상해실손의료비", ["상해입원의료비", "상해통원의료비"]],
+  ["질병실손의료비", ["질병입원의료비", "질병통원의료비"]],
+];
+
+export function computeYnFlags(coverages: BeforeCoverage[]): YnFlag[] {
+  const byName = new Map(coverages.map((coverage) => [coverage.kb_name, coverage]));
+  return YN_ITEMS.map(([item, sources]) => ({
+    item,
+    value: sources.some((name) => byName.get(name)?.enrolled) ? "Y" : "N",
+    sources: sources.map((name) => ({ kb_name: name, summary: byName.get(name)?.summary ?? null })),
+  }));
+}
+
+// BOHUMFIT-246/247: 종합비교 단계 파생 미러(백엔드 constants.STAGE_COMPONENTS — 비분양식
+// 시트3 수식 이식. 원문 수식은 backend/coverage/constants.py 주석 참조. K7 이중합산 미이식).
+export const STAGE_COMMON_ADD = ["일반종수술 5종(표준환산)", "질병수술"];
+export const STAGE_COMPONENTS: [string, string[]][] = [
+  ["암", ["암진단금", "유사암진단금", "암수술", "항암약물방사선", "표적항암치료", "면역항암치료", "중입자방사선"]],
+  ["뇌초기", ["뇌혈관질환", "뇌졸중", "뇌출혈", "뇌혈관수술"]],
+  ["뇌중기", ["뇌졸중", "뇌출혈", "뇌혈관수술"]],
+  ["뇌말기", ["뇌출혈", "뇌혈관수술"]],
+  ["심장초기", ["심혈관질환", "허혈성심장질환", "급성심근경색", "심혈관수술"]],
+  ["심장중기", ["허혈성심장질환", "급성심근경색", "심혈관수술"]],
+  ["심장말기", ["급성심근경색", "심혈관수술"]],
+];
+
+export function computeStageTotals(coverages: BeforeCoverage[]): Record<string, number> {
+  const byName = new Map(coverages.map((coverage) => [coverage.kb_name, coverage]));
+  const value = (name: string) => byName.get(name)?.summary || 0;
+  const common = STAGE_COMMON_ADD.reduce((sum, name) => sum + value(name), 0);
+  return Object.fromEntries(
+    STAGE_COMPONENTS.map(([stage, names]) => [stage, names.reduce((sum, name) => sum + value(name), 0) + common]),
+  );
+}
 
 export function keyOf(idx: number | string): string {
   return String(idx);
@@ -454,10 +535,31 @@ export function buildAfterResult(
     }
   }
 
+  const knownContractIds = new Set(sourceCompanies.map((company) => keyOf(company.idx)));
   const afterCoverages = analysis.before.coverages.map((coverage) => {
+    // BOHUMFIT-246 회송 보정(247 패리티 반영): 전체 보장현황(합계-only) 행은 계약별 셀이
+    // 없어 재집계 시 값이 소실된다 — 해지 체크 불가 행이므로 합계 수준(summary·enrolled)을
+    // 그대로 이월한다(backend consulting.apply_consulting_plan과 동일 규칙).
+    if (coverage.overview) {
+      const byCompany: Record<string, number | null> = { ...(proposalAmounts[coverage.kb_name] || {}) };
+      const proposalSum = aggregateCoverageValues(byCompany, coverage.agg);
+      return {
+        ...coverage,
+        by_company: byCompany,
+        // 신규 제안 가산은 표준 경로와 동일하게 합계에 더한다(sum 기준 — 246 이월 모델).
+        summary:
+          proposalSum == null
+            ? coverage.summary
+            : coverage.agg === "sum"
+              ? (coverage.summary || 0) + proposalSum
+              : Math.max(coverage.summary || 0, proposalSum),
+        enrolled: coverage.enrolled || proposalSum != null,
+      };
+    }
     const byCompany: Record<string, number | null> = {};
     for (const [companyId, amount] of Object.entries(coverage.by_company || {})) {
-      if (keptIds.has(companyId)) byCompany[companyId] = amount;
+      // BOHUMFIT-246: 계약 미상 키('?' 등)는 해지 대상이 아니므로 이월(backend 동일 규칙).
+      if (keptIds.has(companyId) || !knownContractIds.has(companyId)) byCompany[companyId] = amount;
     }
     Object.assign(byCompany, proposalAmounts[coverage.kb_name] || {});
     const summary = aggregateCoverageValues(byCompany, coverage.agg);
@@ -529,11 +631,24 @@ export function buildAfterResult(
     })),
   };
 
+  const comparison = compareFinals(analysis.final, afterFinal);
+  // BOHUMFIT-246/247: 합계형(overview) 문서 + 해지 요청 — 보존+경고 정책(backend 동일 문구).
+  if (
+    plan.existing.some((entry) => entry.disposition === "cancel") &&
+    analysis.before.coverages.some((coverage) => coverage.overview)
+  ) {
+    comparison.cautions.push({
+      level: "warning",
+      message:
+        "전체 보장현황(합계형) 문서는 계약별 보장 귀속이 없어 해지를 보장 합계에 반영할 수 없습니다 — 해당 보장행은 [전] 합계 수준으로 유지됩니다.",
+    });
+  }
+
   return {
     ...analysis,
     consulting_plan: plan,
     after: { before: afterBefore, final: afterFinal },
-    comparison: compareFinals(analysis.final, afterFinal),
+    comparison,
     warnings: analysis.warnings || [],
   };
 }

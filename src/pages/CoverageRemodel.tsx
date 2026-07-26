@@ -5,10 +5,14 @@ import ConsentGate from "../components/ConsentGate";
 import { useAuth } from "../lib/auth-context";
 import {
   buildAfterResult,
+  computeStageTotals,
+  computeYnFlags,
   groupKey,
+  itemOrderKey,
   keyOf,
   toNumberOrNull,
   GROUP_ORDER,
+  NEW_COVERAGE_PLACEHOLDERS,
   type AnalyzeResult,
   type Company,
   type ComparisonRow,
@@ -17,6 +21,8 @@ import {
   type ProposalCoverageDraft,
   type ProposalDraft,
 } from "../lib/coverageAfterDisplayCache";
+import { SpecialNotes, StageComparisonTable, YnFlagTable } from "../components/CoverageInsightBlocks";
+import { formatCoverageAmount, formatCoverageDeltaAmount } from "../lib/coverageFormat";
 import { mergeManualRiders, type ManualRider } from "../lib/coverageManualRiders";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
@@ -133,27 +139,7 @@ function withReportCover<T extends object>(analysis: T, draft: ReportCoverDraft)
   return Object.keys(reportCover).length > 0 ? { ...analysis, report_cover: reportCover } : analysis;
 }
 
-function formatCoverageAmount(value: number | null | undefined): string {
-  // BOHUMFIT-237 A: 보장금액 한글 단위 표기("1억 2,000만원" — 백엔드 format_krw와 동일 규칙).
-  if (value == null) return "-";
-  if (value === 0) return "0원";
-  const sign = value < 0 ? "-" : "";
-  const abs = Math.abs(value);
-  const eok = Math.floor(abs / 100_000_000);
-  const man = Math.floor((abs % 100_000_000) / 10_000);
-  const won = abs % 10_000;
-  const parts: string[] = [];
-  if (eok) parts.push(`${eok.toLocaleString("ko-KR")}억`);
-  if (man) parts.push(`${man.toLocaleString("ko-KR")}만`);
-  if (won || parts.length === 0) parts.push(won.toLocaleString("ko-KR"));
-  return `${sign}${parts.join(" ")}원`;
-}
-
-function formatCoverageDeltaAmount(value: number | null | undefined): string {
-  if (value == null) return "-";
-  if (value === 0) return "0";
-  return `${value > 0 ? "+" : "-"}${formatCoverageAmount(Math.abs(value))}`;
-}
+// BOHUMFIT-247: 금액 포맷터는 CoverageInsightBlocks로 이동(단일 소스 — 표시 블록과 공용).
 
 function formatWon(value: number | null | undefined): string {
   return value == null ? "-" : `${value.toLocaleString("ko-KR")}원`;
@@ -186,7 +172,8 @@ function companyLabel(company: Company, companies: Company[]): string {
   return `${insurer} (${ordinal})`;
 }
 
-// BOHUMFIT-240 P3: 담보를 13대분류 순서로 그룹핑(락된 도메인 순서 — GROUP_ORDER).
+// BOHUMFIT-240 P3/247: 담보를 대분류 순서로 그룹핑(GROUP_ORDER) + 그룹 내 순서는
+// 비분양식 시트2 항목 순서(itemOrderKey — 목록 밖 라벨은 유입 순서 유지)로 고정.
 function groupCoveragesByGroup12<T extends { group12?: string; kb_name: string }>(coverages: T[]) {
   const grouped = new Map<string, T[]>();
   for (const coverage of coverages) {
@@ -197,7 +184,7 @@ function groupCoveragesByGroup12<T extends { group12?: string; kb_name: string }
   }
   return GROUP_ORDER.filter((group) => grouped.has(group)).map((group) => ({
     group,
-    rows: grouped.get(group) as T[],
+    rows: [...(grouped.get(group) as T[])].sort((left, right) => itemOrderKey(left.kb_name) - itemOrderKey(right.kb_name)),
   }));
 }
 
@@ -210,7 +197,20 @@ function groupComparisonRows(rows: ComparisonRow[]) {
   }
   return Array.from(grouped.entries())
     .sort(([left], [right]) => groupKey(left) - groupKey(right))
-    .map(([group, groupedRows]) => ({ group, rows: groupedRows }));
+    .map(([group, groupedRows]) => ({
+      group,
+      // BOHUMFIT-247: 그룹 내 = 시트2 항목 순서(양식이 곧 스키마 — 백엔드 246 정렬과 동일).
+      rows: [...groupedRows].sort((left, right) => itemOrderKey(left.kb_name) - itemOrderKey(right.kb_name)),
+    }));
+}
+
+// BOHUMFIT-247 E: [전] 원문이 없는 신담보 행 배지 — 미가입으로 오독 방지.
+function NewCoverageTag() {
+  return (
+    <span className="ml-1.5 rounded-full bg-accent-100 px-1.5 py-0.5 text-[10px] font-bold text-accent-800">
+      신규 설계 반영 대상
+    </span>
+  );
 }
 
 function groupComparisonValues(rows: ComparisonRow[]) {
@@ -276,6 +276,44 @@ export default function CoverageRemodel() {
   );
   const comparisonGroups = useMemo(() => groupComparisonRows(displayComparison?.coverages || []), [displayComparison]);
   const comparisonValueGroups = useMemo(() => groupComparisonValues(displayComparison?.coverages || []), [displayComparison]);
+  // BOHUMFIT-247 B·D: 종합비교(시트3 수식)·Y/N — [전]은 백엔드 파생값(정본) 우선, [후]는
+  //   클라이언트 이월 결과에서 동일 수식으로 재산출(246 미러 — 규칙 변경 시 백엔드 동시 수정).
+  const beforeStages = useMemo(
+    () => (result ? (result.before.stage_totals ?? computeStageTotals(result.before.coverages)) : null),
+    [result],
+  );
+  const afterStages = useMemo(
+    () => (afterResult ? computeStageTotals(afterResult.after.before.coverages) : null),
+    [afterResult],
+  );
+  const beforeYn = useMemo(
+    () => (result ? (result.before.yn_flags ?? computeYnFlags(result.before.coverages)) : null),
+    [result],
+  );
+  const afterYn = useMemo(
+    () => (afterResult ? computeYnFlags(afterResult.after.before.coverages) : null),
+    [afterResult],
+  );
+  // BOHUMFIT-247 C: 특이사항 = 분석 경고([전] — E overview 합계형 안내 등) + 비교 주의(246
+  //   overview 해지 불가 경고 포함) + 개선 요약. 중복 제거해 한 영역에 노출.
+  const specialNotes = useMemo(() => {
+    const notes = [
+      ...(result?.warnings || []),
+      ...((displayComparison?.cautions || []).map((caution) => caution.message)),
+      ...((displayComparison?.improvements || []).map((improvement) => improvement.message)),
+    ];
+    return Array.from(new Set(notes));
+  }, [result, displayComparison]);
+  // BOHUMFIT-247 F: 기타 그룹 접이식(정보 보존 가시화 — 기본 접힘). ④·⑤ 독립 토글.
+  const [etcOpenCompare, setEtcOpenCompare] = useState(false);
+  const [etcOpenMatrix, setEtcOpenMatrix] = useState(false);
+  const hasNewCoverageRows = useMemo(
+    () =>
+      (displayComparison?.coverages || []).some(
+        (row) => NEW_COVERAGE_PLACEHOLDERS.includes(row.kb_name) && row.before_value == null,
+      ),
+    [displayComparison],
+  );
   const coverageOptions = useMemo(() => {
     const options = [...(result?.before.coverages || [])];
     const seen = new Set(options.map((coverage) => coverage.kb_name));
@@ -1083,17 +1121,43 @@ export default function CoverageRemodel() {
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <MetricCard label="전 월납" value={formatWon(afterResult.comparison.premium.before_monthly)} />
                 <MetricCard label="후 월납" value={formatWon(afterResult.comparison.premium.after_monthly)} />
+                {/* BOHUMFIT-247 C: 차액 = 후−전(246 결정 — 절감이면 음수·good 톤). */}
                 <MetricCard
-                  label="절감액"
+                  label="보험료 차액(후−전)"
                   value={formatDeltaWon(afterResult.comparison.premium.delta_monthly)}
                   tone={afterResult.comparison.premium.delta_monthly < 0 ? "good" : "warn"}
                 />
               </div>
 
               <div className="mt-4 rounded-[8px] bg-accent-50 px-4 py-3 text-[13px] font-semibold text-accent-800">
-                월납 {formatDeltaWon(afterResult.comparison.premium.delta_monthly)} · 총납입{" "}
-                {formatDeltaWon(afterResult.comparison.premium.delta_paid_total)}
+                월납 차액 {formatDeltaWon(afterResult.comparison.premium.delta_monthly)} · 총납입 차액{" "}
+                {formatDeltaWon(afterResult.comparison.premium.delta_paid_total)} (후−전 · 절감 시 −)
               </div>
+
+              {/* BOHUMFIT-247 C: 특이사항 — [전] 분석 경고 + 246 overview 해지 불가 경고 등. */}
+              {specialNotes.length > 0 && (
+                <div className="mt-4">
+                  <SpecialNotes notes={specialNotes} />
+                </div>
+              )}
+
+              {/* BOHUMFIT-247 B·D: 종합비교(비분양식 시트3 수식 — H10 심장중기 정정 반영)와
+                  가입특약 Y/N(45~49행 파생). [전]→[후] 비교, 개선(후−전) + 강조. */}
+              {beforeStages && beforeYn && (
+                <div className="mt-5 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+                  <div className="rounded-card border border-line bg-canvas p-4">
+                    <h3 className="ko-heading mb-2 text-sm font-bold text-ink-900">종합비교 — 암·뇌·심장 단계</h3>
+                    <StageComparisonTable before={beforeStages} after={afterStages} />
+                    <p className="mt-2 text-[11px] text-ink-soft">
+                      ※ 단계 합계 = 해당 진단·수술 담보 + 일반종수술 5종 + 질병수술(비분양식 산식).
+                    </p>
+                  </div>
+                  <div className="rounded-card border border-line bg-canvas p-4">
+                    <h3 className="ko-heading mb-2 text-sm font-bold text-ink-900">가입특약 Y/N</h3>
+                    <YnFlagTable before={beforeYn} after={afterYn} />
+                  </div>
+                </div>
+              )}
 
               {comparisonValueGroups.length > 0 && (
                 <div className="mt-5">
@@ -1227,44 +1291,78 @@ export default function CoverageRemodel() {
                 </p>
               )}
 
+              {/* BOHUMFIT-247 E: 신담보 3행 오독 방지 문구. */}
+              {hasNewCoverageRows && (
+                <p className="mt-4 text-[11px] text-ink-soft">
+                  ※ 면역항암치료·암 주요치료비·심혈관질환은 신 담보 체계 항목으로, [전]의 공란은 미가입이
+                  아니라 현재 문서에 없는 <strong>신규 설계 반영 대상</strong>을 뜻합니다.
+                </p>
+              )}
+
               <div className="mt-5 space-y-5">
-                {comparisonGroups.map(({ group, rows }) => (
-                  <div key={group}>
-                    <h3 className="ko-heading mb-2 text-sm font-bold text-ink-900">{group}</h3>
-                    <div className="overflow-x-auto">
-                      <table className="w-full min-w-[680px] table-fixed text-[12px]">
-                        <colgroup>
-                          <col className="w-[40%]" />
-                          <col className="w-[20%]" />
-                          <col className="w-[20%]" />
-                          <col className="w-[20%]" />
-                        </colgroup>
-                        <thead>
-                          <tr className="border-b border-line text-left text-ink-500">
-                            <th className="py-2 pr-2">담보</th>
-                            <th className="px-2 py-2 text-right">전 보장금액</th>
-                            <th className="px-2 py-2 text-right">후 보장금액</th>
-                            <th className="py-2 pl-2 text-right">증감</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {rows.map((coverage) => (
-                            <tr key={`${coverage.group12}-${coverage.kb_name}`} className="border-b border-line/60">
-                              <td className="break-keep py-1.5 pr-2 font-semibold text-ink-800">{coverage.kb_name}</td>
-                              <td className="px-2 py-1.5 text-right">{formatCoverageAmount(coverage.before_value)}</td>
-                              <td className="px-2 py-1.5 text-right font-semibold text-ink-900">
-                                {formatCoverageAmount(coverage.after_value)}
-                              </td>
-                              <td className="py-1.5 pl-2 text-right">
-                                {formatCoverageDeltaAmount(coverage.delta_value)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                {comparisonGroups.map(({ group, rows }) => {
+                  // BOHUMFIT-247 F: 기타 그룹 접이식 — 신 체계 미포섭 담보 정보 보존 가시화.
+                  const isEtc = group === "기타";
+                  const collapsed = isEtc && !etcOpenCompare;
+                  return (
+                    <div key={group}>
+                      <div className="mb-2 flex items-center gap-2">
+                        <h3 className="ko-heading text-sm font-bold text-ink-900">{group}</h3>
+                        {isEtc && (
+                          <button
+                            type="button"
+                            onClick={() => setEtcOpenCompare((current) => !current)}
+                            aria-expanded={!collapsed}
+                            className="rounded-btn border border-line-strong bg-white px-2 py-1 text-[11px] font-bold text-ink-700 hover:bg-ink-50"
+                          >
+                            {collapsed ? `펼치기 (${rows.length}개 담보)` : "접기"}
+                          </button>
+                        )}
+                        {isEtc && (
+                          <span className="text-[11px] text-ink-soft">신 체계 미포섭 담보 — 정보 보존</span>
+                        )}
+                      </div>
+                      {!collapsed && (
+                        <div className="overflow-x-auto">
+                          <table className="w-full min-w-[680px] table-fixed text-[12px]">
+                            <colgroup>
+                              <col className="w-[40%]" />
+                              <col className="w-[20%]" />
+                              <col className="w-[20%]" />
+                              <col className="w-[20%]" />
+                            </colgroup>
+                            <thead>
+                              <tr className="border-b border-line text-left text-ink-500">
+                                <th className="py-2 pr-2">담보</th>
+                                <th className="px-2 py-2 text-right">전 보장금액</th>
+                                <th className="px-2 py-2 text-right">후 보장금액</th>
+                                <th className="py-2 pl-2 text-right">증감</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rows.map((coverage) => (
+                                <tr key={`${coverage.group12}-${coverage.kb_name}`} className="border-b border-line/60">
+                                  <td className="break-keep py-1.5 pr-2 font-semibold text-ink-800">
+                                    {coverage.kb_name}
+                                    {NEW_COVERAGE_PLACEHOLDERS.includes(coverage.kb_name) &&
+                                      coverage.before_value == null && <NewCoverageTag />}
+                                  </td>
+                                  <td className="px-2 py-1.5 text-right">{formatCoverageAmount(coverage.before_value)}</td>
+                                  <td className="px-2 py-1.5 text-right font-semibold text-ink-900">
+                                    {formatCoverageAmount(coverage.after_value)}
+                                  </td>
+                                  <td className="py-1.5 pl-2 text-right">
+                                    {formatCoverageDeltaAmount(coverage.delta_value)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
 
@@ -1299,11 +1397,12 @@ export default function CoverageRemodel() {
               </div>
 
               {/* BOHUMFIT-240 P1: 회사명 컬럼 라벨 / P2: 회사=열 단일 방향 / P3: 대분류 섹션 구분. */}
+              {/* BOHUMFIT-247 A: 계약 열 전부 전개(누락 0 — 9~15계약) + 담보 열 sticky(가로 스크롤 UX). */}
               <div className="mt-5 overflow-x-auto">
                 <table className="w-full min-w-[720px] text-[12px]">
                   <thead>
                     <tr className="border-b border-line text-ink-500">
-                      <th rowSpan={3} className="whitespace-nowrap py-2 pr-2 text-left align-middle">담보</th>
+                      <th rowSpan={3} className="sticky left-0 z-10 whitespace-nowrap bg-white py-2 pr-2 text-left align-middle">담보</th>
                       <th rowSpan={3} className="whitespace-nowrap px-2 py-2 text-right align-middle">후 보장금액</th>
                       {afterResult.after.before.companies.map((company) => (
                         <th key={company.idx} className="whitespace-nowrap px-2 py-2 text-right align-middle">
@@ -1329,31 +1428,57 @@ export default function CoverageRemodel() {
                     </tr>
                   </thead>
                   <tbody>
-                    {groupCoveragesByGroup12(afterResult.after.before.coverages).map(({ group, rows }) => (
-                      <Fragment key={group}>
-                        <tr className="bg-accent-50/60">
-                          <td
-                            colSpan={2 + afterResult.after.before.companies.length}
-                            className="py-1.5 pr-2 text-[11px] font-extrabold text-accent-800"
-                          >
-                            {group}
-                          </td>
-                        </tr>
-                        {rows.map((coverage) => (
-                          <tr key={coverage.kb_name} className="border-b border-line/60">
-                            <td className="break-keep py-1.5 pr-2 pl-3 font-semibold text-ink-800">{coverage.kb_name}</td>
-                            <td className="px-2 py-1.5 text-right font-semibold text-ink-900">
-                              {formatCoverageAmount(coverage.summary)}
+                    {groupCoveragesByGroup12(afterResult.after.before.coverages).map(({ group, rows }) => {
+                      // BOHUMFIT-247 F: 기타 그룹 접이식(정보 보존 가시화 — 기본 접힘).
+                      const isEtc = group === "기타";
+                      const collapsed = isEtc && !etcOpenMatrix;
+                      return (
+                        <Fragment key={group}>
+                          <tr className="bg-accent-50/60">
+                            <td
+                              colSpan={2 + afterResult.after.before.companies.length}
+                              className="py-1.5 pr-2 text-[11px] font-extrabold text-accent-800"
+                            >
+                              {group}
+                              {isEtc && (
+                                <button
+                                  type="button"
+                                  onClick={() => setEtcOpenMatrix((current) => !current)}
+                                  aria-expanded={!collapsed}
+                                  className="ml-2 rounded-btn border border-line-strong bg-white px-2 py-0.5 text-[10px] font-bold text-ink-700 hover:bg-ink-50"
+                                >
+                                  {collapsed ? `펼치기 (${rows.length}개 담보)` : "접기"}
+                                </button>
+                              )}
+                              {isEtc && (
+                                <span className="ml-2 text-[10px] font-semibold text-ink-soft">
+                                  신 체계 미포섭 담보 — 정보 보존
+                                </span>
+                              )}
                             </td>
-                            {afterResult.after.before.companies.map((company) => (
-                              <td key={company.idx} className="px-2 py-1.5 text-right text-ink-soft">
-                                {formatCoverageAmount(coverage.by_company[keyOf(company.idx)])}
-                              </td>
-                            ))}
                           </tr>
-                        ))}
-                      </Fragment>
-                    ))}
+                          {!collapsed &&
+                            rows.map((coverage) => (
+                              <tr key={coverage.kb_name} className="border-b border-line/60">
+                                <td className="sticky left-0 z-10 break-keep bg-white py-1.5 pr-2 pl-3 font-semibold text-ink-800">
+                                  {coverage.kb_name}
+                                  {NEW_COVERAGE_PLACEHOLDERS.includes(coverage.kb_name) && !coverage.enrolled && (
+                                    <NewCoverageTag />
+                                  )}
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-semibold text-ink-900">
+                                  {formatCoverageAmount(coverage.summary)}
+                                </td>
+                                {afterResult.after.before.companies.map((company) => (
+                                  <td key={company.idx} className="px-2 py-1.5 text-right text-ink-soft">
+                                    {formatCoverageAmount(coverage.by_company[keyOf(company.idx)])}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                        </Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
