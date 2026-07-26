@@ -57,20 +57,11 @@ def test_pdf_splits_rider_and_company_comparison_pages() -> None:
 
 
 def test_excel_uses_same_five_step_sheet_order() -> None:
+    # BOHUMFIT-248 P2: 엑셀 산출을 비분양식 3시트로 정본화 — 검증 의도를 신 양식 등가로 갱신.
     workbook = load_workbook(io.BytesIO(build_workbook_bytes(_report())))
 
-    assert workbook.sheetnames == [
-        "① 표지",
-        "② 전 계약",
-        "③ 신규제안",
-        "④ 전후 특약별",
-        "⑤ 전후 회사별",
-    ]
-    contract_values = [cell.value for row in workbook["② 전 계약"].iter_rows() for cell in row if cell.value is not None]
-    proposal_values = [cell.value for row in workbook["③ 신규제안"].iter_rows() for cell in row if cell.value is not None]
-    compare_values = [cell.value for row in workbook["④ 전후 특약별"].iter_rows() for cell in row if cell.value is not None]
-
-    assert "해지" in contract_values
-    assert "가입제안서 PDF 파싱 결과와 핵심 보장금액을 함께 표시합니다." in proposal_values
-    assert "④ 최종 전 VS 후 - 특약별 보장 비교" in compare_values
-    assert -20_000 in compare_values
+    assert workbook.sheetnames == ["표지(세로)", "비교분석표", "최종비교분석표"]
+    compare_values = [cell.value for row in workbook["비교분석표"].iter_rows() for cell in row if cell.value is not None]
+    assert "담보내용" in compare_values and "보험료 합계" in compare_values
+    final_values = [cell.value for row in workbook["최종비교분석표"].iter_rows() for cell in row if cell.value is not None]
+    assert -20_000 in final_values               # 차액 = 후−전

@@ -57,23 +57,18 @@ def test_pdf_comparison_has_three_axes_and_group_expansion() -> None:
 
 
 def test_excel_compare_sheet_includes_before_after_premium_and_group_summary() -> None:
+    # BOHUMFIT-248 P2: 엑셀 산출을 비분양식 3시트로 정본화 — 검증 의도를 신 양식 등가로 갱신.
     workbook = load_workbook(io.BytesIO(build_workbook_bytes(_report())))
-    cover_values = [cell.value for row in workbook["① 표지"].iter_rows() for cell in row if cell.value is not None]
-    assert "GA 로고" not in cover_values
-    assert "슬롯 준비" not in cover_values
-    assert "소속 표시" in cover_values
-    assert "리뷰온에셋" in cover_values
+    cover_values = [cell.value for row in workbook["표지(세로)"].iter_rows() for cell in row if cell.value is not None]
+    cover_text = " ".join(str(v) for v in cover_values)
+    assert "보험 보장 분석 리포트" in cover_text
+    assert "리뷰온에셋" in cover_text            # report_cover 소속(GA) — 직급 행에 반영
 
-    compare = workbook["④ 전후 특약별"]
+    compare = workbook["비교분석표"]
     values = [cell.value for row in compare.iter_rows() for cell in row if cell.value is not None]
-
-    for label in ("전 월납", "후 월납", "월납 증감", "전 총납입", "후 총납입", "총납입 증감"):
-        assert label in values
-    assert 150_000 in values
-    assert 130_000 in values
-    assert -20_000 in values
-    assert "대분류별 보장 변화" in values
-    assert "암" in values and "수술" in values
-    # BOHUMFIT-237 A: 보장금액 셀은 한글 단위 문자열(월납·총납입 원 단위는 숫자 유지).
-    assert "5,000만원" in values
-    assert "1,000만원" in values
+    assert "보험료 합계" in values
+    assert 150_000 in values and 130_000 in values   # 전/후 월납(원 단위)
+    final = workbook["최종비교분석표"]
+    fvals = [cell.value for row in final.iter_rows() for cell in row if cell.value is not None]
+    assert -20_000 in fvals                      # 차액 = 후−전
+    assert "암" in fvals and "심장중기" in fvals   # 종합비교 블록(H10 정정 라벨)

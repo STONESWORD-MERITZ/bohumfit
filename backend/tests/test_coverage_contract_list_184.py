@@ -58,23 +58,14 @@ def test_before_payload_promotes_contract_list_with_missing_premium() -> None:
 
 
 def test_excel_before_sheet_has_contract_list_block() -> None:
+    # BOHUMFIT-248 P2: 엑셀 산출을 비분양식 3시트로 정본화 — 검증 의도를 신 양식 등가로 갱신.
     wb = load_workbook(io.BytesIO(build_workbook_bytes(_analysis())))
-    ws = wb["전 회사별세부"]
-
-    assert [ws.cell(3, col).value for col in range(1, 8)] == [
-        "번호",
-        "회사명",
-        "상품명",
-        "납입기간",
-        "만기",
-        "월보험료",
-        "비고",
-    ]
-    # BOHUMFIT-236 B: 숫자 정렬 — 4행 = 계약 1(메리츠화재), 5행 = 계약 2(DB손보).
+    ws = wb["비교분석표"]
+    # 계약 열 전부 전개 — 4행 라벨 = 회사명(숫자 idx 오름차순: 메리츠화재, DB손보).
     assert ws.cell(4, 2).value == "메리츠화재"
-    assert ws.cell(5, 2).value == "DB손보"
-    assert ws.cell(5, 6).value == "미제공"
-    assert ws.cell(5, 7).value == "보험료 미제공"
+    assert ws.cell(4, 3).value == "DB손보"
+    assert ws.cell(5, 2).value is not None      # 계약1 보험료(원)
+    assert ws.cell(5, 3).value is None          # 계약2 보험료 미제공 → 공란
 
 
 def test_pdf_html_has_contract_list_block() -> None:

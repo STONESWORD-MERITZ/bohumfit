@@ -11,9 +11,10 @@ from __future__ import annotations
 import html as _html
 from datetime import datetime
 
+from .aggregator import compute_stage_totals, compute_yn_flags
 from .amount import format_krw, format_krw_delta
 from .compare import ensure_comparison
-from .constants import GROUP13
+from .constants import GROUP13, NEW_ITEM_ORDER
 
 EMERALD = "#084734"
 EMERALD_SOFT = "#EEF6F1"
@@ -58,12 +59,22 @@ def _company_label(co: dict, companies: list) -> str:
     return f"{insurer} ({ordinal})"
 
 
+_ITEM_ORDER_IDX = {name: idx for idx, name in enumerate(NEW_ITEM_ORDER)}
+
+
+def _item_key(name) -> int:
+    return _ITEM_ORDER_IDX.get(name, len(NEW_ITEM_ORDER))
+
+
 def _group_coverages(coverages: list) -> list:
-    """BOHUMFIT-240 P3: 담보를 13대분류 순서로 그룹핑. [(group, [rows]), ...]."""
+    """BOHUMFIT-240 P3/248: 대분류 순서 그룹핑 + 그룹 내 = 비분양식 시트2 항목 순서."""
     grouped: dict[str, list] = {}
     for c in coverages:
         grouped.setdefault(c.get("group12") or "기타", []).append(c)
-    return [(g, grouped[g]) for g in sorted(grouped, key=_grp_key)]
+    return [
+        (g, sorted(grouped[g], key=lambda r: _item_key(r.get("kb_name"))))
+        for g in sorted(grouped, key=_grp_key)
+    ]
 
 
 def _esc(s) -> str:
@@ -155,6 +166,7 @@ def _cover_html(analysis: dict, generated_date: str) -> str:
     <div class="ga-logo-slot">{_esc(logo_fallback)}</div>
     <div class="cover-fields">{rows}</div>
   </div>
+  <!-- BOHUMFIT-248 P3: 분류표 부록 이미지 삽입 지점(에셋 미수령 — 구현 보류) -->
   <p class="cover-note">고객 설명용 요약 리포트 · 실제 보장 및 지급 여부는 보험사 약관과 증권을 따릅니다.</p>
 </section>
 """
@@ -197,13 +209,20 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
         #   대분류는 섹션 헤더 행으로 제공하므로 per-row 대분류 열은 제거한다.
         col_span = 2 + len(after_companies)
         after_rows = []
+        NEW_PLACEHOLDERS = ("면역항암치료", "암 주요치료비", "심혈관질환")
         for group, group_rows in _group_coverages(after_before.get("coverages", [])):
-            after_rows.append(f'<tr class="grp-head"><td colspan="{col_span}">{_esc(group)}</td></tr>')
+            # BOHUMFIT-248 P3: 기타 그룹은 정보 보존 문구 병기(화면 247 접이식과 의미 동일).
+            head = f"{group} (신 체계 미포섭 — 정보 보존)" if group == "기타" else group
+            after_rows.append(f'<tr class="grp-head"><td colspan="{col_span}">{_esc(head)}</td></tr>')
             for c in group_rows:
                 by = c.get("by_company", {})
                 cells = "".join(f'<td class="num">{_fmt_krw(by.get(str(co.get("idx"))))}</td>' for co in after_companies)
+                # BOHUMFIT-248 P3: 신담보 3행 오독 방지 표기(247 화면 배지와 동일 의미).
+                tag = ' <small class="new-tag">[신규 설계 반영 대상]</small>' if (
+                    c.get("kb_name") in NEW_PLACEHOLDERS and not c.get("enrolled")
+                ) else ""
                 after_rows.append(
-                    f'<tr><td class="nm indent">{_esc(c.get("kb_name"))}</td>'
+                    f'<tr><td class="nm indent">{_esc(c.get("kb_name"))}{tag}</td>'
                     f'<td class="num strong">{_fmt_krw(c.get("summary"))}</td>{cells}</tr>'
                 )
         after_contract_rows = []
@@ -241,6 +260,45 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
 </section>
 """
 
+    # BOHUMFIT-248 P3: 종합비교(시트3 수식·H10 심장중기 정정)·Y/N·특이사항 — 247 화면과 의미 동일.
+    stage_yn_section = ""
+    notes_section = ""
+    if after_before:
+        stages_before = before.get("stage_totals") or compute_stage_totals(before.get("coverages", []))
+        stages_after = compute_stage_totals(after_before.get("coverages", []))
+        stage_rows_html = "".join(
+            f'<tr><td class="grp">{_esc(key)}</td>'
+            f'<td class="num">{_fmt_krw(stages_before.get(key, 0))}</td>'
+            f'<td class="num">→</td>'
+            f'<td class="num strong">{_fmt_krw(stages_after.get(key, 0))}</td>'
+            f'<td class="num {"good" if stages_after.get(key, 0) > stages_before.get(key, 0) else "warn" if stages_after.get(key, 0) < stages_before.get(key, 0) else ""}">'
+            f'{_fmt_delta_krw(stages_after.get(key, 0) - stages_before.get(key, 0))}</td></tr>'
+            for key in ("암", "뇌초기", "뇌중기", "뇌말기", "심장초기", "심장중기", "심장말기")
+        )
+        yn_before_map = {f["item"]: f["value"] for f in (before.get("yn_flags") or compute_yn_flags(before.get("coverages", [])))}
+        yn_after_map = {f["item"]: f["value"] for f in compute_yn_flags(after_before.get("coverages", []))}
+        yn_rows_html = "".join(
+            f'<tr><td class="grp">{_esc(item)}</td><td class="num">{_esc(yn_before_map.get(item, "N"))}</td>'
+            f'<td class="num strong">{_esc(yn_after_map.get(item, "N"))}</td></tr>'
+            for item in ("운전자특약", "자동차부상치료비", "가족일상배상책임", "상해실손의료비", "질병실손의료비")
+        )
+        stage_yn_section = f"""
+<h3>종합비교 — 암·뇌·심장 단계 (전 → 후 · 개선 +)</h3>
+<table><thead><tr><th>종합</th><th class="num">전</th><th></th><th class="num">후</th><th class="num">개선(후−전)</th></tr></thead>
+<tbody>{stage_rows_html}</tbody></table>
+<p class="notes">※ 단계 합계 = 해당 진단·수술 담보 + 일반종수술 5종 + 질병수술(비분양식 산식 · H10 심장중기 정정 반영).</p>
+<h3>가입특약 Y/N</h3>
+<table><thead><tr><th>항목</th><th class="num">전</th><th class="num">후</th></tr></thead>
+<tbody>{yn_rows_html}</tbody></table>
+"""
+    special_notes = list(analysis.get("warnings") or [])
+    for caution in (comparison.get("cautions") or []) if comparison else []:
+        message = caution.get("message")
+        if message and message not in special_notes:
+            special_notes.append(message)
+    if special_notes:
+        notes_items = "".join(f"<li>{_esc(_mask_known_names(note, *mask_names))}</li>" for note in special_notes)
+        notes_section = f'<h3>특이사항</h3><ul class="notes">{notes_items}</ul>'
     comparison_section = ""
     if comparison:
         cp = comparison.get("premium") or {}
@@ -284,8 +342,10 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
 <table><thead><tr><th>대분류</th><th class="num">전 보장금액</th><th class="num">후 보장금액</th><th class="num">증감</th></tr></thead>
 <tbody>{''.join(group_rows)}</tbody></table>
 <h3>특약별 보장금액 비교</h3>
-<table><thead><tr><th>대분류</th><th>담보</th><th class="num">전 보장금액</th><th class="num">후 보장금액</th><th class="num">증감</th></tr></thead>
+<table><thead><tr><th>대분류</th><th>담보</th><th class="num">전 보장금액</th><th class="num">후 보장금액</th><th class="num">증감(후−전)</th></tr></thead>
 <tbody>{''.join(compare_rows)}</tbody></table>
+{stage_yn_section}
+{notes_section}
 </section>
 """
     contract_rows = []

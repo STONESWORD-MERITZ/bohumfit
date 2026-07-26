@@ -168,17 +168,18 @@ def test_compare_before_after_can_be_called_directly() -> None:
 
 
 def test_excel_adds_after_compare_and_summary_sheets() -> None:
+    # BOHUMFIT-248 P2: 엑셀 산출을 비분양식 3시트로 정본화 — 검증 의도를 신 양식 등가로 갱신.
     result = build_after_analysis(_analysis(), _plan())
     workbook = load_workbook(io.BytesIO(build_workbook_bytes(result)))
 
-    assert workbook.sheetnames == ["① 표지", "② 전 계약", "③ 신규제안", "④ 전후 특약별", "⑤ 전후 회사별"]
-    compare = workbook["④ 전후 특약별"]
+    assert workbook.sheetnames == ["표지(세로)", "비교분석표", "최종비교분석표"]
+    compare = workbook["비교분석표"]
     values = [cell.value for row in compare.iter_rows() for cell in row if cell.value is not None]
-    assert "전 보장금액" in values
-    assert "후 보장금액" in values
-    assert "미가입 -> 충분" not in values
-    assert "부족 -> 충분" not in values
-    assert -20_000 in values
+    assert "비교분석 전 보장" in values and "비교분석 후 보장" in values
+    final = workbook["최종비교분석표"]
+    fvals = [cell.value for row in final.iter_rows() for cell in row if cell.value is not None]
+    assert "보험료 차액(후−전)" in fvals
+    assert -20_000 in fvals                    # 차액 = 후−전(개선 = 절감 음수)
 
 
 def test_pdf_html_adds_customer_compare_page_with_brand_and_disclaimer() -> None:

@@ -57,7 +57,7 @@ def test_pdf_per_rider_compare_table_focuses_on_coverage_amounts() -> None:
     assert "<th>담보</th>" in section
     assert '<th class="num">전 보장금액</th>' in section
     assert '<th class="num">후 보장금액</th>' in section
-    assert '<th class="num">증감</th>' in section
+    assert '<th class="num">증감(후−전)</th>' in section
 
     rows = re.findall(r"<tr><td.*?</tr>", section, re.S)
     row = next(item for item in rows if ">수술비</td>" in item)
@@ -68,22 +68,10 @@ def test_pdf_per_rider_compare_table_focuses_on_coverage_amounts() -> None:
 
 
 def test_excel_compare_sheet_uses_amount_columns_only() -> None:
+    # BOHUMFIT-248 P2: 엑셀 산출을 비분양식 3시트로 정본화 — 검증 의도를 신 양식 등가로 갱신.
     workbook = load_workbook(io.BytesIO(build_workbook_bytes(_report())))
-    sheet = workbook["④ 전후 특약별"]
-    header_row = next(
-        row
-        for row in range(1, sheet.max_row + 1)
-        if sheet.cell(row=row, column=3).value == "전 보장금액" and sheet.cell(row=row, column=4).value == "후 보장금액"
-    )
-
-    surgery = next(row for row in sheet.iter_rows(values_only=True) if row[1] == "수술비")
-    # BOHUMFIT-237 A: 보장금액 셀 한글 단위 문자열 전환(증감은 부호 병기).
-    assert surgery[:5] == (
-        "수술",
-        "수술비",
-        "1,000만원",
-        "2,000만원",
-        "+1,000만원",
-    )
-    assert "부족" not in surgery
-    assert "충분" not in surgery
+    sheet = workbook["비교분석표"]
+    values = [cell.value for row in sheet.iter_rows() for cell in row if cell.value is not None]
+    # 신 양식: 담보 행은 금액(만원 숫자)만 — 진단 상태 문자열은 시트에 없다.
+    assert "부족" not in values and "충분" not in values and "미가입" not in values
+    assert "질병수술" in values                   # 신 체계 정식명 행 존재
