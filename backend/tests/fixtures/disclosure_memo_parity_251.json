@@ -1,0 +1,48 @@
+{
+  "comment": "BOHUMFIT-251(3차) 경로 간 출력 동등성 골든 — 서버 _kakao_item(backend/main.py)과 프런트 memoItem(src/lib/disclosureMemo.ts)이 동일 항목에 대해 문자 단위 동일 텍스트를 생성해야 한다. 익명 합성 픽스처 — PII 0. 형식 변경 시 양쪽 구현·이 골든을 함께 갱신한다(211 패리티 원칙).",
+  "surgery_item": {
+    "first_date": "2023-02-05",
+    "latest_date": "2023-03-10",
+    "display_code": "L0221·L0292",
+    "code": "L02",
+    "name": "합성질환",
+    "display_name": "합성질환",
+    "visit": 5,
+    "med_days": 0,
+    "inpatient": 0,
+    "inpatient_count": 0,
+    "inpatient_periods": [],
+    "surgeries": ["절개술(제1범위)", "배농술(제2범위)"],
+    "surgery_count": 2,
+    "surgery_dates": ["2023-02-05"],
+    "surgery_suspected": [],
+    "surgery_suspected_grade": "",
+    "detail": "5년 이내 통원/수술",
+    "hospitals": ["가나병원", "다라의원"],
+    "surgery_records": [
+      {
+        "date": "2023-02-05",
+        "code": "L0221",
+        "context": "통원1회",
+        "name": "가나부위농양",
+        "surgery_name": "절개술(제1범위)",
+        "hospital": "가나병원",
+        "co_diagnoses": []
+      },
+      {
+        "date": "2023-02-05",
+        "code": "L0292",
+        "context": "입원3일",
+        "name": "다라부위농양",
+        "surgery_name": "배농술(제2범위)",
+        "hospital": "다라의원",
+        "co_diagnoses": ["K610 합성병기"]
+      }
+    ]
+  },
+  "surgery_item_expected": "2023-02-05 ~ 2023-03-10 / L0221·L0292 / (양방)합성질환\n2023-02-05 / L0221 / 통원1회 / 가나부위농양 / 절개술(제1범위) / 가나병원\n2023-02-05 / L0292 / 입원3일 / 다라부위농양 / 배농술(제2범위) / 다라의원 / 동일일자 진단: K610 합성병기\n\n",
+  "unassigned": [
+    { "date": "2024-05-05", "surgery_name": "절제술(림프절)", "hospital": "무연고병원" }
+  ],
+  "unassigned_block_expected": "[수술 내역(그룹 미특정)]\n2024-05-05 / 절제술(림프절) / 무연고병원\n"
+}

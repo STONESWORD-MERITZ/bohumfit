@@ -114,6 +114,8 @@ export type AnalyzeResult = {
   all_disease_summary: DiseaseSummary[];
   standard_kakao: string;
   easy_kakao?: string;
+  // BOHUMFIT-251(3차): 그룹 미특정 수술행 — 기간 필터 문안에도 서버와 동일 블록 출력(4경로 정합).
+  unassigned_surgeries?: { date?: string; surgery_name?: string; hospital?: string }[];
   customer_name?: string;   // BOHUMFIT-065: 출력 파일명용(공단 PDF 성명, 없으면 폴백)
   parse_errors: string[];
   warnings: string[];
@@ -609,6 +611,7 @@ function DisclosureSection({
   referenceDate = "",
   resultWindowYears,
   onResultWindowYearsChange,
+  unassignedSurgeries = [],
 }: {
   reports: Record<string, SummaryItem[]>;
   memo: string;
@@ -619,6 +622,8 @@ function DisclosureSection({
   referenceDate?: string;
   resultWindowYears: number;
   onResultWindowYearsChange: (years: number) => void;
+  // BOHUMFIT-251(3차): 기간 필터 문안에도 미특정 수술 블록 출력(서버 문안과 4경로 정합).
+  unassignedSurgeries?: { date?: string; surgery_name?: string; hospital?: string }[];
 }) {
   const [memoOpen, setMemoOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -635,6 +640,7 @@ function DisclosureSection({
         cutoffIso: resultWindowCutoffIso,
         selectedYears: resultWindowYears,
         productQuestionYears: PRODUCT_DISCLOSURE_QUESTION_YEARS,
+        unassignedSurgeries,
       })
     : withDisclosureSelectionHeader(memo, PRODUCT_DISCLOSURE_QUESTION_YEARS, resultWindowYears);
 
@@ -1450,6 +1456,7 @@ export function ResultView({
               productLabel={activeLabel}
               resultWindowYears={resultWindowYears}
               onResultWindowYearsChange={setResultWindowYears}
+              unassignedSurgeries={result.unassigned_surgeries || []}
             />
           )}
         </div>

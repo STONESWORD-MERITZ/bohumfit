@@ -9,6 +9,8 @@ from datetime import datetime, timedelta
 import pandas as pd
 
 from .helpers import (
+    display_clean_text,
+    display_raw_code,
     PROCEDURE_COST_THRESHOLD,
     SURGERY_COST_THRESHOLD,
     _add_days,
@@ -64,6 +66,14 @@ def new_disease():
         "drug_ingredient_map": {},
         # BOHUMFIT-205: 약품별 마지막 확인 처방일. 3개월 구간의 일시 기록과 현재 확인 약을 재대조한다.
         "drug_last_seen_dates": {},
+        # BOHUMFIT-251: 고지 문안 원문 충실 — 표시 전용 필드(판정 로직 미사용).
+        #   raw_codes: 심평원 원문 질병코드(절삭·정규화 없음 — L050·L0292 등 그대로).
+        #   _raw_code_by_date: 날짜별 원문 코드(수술 건별 기록의 코드 병기용).
+        #   surgery_records: 수술 건별 {date, code, context, name, surgery_name, hospital}.
+        "raw_codes": set(),
+        "_raw_code_by_date": {},
+        "_diag_name_by_date": {},
+        "surgery_records": [],
     }
 
 
@@ -229,7 +239,7 @@ def _pick_episode_start(starts: list[str], clean_date: str) -> str:
 def build_disease_stats(
     records: list[dict],
     today: datetime,
-) -> tuple[dict, list[str], list[str], list[tuple[str, str]], dict[str, list[str]]]:
+) -> tuple[dict, list[str], list[str], list[tuple[str, str]], dict[str, list[str]], list[dict]]:
     """
     파싱된 records 로부터 disease_stats + AI 전달용 raw_entries 빌드.
 
@@ -239,6 +249,7 @@ def build_disease_stats(
         date_warnings        : list[str]  — 날짜 파싱 실패/미래 날짜 경고
         raw_entries          : list[(fname, line)]  — AI raw_text 생성용
         lines_by_file        : dict[fname, list[str]]
+        (251) unassigned_surgeries: 링크 불성립 수술행(그룹 미특정 — 표시 전용)
     """
     df = pd.DataFrame(records)
     if "_ftype" in df.columns:
@@ -247,6 +258,11 @@ def build_disease_stats(
         df = df.sort_values("_parse_order", kind="stable").drop(columns=["_parse_order"])
 
     disease_stats: dict = defaultdict(new_disease)
+    unassigned_surgeries: list[dict] = []  # BOHUMFIT-251 회송 보정: 그룹 미특정 수술행(표시 전용)
+    # BOHUMFIT-251 회송 보정: 동일일자 병기 인덱스 — ★행 단위 (날짜, 병원 정규화) 키.
+    #   그룹 날짜맵(setdefault 첫 행 승자)은 같은 그룹이 같은 날 복수 병원 진료 시
+    #   (코드, 병원) 짝이 어긋난다(정*규 실측: K61 2023-02-05 파티마 행이 타 병원에 가려짐).
+    diag_event_index: dict = defaultdict(set)
     basic_diagnosis_names: dict[str, str] = {}
     basic_by_day_provider: dict[tuple[str, str], list[dict]] = defaultdict(list)
     cross_day_index = defaultdict(lambda: {
@@ -361,6 +377,18 @@ def build_disease_stats(
         else:
             group_key = ""
         if not group_key:
+            # BOHUMFIT-251 회송 보정: 그룹 미특정 수술행 — 어떤 질병 그룹에도 링크되지 않은
+            #   세부 수술 행은 오귀속 대신 별도 "수술 내역(그룹 미특정)" 블록으로 보존한다
+            #   (사실성 > 그룹 배치 — 문안에는 원문 그대로, 특정 질병에 귀속시키지 않음).
+            if ftype == "detail":
+                _un_name = _detail_action_name(row) or name_str
+                _un_date = parse_date(date_str)
+                if _un_name and _un_date and _is_detail_surgery_match(_un_name):
+                    unassigned_surgeries.append({
+                        "date": _un_date,
+                        "surgery_name": display_clean_text(_un_name),
+                        "hospital": display_clean_text((hospital or "").strip()),
+                    })
             continue
 
         clean_date = parse_date(date_str)
@@ -380,6 +408,33 @@ def build_disease_stats(
                 empty_date_count += 1
 
         s = disease_stats[group_key]
+
+        # BOHUMFIT-251: 원문 질병코드 보존(고지 문안은 절삭 금지 — 그룹 키는 내부용으로 분리).
+        _raw_original = str(get_diagnosis_code(row) or "").strip().replace(" ", "")
+        if _raw_original and _raw_original != "$":
+            s["raw_codes"].add(_raw_original)
+            if clean_date:
+                s["_raw_code_by_date"].setdefault(clean_date, _raw_original)
+                _raw_diag_name = get_diagnosis_name(row)
+                if _raw_diag_name:
+                    s["_diag_name_by_date"].setdefault(clean_date, _raw_diag_name)
+                # 251f: 행이 가진 (날짜, 병원, 코드, 병명)을 그대로 이벤트 인덱스에 적재.
+                if ftype in ("basic", "unknown", "nhis") and hospital and not _is_pharmacy(hospital):
+                    diag_event_index[(clean_date, _norm_provider_name(hospital))].add(
+                        (_raw_original, _raw_diag_name or "")
+                    )
+                    # 251g(3차): 그룹 내 (날짜, 병원) 이벤트별 코드·병명·맥락 — 같은 그룹이
+                    #   같은 날 서로 다른 병원에서 진료한 경우 각 이벤트 값이 첫 행으로
+                    #   치환되지 않도록 이벤트 키로 보존한다(첫 행 승자는 동일 (날짜,병원) 내로 한정).
+                    _evt_map = s.setdefault("_evt_by_date_hosp", {})
+                    _evt_key = (clean_date, _norm_provider_name(hospital))
+                    _evt = _evt_map.setdefault(_evt_key, {
+                        "code": _raw_original, "name": _raw_diag_name or "",
+                        "inpatient_days": 0, "visits": 0,
+                    })
+                    _evt["visits"] += 1
+                    if ("입원" in in_out or "입원" in name_str) and m_days > 0:
+                        _evt["inpatient_days"] = max(_evt["inpatient_days"], m_days)
 
         if grouped_code_str and ftype in ("basic", "unknown", "nhis"):
             diagnosis_name = get_diagnosis_name(row) or (name_str if ftype == "nhis" else "")
@@ -457,6 +512,16 @@ def build_disease_stats(
                 elif is_surg_by_keyword:
                     s["surgeries"].add(surg_target)
                     s["surgery_dates"].add(clean_date)
+                if (is_surg_by_column or is_surg_by_keyword) and clean_date:
+                    # BOHUMFIT-251 회송 보정: 건별 수술 이벤트를 ★판정과 동일한 연결
+                    #   (detail→basic (날짜+병원 정규화) 링크로 귀속된 바로 이 그룹 s)에 적재.
+                    #   종전의 날짜 전역 재조인이 만들던 교차 오염(같은 날짜 타 병원·타 그룹
+                    #   문안에 남의 수술 기재)을 원천 제거한다.
+                    s.setdefault("_surgery_row_events", []).append({
+                        "date": clean_date,
+                        "surgery_name": (surg_label if is_surg_by_column else surg_target) or "수술",
+                        "hospital": (hospital or "").strip(),
+                    })
 
                 day_fact = s["_daily_facts"].setdefault(clean_date, {"max_basic_cost": 0, "detail_proc_names": set()})
                 if surg_target:
@@ -623,6 +688,9 @@ def build_disease_stats(
 
     # ── 기본/세부 동일일자 교차 수술/시술 판정 ────────────────────
     cross_surgery_hints: list[str] = []
+    # BOHUMFIT-251: 수술 건별 기록 조립 — 확정된 수술일(surgery_dates)에 해당 일자의
+    #   세부진료 수술 행 전부를 병기(원문 코드·병명·수술명). 세부 행이 없으면 그룹 요약으로
+    #   폴백. 판정(수술 확정 로직)은 위 블록 그대로 — 표시 필드만 추가한다.
     for _ck, _s in disease_stats.items():
         _dc = (_s.get("diag_code") or "").strip()
         _name = _s.get("name", "")
@@ -693,6 +761,94 @@ def build_disease_stats(
                     cross_surgery_hints.append(
                         f"{d} {_dc or ckey} {_hint_name} 교차후보(수술키워드+기본진료비 {max_cost:,}원) ★AI판단필요"
                     )
+
+    # ── BOHUMFIT-251: 수술 건별 기록(표시 전용 · 회송 보정) ────────────
+    # 연결 규칙(명문화): ① 건별 이벤트는 파이프라인 판정이 쓰는 detail→basic
+    #   (날짜+병원 정규화) 링크로 귀속된 그룹의 _surgery_row_events만 사용(날짜 전역
+    #   재조인 금지 — 교차 오염 원천 제거) ② 동일 (날짜,병원)에 복수 기본행이 공존하면
+    #   기존 링크 규칙(첫 행 귀속 — 판정과 동일)을 따르고 타 진단은 co_diagnoses로 병기
+    #   (사실성 보존) ③ 링크 불성립 수술행은 unassigned_surgeries(그룹 미특정) 블록.
+    # 동일 일자 병기 인덱스 — ★행 단위 (날짜, 병원 정규화) 키(251f: 그룹 맵의 첫 행
+    #   승자 왜곡 제거 — 같은 병원의 같은 날 타 진단만 병기).
+    _diag_by_evt: dict = {}
+    for (_d2, _hosp2), _pairs in diag_event_index.items():
+        for _raw2, _name2 in _pairs:
+            _diag_by_evt.setdefault((_d2, _hosp2), set()).add(
+                (display_raw_code(_raw2), display_clean_text(_name2))
+            )
+    for _ck, _s in disease_stats.items():
+        _records = []
+        _events_by_date: dict = {}
+        for _ev in _s.get("_surgery_row_events") or []:
+            _events_by_date.setdefault(_ev["date"], []).append(_ev)
+        for _d in sorted(_s.get("surgery_dates", set())):
+            _inp_days = (_s.get("_inpatient_days_map") or {}).get(_d, 0)
+            _visit_n = list(_s.get("visit_events") or []).count(_d)
+            _context = f"입원{_inp_days}일" if _inp_days else f"통원{max(_visit_n, 1)}회"
+            _day_events = _events_by_date.get(_d, [])
+            if _day_events:
+                _seen_rec = set()
+                for _ev in _day_events:
+                    _hosp_key = _norm_provider_name(_ev["hospital"] or (_s.get("hospital_dates") or {}).get(_d, ""))
+                    _rec_key = (_ev["surgery_name"], _hosp_key)
+                    if _rec_key in _seen_rec:
+                        continue
+                    _seen_rec.add(_rec_key)
+                    # 251g(3차): 코드·병명·맥락을 ★이 이벤트(날짜+병원)의 값으로 — 그룹 날짜맵
+                    #   폴백은 이벤트 맵에 없을 때만(같은 날 타 병원 이벤트 값 치환 금지).
+                    _evt_info = (_s.get("_evt_by_date_hosp") or {}).get((_d, _hosp_key)) or {}
+                    _own_code = display_raw_code(
+                        _evt_info.get("code")
+                        or (_s.get("_raw_code_by_date") or {}).get(_d, "")
+                        or _s.get("diag_code", "")
+                    )
+                    _own_name = display_clean_text(
+                        _evt_info.get("name")
+                        or (_s.get("_diag_name_by_date") or {}).get(_d, "")
+                        or _s.get("name", "")
+                    )
+                    if _evt_info:
+                        _evt_inp = _evt_info.get("inpatient_days", 0)
+                        _evt_context = (f"입원{_evt_inp}일" if _evt_inp
+                                        else f"통원{max(_evt_info.get('visits', 0), 1)}회")
+                    else:
+                        _evt_context = _context
+                    _co = sorted(
+                        f"{c} {n}".strip() for c, n in _diag_by_evt.get((_d, _hosp_key), set())
+                        if c and c != _own_code
+                    )
+                    _records.append({
+                        "date": _d,
+                        "code": _own_code,
+                        "context": _evt_context,
+                        "name": _own_name,
+                        "surgery_name": display_clean_text(_ev["surgery_name"]),
+                        "hospital": display_clean_text(_ev["hospital"] or (_s.get("hospital_dates") or {}).get(_d, "")),
+                        "co_diagnoses": _co,
+                    })
+            else:
+                _names = _sorted_strings(_s.get("surgeries", set()) or [])
+                _own_code = display_raw_code(
+                    (_s.get("_raw_code_by_date") or {}).get(_d, "") or _s.get("diag_code", "")
+                )
+                _hosp_key = _norm_provider_name((_s.get("hospital_dates") or {}).get(_d, ""))
+                _co = sorted(
+                    f"{c} {n}".strip() for c, n in _diag_by_evt.get((_d, _hosp_key), set())
+                    if c and c != _own_code
+                )
+                _records.append({
+                    "date": _d,
+                    "code": _own_code,
+                    "context": _context,
+                    "name": display_clean_text(
+                        (_s.get("_diag_name_by_date") or {}).get(_d, "") or _s.get("name", "")
+                    ),
+                    "surgery_name": display_clean_text(_names[0] if _names else "수술"),
+                    "hospital": display_clean_text((_s.get("hospital_dates") or {}).get(_d, "")),
+                    "co_diagnoses": _co,
+                })
+        if _records:
+            _s["surgery_records"] = _records
 
     # ── 날짜 파싱 실패/미래일자 경고 ─────────────────────────────
     date_warnings: list[str] = []
@@ -780,7 +936,8 @@ def build_disease_stats(
         if fname_row:
             lines_by_file[fname_row].append(tl)
 
-    return disease_stats, cross_surgery_hints, date_warnings, raw_entries, dict(lines_by_file)  # BOHUMFIT-043
+    # BOHUMFIT-251 회송 보정: 그룹 미특정 수술행을 6번째 요소로 반환(표시 전용).
+    return disease_stats, cross_surgery_hints, date_warnings, raw_entries, dict(lines_by_file), unassigned_surgeries
 
 
 def _medication_token(drug: str, ingredient_map: dict) -> tuple[str, float]:

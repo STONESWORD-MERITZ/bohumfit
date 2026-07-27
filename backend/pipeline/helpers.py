@@ -173,6 +173,30 @@ def normalize_code(raw: str | None) -> str:
     return code
 
 
+def display_raw_code(raw: str | None) -> str:
+    """BOHUMFIT-251: 고지 표시용 원문 코드 — 심평원 양방(A)·한방(B) 구분 접두만 제거.
+
+    원문 실측(정*규): 주상병코드 칸은 "AL050"처럼 구분 접두를 포함하고, 병명 칸에
+    "(양방)"이 별도 병기된다. 접두는 KCD 코드가 아니므로(061 그룹핑과 동일 판정)
+    표시에서만 제거하고 그 외 문자는 원문 그대로 둔다(절삭·정규화 없음).
+    """
+    code = str(raw or "").strip()
+    if len(code) >= 3 and code[0] in ("A", "B") and code[1].isalpha():
+        return code[1:]
+    return code
+
+
+def display_clean_text(text: str | None) -> str:
+    """BOHUMFIT-251: 표시 전용 — PDF 셀 내 개행이 만든 한글 사이 공백 아티팩트 제거.
+
+    실측(정*규): "농 양이있는 모소낭"·"대구파티마병 원"·"1시 간초과" — 심평원 원문은
+    공백 없는 연속 표기("농양이있는모소낭"). 한글-한글 사이 단일 공백만 접합하고
+    영문·숫자·문장부호 주변 공백은 보존한다(원문 왜곡 방지).
+    """
+    cleaned = str(text or "")
+    return re.sub(r"(?<=[가-힣]) (?=[가-힣])", "", cleaned)
+
+
 def format_kcd_code(code: str | None) -> str:
     c = normalize_code(code)
     m = re.match(r"^([A-Z])(\d{2})([A-Z0-9]+)$", c)

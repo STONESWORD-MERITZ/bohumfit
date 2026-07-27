@@ -452,7 +452,9 @@ def _kakao_item(item: dict) -> str:
             # BOHUMFIT-213: 회차별 근거(어디서) — 병의원명이 있으면 덧붙인다(없으면 기존 형식 유지).
             p_hosp = _s(p.get("hospital")).strip()
             _tail = f" / {p_hosp}" if p_hosp else ""
-            _lines.append(f"{p_date} / {p_days} / {code_clean} / {kind}{_s(item.get('name'))}{_tail}\n")
+            # BOHUMFIT-251(3차): 프런트 memoItem과 동일하게 표시 병명(display_name) 우선 —
+            #   셀 개행 공백 아티팩트("농 양이있는 모소낭") 정리본으로 4경로 정합.
+            _lines.append(f"{p_date} / {p_days} / {code_clean} / {kind}{_s(item.get('display_name') or item.get('name'))}{_tail}\n")
         line1 = "".join(_lines)
         if len(_periods) >= 2:
             line1 += f"→ 입원 총 {len(_periods)}회 · 합산 {inpatient}일\n"
@@ -465,13 +467,34 @@ def _kakao_item(item: dict) -> str:
         _h_tail = ""
         if hosp_list:
             _h_tail = f" / {hosp_list[0]}" + (f" 외 {len(hosp_list) - 1}곳" if len(hosp_list) > 1 else "")
-        line1 = f"{date_str} / {visit_str} / {code_clean} / {kind}{_s(item.get('name'))}{_h_tail}\n"
+        # BOHUMFIT-251(3차): 프런트 memoItem과 동일하게 표시 병명(display_name) 우선(4경로 정합).
+        line1 = f"{date_str} / {visit_str} / {code_clean} / {kind}{_s(item.get('display_name') or item.get('name'))}{_h_tail}\n"
 
     surgery_count = _current_surgery_count(item)
     surgeries = _visible_surgery_names(item)
     suspected_names = _kakao_values(item.get("surgery_suspected"))
     suspected_grade = _s(item.get("surgery_suspected_grade")).strip()
-    if surgery_count > 0:
+    # BOHUMFIT-251: 수술 건별 전개(프런트 disclosureMemo와 동일 형식 — 문안 이원화 정합).
+    _surgery_records = [r for r in (item.get("surgery_records") or []) if isinstance(r, dict) and _s(r.get("date"))]
+    if surgery_count > 0 and _surgery_records:
+        # BOHUMFIT-251(3차): 건별 전개 항목의 합산 줄은 진단 요약(기간/코드/병명)만 유지 —
+        #   "통원N회" 방문 합산은 건별 record의 맥락과 중복되므로 제거(서버·프런트 동일 규칙).
+        #   입원 회차별 줄(periods)은 합산이 아니라 회차 근거이므로 유지한다.
+        if not (inpatient > 0 and _periods) and date_str:
+            line1 = f"{date_str} / {code_clean} / {kind}{_s(item.get('display_name') or item.get('name'))}\n"
+        _rec_lines = []
+        for r in _surgery_records:
+            _parts = [p for p in (_s(r.get("date")), _s(r.get("code")), _s(r.get("context")),
+                                  _s(r.get("name")), _s(r.get("surgery_name"))) if p.strip()]
+            _line = " / ".join(_parts)
+            if _s(r.get("hospital")).strip():
+                _line += f" / {_s(r.get('hospital')).strip()}"
+            _co = _kakao_values(r.get("co_diagnoses"))
+            if _co:
+                _line += f" / 동일일자 진단: {', '.join(_co)}"
+            _rec_lines.append(_line + "\n")
+        line2 = "".join(_rec_lines)
+    elif surgery_count > 0:
         line2 = (", ".join(surgeries) if surgeries else "수술") + "\n"
     elif suspected_names:
         suspected_text = ", ".join(suspected_names)
@@ -485,11 +508,14 @@ def _kakao_item(item: dict) -> str:
     return line1 + line2 + "\n"
 
 
-def _build_kakao_message(product_type_kr: str, today, summary_reports: dict) -> str:
+def _build_kakao_message(product_type_kr: str, today, summary_reports: dict,
+                         unassigned_surgeries: list | None = None) -> str:
     msg = f"[{_s(product_type_kr)} 고지 사항]\n"
     msg += f"기준일: {today.strftime('%Y-%m-%d')}\n\n"
 
-    if not summary_reports:
+    # BOHUMFIT-251(3차): 일반 고지 0건이어도 미특정 수술이 있으면 조기 종료하지 않는다
+    #   (조기 return이 미특정 블록을 소실시키던 결함). 둘 다 없을 때만 "고지 대상 없음".
+    if not summary_reports and not unassigned_surgeries:
         msg += "고지 대상 없음\n"
         return msg
 
@@ -521,6 +547,15 @@ def _build_kakao_message(product_type_kr: str, today, summary_reports: dict) -> 
             msg += "[통원]\n"
             for item in other_items:
                 msg += _kakao_item(item)
+        msg += "\n"
+
+    # BOHUMFIT-251 회송 보정: 링크 불성립 수술행 — 특정 질병에 귀속시키지 않고 원문 그대로
+    #   별도 블록으로 출력(오귀속 방지·사실성 보존. 규칙은 tasks/BOHUMFIT-251 명문화).
+    if unassigned_surgeries:
+        msg += "[수술 내역(그룹 미특정)]\n"
+        for r in unassigned_surgeries:
+            _parts = [p for p in (_s(r.get("date")), _s(r.get("surgery_name")), _s(r.get("hospital"))) if p.strip()]
+            msg += " / ".join(_parts) + "\n"
         msg += "\n"
 
     return msg
@@ -2167,8 +2202,9 @@ async def analyze(
         len(parse_errors),
     )
 
-    std_kakao  = _build_kakao_message(PRODUCT_TYPE_MAP["standard"], today, std_reports)
-    easy_kakao = _build_kakao_message(PRODUCT_TYPE_MAP["easy"],     today, easy_reports)
+    _unassigned = result.get("unassigned_surgeries") or []
+    std_kakao  = _build_kakao_message(PRODUCT_TYPE_MAP["standard"], today, std_reports, _unassigned)
+    easy_kakao = _build_kakao_message(PRODUCT_TYPE_MAP["easy"],     today, easy_reports, _unassigned)
     if meritz.get("detail_message"):
         std_kakao  += "\n" + meritz["detail_message"]
         easy_kakao += "\n" + meritz["detail_message"]
@@ -2193,6 +2229,8 @@ async def analyze(
         # BOHUMFIT-023: 실손 안내용 급여 본인부담 연도별 (additive — 고지 응답 불변).
         "covered_self_pay_by_year": result.get("covered_self_pay_by_year", {}),
         "covered_self_pay_captured": result.get("covered_self_pay_captured", False),
+        # BOHUMFIT-251(3차): 프런트 기간 필터 문안이 서버와 동일한 미특정 블록을 출력하도록 전달.
+        "unassigned_surgeries": _unassigned,
         "verdict":              ai_res.get("health_verdict") or ai_res.get("simple_verdict", ""),
         "verdict_reason":       ai_res.get("health_reason") or ai_res.get("simple_reason", ""),
         "recommend":            ai_res.get("recommend", ""),

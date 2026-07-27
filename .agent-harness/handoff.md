@@ -1,7 +1,74 @@
+## 2026-07-27 BOHUMFIT-251 - 고지 문안 원문 충실화 (코드 절삭 제거·수술 건별 전개·복수코드 병기)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex(3차 재검증 통과 → 커밋·push)
+Commit: 없음 — Codex 3차 재검증 통과·범위 커밋 준비. 실 PDF 로컬 참조만·PII 저장 0. 상세는 tasks/BOHUMFIT-251(3차 회송 보정 절).
+
+### 3차 회송 보정 완료 (2026-07-27 · Claude Code) — 재반려 3결함 전부 해소
+- **결함 1(이벤트 치환) 해소**: 행 루프에서 그룹 내 `_evt_by_date_hosp[(날짜,병원 정규화)]`에 원문 code/name/입원일수/방문행수를 이벤트 단위로 수집(첫 행 승자는 동일 (날짜,병원) 내로 한정), 조립부는 이벤트 맵 우선·그룹 날짜맵은 폴백만. record dedup 키 `(수술명,병원)` 확장. 회귀: 같은 그룹·같은 날·다른 병원 X101/통원1회 vs X102/입원3일 각자 보존 + 교차 co 0.
+- **결함 2(미특정 조기종료) 해소**: `_build_kakao_message` 조기 return을 `not summary_reports and not unassigned_surgeries`로 — 미특정만 있어도 `[수술 내역(그룹 미특정)]` 출력, 둘 다 0일 때만 "고지 대상 없음". 프런트 `buildFilteredDisclosureMemo`에도 `unassignedSurgeries` 배선(서버 페이로드 `unassigned_surgeries` 신설 → AnalyzeResult → DisclosureSection → memo, 창 필터 동일 기준) — 이전 잔여 기록이던 필터형 미특정 블록까지 완결.
+- **결함 3(합산 줄 중복) 해소**: 건별 전개 그룹의 line1에서 "통원N회" 수술 합산 제거, ★진단 요약 줄(기간/원문코드/병명)은 패킷 계약대로 유지 — 서버 `_kakao_item`·프런트 `memoItem` 동일 규칙. 입원 회차 줄(periods)은 회차 근거라 보존. 필터 경로 근본 원인 보강: `filterDisclosureItemEvidenceByWindow`가 `surgery_records`를 통과시키지 않아 옛 합산 폴백으로 떨어지던 문제 → records 창 필터 통과.
+- **4경로 정합 + 단일 소스화 실측**: ①서버 std/easy kakao ②프런트 필터형 ③analyzer 페이로드(`_serialize_reports` `**item` 스프레드로 records 원형 전달 실측) ④disclosureWindow/Memo — 전부 동일 규칙. 서버 Python vs 프런트 TS라 물리적 단일 소스는 불가 → **동일 규칙 + 골든 동등성 테스트**(211 패리티 원칙): `backend/tests/fixtures/disclosure_memo_parity_251.json` 하나를 pytest(`test_kakao_item_parity_golden`)와 vitest(disclosureMemo.test.ts)가 문자 단위 대조. 부수 정합: 서버 line1의 병명도 `display_name` 우선(프런트와 불일치 실측 해소 — "농 양이있는" 공백 아티팩트 제거).
+- **검증**: backend pytest **726 passed, 8 skipped**(251 테스트 8→14) · npm test **95**(89+6) · tsc app/node·lint 클린 · 정*규 3문서 재실행 = 판정 필드 불변·L02 [수술] 진단요약 1줄(통원4회 0)+건별 2줄·L05 회차 3줄+건별 6줄·2023-02-05 co 0(원문 사실)·미특정 0 · 이*숙 스모크 **판정 필드 상이 0** · PII 0(픽스처 전부 익명 합성·비밀번호 값 기재 0).
+- **Next**: Codex — 3결함 중점 재검증(이벤트 치환 0·미특정-only 문안·합산 중복 0) + 4경로 골든 동등성·정*규 대조·전체 게이트 → 통과 시 태스크 Stage 목록(3차 갱신분)만 stage → 커밋·push.
+
+### Codex 3차 재검증 — PASS (2026-07-27 · commit 전)
+- 루트 게이트·HEAD `3fb3b7f`·handoff 연속성(251→250→249)과 태스크 Stage 목록을 확인했다. 변경은 선언된 pipeline/main/analyzer·프런트 문안 배선·익명 픽스처/테스트·harness뿐이며 `backend/coverage/`·`supabase/`·패키지 diff는 0이다.
+- ★결함 1: `_evt_by_date_hosp[(날짜, 병원 정규화)]` 이벤트 원문이 그룹 날짜맵보다 우선하고 날짜맵은 폴백으로만 남는다. 같은 그룹·같은 날·다른 병원 X101/통원1회와 X102/입원3일 합성 회귀에서 코드·병명·맥락이 각자 유지되고 교차 `co_diagnoses`는 0이다.
+- ★결함 2: 서버 조기 종료는 `not summary_reports and not unassigned_surgeries`일 때뿐이다. 미특정-only 카카오 블록 회귀와 페이로드→`AnalyzeResult`→`DisclosureSection`→`disclosureMemo` 배선·동일 기간 필터를 확인해 소실 0이다.
+- ★결함 3: 건별 수술이 있으면 서버 `_kakao_item`과 프런트 `memoItem` 모두 진단 요약 줄의 `통원N회` 합산만 제거하고, 진단 요약 자체·입원 회차·건별 원문 줄은 유지한다. `disclosureWindow`가 `surgery_records`를 기간 필터 후 전달해 구 폴백 재진입도 막는다.
+- ★4경로 골든: 공유 익명 픽스처를 pytest·vitest가 같은 문자열로 대조한다. 서버 easy/std 카카오·analyzer 직렬화·프런트 필터형/창 경로의 records를 교차 확인했고 `display_name` 우선으로 한글 개행 공백 아티팩트도 해소됐다.
+- Windows 전체 게이트는 backend **726 passed, 8 skipped**, frontend **95 passed**, tsc app/node·lint 클린이다. 248 정책상 로컬 build 껍데기는 기능 판정에서 제외했다.
+- 실 PDF 3문서를 로컬에서 재실행해 parse error 0·미특정 0을 확인했다. L02는 진단 요약 1줄+원문 코드별 건별 2줄(구 `통원4회` 0), L05는 입원 회차 3줄+건별 6줄, 2023-02-05 L05 `co_diagnoses=[]`다. K61은 Q5에 별도 존재해 누락 0이며 analyzer 직렬화 records도 문안 records와 동일하다. 기존 스모크 판정 필드는 detached HEAD `3fb3b7f`와 완전 동일하다.
+- `git diff --check`·보호영역·도메인 계약·추가행 PII 형식·부산물 검사를 통과했다. `보장분석/` ignore 유지, 실 PDF·환경파일·비밀번호 값·실데이터 산출물 stage 0이며 임시 스크립트/worktree/output은 삭제했다.
+
+### Codex 재검증 — BLOCKED / Code 재회송 (2026-07-27)
+- 이전 반려의 **타 그룹 교차 오염은 해소**됐다. 날짜 전역 수술 재조인은 제거됐고 신규 표적 **8 passed**(기존 5 + 교차 병원·동일 병원 형태 상이·미특정 3), 전체 backend **720 passed, 8 skipped**·tsc app/node·lint·frontend **89 passed**다.
+- 실 PDF 3문서를 빈 비밀번호로 직접 재실행해 parse error 0을 확인했다. 기대 6개 날짜의 수술 이벤트가 모두 남았고(복수 수술명까지 행 단위로 보면 8행), 2023-02-05 L05의 `co_diagnoses=[]`·K61은 `[5번질문] 5년 이내 10대질환`에 별도 존재·K61 수술 record 0·미특정 0이다. L02=`L0221·L0292`, L05=`L050`; 카카오 건별 문자열은 L05 6행 모두 analyzer payload와 일치했다. 기존 스모크 3문서는 detached HEAD `3fb3b7f`와 판정 필드 전 항목 **완전 동일**하다.
+- ★재반려 1 — **같은 그룹·같은 날짜·다른 병원 이벤트의 원문 필드 오귀속**: 익명 합성에서 병원 A=`AL050/병명A/입원4일/수술A`, 병원 B=`AL051/병명B/외래/수술B`를 같은 L05 그룹에 두면 두 번째 record가 `병원B / L050 / 병명A / 입원4일 / 수술B`로 출력됐다. 수술명·병원 귀속은 보정됐지만 code/name/context는 그룹의 날짜 단일 맵(`_raw_code_by_date`·`_diag_name_by_date`·`_inpatient_days_map`)에서 다시 가져와 첫 이벤트 값이 누출된다. `_surgery_row_events`에 판정이 연결한 basic 행의 원문 code/name/context를 함께 보존하고, 같은 그룹·같은 날짜·다른 병원(입원/외래 상이) 회귀를 추가해야 한다.
+- ★재반려 2 — **미특정 수술 단독일 때 카카오 블록 소실**: `_build_kakao_message(..., summary_reports={}, unassigned_surgeries=[...])` 실증 결과가 `고지 대상 없음`에서 조기 return해 `[수술 내역(그룹 미특정)]`과 수술 원문을 모두 누락했다. 미특정 수술이 유일한 고지 신호여도 블록을 출력하도록 조기 return 조건을 보정하고 main 문안 회귀 테스트를 추가해야 한다. 현재 신규 “미특정 블록” 테스트는 aggregator 페이로드까지만 검증한다.
+- ★추가 확인 — **간편심사 문안은 251 필드가 전달되지만 구 합산 줄이 잔존**한다. 기본 10년은 서버 `easy_kakao`(`_build_kakao_message`→`_kakao_item`), 기간 필터는 프런트 `buildFilteredDisclosureMemo`→`memoItem` 경로다. 실 PDF 간편 Q2 L02 payload와 서버 문안에 `L0221/통원1회`, `L0292/통원1회` 건별 줄은 모두 존재하지만, 그 위에 `통원4회 / L0221·L0292` 그룹 합산 줄도 남는다. 두 생성부에서 outpatient 수술 records가 있으면 합산 line1을 생략하고 건별 줄만 출력하되, records 없는 구 데이터 폴백·입원 표시는 보존하는 회귀가 필요하다.
+- 정적 잔재: `build_disease_stats` Returns 문서에 제거된 `detail_surgery_rows`가 남아 실제 6번째 반환값 `unassigned_surgeries`와 불일치한다. 보정 시 함께 정리한다.
+- 임시 익명 스크립트·실데이터 JSON·detached worktree는 모두 삭제했다. `.env*` 조회·실 PDF stage·PII 저장은 0이며, 재반려 기준에 따라 커밋·배포 스모크를 실행하지 않았다.
+
+### 회송 보정 완료 (2026-07-27 · Claude Code)
+- **연결 규칙 재설계(명문화 — 태스크 문서)**: ① 건별 수술 이벤트 = ★판정이 쓰는 detail→basic **(날짜+병원 정규화) 링크**로 귀속된 그룹에 행 루프에서 직접 적재(날짜 전역 재조인 전면 제거 — 교차 오염 원천 차단) ② 동일 (날짜,병원) 복수 기본행은 기존 링크 규칙(첫 행 귀속 = 판정 동일) + 타 진단 co 병기 ③ 링크 불성립 → `unassigned_surgeries`(그룹 미특정) 블록(analyzer 페이로드 + 카카오 문안) ④ co_diagnoses = ★행 단위 (날짜,병원) 이벤트 인덱스(그룹 날짜맵의 첫 행 승자 왜곡 실측 제거) ⑤ 백엔드 카카오 문안(_kakao_item)도 건별 전개로 이원화 정합.
+- **★실측 반전**: 2023-02-05 항문농양(AK610)의 병원 = 상주성모(모소낭 수술 파티마와 **타 병원 별개 이벤트**) — 1차본의 "동일일자 병기"가 바로 반려된 오염 사례였고, **보정 후 미병기가 원문 사실**(K61은 Q5 별도 고지 — 누락 0). Human 기대 편차 2건째 기록.
+- **검증**: pytest **720/8**(717+3 — Codex 요구 교차 병원·동일 병원 형태 상이·미특정 3종) · 정*규 6건 유지+**K61 오염 0 명시 단언**+미특정 0 · 이*숙 스모크 판정 필드 상이 **0** 재확인 · tsc·lint·npm **89** · PII 0. diff = 기존 251 선언 + analyzer·main(문안 이원화 정합 사유)+bug012 언팩 2건(6-튜플).
+- 재현 방법 문서화: 잠금 파일은 최근 3개월 1건뿐(생년월일 Human 제공 필요 — 값 미기재), 3문서 재현 커맨드 명시.
+- 잔여 기록: 프런트 필터형 memo(buildFilteredDisclosureMemo)의 미특정 블록 — 카카오(백엔드) 경로에는 구현, 필터형은 파라미터 배선이 상위 컴포넌트 확장이라 잔여(실 케이스 미특정 0건·후속 결정지).
+
+### Codex 2차 검증 — BLOCKED / Code 회송
+- 루트 게이트·handoff 연속성(251→250→249)·범위는 통과했다. Windows 게이트도 backend **717 passed, 8 skipped**·tsc app/node·lint·frontend **89 passed**다. `backend/coverage/` diff는 0이고 선언 범위는 pipeline 3파일·`disclosureMemo.ts`·테스트·harness뿐이다.
+- ★반려 결함: `detail_surgery_rows`를 질병 그룹에 붙일 때 `_day_rows = [... if r["date"] == _d]`처럼 **날짜만으로 선택**한다. 익명 합성 재현에서 같은 날짜에 병원 A/K61/수술 A와 병원 B/L05/수술 B를 두면 K61과 L05의 `surgery_records`가 모두 **수술 A·B 두 건을 함께 보유**했다. 동일 일자 진단 인덱스도 날짜 전역이라 타 병원 진단이 `co_diagnoses`로 잘못 병기될 수 있다. 이는 “수술 건별 원문 충실화” 계약을 깨고 사실과 다른 고지 문안을 생성할 수 있어 커밋 금지다.
+- Code 보정 요구: 세부 수술 행에 그룹·병원(또는 그에 준하는 원문 이벤트 식별자)을 보존하고, `surgery_records`와 `co_diagnoses`를 **같은 날짜+같은 진료 이벤트** 범위로 연결한다. 회귀 테스트는 “같은 날짜·서로 다른 병원·서로 다른 질병 그룹·수술 각 1건 → 각 그룹은 자기 수술만 1건”을 고정한다. 기존 목표 6건과 2023-02-05 동일 이벤트의 K610 병기는 그대로 보존해야 한다.
+- 실 PDF 재실행은 승인된 생년월일 입력값이 검증 환경에 남아 있지 않아, 대상 3문서가 모두 비밀번호 해제 실패를 정직하게 반환했다. `.env*`는 조회하지 않았고 결과·PII 파일도 생성·보관하지 않았다. Code 보정 후 Codex 재검증 때 Human이 제공한 입력 방식으로 판정 불변 대조와 6건 전개를 다시 수행한다.
+- 임시 익명 검증 스크립트·detached worktree·출력 디렉터리는 모두 삭제했다. stage·commit·push·배포 스모크는 반려로 실행하지 않았다.
+
+### S1 진단 (실측 — 상세 태스크 문서)
+- ① 코드 절삭 = **061 설계된 3자리 그룹 키가 문안까지 노출**(원문 코드 미보존 — 그룹·표시 분리 미비). ② 수술 붕괴 = 그룹 단위 set 평탄화로 건별(날짜×코드×수술명) 소실. ③ 2023-02-05 원문 = AL050 입원4일 + AK610 항문농양 외래 공존(실측) — 문안 미연결.
+- 원문 표기 확정: 주상병코드 칸은 **양·한방 접두 포함(AL050)**·병명에 "(양방)" 별도 병기·PDF 셀 개행이 병명/병원명에 공백 아티팩트("농 양이있는") 생성·세부진료 행엔 상병코드 칸 없음. ★배경 기대 L02211은 원문(AL0221·몸통의종기)과 상이 — 원문 정본(Human 재확인 항목).
+
+### S2 수정 (표시 계층 전용 — 판정 로직 불변)
+- `raw_codes`/`_raw_code_by_date`/`_diag_name_by_date` 수집(절삭 0) → `display_code`=원문 나열(K210·K219 형) + 내부 그룹 키 유지. 표시 시 양·한방 접두만 제거(`display_raw_code`)·한글 사이 개행 공백만 접합(`display_clean_text` — 영문·숫자 경계 보존) → `display_name`.
+- `surgery_records` 건별 전개: {날짜, 원문코드, 입원N일/통원N회, 그 날짜 원문 병명, 수술명, 병원} + `co_diagnoses`(동일 일자 타 진단 병기 — "K610 항문농양").
+- disclosureMemo.ts 최소 정합(사유: 문안 생성부가 프런트): records 있으면 건별 줄 전개·없으면 기존 폴백(하위호환), 병명은 display_name 우선.
+
+### Verified (1차 — Code)
+- backend pytest **717/8**(712+5)·npm test **89**·tsc·lint.
+- ★정*규 대조표: 기대 6건 수술 전부 건별 재현(2022-11-08~2024-01-07)·코드 원문(L050/L0292/L0221)·**2023-02-05 "동일일자 진단: K610 항문농양" 병기** — 태스크 문서 표.
+- ★기존 스모크(이*숙 3문서) HEAD 대조: **판정 필드(visit·med_days·inpatient·surgery_count) 상이 0** — 문안 변화는 전부 원문 복원(J38→J3848 등 15건·목록 기록) + records 신규 첨부.
+- PII 0 · diff = pipeline 3파일 + disclosureMemo(사유 기록) + 테스트 1 + harness. ※최근 3개월.pdf는 비밀번호 잠금(생년월일 미제공 검증 환경 — 경고 정직 보고·나머지 3문서로 6건 전부 재현).
+
+### Next
+1. **Claude Code** — `_surgery_row_events`에 연결 basic의 원문 code/name/context를 이벤트 단위로 보존 + 같은 그룹·같은 날짜·다른 병원/형태 회귀 추가, 미특정-only 카카오 조기 return 보정+문안 회귀, 간편 서버/필터형의 L02 합산 line1 제거+양경로 회귀, stale Returns 문서 정리 → 전체 1차 검증·handoff 갱신(기존 엔트리 보존) → Codex 재회송.
+2. **Codex** — 보정분 2차 검증 + 기존 스모크 판정 불변·대상 6개 날짜/8행·K61 Q5·미특정 카카오 단독 경로·간편 L0221/L0292 각 건별/합산 0 대조 → 통과 시 지정 커밋·push·배포 스모크.
+3. **Human** — 통과·배포 후 프로덕션에서 정*규 재분석 → 고지 문안 육안 검수(이한빈TL 재확인 권장) + 재확인 1건(2022-11-08: 심평원 원문 AL0221·몸통의종기 vs 기대 L02211).
+4. **Chat** — 205 투약 배지 사양 등 파이프라인 잔여 미결 통합 검토.
+
 ## 2026-07-27 BOHUMFIT-250 - 엑셀 시각 디벨롭 (구조=비분양식 · 색=FIT 브랜드 · ★값 불변 증명)
 
-Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex(2차 검증·커밋)
-Commit: Codex 2차 검증 통과·publish 대기. 실 PDF·엑셀 원본 로컬 참조만·stage 0. 상세는 tasks/BOHUMFIT-250.
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human(프로덕션 실물 검수) / Chat(PDF 시각 정합 결정)
+Commit: `3fb3b7fb2cdeea3503c3386be5907fa0816e7fd8` (`origin/main`, local/remote 0/0). 실 PDF·엑셀 원본 stage 0. 아래 배포 후 기록은 다음 하네스 커밋에 편승.
 
 ### S0 (3자 실측 — 추측 0)
 - 원본 비분양식 fill 전수: 시트2 강조 행 = **일반사망·상해/질병후유장해·암진단금·유사암진단금·뇌혈관질환·심혈관질환·종수술 1~5·보험료 합계**(연노랑 행 전체) + 특수 파랑 = **암 주요치료비·순환계 치료비**. O열 고객정보 패널 라벨 전수(고등전산·보험나이·1.성명~8.병원·[양식]·손해(건강)). 시트3 파스텔 혼재(행35 등 불규칙 누락) + [후]/차액 빨강.
@@ -20,14 +87,19 @@ Commit: Codex 2차 검증 통과·publish 대기. 실 PDF·엑셀 원본 로컬 
 - 루트 게이트·기존 handoff 연속성(250→249→248→247) 통과. Windows 전체 게이트는 backend **712 passed, 8 skipped**(단순 보정 후 재실행)·tsc app/node·lint·frontend **89 passed**다. `src/`·`backend/pipeline/`·`supabase/` diff는 모두 0이다.
 - 로컬 build 참고값은 정책상 무효인 **343,225 B**이고 `build:verify`가 크기 하한·필수 앱 문자열 누락으로 의도대로 exit 1을 반환했다. 248 기준에 따라 이 산출물은 기능 판정에 사용하지 않는다.
 - S0의 “헤더 3~5행”과 달리 계약별 월보험료가 있는 5행만 무채색으로 남은 것을 2차에서 발견했다. 값 무변경의 동일 태스크 스타일 결함이라 [전]/[후] 두 대칭 `_cell` 호출에 에메랄드 헤더 fill을 추가하고 합성 회귀 단언을 보강했다.
-- HEAD `a9dcad9` exporter를 임시 detached worktree·독립 프로세스로 실행해 실 PDF A~E 5건을 전 시트·전 셀 재대조했다. 구 산출물의 값 셀 **2,229개 전부 동일**, 신규 값은 각 케이스 O패널 라벨 **14개뿐**이다. 헤더 에메랄드+흰 글자·강조/특수 행·전체 그리드·종수술 열폭 12/행높이 26·O패널·시트3 [후] 에메랄드 볼드·차액 상태색/박스·`fitToWidth=1`·`B10` 틀고정을 5건 모두 확인했고, 면 전용 색의 폰트 사용은 전 셀 **0**이다.
+- HEAD `a9dcad9` exporter를 임시 detached worktree·독립 프로세스로 실행해 실 PDF A~E 5건을 전 시트·전 셀 재대조했다. 구 산출물의 값 셀 **2,228개 전부 동일**, 신규 값은 각 케이스 O패널 라벨 **14개뿐**이다. 헤더 에메랄드+흰 글자·강조/특수 행·전체 그리드·종수술 열폭 12/행높이 26·O패널·시트3 [후] 에메랄드 볼드·차액 상태색/박스·`fitToWidth=1`·`B10` 틀고정을 5건 모두 확인했고, 면 전용 색의 폰트 사용은 전 셀 **0**이다.
 - Microsoft Excel **16.0**으로 A(표준)·B(15계약)·E(overview)를 읽기 전용으로 열어 Excel 자체 인쇄 PDF와 범위 그림을 렌더·육안 판독했다. 세 건 모두 겹침/깨짐 없이 헤더·강조·종수술 라벨·부록·시트3·O패널이 표시됐다. A/B는 1쪽, E는 긴 부록 때문에 세로 2쪽이나 세 건 모두 가로 페이지 나눔 **0**·`FitToPagesWide=1`로 “가로 1장 폭” 계약을 충족한다.
 - 250 신규 코드·테스트·태스크 실명 0. 임시 worktree와 실데이터 xlsx/PDF/렌더 파일은 검증 직후 삭제했고 `보장분석/` gitignore 유지·stage 0을 재확인했다. diff는 `export_excel.py`·신규 `excel_style.py`·신규 테스트 1개와 harness뿐이며 `git diff --check`를 통과했다.
 
+### Codex publish·배포 스모크 (push 후)
+- 지정 커밋 `3fb3b7fb2cdeea3503c3386be5907fa0816e7fd8`를 `origin/main`에 push했고 HEAD와 원격은 ahead/behind **0/0**이다.
+- GitHub가 이 정확한 커밋에 연결한 Railway `BOHUMFIT - bohumfit`와 Vercel 배포가 모두 **success**로 전환됐다. 2026-07-27 12:53:40 KST 기준 Railway `/api/health`는 **200**·`{"status":"ok"}`, Vercel 공개 `/login`은 **200**이다.
+- 프로덕션 고객 파일 전송은 하지 않았다. 새 스타일 엑셀의 실물 다운로드 확인은 아래 Human 게이트로 남긴다.
+
 ### Next
-1. **Codex** — 2차 검증(값 diff 0 재현·스타일 검사·배포 스모크) → stage(export_excel·excel_style·test_excel_style_250·tasks/250·handoff·locks) → 커밋 `feat(BOHUMFIT-250): 엑셀 시각 디벨롭 — 비분양식 구조 강조 재현 + FIT 브랜드 팔레트` → push.
-2. **Human** — 프로덕션 재다운로드 실물 검수(강조·테두리·패널·인쇄 미리보기 — fitToWidth 잠정 처리 포함).
-3. **Chat** — PDF 시각 정합은 실물 검수 피드백 반영 후 검토(패킷 Next ③).
+1. **Human** — 프로덕션 재다운로드 실물 검수(강조·테두리·고객정보 패널·인쇄 미리보기 — 표준 1건 + 라금실 1건 권장).
+2. **Chat** — PDF 시각 정합 여부는 엑셀 검수 피드백 후 결정.
+3. **계류** — 사양 결정 4건·카탈로그 결정지 / D 재해사망·E 중입자·표적 / 빌드 정책 예외 / 가입제안서 샘플 수집.
 
 ## 2026-07-27 BOHUMFIT-249 - 엑셀 다운로드 비분양식 정본 통일 + [후] 이월 결함 근본 처치
 

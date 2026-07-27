@@ -1,10 +1,15 @@
 import {
   currentSurgeryCount,
+  dateInWindow,
   displayJudgmentDetail,
   filterDisclosureReportsByWindow,
   visibleSurgeryNames,
   type DisclosureWindowItem,
 } from "./disclosureWindow";
+
+// BOHUMFIT-251(3차): 그룹 미특정 수술행(백엔드 unassigned_surgeries) — 서버 카카오 문안과
+//   동일 블록을 기간 필터 경로에서도 출력한다(4경로 정합).
+export type UnassignedSurgery = { date?: string; surgery_name?: string; hospital?: string };
 
 export type DisclosureMemoItem = Omit<DisclosureWindowItem, "inpatient_periods"> & {
   first_date?: string;
@@ -18,6 +23,11 @@ export type DisclosureMemoItem = Omit<DisclosureWindowItem, "inpatient_periods">
   inpatient_count?: number;
   inpatient_periods?: { start?: string; end?: string; days?: number; hospital?: string }[];
   surgeries?: string[];
+  // BOHUMFIT-251: 수술 건별 원문 기록(백엔드 파이프라인 산출 — 날짜/원문코드/맥락/병명/수술명).
+  //   src 최소 정합 사유: 고지 복사 문안 생성부가 프런트에 있어 건별 전개 렌더만 추가(판정 무관,
+  //   필드 부재 시 기존 형식 폴백 — 하위호환).
+  surgery_records?: { date?: string; code?: string; context?: string; name?: string; surgery_name?: string; hospital?: string; co_diagnoses?: string[] }[];
+  display_name?: string; // BOHUMFIT-251: 표시 전용 병명(아티팩트 공백 정리 — 원문 복원)
   surgery_suspected?: string[];
   surgery_suspected_grade?: string;
   detail?: string;
@@ -73,22 +83,41 @@ function memoItem(item: DisclosureMemoItem) {
         const pDate = en && en !== st ? `${st} ~ ${en}` : st;
         const days = (p.days ?? 0) > 0 ? `입원${p.days}일` : "입원";
         const tail = s(p.hospital).trim() ? ` / ${s(p.hospital).trim()}` : "";
-        return `${pDate} / ${days} / ${code} / ${kind}${s(item.name)}${tail}\n`;
+        return `${pDate} / ${days} / ${code} / ${kind}${s(item.display_name || item.name)}${tail}\n`;
       })
       .join("");
     if (periods.length >= 2) line1 += `→ 입원 총 ${periods.length}회 · 합산 ${inpatient}일\n`;
   } else {
     const visitStr = inpatient > 0 ? `입원${inpatient}일` : `통원${item.visit ?? 1}회`;
     const tail = hospitals.length ? ` / ${hospitals[0]}${hospitals.length > 1 ? ` 외 ${hospitals.length - 1}곳` : ""}` : "";
-    line1 = `${dateStr} / ${visitStr} / ${code} / ${kind}${s(item.name)}${tail}\n`;
+    line1 = `${dateStr} / ${visitStr} / ${code} / ${kind}${s(item.display_name || item.name)}${tail}\n`;
   }
 
   const surgeryCount = currentSurgeryCount(item);
   const surgeries = visibleSurgeryNames(item);
   const suspected = values(item.surgery_suspected);
   const suspectedGrade = s(item.surgery_suspected_grade).trim();
+  const surgeryRecords = (item.surgery_records ?? []).filter((r) => r && s(r.date));
   let line2: string;
-  if (surgeryCount > 0) {
+  if (surgeryCount > 0 && surgeryRecords.length > 0) {
+    // BOHUMFIT-251(3차): 건별 전개 항목의 합산 줄은 진단 요약(기간/코드/병명)만 유지 —
+    //   "통원N회" 방문 합산은 건별 record의 맥락과 중복되므로 제거(서버·프런트 동일 규칙).
+    //   입원 회차별 줄(periods)은 합산이 아니라 회차 근거이므로 유지한다.
+    if (!(inpatient > 0 && periods.length > 0) && dateStr) {
+      line1 = `${dateStr} / ${code} / ${kind}${s(item.display_name || item.name)}\n`;
+    }
+    // BOHUMFIT-251: 수술 건별 전개 — 날짜 / 원문코드 / 맥락 / 병명 / 수술명 (심평원 원문 충실).
+    line2 = surgeryRecords
+      .map((r) => {
+        const parts = [s(r.date), s(r.code), s(r.context), s(r.name), s(r.surgery_name)].map((p) => p.trim());
+        const hospital = s(r.hospital).trim() ? ` / ${s(r.hospital).trim()}` : "";
+        // BOHUMFIT-251 ③: 동일 일자 타 진단 병기(예: 모소낭 수술 + 항문농양) — 둘 다 고지 대상.
+        const co = values(r.co_diagnoses);
+        const coStr = co.length ? ` / 동일일자 진단: ${co.join(", ")}` : "";
+        return `${parts.filter(Boolean).join(" / ")}${hospital}${coStr}\n`;
+      })
+      .join("");
+  } else if (surgeryCount > 0) {
     line2 = `${surgeries.length ? surgeries.join(", ") : "수술"}\n`;
   } else if (suspected.length) {
     line2 = `수술 의심: ${suspected.join(", ")}${suspectedGrade ? ` (${suspectedGrade})` : ""}\n`;
@@ -116,6 +145,7 @@ export function buildFilteredDisclosureMemo(params: {
   cutoffIso: string;
   selectedYears: number;
   productQuestionYears: number;
+  unassignedSurgeries?: UnassignedSurgery[];
 }) {
   const filtered = filterDisclosureReportsByWindow(params.reports, params.cutoffIso);
   let msg = `${disclosureSelectionHeader(params.productQuestionYears, params.selectedYears)}\n\n`;
@@ -145,6 +175,18 @@ export function buildFilteredDisclosureMemo(params: {
     }
     msg += "\n";
   }
-  if (!hasAny) msg += "고지 대상 없음\n";
+  // BOHUMFIT-251(3차): 미특정 수술 블록 — 서버 _build_kakao_message와 동일 형식·동일 창 기준.
+  //   일반 고지 0건이어도 미특정이 있으면 "고지 대상 없음"으로 조기 종료하지 않는다.
+  const unassigned = (params.unassignedSurgeries ?? []).filter(
+    (r) => r && s(r.date) && (!params.cutoffIso || dateInWindow(s(r.date), params.cutoffIso)),
+  );
+  if (unassigned.length) {
+    msg += "[수술 내역(그룹 미특정)]\n";
+    unassigned.forEach((r) => {
+      msg += [s(r.date), s(r.surgery_name), s(r.hospital)].filter((p) => p.trim()).join(" / ") + "\n";
+    });
+    msg += "\n";
+  }
+  if (!hasAny && !unassigned.length) msg += "고지 대상 없음\n";
   return msg.trimEnd() + KAKAO_DISCLAIMER;
 }

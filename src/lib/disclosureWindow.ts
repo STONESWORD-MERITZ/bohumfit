@@ -11,6 +11,9 @@ export type DisclosureWindowItem = {
   med_days?: number;
   surgery_dates?: string[];
   surgery_events?: { date?: string; hospital?: string }[];
+  // BOHUMFIT-251(3차): 수술 건별 record — 창 필터를 통과시키되 날짜로 걸러야 한다
+  //   (미통과 시 필터 경로가 옛 합산 폴백으로 떨어져 중복 잔존).
+  surgery_records?: { date?: string; code?: string; context?: string; name?: string; surgery_name?: string; hospital?: string; co_diagnoses?: string[] }[];
   surgeries?: string[];
   surgery_count?: number;
   surgery_suspected_dates?: string[];
@@ -49,7 +52,8 @@ export function resultItemInWindow(item: DisclosureWindowItem, cutoffIso: string
   return all.some((d) => d >= cutoffIso);
 }
 
-function dateInWindow(date: unknown, cutoffIso: string): boolean {
+// BOHUMFIT-251(3차): 미특정 수술 블록 등 외부 창 필터에서도 동일 기준을 쓰도록 공개.
+export function dateInWindow(date: unknown, cutoffIso: string): boolean {
   return typeof date === "string" && date >= cutoffIso;
 }
 
@@ -186,6 +190,16 @@ export function filterDisclosureItemEvidenceByWindow<T extends DisclosureWindowI
     next.med_records = medRecords;
     next.med_days = sumNumbers(medRecords.map((r) => r.days));
     medRecords.forEach((r) => addDate(r.date));
+  }
+
+  // BOHUMFIT-251(3차): 수술 건별 record도 창 필터 통과 — 미통과 시 memoItem이 옛 합산
+  //   폴백(surgeries.join)으로 떨어져 건별·합산 중복이 잔존한다.
+  const surgeryRecords = Array.isArray(next.surgery_records)
+    ? (next.surgery_records as Array<Record<string, unknown>>).filter((r) => dateInWindow(r.date, cutoffIso))
+    : undefined;
+  if (surgeryRecords) {
+    next.surgery_records = surgeryRecords;
+    surgeryRecords.forEach((r) => addDate(r.date));
   }
 
   const surgeryEvents = Array.isArray(next.surgery_events)

@@ -937,8 +937,8 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
     # BOHUMFIT-054 STEP2: 파싱 불완전(ftype 미인식 과다) 사용자 경고 — 분석은 막지 않음(경고만).
     parse_quality_warning = _parse_quality_warning(record_counts)
     # ── disease_stats + raw_entries 빌드 ─────────────────────────
-    disease_stats, cross_surgery_hints, date_warnings, raw_entries, lines_by_file = \
-        build_disease_stats(all_records, today)
+    disease_stats, cross_surgery_hints, date_warnings, raw_entries, lines_by_file, unassigned_surgeries = \
+        build_disease_stats(all_records, today)  # BOHUMFIT-251: 그룹 미특정 수술행(표시 전용)
     # BOHUMFIT-023: 실손 안내용 급여 본인부담(PDF '내가 낸 의료비') 연도별 집계.
     # all_records 삭제 전에 수행한다. 고지(알릴의무) 판정 로직은 변경하지 않는다(additive).
     try:
@@ -1106,6 +1106,8 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
         "parse_quality_warning":   parse_quality_warning,   # BOHUMFIT-054 STEP2 (None=정상)
         "ai_result":               ai_result,
         "summary_reports":         {k: list(v) for k, v in summary_reports.items()},
+        # BOHUMFIT-251 회송 보정: 그룹 미특정 수술행(링크 불성립 — 별도 블록 표시 전용).
+        "unassigned_surgeries":    unassigned_surgeries,
         "standard_reports":        {k: list(v) for k, v in std_reports.items()},
         "easy_reports":            {k: list(v) for k, v in easy_reports.items()},
         # BOHUMFIT-009: 신구조 6 키 — Q1 공통 + Q2/Q3 건강체·간편 + Q4 건강체.

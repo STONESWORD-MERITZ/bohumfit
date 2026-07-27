@@ -257,7 +257,7 @@ def test_vulvovaginitis_visit_14_triggers_q3_rule():
         recs.append(_basic_row("2024-04-%02d" % i, "AN760", "급성질염", "산부인과",
                                "우리산부인과", pharma_code="$ 해당없음"))
 
-    ds, _, _, _, _ = build_disease_stats(recs, today)
+    ds, _, _, _, _, _ = build_disease_stats(recs, today)  # BOHUMFIT-251: 6-튜플(미특정 수술행)
     assert "N76" in ds, f"질염 그룹 누락: {list(ds.keys())}"  # BOHUMFIT-061: KCD3 그룹핑(N760→N76)
     d10y = _cutoffs(today)[3]
     assert _visit_count_in_range(ds["N76"], d10y) >= 14
@@ -276,7 +276,7 @@ def test_pharmacy_placeholder_rows_do_not_become_fake_q_items():
         _basic_row("2026-05-01", "$ 해당없음", "$ 해당없음", "", "", pharma_code="$ 해당없음"),
         _basic_row("2026-05-02", "해당없음", "해당없음", "", "", pharma_code="$"),
     ]
-    ds, _, _, _, _ = build_disease_stats(recs, today)
+    ds, _, _, _, _, _ = build_disease_stats(recs, today)  # BOHUMFIT-251: 6-튜플(미특정 수술행)
     items = build_code_based_items(ds, today, PRODUCT_HEALTH)
     assert not any((it.get("code") or "").startswith("$") for it in items)
     assert not any((it.get("disease") or "") in {"$", "해당없음", "$ 해당없음"} for it in items)

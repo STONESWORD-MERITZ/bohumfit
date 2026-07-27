@@ -22,6 +22,8 @@ from .helpers import (
     _sorted_strings,
     _subtract_years,
     _visit_count_in_range,
+    display_clean_text,
+    display_raw_code,
     format_kcd_code,
     normalize_code,
 )
@@ -318,6 +320,14 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
                 {"date": d, "hospital": _hosp_by_date.get(d, "")}
                 for d in _win(_ds.get("surgery_dates", set()))
             ][:_EVIDENCE_CAP]
+            # BOHUMFIT-251: 고지 문안 원문 필드 — 창(q window) 내 수술 건별 기록·원문 코드.
+            _win_dates = set(_win(_ds.get("surgery_dates", set())))
+            _surgery_records_out = [
+                r for r in (_ds.get("surgery_records") or []) if r.get("date") in _win_dates
+            ][:_EVIDENCE_CAP]
+            _raw_codes_out = _sorted_strings({
+                display_raw_code(rc) for rc in (_ds.get("raw_codes", set()) or []) if str(rc).strip()
+            })
         else:
             dates_sorted       = sorted([d for d in m["dates"] if d])
             first_date         = dates_sorted[0]  if dates_sorted else ""
@@ -332,6 +342,8 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
             _visit_records     = []   # BOHUMFIT-213
             _med_records       = []
             _surgery_events    = []
+            _surgery_records_out = []  # BOHUMFIT-251
+            _raw_codes_out     = []
 
         _chojin          = _ds["chojin_count"]  if _ds else 0
         _jaejin          = _ds["jaejin_count"]  if _ds else 0
@@ -365,8 +377,14 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
             "latest_date":             latest_date,
             "first_diagnosis_date":    first_diagnosis_date,
             "code":                    m["code"],
-            "display_code":            format_kcd_code(m["code"]),
+            # BOHUMFIT-251: 고지 문안 코드 = 심평원 원문 나열(절삭 금지 — L050·L0292 등).
+            #   내부 그룹 키(code)는 061 설계대로 3자리 유지(판정·중복 제거용) — 표시와 분리.
+            "display_code":            "·".join(_raw_codes_out) if _raw_codes_out else format_kcd_code(m["code"]),
+            "raw_codes":               _raw_codes_out,
             "name":                    m["name"] or (_ds.get("name", "") if _ds else ""),
+            # BOHUMFIT-251: 표시 전용 병명 — PDF 셀 개행 아티팩트 공백 정리(원문 복원.
+            #   name 필드는 판정·그룹 매칭 호환을 위해 무변경 유지 — 문안은 display_name 우선).
+            "display_name":            display_clean_text(m["name"] or (_ds.get("name", "") if _ds else "")),
             "visit":                   ds_visit_count,
             "chojin_count":            _chojin,
             "jaejin_count":            _jaejin,
@@ -384,6 +402,8 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
             "visit_records":           _visit_records,
             "med_records":             _med_records,
             "surgery_events":          _surgery_events,
+            # BOHUMFIT-251: 수술 건별 원문 기록(날짜/원문코드/맥락/병명/수술명) — 문안 전개용.
+            "surgery_records":         _surgery_records_out,
             "procedures":              _procedures,
             "procedure_dates":         _proc_dates,
             "surgery_suspected":       _surg_susp,
