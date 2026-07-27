@@ -80,6 +80,50 @@ def _apply_exclusions(matrix: dict, extras: dict) -> tuple[dict, dict, dict]:
     return matrix, extras, dedup
 
 
+def carry_coverage_row(row: dict, kept_ids: set, known_ids: set, extra_values: dict | None = None) -> dict:
+    """BOHUMFIT-249: [후] 이월 행 변환의 ★단일 소스(211 패리티 — 246 회송 보정 규칙 통일).
+
+    - overview(합계-only) 행: 합계 수준(summary·enrolled) 이월 — 계약 귀속이 없어 해지 반영
+      불가(유지 간주). 신규 제안 값(extra_values)은 합계에 가산.
+    - 일반 행: 계약 귀속 확인분은 keep/cancel(kept_ids) 필터, 계약 미상 키('?' 등 known_ids
+      밖)는 해지 대상이 아니므로 그대로 이월. 신규 제안 값 병합 후 재집계.
+    소비처: consulting.apply_consulting_plan · compare.build_after_analysis.
+    클라이언트 미러: src/lib/coverageAfterDisplayCache.buildAfterResult — 규칙 변경 시 동기 수정.
+    (249 배경: compare 경로만 이 규칙이 빠져 overview [후]가 0으로 소실 — 프로덕션 실물 결함.)
+    """
+    from copy import deepcopy
+
+    extra_values = {key: value for key, value in (extra_values or {}).items() if value is not None}
+    updated = deepcopy(row)
+    if row.get("overview"):
+        by_company = dict(extra_values)
+        added = aggregate_coverage_values(by_company, row.get("agg")) if by_company else None
+        summary = row.get("summary")
+        if added is not None:
+            summary = ((summary or 0) + added) if row.get("agg") == AGG_SUM else max(summary or 0, added)
+        updated["by_company"] = by_company
+        updated["summary"] = summary
+        updated["enrolled"] = bool(row.get("enrolled")) or added is not None
+        return updated
+    # null 셀도 유지(클라이언트 캐시·종전 compare와 표기 동일 — 211 패리티는 셀 단위 비교).
+    by_company = {
+        str(key): value
+        for key, value in (row.get("by_company") or {}).items()
+        if str(key) in kept_ids or str(key) not in known_ids
+    }
+    by_company.update(extra_values)
+    updated["by_company"] = by_company
+    updated["summary"] = aggregate_coverage_values(by_company, row.get("agg"))
+    updated["enrolled"] = any(value is not None for value in by_company.values())
+    return updated
+
+
+OVERVIEW_CANCEL_WARNING = (
+    "전체 보장현황(합계형) 문서는 계약별 보장 귀속이 없어 해지를 보장 합계에 반영할 수 "
+    "없습니다 — 해당 보장행은 [전] 합계 수준으로 유지됩니다."
+)
+
+
 def compute_yn_flags(coverages: list[dict]) -> list[dict]:
     """BOHUMFIT-246: 양식 45~49행 Y/N 파생 — 원천 담보 1건 이상 enrolled면 Y.
     (원본 수식 `=IF(COUNTA(범위)=0,"N", IF(COUNTA(범위),"Y"))`의 의미 등가.)"""

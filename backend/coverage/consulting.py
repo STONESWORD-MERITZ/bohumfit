@@ -10,7 +10,13 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
-from .aggregator import aggregate_coverage_values, build_final, compute_stage_totals, compute_yn_flags
+from .aggregator import (
+    OVERVIEW_CANCEL_WARNING,
+    build_final,
+    carry_coverage_row,
+    compute_stage_totals,
+    compute_yn_flags,
+)
 
 VALID_DISPOSITIONS = {"keep", "cancel", "유지", "해지"}
 STATUS_ORDER = {"미가입": 0, "부족": 1, "충분": 2}
@@ -102,40 +108,18 @@ def apply_consulting_plan(before: dict, plan: dict | None) -> dict:
     kept_keys = {_contract_key(company) for company in kept_companies}
 
     cancel_requested = any(decision.get("disposition") == "cancel" for decision in decisions.values())
-    overview_carryover = False
-    coverages: list[dict] = []
-    for row in before.get("coverages", []):
-        kb_name = row.get("kb_name")
-        # BOHUMFIT-246 회송 보정: 전체 보장현황(239 합계-only) 유래 행은 계약별 셀이 없어
-        #   빈 by_company 재집계 시 값이 소실된다(E 실측: 26행·1,400,240,000 소실) —
-        #   해지 체크가 불가능한 행이므로 유지로 간주해 ★합계 수준(summary·enrolled) 그대로
-        #   이월한다. 표준 매트릭스 행은 이 플래그가 없어 아래 경로로 무변경(239 가드 방식).
-        if row.get("overview"):
-            overview_carryover = True
-            coverages.append(deepcopy(row))
-            continue
-        # BOHUMFIT-246 이월 모델: 계약 귀속이 확인된 값은 keep/cancel을 따르고, 계약 미상
-        #   키('?' 등 — 상세 페이지 idx 미해석 검출분)는 해지 대상이 아니므로 그대로 이월한다.
-        #   (종전 190 구현은 미상 키를 유실 → 해지 0인데도 전≠후가 되는 결함 — 246 보정.)
-        by_company = {
-            str(key): value
-            for key, value in (row.get("by_company") or {}).items()
-            if value is not None and (str(key) in kept_keys or str(key) not in known_contracts)
-        }
-
-        updated = deepcopy(row)
-        updated["by_company"] = by_company
-        updated["summary"] = aggregate_coverage_values(by_company, row.get("agg"))
-        updated["enrolled"] = any(value is not None for value in by_company.values())
-        coverages.append(updated)
+    # BOHUMFIT-246 회송 보정 → 249 단일 소스화: overview 합계 이월·계약 미상 키('?') 이월·
+    # keep/cancel 필터를 aggregator.carry_coverage_row(정본) 한 곳으로 통일(211 패리티 —
+    # compare.build_after_analysis·클라이언트 캐시와 동일 규칙).
+    coverages = [
+        carry_coverage_row(row, kept_keys, known_contracts)
+        for row in before.get("coverages", [])
+    ]
+    overview_carryover = any(row.get("overview") for row in coverages)
 
     if overview_carryover and cancel_requested:
-        # 보존+경고 정책(246 회송 보정 — Codex 요청 명시): 합계형 문서는 해지를 보장 합계에
-        # 반영할 수 없다. 보험료 합계는 유지 계약 기준으로 재계산되지만 보장행은 [전] 수준 유지.
-        warnings.append(
-            "전체 보장현황(합계형) 문서는 계약별 보장 귀속이 없어 해지를 보장 합계에 반영할 수 "
-            "없습니다 — 해당 보장행은 [전] 합계 수준으로 유지됩니다."
-        )
+        # 보존+경고 정책(246): 합계형 문서는 해지를 보장 합계에 반영할 수 없다.
+        warnings.append(OVERVIEW_CANCEL_WARNING)
 
     # BOHUMFIT-234/236: 일시납 월납 합산 제외 + 납입완료 제외 부값 병기(build_before와 동일 규칙).
     monthly_total = sum(

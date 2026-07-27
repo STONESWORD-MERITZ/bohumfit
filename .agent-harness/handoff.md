@@ -1,7 +1,38 @@
-## 2026-07-27 BOHUMFIT-248 - 신 체계 완결(빌드 수리·엑셀·PDF) + 심층 QA + 카탈로그 (Codex 2차 검증 통과)
+## 2026-07-27 BOHUMFIT-249 - 엑셀 다운로드 비분양식 정본 통일 + [후] 이월 결함 근본 처치
 
-Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex(최종 1회 검증·파트별 커밋)
-Commit: 없음 — git 쓰기 전면 금지 지시. 실 PDF·엑셀 원본·lock 백업 stage 0. 상세는 tasks/BOHUMFIT-248(본문·qa-report·improvement-catalog).
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex(커밋·★배포 확인)
+Commit: 없음 — git 쓰기 금지 지시(고위험 풀 하네스). 실 PDF·엑셀 로컬 참조만·stage 0. 상세는 tasks/BOHUMFIT-249.
+
+### S0 판정 (실측)
+- **레거시 5시트 exporter는 HEAD에 없다**: 구 시트명 문자열 grep 0·xlsx 생성 모듈 단일(248 P2 전면 재작성 시 삭제)·프런트 호출 단일 경로(POST /coverage/export/{kind}). → Human 실물 5시트의 유일 정합 설명 = **다운로드 시점 프로덕션 백엔드(Railway)가 248 반영 전 상태**(구 5시트 + 신 라벨 = 246·247 코드와 일치). ★Codex 배포 반영 확인·재배포가 필수 조치.
+- **★[후] 0원의 코드 원인 발견**: [후] 산출이 3중 복제 상태 — consulting(246 보정 ✅)·클라이언트 캐시(247 보정 ✅)·**compare.build_after_analysis(서버 권위 — ❌ 보정 누락)**. compare 경로는 overview 행(by_company={})을 빈 셀 재집계해 0 소실·'?' 키 유실. 구 배포의 ④ 시트가 이 경로 산출물을 렌더 → 실물 결함 재현 구조.
+- **재발 방지 원칙 명시(패킷 지시)**: 248 P2 검증이 exporter 직접 호출이라 UI 동선·배포 확인 누락 → "산출물 검증 = 사용자 동선(엔드포인트 경유) + 배포 반영 확인까지" 표준화(이번 테스트가 그 기준).
+
+### 구현
+- **`aggregator.carry_coverage_row` 신설(단일 소스)**: overview 합계 이월(+신규 가산)·'?' 이월·keep/cancel — 246 규칙 정본. null 셀 유지(211 셀 단위 패리티 — 최초 null 제거로 패리티 1건 실패 → 즉시 정정). `OVERVIEW_CANCEL_WARNING` 상수화.
+- consulting·compare 모두 정본 헬퍼로 교체(compare에 overview×해지 경고 동기 추가). 클라이언트 미러는 247 보정본 무수정(동기 의무 주석).
+- A항(레거시 퇴역)은 248 기수행 — 신설 엔드포인트 테스트로 "3시트 고정·구 구조 생성 불가"를 고정.
+
+### Verified (1차 — Code)
+- backend pytest **710/8**(707+3 — UI 동선 기준 엔드포인트 테스트·서버 [후] 회귀). 211 패리티 포함 기존 무손실. tsc·lint·npm test **89**.
+- ★엔드포인트 경유(TestClient POST — UI 동선 그대로) 실 PDF 5건: 3시트 5/5 · 40행 [전]/[후] 전수 대조 차이 0 · 표준 4건 전=후 · **E [후] 총합 1,542,990,000 보존(결함 해소 증명)·월납 4,675,189** · B 15계약 열 전개 · PDF 값 대조(HTML 대체) 5/5.
+- 레거시 호출처 0 grep · PII 0(문서 실명 마스킹) · pipeline/supabase diff 0 · diff = aggregator·compare·consulting·테스트 1 + harness.
+
+### Verified (2차 — Codex Windows · commit 전)
+- backend 전체 **710 passed, 8 skipped**, 211 패리티+249 표적 **4 passed**. tsc app/node·lint·frontend **89 passed**. 로컬 build 참고값은 343,225 B이고 `build:verify`가 크기·필수 앱 문자열 누락으로 의도대로 exit 1을 반환해 합격 판정에는 사용하지 않았다.
+- `carry_coverage_row`를 consulting·compare가 모두 호출하며 서버 [후] 이월 복제 잔존 0, compare overview×해지 경고는 공용 상수로 consulting과 동일 문구다. 클라이언트 247 미러는 diff 0으로 보존됐다.
+- 실 PDF 5건을 메모리 분석해 실제 `POST /coverage/export/{excel|pdf}` 경로로 재현했다. 엑셀은 3시트 5/5·40행과 계약 셀 차이 0·표준 4건 전=후·B 15계약 열 전개, E는 [후] **1,542,990,000원**·월납 **4,675,189원**을 보존했다. PDF도 5/5 **200**·유효 PDF(5~6쪽)이며 월납·전 담보행 값 대조를 통과했다.
+- 5건 총액 대사 0, 월납/납입완료 제외 부값·238 estimated 불변. 실 PDF 실제 고객명과 변경 7파일의 일치 0, pipeline/supabase/src/package diff 0, 실 PDF·엑셀·부산물 tracked 0, 런타임 SURIT·구브랜드 색상 0, `git diff --check` 통과다.
+
+### Next
+1. **Codex** — 2차 검증(엔드포인트 경유 5건 재현) → stage(aggregator·compare·consulting·test_export_endpoint_249·tasks/249·handoff·locks — 실 PDF 제외) → 커밋 `fix(BOHUMFIT-249): 엑셀 다운로드 비분양식 정본 통일 + 레거시 경로 후 이월 결함 제거` → push → **배포 스모크 + Railway 반영 확인 + 프로덕션 실물 다운로드 확인**(S0 판정상 스테일 배포가 실물 원인 — 반영 확인이 이번 결함의 마지막 조각).
+2. **Human** — 프로덕션에서 E 케이스 재다운로드 → 비분양식 3시트 + [후] 값 보존 육안 확인.
+3. **Chat** — 사양 결정 4건(단위·수식·인쇄·빌드 정책)·카탈로그 결정지 대기.
+
+## 2026-07-27 BOHUMFIT-248 - 신 체계 완결(빌드 수리·엑셀·PDF) + 심층 QA + 카탈로그 (publish·프로덕션 대체 검증 완료)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human(프로덕션 최종 검수) / Chat(차기 로드맵)
+Commit: `c755a43cf21186bdaa775772acab2c90ddfa27ac` → `0247d710a1be870bfe7712936c2973add3443606` → `d2bbc7840b1d399e93a5a2fb0b50eee997095a1d` → `9ee78b592f50095d9ad7734f4f5304c4db55a376` (`origin/main`, local/remote 0/0). 실 PDF·엑셀 원본·lock 백업 stage 0. 아래 publish 결과 기록은 다음 하네스 커밋에 편승.
 
 ### P1 — 빌드 수리 [★클린 재생성 실패 → 실패 경로 처리·게이트 신설·기준선 정정 완료]
 - 클린 재생성으로 vite 8.1.5·rolldown 1.1.5 + win32 바인딩 정상 설치(241 결손 해소·audit 5→2 high)까지 갔으나, **실패 원인 2중 신규 확정**: ① Windows **Application Control이 신규 다운로드 네이티브 바이너리를 전면 차단**(rolldown·tailwind oxide 4.3.3 실측 — 구 설치본 4.2.4는 LOAD-OK → 그랜드파더링형. 241 ERR_DLOPEN의 진범) ② rolldown WASI 대체는 Windows 절대경로 미해석(UNRESOLVED_ENTRY). 신 환경에선 vitest까지 파손 → **즉시 롤백**(구 node_modules·lock 복원 — 검증: 89·tsc 그린, lockfile diff 0).
@@ -33,10 +64,15 @@ Commit: 없음 — git 쓰기 전면 금지 지시. 실 PDF·엑셀 원본·lock
 - PDF-HTML 5건은 전 담보행·총액·월납/부값·단계·Y/N·개선(+)·특이사항·신담보 문구·238 표준환산 표기가 payload와 일치했다. 스프레드시트 시각 렌더는 번들 `skia.node`가 기존과 같은 Application Control 정책에 차단되어, 패킷 허용 경로인 openpyxl 구조/값 재판독으로 대체했다. 익명 임시 산출물은 검증 후 전부 삭제했다.
 - 범위는 선언 20파일뿐이며 package-lock·pipeline/·supabase/·src diff 0, 실명 PII 0, SURIT·구브랜드/면 전용 색상 0, 실 PDF·엑셀 원본·lock 백업 tracked 0, `git diff --check` 통과다.
 
+### Codex publish·프로덕션 build 대체 검증 (push 후)
+- 파트별 커밋을 위험도 순서로 각각 push했다: ① `c755a43` 산출물 스모크 게이트·기준선 정정 ② `0247d71` 엑셀 3시트·PDF 신 체계 ③ `d2bbc78` 엑셀 부록 열 분리·회귀 테스트 ④ `9ee78b5` QA 리포트·카탈로그. 최종 HEAD와 `origin/main`은 ahead/behind **0/0**이다.
+- Vercel 프로젝트의 최종 커밋 `9ee78b592f50095d9ad7734f4f5304c4db55a376` 프로덕션 배포가 **READY**임을 직접 확인했다. `https://bohumfit.ai`가 참조하는 `/assets/index-DoJlus5H.js`를 cache-bust fetch한 결과 **796,723 B**로 786 kB대 기대치의 ±20% 이내다.
+- 프로덕션 번들에 247 화면 문자열 `전후 비교 계산`·`신규 설계 반영 대상`·`가입특약`·`종합비교`가 모두 포함됐다. 248의 엑셀/PDF 변경은 백엔드 산출물이라 번들 문자열 판정 대상에서 제외했다. 로컬 343,225 B 껍데기는 합격 근거로 사용하지 않았다.
+- Railway `https://bohumfit.up.railway.app/api/health`는 **200**·`{"status":"ok"}`를 반환했다. 번들 크기 이탈·문자열 소실·헬스 실패가 없어 배포 차단 또는 롤백 판단 사유는 발생하지 않았다.
+
 ### Next
-1. **Codex** — 최종 1회 검증(3계층 대조 재현·707/8·89·grep) → 파트별 커밋 4건(패킷 Stage 목록·메시지 — 단 커밋1은 package-lock 제외(diff 0)·scripts+문서 3종) → push → 배포 후 프로덕션 번들 build 대체 검증.
-2. **Human/Chat** — QA 리포트 사양 결정 4건 + 카탈로그 권장안(합성 픽스처 CI화 → 가입제안서 트랙) 리뷰, 빌드 정책 예외(관리자).
-3. **Human** — 프로덕션 재업로드 최종 검수 + 계류 2건(D 재해사망·E 중입자/표적) + 엑셀/PDF 실물 확인.
+1. **Human** — 프로덕션 재업로드 최종 검수(화면·엑셀 다운로드·PDF 실물) + 계류 2건(D 재해사망·E 중입자/표적) + 빌드 정책 예외(Application Control) 확인.
+2. **Chat** — 사양 결정 4건·카탈로그 18항목 결정지 정리 → 차기 로드맵(합성 픽스처 CI화 → 가입제안서 [후] 트랙).
 
 ## 2026-07-26 BOHUMFIT-247 - 화면 완성 (publish·프로덕션 build 대체 검증 완료)
 

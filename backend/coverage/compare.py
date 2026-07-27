@@ -5,7 +5,7 @@ from collections import defaultdict
 from copy import deepcopy
 from typing import Any
 
-from .aggregator import aggregate_coverage_values
+from .aggregator import OVERVIEW_CANCEL_WARNING, aggregate_coverage_values, carry_coverage_row
 from .constants import GROUP13
 
 STATUS_SUFFICIENT = "충분"
@@ -330,22 +330,19 @@ def build_after_analysis(analysis: dict, plan: dict | None = None) -> dict:
             proposal_values[kb_name][proposal_id] = amount if current is None else max(current, amount)
 
     after_companies = _sort_contracts(after_companies + proposal_contracts)
-    after_coverages = []
-    for row in before.get("coverages", []):
-        kb_name = row.get("kb_name")
-        by_company = {
-            contract_id: amount
-            for contract_id, amount in (row.get("by_company") or {}).items()
-            if contract_id in kept_contract_ids
-        }
-        by_company.update(proposal_values.get(kb_name, {}))
-        summary = aggregate_coverage_values(by_company, row.get("agg"))
-        after_coverages.append({
-            **deepcopy(row),
-            "summary": summary,
-            "by_company": by_company,
-            "enrolled": any(value is not None for value in by_company.values()),
-        })
+    # BOHUMFIT-249: [후] 이월을 aggregator.carry_coverage_row(단일 소스)로 통일.
+    #   ★종전 이 경로만 246 회송 보정(overview 합계 이월·'?' 키 이월)이 빠져 있어
+    #   overview 케이스의 [후] 보장금액이 전부 0으로 소실됐다(프로덕션 실물 결함 원인).
+    after_coverages = [
+        carry_coverage_row(row, kept_contract_ids, known_contracts, proposal_values.get(row.get("kb_name")))
+        for row in before.get("coverages", [])
+    ]
+    if any(row.get("overview") for row in after_coverages) and any(
+        _disposition(decision.get("disposition")) == "cancel" for decision in decisions.values()
+    ):
+        # 보존+경고 정책(246와 동일 문구 — consulting 경로와 동기).
+        if OVERVIEW_CANCEL_WARNING not in warnings:
+            warnings.append(OVERVIEW_CANCEL_WARNING)
     for kb_name, meta in sorted(proposal_meta.items(), key=lambda item: (_group_key(item[1].get("group12")), item[0])):
         by_company = proposal_values.get(kb_name, {})
         summary = aggregate_coverage_values(by_company, meta.get("agg"))
