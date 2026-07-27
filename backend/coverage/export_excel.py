@@ -30,6 +30,21 @@ from openpyxl.utils import get_column_letter
 from .aggregator import compute_stage_totals, compute_yn_flags
 from .compare import ensure_comparison
 from .constants import GROUP13, GROUP_ETC
+from .excel_style import (
+    AMBER_TX,
+    BORDER_BOX,
+    BORDER_GRID,
+    EMERALD,
+    EMERALD_SOFT,
+    GRAY_SOFT,
+    GREENTEA,
+    HIGHLIGHT_ITEMS,
+    INK,
+    LIME,
+    PANEL_LABELS,
+    SPECIAL_ITEMS,
+    WHITE,
+)
 
 MAN = 10_000
 
@@ -51,13 +66,14 @@ YN_ROWS: tuple[str, ...] = ("운전자특약", "자동차부상치료비", "가�
 # ★H10 원본 오타("심장초기" 중복) 정정 — 수식 대역 실측 확정(244 S3).
 STAGE_ROWS: tuple[str, ...] = ("암", "뇌초기", "뇌중기", "뇌말기", "심장초기", "심장중기", "심장말기")
 
-# 양식 색 토큰(S3 실측)
-FORM_YELLOW = "FFFFF7CC"
-FORM_BLUE = "FFDDEBF7"
-FORM_GRAY = "FFE7E6E6"
-RED_TX = "FFC00000"
-_thin = Side(style="thin", color="FF999999")
-_BORDER = Border(left=_thin, right=_thin, top=_thin, bottom=_thin)
+# BOHUMFIT-250: 양식 원색 → FIT 브랜드 치환(비분양식 강조 "위치"는 원본 실측 그대로).
+#   헤더(원본 연노랑) = 에메랄드 면 + 흰 글자 / 강조 행 = 그린 티 면 / 특수 = 라임 면 /
+#   시트3 라벨 기본 = 에메랄드 소프트 / [후]·차액 빨강 → 에메랄드(개선)·앰버(악화) 텍스트.
+FORM_YELLOW = EMERALD          # 헤더 면(라벨 셀) — 흰 글자와 짝
+FORM_BLUE = EMERALD_SOFT       # 시트3 라벨 기본 면
+FORM_GRAY = GRAY_SOFT
+RED_TX = EMERALD               # 개선 강조 텍스트(FIT 팔레트에 빨강 부재 — 250 S0 근거)
+_BORDER = BORDER_GRID
 
 
 def _grp_key(g: str) -> int:
@@ -88,7 +104,9 @@ def _cell(ws, row, col, value=None, *, bold=False, fill=None, fmt=None, align="c
     c = ws.cell(row=row, column=col)
     if value is not None:
         c.value = value
-    c.font = Font(name=name, bold=bold, size=size, color=color or "FF000000")
+    # BOHUMFIT-250: 에메랄드 면 위 텍스트는 흰색(대비 10.7:1 — 브랜드 규칙).
+    auto_color = WHITE if fill == EMERALD else (color or INK)
+    c.font = Font(name=name, bold=bold, size=size, color=auto_color)
     if fill:
         c.fill = PatternFill("solid", fgColor=fill)
     if fmt:
@@ -155,7 +173,8 @@ def _sheet_cover(ws, analysis: dict) -> None:
     for row in (4, 5, 6, 7):
         ws.row_dimensions[row].height = 28.9
     _cell(ws, 1, 2, f"{display_name}님을 위한", size=28, align="left", border=False, name="바탕")
-    _cell(ws, 2, 2, "보험 보장 분석 리포트", size=28, align="left", border=False, bold=True, name="바탕")
+    _cell(ws, 2, 2, "보험 보장 분석 리포트", size=28, align="left", border=False, bold=True,
+          name="바탕", color=EMERALD)  # 250: 브랜드 타이포 강조
     # 설계사 4항목 — 제공 데이터 채움·미제공은 양식 placeholder 유지(244 S3 문구).
     planner_rows = [
         (f"● {cover['planner_name']}" if cover.get("planner_name") else "● 본인이름", "나눔고딕"),
@@ -191,7 +210,7 @@ def _sheet_compare_form(ws, analysis: dict, before: dict, after_before: dict | N
         ws.column_dimensions[get_column_letter(col)].width = 14.4
     ws.column_dimensions[get_column_letter(col_bsum)].width = 14.0
     ws.column_dimensions[get_column_letter(col_name0)].width = 5.5
-    ws.column_dimensions[get_column_letter(col_name0 + 1)].width = 9.0
+    ws.column_dimensions[get_column_letter(col_name0 + 1)].width = 12.0  # 250: 긴 라벨 겹침 해소
     ws.column_dimensions[get_column_letter(col_name0 + 2)].width = 5.5
     ws.column_dimensions[get_column_letter(col_asum)].width = 14.0
     for col in range(col_a0, col_end):
@@ -215,10 +234,10 @@ def _sheet_compare_form(ws, analysis: dict, before: dict, after_before: dict | N
     _cell(ws, 4, col_asum, "합 계", bold=True, fill=FORM_YELLOW)
     for idx, co in enumerate(b_companies):
         _cell(ws, 4, col_b0 + idx, _company_label(co, b_companies), bold=True, fill=FORM_YELLOW, wrap=True)
-        _cell(ws, 5, col_b0 + idx, co.get("monthly_premium"), fmt="#,##0")
+        _cell(ws, 5, col_b0 + idx, co.get("monthly_premium"), fill=FORM_YELLOW, fmt="#,##0")
     for idx, co in enumerate(a_companies):
         _cell(ws, 4, col_a0 + idx, _company_label(co, a_companies), bold=True, fill=FORM_YELLOW, wrap=True)
-        _cell(ws, 5, col_a0 + idx, co.get("monthly_premium"), fmt="#,##0")
+        _cell(ws, 5, col_a0 + idx, co.get("monthly_premium"), fill=FORM_YELLOW, fmt="#,##0")
 
     # 6~9행 계약 메타(구 분·가입일·납만기·계피관계) — 합계열은 양식 리터럴 "-"
     def _meta(co: dict, kind: str) -> str:
@@ -251,18 +270,22 @@ def _sheet_compare_form(ws, analysis: dict, before: dict, after_before: dict | N
     estimated_present = False
     for offset, item in enumerate(FORM_ITEMS):
         row = 10 + offset
+        # BOHUMFIT-250: 강조 행 fill — 원본 위치 실측 그대로(그린 티=대분류 선두·라임=특수).
+        row_fill = GREENTEA if item in HIGHLIGHT_ITEMS else (LIME if item in SPECIAL_ITEMS else None)
         ws.merge_cells(start_row=row, start_column=col_name0, end_row=row, end_column=col_name0 + 2)
         _cell(ws, row, col_name0, item, bold=True, fill=FORM_YELLOW, wrap=True)
+        if item.startswith("일반종수술"):
+            ws.row_dimensions[row].height = 26  # 250: 긴 라벨(표준환산) 줄바꿈 겹침 해소
         b_row = before_rows.get(item) or {}
         a_row = after_rows.get(item) or {}
         if b_row.get("estimated") or a_row.get("estimated"):
             estimated_present = True
-        _cell(ws, row, col_bsum, _man(b_row.get("summary")), bold=True, fmt="#,##0")
+        _cell(ws, row, col_bsum, _man(b_row.get("summary")), bold=True, fmt="#,##0", fill=row_fill)
         for idx, co in enumerate(b_companies):
-            _cell(ws, row, col_b0 + idx, _man((b_row.get("by_company") or {}).get(str(co.get("idx")))), fmt="#,##0")
-        _cell(ws, row, col_asum, _man(a_row.get("summary")) if after_before else None, bold=True, fmt="#,##0")
+            _cell(ws, row, col_b0 + idx, _man((b_row.get("by_company") or {}).get(str(co.get("idx")))), fmt="#,##0", fill=row_fill)
+        _cell(ws, row, col_asum, _man(a_row.get("summary")) if after_before else None, bold=True, fmt="#,##0", fill=row_fill)
         for idx, co in enumerate(a_companies):
-            _cell(ws, row, col_a0 + idx, _man((a_row.get("by_company") or {}).get(str(co.get("idx")))), fmt="#,##0")
+            _cell(ws, row, col_a0 + idx, _man((a_row.get("by_company") or {}).get(str(co.get("idx")))), fmt="#,##0", fill=row_fill)
 
     # 45~49행: Y/N 5행 — 값 기입(COUNTA 수식 미채택 근거는 모듈 주석)
     yn_before = _yn_map(before)
@@ -315,8 +338,17 @@ def _sheet_compare_form(ws, analysis: dict, before: dict, after_before: dict | N
             _cell(ws, row, col_asum, _man(row_data.get("summary")), fmt="#,##0")
         last_row = appendix_row + len(extras)
 
+    # BOHUMFIT-250: 우측 고객정보 패널(원본 O열 실측 재현 — 라벨+공란·PII 미기입·인쇄영역 밖).
+    panel_col = col_end + 1
+    ws.column_dimensions[get_column_letter(panel_col)].width = 22.0
+    for panel_row, label, bold in PANEL_LABELS:
+        panel_cell = _cell(ws, panel_row, panel_col, label, bold=bold, align="left", fmt="@")
+        panel_cell.border = BORDER_GRID
     ws.sheet_view.showGridLines = False
     ws.page_setup.orientation = "landscape"
+    ws.page_setup.fitToWidth = 1  # 250 D: 15계약 가로 인쇄 1장 폭 맞춤(사양 결정 3 잠정)
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
     ws.print_area = f"A1:{get_column_letter(col_end)}{last_row}"
     ws.freeze_panes = "B10"
 
@@ -344,11 +376,15 @@ def _sheet_final_form(ws, analysis: dict, before: dict, after_before: dict | Non
     after_rows = _coverage_maps(after_before) if after_before else {}
     for offset, item in enumerate(FORM_ITEMS):
         row = 5 + offset
+        # BOHUMFIT-250: 라벨 기본=에메랄드 소프트, 강조=그린 티/라임(시트2와 동일 세트 —
+        # 원본 시트3의 불규칙 파스텔(행35 누락 등)을 섹션 규칙으로 정규화·근거는 태스크 문서).
+        label_fill = GREENTEA if item in HIGHLIGHT_ITEMS else (LIME if item in SPECIAL_ITEMS else FORM_BLUE)
         ws.merge_cells(start_row=row, start_column=3, end_row=row, end_column=5)
-        _cell(ws, row, 3, item, bold=True, fill=FORM_BLUE, wrap=True)
+        _cell(ws, row, 3, item, bold=True, fill=label_fill, wrap=True)
         _cell(ws, row, 2, _man((before_rows.get(item) or {}).get("summary")), fmt='#,##0"만원"', align="right")
         if after_before:
-            _cell(ws, row, 6, _man((after_rows.get(item) or {}).get("summary")), fmt='#,##0"만원"', align="right")
+            _cell(ws, row, 6, _man((after_rows.get(item) or {}).get("summary")), fmt='#,##0"만원"',
+                  align="right", color=EMERALD, bold=True)
 
     yn_before = _yn_map(before)
     yn_after = _yn_map(after_before) if after_before else {}
@@ -386,13 +422,17 @@ def _sheet_final_form(ws, analysis: dict, before: dict, after_before: dict | Non
                   color=RED_TX, bold=True)
 
     ws.merge_cells("H13:K13")
-    _cell(ws, 13, 8, "보험료 차액(후−전)", bold=True, size=12)
+    _cell(ws, 13, 8, "보험료 차액(후−전)", bold=True, size=12, fill=FORM_YELLOW)
     ws.merge_cells("H14:K15")
     delta = (after_monthly - before_monthly) if (after_monthly is not None and before_monthly is not None) else None
-    _cell(ws, 14, 8, delta, bold=True, fmt='#,##0"원"', color=RED_TX, size=12)
+    # 250: 절감(음수)=에메랄드·증가=앰버(FIT 상태 색 선례 — 빨강 대체 근거는 태스크 문서).
+    delta_color = EMERALD if (delta is None or delta <= 0) else AMBER_TX
+    delta_cell = _cell(ws, 14, 8, delta, bold=True, fmt='#,##0"원"', color=delta_color, size=12)
+    delta_cell.border = BORDER_BOX
 
     ws.merge_cells("H17:K18")
-    _cell(ws, 17, 8, "특이사항", bold=True, size=12)
+    notes_header = _cell(ws, 17, 8, "특이사항", bold=True, size=12, fill=FORM_YELLOW)
+    notes_header.border = BORDER_BOX
     ws.merge_cells("H19:K45")
     notes = _special_notes(analysis)
     note_cell = _cell(ws, 19, 8, "\n".join(f"- {n}" for n in notes) if notes else None, align="left", wrap=True)

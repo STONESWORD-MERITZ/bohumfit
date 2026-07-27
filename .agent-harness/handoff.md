@@ -1,7 +1,38 @@
+## 2026-07-27 BOHUMFIT-250 - 엑셀 시각 디벨롭 (구조=비분양식 · 색=FIT 브랜드 · ★값 불변 증명)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex(2차 검증·커밋)
+Commit: Codex 2차 검증 통과·publish 대기. 실 PDF·엑셀 원본 로컬 참조만·stage 0. 상세는 tasks/BOHUMFIT-250.
+
+### S0 (3자 실측 — 추측 0)
+- 원본 비분양식 fill 전수: 시트2 강조 행 = **일반사망·상해/질병후유장해·암진단금·유사암진단금·뇌혈관질환·심혈관질환·종수술 1~5·보험료 합계**(연노랑 행 전체) + 특수 파랑 = **암 주요치료비·순환계 치료비**. O열 고객정보 패널 라벨 전수(고등전산·보험나이·1.성명~8.병원·[양식]·손해(건강)). 시트3 파스텔 혼재(행35 등 불규칙 누락) + [후]/차액 빨강.
+- 구 exporter FIT 선례(git show c755a43 — 읽기 전용)·브랜드 토큰(index.css: 에메랄드 #084734/라임·그린 티 면 전용).
+- 치환표(근거 기록): 연노랑 헤더→에메랄드 면+흰 글자 / 강조→그린 티 면 / 특수→라임 면 / 시트3 파스텔→소프트 기본+동일 강조 세트(불규칙 정규화) / 빨강→에메랄드(개선)·앰버(악화 — FIT 상태색 선례).
+
+### 구현
+- `excel_style.py` 신설(팔레트·FILL_ONLY 계약·HIGHLIGHT/SPECIAL 세트·PANEL_LABELS — 스타일 단일 소스) + export_excel 스타일 계층 적용: 시트2(헤더/강조/특수·그리드·담보명 열폭 12/종수술 행높이 26로 겹침 해소·**O패널 재현(라벨+공란·PII 미기입)**·fitToWidth=1) · 시트3(소프트 라벨+강조 세트·[후] 에메랄드 볼드·차액 절감=에메랄드/증가=앰버 박스·특이사항 박스) · 표지 타이포.
+
+### Verified (1차 — Code)
+- ★값 불변: HEAD(a9dcad9) exporter를 별도 프로세스로 구동한 구 산출물 vs 스타일본 — **전 시트·전 셀 좌표 대조 5케이스 diff 0**(신규 추가는 O패널 라벨뿐. 실데이터 임시 파일 즉시 삭제).
+- 스타일 존재 5케이스 OK(헤더 에메랄드+흰 글자·그린 티 강조·라임 특수·패널) · ★면 전용 색 폰트 사용 **0**(5케이스 전 셀 + 합성 회귀 테스트 고정).
+- backend pytest **712/8**(710+2) · npm test **89** · tsc·lint. PII 0 · diff = export_excel·excel_style·테스트 1 + harness.
+
+### Verified (2차 — Codex Windows · commit 전)
+- 루트 게이트·기존 handoff 연속성(250→249→248→247) 통과. Windows 전체 게이트는 backend **712 passed, 8 skipped**(단순 보정 후 재실행)·tsc app/node·lint·frontend **89 passed**다. `src/`·`backend/pipeline/`·`supabase/` diff는 모두 0이다.
+- 로컬 build 참고값은 정책상 무효인 **343,225 B**이고 `build:verify`가 크기 하한·필수 앱 문자열 누락으로 의도대로 exit 1을 반환했다. 248 기준에 따라 이 산출물은 기능 판정에 사용하지 않는다.
+- S0의 “헤더 3~5행”과 달리 계약별 월보험료가 있는 5행만 무채색으로 남은 것을 2차에서 발견했다. 값 무변경의 동일 태스크 스타일 결함이라 [전]/[후] 두 대칭 `_cell` 호출에 에메랄드 헤더 fill을 추가하고 합성 회귀 단언을 보강했다.
+- HEAD `a9dcad9` exporter를 임시 detached worktree·독립 프로세스로 실행해 실 PDF A~E 5건을 전 시트·전 셀 재대조했다. 구 산출물의 값 셀 **2,229개 전부 동일**, 신규 값은 각 케이스 O패널 라벨 **14개뿐**이다. 헤더 에메랄드+흰 글자·강조/특수 행·전체 그리드·종수술 열폭 12/행높이 26·O패널·시트3 [후] 에메랄드 볼드·차액 상태색/박스·`fitToWidth=1`·`B10` 틀고정을 5건 모두 확인했고, 면 전용 색의 폰트 사용은 전 셀 **0**이다.
+- Microsoft Excel **16.0**으로 A(표준)·B(15계약)·E(overview)를 읽기 전용으로 열어 Excel 자체 인쇄 PDF와 범위 그림을 렌더·육안 판독했다. 세 건 모두 겹침/깨짐 없이 헤더·강조·종수술 라벨·부록·시트3·O패널이 표시됐다. A/B는 1쪽, E는 긴 부록 때문에 세로 2쪽이나 세 건 모두 가로 페이지 나눔 **0**·`FitToPagesWide=1`로 “가로 1장 폭” 계약을 충족한다.
+- 250 신규 코드·테스트·태스크 실명 0. 임시 worktree와 실데이터 xlsx/PDF/렌더 파일은 검증 직후 삭제했고 `보장분석/` gitignore 유지·stage 0을 재확인했다. diff는 `export_excel.py`·신규 `excel_style.py`·신규 테스트 1개와 harness뿐이며 `git diff --check`를 통과했다.
+
+### Next
+1. **Codex** — 2차 검증(값 diff 0 재현·스타일 검사·배포 스모크) → stage(export_excel·excel_style·test_excel_style_250·tasks/250·handoff·locks) → 커밋 `feat(BOHUMFIT-250): 엑셀 시각 디벨롭 — 비분양식 구조 강조 재현 + FIT 브랜드 팔레트` → push.
+2. **Human** — 프로덕션 재다운로드 실물 검수(강조·테두리·패널·인쇄 미리보기 — fitToWidth 잠정 처리 포함).
+3. **Chat** — PDF 시각 정합은 실물 검수 피드백 반영 후 검토(패킷 Next ③).
+
 ## 2026-07-27 BOHUMFIT-249 - 엑셀 다운로드 비분양식 정본 통일 + [후] 이월 결함 근본 처치
 
-Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex(커밋·★배포 확인)
-Commit: 없음 — git 쓰기 금지 지시(고위험 풀 하네스). 실 PDF·엑셀 로컬 참조만·stage 0. 상세는 tasks/BOHUMFIT-249.
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human(프로덕션 실물 재다운로드) / Chat(결정지)
+Commit: `a9dcad99f4c33fd39a53ec0cbe2eb2fc6e7b7c35` (`origin/main`, local/remote 0/0). 실 PDF·엑셀 stage 0. 아래 배포 후 기록은 다음 하네스 커밋에 편승.
 
 ### S0 판정 (실측)
 - **레거시 5시트 exporter는 HEAD에 없다**: 구 시트명 문자열 grep 0·xlsx 생성 모듈 단일(248 P2 전면 재작성 시 삭제)·프런트 호출 단일 경로(POST /coverage/export/{kind}). → Human 실물 5시트의 유일 정합 설명 = **다운로드 시점 프로덕션 백엔드(Railway)가 248 반영 전 상태**(구 5시트 + 신 라벨 = 246·247 코드와 일치). ★Codex 배포 반영 확인·재배포가 필수 조치.
@@ -24,10 +55,16 @@ Commit: 없음 — git 쓰기 금지 지시(고위험 풀 하네스). 실 PDF·�
 - 실 PDF 5건을 메모리 분석해 실제 `POST /coverage/export/{excel|pdf}` 경로로 재현했다. 엑셀은 3시트 5/5·40행과 계약 셀 차이 0·표준 4건 전=후·B 15계약 열 전개, E는 [후] **1,542,990,000원**·월납 **4,675,189원**을 보존했다. PDF도 5/5 **200**·유효 PDF(5~6쪽)이며 월납·전 담보행 값 대조를 통과했다.
 - 5건 총액 대사 0, 월납/납입완료 제외 부값·238 estimated 불변. 실 PDF 실제 고객명과 변경 7파일의 일치 0, pipeline/supabase/src/package diff 0, 실 PDF·엑셀·부산물 tracked 0, 런타임 SURIT·구브랜드 색상 0, `git diff --check` 통과다.
 
+### Codex publish·배포 반영 확인 (push 후)
+- 지정 커밋 `a9dcad99f4c33fd39a53ec0cbe2eb2fc6e7b7c35`를 `origin/main`에 push했고 HEAD와 원격은 ahead/behind **0/0**이다.
+- Railway CLI는 로컬에 없지만, GitHub가 이 정확한 커밋에 연결한 Railway 배포 상태 `BOHUMFIT - bohumfit`가 **success**임을 확인했다. 2026-07-27 10:14:52 KST 기준 Railway `/api/health`는 **200**·`{"status":"ok"}`였다. 따라서 248 이전 스테일 배포가 아니라 249 서버 코드가 배포된 상태임을 커밋 귀속으로 확인했다.
+- Vercel 배포 상태도 동일 커밋에서 **success**, 공개 `/login`은 **200**이다.
+- 프로덕션 브라우저에는 로그인 세션이 없어 고객 PDF를 프로덕션으로 전송하거나 E 엑셀을 직접 다운로드하지 않았다. 따라서 실물의 3시트와 `[후]` 15.4억대 육안 확인은 Human 게이트로 남긴다. 로컬에서는 동일 UI POST 경로의 E 엑셀·PDF가 모두 200이고 3시트·[후] **1,542,990,000원**을 재현했다.
+
 ### Next
-1. **Codex** — 2차 검증(엔드포인트 경유 5건 재현) → stage(aggregator·compare·consulting·test_export_endpoint_249·tasks/249·handoff·locks — 실 PDF 제외) → 커밋 `fix(BOHUMFIT-249): 엑셀 다운로드 비분양식 정본 통일 + 레거시 경로 후 이월 결함 제거` → push → **배포 스모크 + Railway 반영 확인 + 프로덕션 실물 다운로드 확인**(S0 판정상 스테일 배포가 실물 원인 — 반영 확인이 이번 결함의 마지막 조각).
-2. **Human** — 프로덕션에서 E 케이스 재다운로드 → 비분양식 3시트 + [후] 값 보존 육안 확인.
-3. **Chat** — 사양 결정 4건(단위·수식·인쇄·빌드 정책)·카탈로그 결정지 대기.
+1. **Human** — 프로덕션에서 라금실 재다운로드 → 비분양식 3시트 + [후] 값(총합 15.4억대) 육안.
+2. **Chat** — 사양 결정 4건·카탈로그 18항목 결정지 정리.
+3. **계류** — D 재해사망·E 중입자/표적·빌드 정책 예외.
 
 ## 2026-07-27 BOHUMFIT-248 - 신 체계 완결(빌드 수리·엑셀·PDF) + 심층 QA + 카탈로그 (publish·프로덕션 대체 검증 완료)
 
