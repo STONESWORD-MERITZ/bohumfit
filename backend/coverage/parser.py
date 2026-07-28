@@ -472,15 +472,55 @@ def _extract_pages(pdf_bytes: bytes) -> list[list[str]]:
         raise KBFormatError(f"PDF를 읽을 수 없습니다: {exc}") from exc
 
 
-def _detail_contract_idx(lines: list[str], premium_to_idx: dict[int, int]) -> Optional[int]:
+def _premium_index(contracts: list[dict]) -> dict[int, frozenset]:
+    """BOHUMFIT-253(회송): 월보험료 → 계약 idx ★집합 역인덱스.
+
+    기존 `{monthly_premium: idx}` dict는 동일 보험료 계약이 2건 이상이면 마지막 계약만
+    남겨(last-wins) 실제로는 모호한 매칭을 "유일"로 오인시켰다(Codex 실증: 50,000원
+    계약 2건에서 200만원이 '?'가 아닌 계약 2로 오귀속). 중복을 집합으로 보존한다.
+    """
+    index: dict[int, set] = {}
+    for c in contracts:
+        if c.get("monthly_premium"):
+            index.setdefault(c["monthly_premium"], set()).add(c["idx"])
+    return {premium: frozenset(ids) for premium, ids in index.items()}
+
+
+def _resolve_unique_idx(premiums: list, premium_index: dict[int, frozenset]) -> Optional[int]:
+    """후보 보험료들이 가리키는 계약 후보 합집합이 ★정확히 1개일 때만 idx 반환.
+
+    BOHUMFIT-253(회송): 기간 라인 경로·헤더 폴백이 이 단일 판정을 공유한다(경로별 복제
+    금지 — 251 골든 픽스처 교훈). 동일 보험료 복수 계약·상이 보험료 복수 매칭·매칭 0은
+    전부 모호 → None → '?' 유지(오귀속 0이 제1원칙 — 251 미배치+명시 원칙).
+    """
+    matched: set = set()
+    for premium in premiums:
+        matched |= premium_index.get(premium, frozenset())
+    if len(matched) == 1:
+        return next(iter(matched))
+    return None
+
+
+def _detail_contract_idx(lines: list[str], premium_index: dict[int, frozenset]) -> Optional[int]:
+    # 1) 기간 라인 경로 — 기간(YYYY-MM-DD ~ YYYY-MM-DD) 라인의 보험료로 판정.
+    #    253 회송: last-wins 순회를 제거하고 공용 유일성 판정 사용(모호 → 폴백 진행).
     for line in lines[:16]:
         if not re.search(r"\d{4}-\d{2}-\d{2}\s*~\s*\d{4}-\d{2}-\d{2}", line):
             continue
         premiums = [parse_won(m.group("premium") + "원") for m in DETAIL_PREMIUM_RE.finditer(line)]
-        for premium in reversed(premiums):
-            if premium in premium_to_idx:
-                return premium_to_idx[premium]
-    return None
+        idx = _resolve_unique_idx(premiums, premium_index)
+        if idx is not None:
+            return idx
+    # 2) BOHUMFIT-253: 기간 라인에 보험료가 없는 레이아웃 폴백 — layout=True 추출이 표 행을
+    #    줄바꿈해 월보험료가 기간 라인 2줄 아래에 놓이는 페이지 실측(A p10·p17, D p15 —
+    #    이 페이지들의 EXTRA 담보가 '?'로 귀속돼 회사합≠합계 발생). 헤더 16줄 전체 수집,
+    #    동일한 유일성 판정(모호 → None → '?').
+    all_premiums = [
+        parse_won(m.group("premium") + "원")
+        for line in lines[:16]
+        for m in DETAIL_PREMIUM_RE.finditer(line)
+    ]
+    return _resolve_unique_idx(all_premiums, premium_index)
 
 
 def _last_amount(line: str):
@@ -493,7 +533,8 @@ def _last_amount(line: str):
 
 def parse_detail_pages(detail_pages: list[list[str]], contracts: list[dict], jong_table: dict | None = None):
     """Parse detailed pages for contract remarks and non-standard 기타 riders."""
-    premium_to_idx = {c["monthly_premium"]: c["idx"] for c in contracts if c.get("monthly_premium")}
+    # BOHUMFIT-253(회송): 동일 보험료 계약을 보존하는 집합 역인덱스(last-wins dict 제거).
+    premium_index = _premium_index(contracts)
     notes: dict[int, dict] = {}
     extra: dict[str, dict] = {}
     # BOHUMFIT-245 ①②: 일반/재해사망은 KB가 동일 담보를 상해·질병사망 지급사유 행으로
@@ -503,7 +544,7 @@ def parse_detail_pages(detail_pages: list[list[str]], contracts: list[dict], jon
     death_seen: set[tuple] = set()
 
     for lines in detail_pages:
-        idx = _detail_contract_idx(lines, premium_to_idx)
+        idx = _detail_contract_idx(lines, premium_index)
         for line in lines[:16]:
             if "월납" not in line and "연납" not in line and "일시납" not in line:
                 continue
