@@ -141,6 +141,28 @@ def _is_overview(before_like: dict) -> bool:
     return any(row.get("overview") for row in (before_like or {}).get("coverages", []))
 
 
+# BOHUMFIT-252(재개): '?'(계약 미상 — 246/253 데이터 모델) 버킷 렌더 정책.
+#   253 귀속 복원 후 실 5케이스 '?' 잔존 0(Codex 권위 실측) — 평시에는 열 미출력.
+#   단, 동일 보험료 계약 등 모호 문서에서 '?'가 남으면(253은 오귀속 대신 '?' 유지가 설계)
+#   회사 열 합 ≠ 합계로 다시 오독되므로, ★잔존 시에만 "계약 미확인" 열을 명시 출력한다.
+def _unknown_bucket_present(before_like: dict, companies: list) -> bool:
+    ids = {str(c.get("idx")) for c in companies}
+    form_names = set(FORM_ITEMS)
+    for row in (before_like or {}).get("coverages", []):
+        if row.get("overview") or not row.get("enrolled") or row.get("kb_name") not in form_names:
+            continue
+        if any(k not in ids and v is not None for k, v in (row.get("by_company") or {}).items()):
+            return True
+    return False
+
+
+def _unknown_sum(row: dict, ids: set):
+    """실계약 키가 아닌 by_company 값 합(만원 변환 전 원 단위) — 없으면 None(공란)."""
+    vals = [v for k, v in (row.get("by_company") or {}).items()
+            if k not in ids and isinstance(v, (int, float))]
+    return sum(vals) if vals else None
+
+
 def _special_notes(analysis: dict) -> list[str]:
     notes: list[str] = list(analysis.get("warnings") or [])
     comparison = analysis.get("comparison") or {}
@@ -197,14 +219,29 @@ def _sheet_compare_form(ws, analysis: dict, before: dict, after_before: dict | N
         after_before.get("contract_list") or after_before.get("companies") or []
     )
     n, m = len(b_companies), len(a_companies)
+    # BOHUMFIT-252 B: [후] 신규 계약 열 골격 — 가입제안서 트랙 미착수 상태에서는 헤더 자리만
+    #   두고 값은 공란("신규 설계 반영 대상"). 제안 계약(신규제안)이 페이로드에 있으면 일반
+    #   회사 열로 이미 전개되므로 골격 열은 만들지 않는다. overview는 회사 열 자체가 없음(246).
+    has_proposal = any(
+        (co.get("consulting_status") == "신규제안") or (co.get("remark") == "신규제안")
+        for co in a_companies
+    )
+    new_slot = 1 if (after_before is not None and not overview and not has_proposal) else 0
+    # BOHUMFIT-252(재개): '?' 버킷 잔존 시에만 "계약 미확인" 열 — 회사합=합계 대사가 눈에
+    #   보이도록(모호 문서 오독 방지). 실 5케이스는 253 복원으로 잔존 0 → 열 미출력(현행 동일).
+    b_ids = {str(c.get("idx")) for c in b_companies}
+    a_ids = {str(c.get("idx")) for c in a_companies}
+    b_unk = 1 if (not overview and _unknown_bucket_present(before, b_companies)) else 0
+    a_unk = 1 if (after_before is not None and not overview
+                  and _unknown_bucket_present(after_before, a_companies)) else 0
 
-    # 열 배치(1-base): A 여백 | [전] n열 | [전]합계 | 담보명 3열 | [후]합계 | [후] m열 | 여백
+    # 열 배치(1-base): A 여백 | [전] n열(+미확인) | [전]합계 | 담보명 3열 | [후]합계 | [후] m열(+미확인+신규 골격) | 여백
     col_b0 = 2
-    col_bsum = col_b0 + n
+    col_bsum = col_b0 + n + b_unk
     col_name0 = col_bsum + 1
     col_asum = col_name0 + 3
     col_a0 = col_asum + 1
-    col_end = col_a0 + m
+    col_end = col_a0 + m + a_unk + new_slot
     ws.column_dimensions["A"].width = 1.6
     for col in range(col_b0, col_bsum):
         ws.column_dimensions[get_column_letter(col)].width = 14.4
@@ -225,19 +262,35 @@ def _sheet_compare_form(ws, analysis: dict, before: dict, after_before: dict | N
     _cell(ws, 3, col_b0, "비교분석 전 보장", bold=True, fill=FORM_YELLOW)
     ws.merge_cells(start_row=3, start_column=col_name0, end_row=5, end_column=col_name0 + 2)
     _cell(ws, 3, col_name0, "담보내용", bold=True, fill=FORM_YELLOW)
-    if m:
+    if m + new_slot:
         ws.merge_cells(start_row=3, start_column=col_asum, end_row=3, end_column=col_end - 1)
     _cell(ws, 3, col_asum, "비교분석 후 보장", bold=True, fill=FORM_YELLOW)
     ws.merge_cells(start_row=4, start_column=col_bsum, end_row=5, end_column=col_bsum)
     _cell(ws, 4, col_bsum, "합 계", bold=True, fill=FORM_YELLOW)
     ws.merge_cells(start_row=4, start_column=col_asum, end_row=5, end_column=col_asum)
     _cell(ws, 4, col_asum, "합 계", bold=True, fill=FORM_YELLOW)
+    # BOHUMFIT-252 A: 2단 헤더(레이아웃 정본 실측) — 4행 회사명 / 5행 상품명. 회사별 월납은
+    #   중복 기재를 없애고 양식대로 "보험료 합계"(50행) 한 곳에만 둔다(값 자체는 불변).
+    #   ※레이아웃 정본의 구분(손해/생명 종목) 행은 원천 데이터 부재로 미기재 — 기존 메타(구 분=
+    #   컨설팅 상태·가입일·납만기·계피관계) 유지(태스크 문서 기록).
+    ws.row_dimensions[5].height = 30  # 상품명 2줄 랩 대응
     for idx, co in enumerate(b_companies):
         _cell(ws, 4, col_b0 + idx, _company_label(co, b_companies), bold=True, fill=FORM_YELLOW, wrap=True)
-        _cell(ws, 5, col_b0 + idx, co.get("monthly_premium"), fill=FORM_YELLOW, fmt="#,##0")
+        _cell(ws, 5, col_b0 + idx, co.get("product") or "-", fill=FORM_YELLOW, wrap=True, size=8, fmt="@")
     for idx, co in enumerate(a_companies):
         _cell(ws, 4, col_a0 + idx, _company_label(co, a_companies), bold=True, fill=FORM_YELLOW, wrap=True)
-        _cell(ws, 5, col_a0 + idx, co.get("monthly_premium"), fill=FORM_YELLOW, fmt="#,##0")
+        _cell(ws, 5, col_a0 + idx, co.get("product") or "-", fill=FORM_YELLOW, wrap=True, size=8, fmt="@")
+    # 252(재개): 계약 미확인 열 헤더 — 회사 열 뒤·합계 앞([전]) / 회사 열 뒤([후]).
+    if b_unk:
+        _cell(ws, 4, col_b0 + n, "계약 미확인", bold=True, fill=FORM_YELLOW, wrap=True)
+        _cell(ws, 5, col_b0 + n, "(원문 계약 특정 불가)", fill=FORM_YELLOW, wrap=True, size=8, fmt="@")
+    if a_unk:
+        _cell(ws, 4, col_a0 + m, "계약 미확인", bold=True, fill=FORM_YELLOW, wrap=True)
+        _cell(ws, 5, col_a0 + m, "(원문 계약 특정 불가)", fill=FORM_YELLOW, wrap=True, size=8, fmt="@")
+    if new_slot:
+        col_new = col_a0 + m + a_unk
+        _cell(ws, 4, col_new, "신규 설계 반영 대상", bold=True, fill=FORM_YELLOW, wrap=True)
+        _cell(ws, 5, col_new, "(가입제안서 반영 전)", fill=FORM_YELLOW, wrap=True, size=8, fmt="@")
 
     # 6~9행 계약 메타(구 분·가입일·납만기·계피관계) — 합계열은 양식 리터럴 "-"
     def _meta(co: dict, kind: str) -> str:
@@ -262,6 +315,12 @@ def _sheet_compare_form(ws, analysis: dict, before: dict, after_before: dict | N
             _cell(ws, row, col_b0 + idx, _meta(co, kind), fmt="@")
         for idx, co in enumerate(a_companies):
             _cell(ws, row, col_a0 + idx, _meta(co, kind), fmt="@")
+        if b_unk:
+            _cell(ws, row, col_b0 + n, "-", fmt="@")
+        if a_unk:
+            _cell(ws, row, col_a0 + m, "-", fmt="@")
+        if new_slot:
+            _cell(ws, row, col_a0 + m + a_unk, "-", fmt="@")  # 252 B: 신규 골격 열 메타 자리
 
     before_rows = _coverage_maps(before)
     after_rows = _coverage_maps(after_before) if after_before else {}
@@ -286,6 +345,12 @@ def _sheet_compare_form(ws, analysis: dict, before: dict, after_before: dict | N
         _cell(ws, row, col_asum, _man(a_row.get("summary")) if after_before else None, bold=True, fmt="#,##0", fill=row_fill)
         for idx, co in enumerate(a_companies):
             _cell(ws, row, col_a0 + idx, _man((a_row.get("by_company") or {}).get(str(co.get("idx")))), fmt="#,##0", fill=row_fill)
+        if b_unk:
+            _cell(ws, row, col_b0 + n, _man(_unknown_sum(b_row, b_ids)), fmt="#,##0", fill=row_fill)
+        if a_unk:
+            _cell(ws, row, col_a0 + m, _man(_unknown_sum(a_row, a_ids)), fmt="#,##0", fill=row_fill)
+        if new_slot:
+            _cell(ws, row, col_a0 + m + a_unk, None, fmt="#,##0", fill=row_fill)  # 252 B: 값 공란 골격
 
     # 45~49행: Y/N 5행 — 값 기입(COUNTA 수식 미채택 근거는 모듈 주석)
     yn_before = _yn_map(before)
@@ -304,10 +369,16 @@ def _sheet_compare_form(ws, analysis: dict, before: dict, after_before: dict | N
     _cell(ws, 50, col_bsum, (before.get("premium") or {}).get("monthly_total"), bold=True, fmt="#,##0")
     for idx, co in enumerate(b_companies):
         _cell(ws, 50, col_b0 + idx, co.get("monthly_premium"), fmt="#,##0")
+    if b_unk:
+        _cell(ws, 50, col_b0 + n, None, fmt="#,##0")  # 미확인 열 — 보험료 개념 없음(공란)
     if after_before:
         _cell(ws, 50, col_asum, (after_before.get("premium") or {}).get("monthly_total"), bold=True, fmt="#,##0")
         for idx, co in enumerate(a_companies):
             _cell(ws, 50, col_a0 + idx, co.get("monthly_premium"), fmt="#,##0")
+        if a_unk:
+            _cell(ws, 50, col_a0 + m, None, fmt="#,##0")
+        if new_slot:
+            _cell(ws, 50, col_a0 + m + a_unk, None, fmt="#,##0")
 
     # 51행: 가설계(양식 문구 유지) + 단위·환산 안내(238 정직 표기)
     ws.merge_cells(start_row=51, start_column=col_b0, end_row=51, end_column=col_end - 1)
@@ -367,10 +438,12 @@ def _sheet_final_form(ws, analysis: dict, before: dict, after_before: dict | Non
     ws.merge_cells("B2:L2")
     _cell(ws, 2, 2, f"주요보장분석({customer})", bold=True, size=20, border=False)
 
-    _cell(ws, 4, 2, "리모델링 전", bold=True, fill=FORM_BLUE, size=12)
+    # BOHUMFIT-252 C: 표 헤더는 시트2와 동일하게 에메랄드 면+흰 글자(250 헤더 규칙으로 승격 —
+    #   레이아웃 정본의 색 헤더 행을 FIT 팔레트로 재현).
+    _cell(ws, 4, 2, "리모델링 전", bold=True, fill=FORM_YELLOW, size=12)
     ws.merge_cells("C4:E4")
-    _cell(ws, 4, 3, "주요보장", bold=True, fill=FORM_BLUE, size=12)
-    _cell(ws, 4, 6, "리모델링 후", bold=True, fill=FORM_BLUE, size=12)
+    _cell(ws, 4, 3, "주요보장", bold=True, fill=FORM_YELLOW, size=12)
+    _cell(ws, 4, 6, "리모델링 후", bold=True, fill=FORM_YELLOW, size=12)
 
     before_rows = _coverage_maps(before)
     after_rows = _coverage_maps(after_before) if after_before else {}
@@ -406,15 +479,17 @@ def _sheet_final_form(ws, analysis: dict, before: dict, after_before: dict | Non
         _cell(ws, total_row, 6, after_monthly, bold=True, fmt='#,##0"원"', align="right")
 
     # 우측: 종합비교(값 기입 — I열 규칙 파생값·K7 이중합산 미이식)
-    _cell(ws, 4, 8, "종합", bold=True, size=12)
-    _cell(ws, 4, 9, "전", bold=True, size=12)
-    _cell(ws, 4, 10, "비교", bold=True, size=12)
-    _cell(ws, 4, 11, "후", bold=True, size=12)
+    # BOHUMFIT-252 C: 레이아웃 정본 디자인 정합 — 헤더(종합/전/비교/후)=에메랄드+흰 글자,
+    #   단계 라벨=에메랄드 소프트(시트2 라벨 규칙과 동일 세트).
+    _cell(ws, 4, 8, "종합", bold=True, size=12, fill=FORM_YELLOW)
+    _cell(ws, 4, 9, "전", bold=True, size=12, fill=FORM_YELLOW)
+    _cell(ws, 4, 10, "비교", bold=True, size=12, fill=FORM_YELLOW)
+    _cell(ws, 4, 11, "후", bold=True, size=12, fill=FORM_YELLOW)
     stages_before = _stage_map(before)
     stages_after = _stage_map(after_before) if after_before else {}
     for offset, key in enumerate(STAGE_ROWS):
         row = 5 + offset
-        _cell(ws, row, 8, key, bold=True)
+        _cell(ws, row, 8, key, bold=True, fill=FORM_BLUE)
         _cell(ws, row, 9, _man(stages_before.get(key, 0)), fmt='#,##0"만원"', align="right")
         _cell(ws, row, 10, "→")
         if after_before:
