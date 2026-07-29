@@ -64,10 +64,11 @@ def test_excel_before_sheet_has_contract_list_block() -> None:
     # 계약 열 전부 전개 — 4행 라벨 = 회사명(숫자 idx 오름차순: 메리츠화재, DB손보).
     assert ws.cell(4, 2).value == "메리츠화재"
     assert ws.cell(4, 3).value == "DB손보"
-    # BOHUMFIT-252 A: 5행 = 상품명(2단 헤더 — 레이아웃 정본). 회사별 보험료는 50행 한 곳만.
+    # BOHUMFIT-252 A: 5행 = 상품명(2단 헤더 — 레이아웃 정본).
+    # BOHUMFIT-254 개정2: 회사별 보험료는 계약 메타 블록의 9행("월보험료") 한 곳만.
     assert ws.cell(5, 3).value == "BOP보험"
-    assert ws.cell(50, 2).value is not None     # 계약1 보험료(원)
-    assert ws.cell(50, 3).value is None         # 계약2 보험료 미제공 → 공란
+    assert ws.cell(9, 2).value is not None      # 계약1 보험료(원)
+    assert ws.cell(9, 3).value is None          # 계약2 보험료 미제공 → 공란
 
 
 def test_pdf_html_has_contract_list_block() -> None:

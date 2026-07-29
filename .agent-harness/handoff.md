@@ -1,7 +1,29 @@
+## 2026-07-28 BOHUMFIT-254 - 엑셀 개정: 테두리 구획·보험료 상단·Y/N 회사별·디자인
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex(2차 검증 PASS → 범위 커밋·push)
+Commit: 없음 — git 쓰기 0. 실 PDF·엑셀 원본 로컬 참조만·PII 저장 0. 상세는 tasks/BOHUMFIT-254.
+
+### Codex 2차 권위 검증 — PASS (2026-07-29 · commit 전)
+- **환경·범위**: PowerShell 셸·루트/remote/리트머스·HEAD `ad63ee6`·handoff 연속성(254→252→253)을 확인했다. diff는 `aggregator.py`의 Y/N 파생 10줄·Excel 렌더/스타일·테스트 4개+harness뿐이며 금액 집계 산식·pipeline/·src/·supabase/·패키지 diff는 0이다.
+- **전체 게이트**: 신규 `test_excel_refinements_254.py` **7 passed**, backend **750 passed, 8 skipped**, frontend **95 passed**, tsc app/node·lint 클린.
+- **★값 불변/보험료 이동**: detached HEAD `ad63ee6`과 현재 코드로 실 PDF 5건의 payload·xlsx를 각각 생성해 전 시트 재판독했다. before/after 담보·premium payload는 5건 모두 완전 동일, 계획 변경인 시트2 50→9행을 좌표 정규화하면 전 시트 숫자 removed/changed/added **0/0/0**. 이동 셀은 A **20**·B **30**·C **8**·D **20**·E **2**개이며 같은 열·같은 값, 현재 50행 숫자·텍스트는 0. 시트3 수식은 5건 모두 0개로 payload 직접 기입 구조이며 값·오류 셀 0이다.
+- **★회사/Y/N 정합**: 표준 A~D의 담보 35행을 [전]/[후] 각각 전수 대조해 회사열 합=합계열 상이 0. 5개 Y/N 행도 원천 `by_company` 계약 키와 시트 회사열·합계열 상이 0이며 합계 Y/N 규칙과 담보 금액 셀은 HEAD 그대로다. E overview는 회사열·Y/N 회사 귀속 없이 합계-only 7열+경고 구조를 유지한다.
+- **Excel 16.0 실렌더/스타일**: A(다열)·E(overview)를 실제 Excel로 열어 9행 보험료·50행 공백, 테두리 구획, A 회사별 Y/N·E 합계 전용을 확인했다. 인쇄영역 A `A1:Z69`·E `A1:G71`, landscape·Zoom=False·FitToPagesWide=1 유지. 번들 렌더러로 A/E 시트2·3도 육안 확인해 겹침·잘림 0, 5개 실물 전 셀 면 전용 색 폰트 사용 0.
+- **위생**: 추가 코드·문서 실명 PII 0, 실 PDF·레이아웃 정본·실데이터 xlsx·렌더 stage 0. `git diff --check` 통과 예정이며 detached worktree·검증용 산출물은 삭제 완료했다.
+
+### 구현·1차 검증 완료 (2026-07-28 · Claude Code)
+- **S0 실측 — ★전제 2건 반전(기록)**: ①보험료 위치: 레이아웃 정본은 `보험료 합계`가 **r43(하단)** — "원본이 상단"이라는 전제는 거짓. 그럼에도 Human 명시 요청(상단·"계약 메타 근처")을 이행하고 원본 편차를 기록(되돌릴 수 있게). ②테두리: 정본 `styles.xml` cellXfs 인덱스 결손(openpyxl 로드 실패 원인과 동일)으로 **원본 테두리 밀도 판독 불가** → 모사가 아닌 가독 기준 구획 설계로 진행. ③Y/N: 정본도 회사 열에 Y 표기(근거 확인) + 원천 9행의 by_company가 **이미 계약 키로 충전** → ★금액을 새로 채울 필요 없이 파생만으로 충족.
+- **개정1 테두리**: `section_border()` 신설 + 시트2 3~49행 구획(세로: 회사 열군↔합계↔담보명↔[후] / 가로: 메타 9행·담보 44행·Y/N 49행 하단 + ★대분류(group12) 전환 행 상단). 최초 "강조 행 기준"은 같은 대분류 내부(후유장해 2행·종수술 5행)에도 줄이 생겨 소음 → 패킷 문구대로 group12 전환 기준으로 정정.
+- **개정2 보험료 상단**: 9행 이동(라벨 `보험료 합계` 원본 표기 유지 — 위치만). 메타 4행 유지(구 분/가입일/납만기/보험료), 계피관계는 구 분 행에 `·계피상이`/`·계피동일` 병기(★첫 구현에서 "동일"이 누락돼 181 회귀가 잡아냄 → 즉시 보정, 정보 손실 0). 담보 10~44·Y/N 45~49 좌표 전부 불변, 하단 50행만 공백.
+- **개정3 Y/N 회사별**: `compute_yn_flags`에 `by_company` 파생 추가(원천 by_company에 값 있는 계약=Y). 금액·합계 규칙 무접촉. **★실사용 동선 결함 발견·해소**: 클라이언트 `buildAfterResult`가 `{...analysis.before}` 스프레드로 [후] payload를 만들어 `yn_flags`가 [전] 값 그대로 남는다(coverages만 해지 반영) → 해지해도 [후] Y/N이 안 바뀌어 개정3 목적이 깨짐. `export_excel._yn_flags`가 payload 대신 **담보 행에서 항상 재파생**하도록 보정(src 무접촉·서버 payload 결과 동일)·회귀 고정.
+- **개정4 디자인**: 헤더/메타 행 높이 밸런스(3행 20·4행 28·5행 30·메타 17) — 색·값 무변경.
+- **검증**: backend pytest **750 passed, 8 skipped**(743+7) · ★값 불변 — HEAD(ad63ee6)의 exporter+style+aggregator 한 세트 별도 실행 대비 실 PDF 5케이스 숫자 좌표 **removed 0·changed 0·added 0**(계획 변경 50행→9행만 예외, 이동 셀 A 20·B 30·C 8·D 20·E 2개가 9행에 동일 값 존재 단언) · Y/N 회사별 시트 셀=payload 파생 상이 0(E overview는 원천이 합계-only라 회사별 {} — 회사 열 없어 무영향) · 회사합=합계 대사 0 · 면 전용 색 폰트 0 · tsc·lint·npm **95** 불변 · PII 0(코드 실명 0·문서 마스킹). **Excel 16.0 실렌더는 미실행 — Codex 몫**(구조는 openpyxl 재판독으로 인쇄영역 A `A1:Z69`·E `A1:G71`·fitToWidth 1·구획 medium 확인).
+- **Next**: ① Codex — 2차 검증(값 불변·Y/N 회사별·보험료 위치·★Excel 실렌더·배포 스모크) → 254 Stage 목록만 stage → 커밋·push ② Human — 표준 A 재다운로드로 개정 확인(테두리·보험료 상단·Y/N 회사별) + ★보험료 "하단이 원본" 편차 수용 여부 확인 ③ Chat — BOHUMFIT-255(overview 문서 회사별 — detail 파싱 복원, 조사 선행) 발번.
+
 ## 2026-07-28 BOHUMFIT-252 - 재개: 회사별 열 + 2단 헤더 + '?' 조건부 "계약 미확인" 열
 
-Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex(검증 PASS → 범위 커밋·push)
-Commit: 없음 — git 쓰기 0. 실 PDF·엑셀 원본 로컬 참조만·PII 저장 0. 상세는 tasks/BOHUMFIT-252(재개 절).
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human(실물 검수) / Chat(후속 결정)
+Commit: `ad63ee60eb524537737f9ad068a39b30c396bc9c` (`origin/main`, local/remote 0/0). 실 PDF·엑셀 원본·PII stage 0.
 
 ### Codex 1차+2차 권위 검증 — PASS (2026-07-28 · commit 전)
 - **환경·범위**: PowerShell `echo` 정상, 루트/remote/리트머스·HEAD `8aa2033`·handoff 연속성(252 재개→253→이전 252)을 확인했다. 변경은 `export_excel.py`·252 신규 테스트·184 테스트 검증 의도 갱신+harness뿐이며 `excel_style.py`·집계/파서·pipeline/·src/·supabase/·패키지 diff는 0이다.
@@ -11,7 +33,13 @@ Commit: 없음 — git 쓰기 0. 실 PDF·엑셀 원본 로컬 참조만·PII �
 - **★미확인 열 가드**: 실 5건은 `?` 잔존 0이라 "계약 미확인" 열이 전부 미출력되고 숫자 좌표도 HEAD와 동일하다. 익명 합성 `?` 케이스는 [전] 회사열+미확인열=합계, [후] 이월·신규 골격 시프트까지 통과하며, `?` 부재 케이스 미출력 회귀도 통과했다. overview E의 세부행 by_company는 합계-only 원천 설계로 미확인 열 트리거에서 명시 제외된다.
 - **레이아웃·스타일**: 로컬 레이아웃 정본을 Excel 16.0으로 열어 3행 [전]/담보/[후], 4행 회사명, 5행 상품명 구조를 재확인했다. 현재 A~D는 모든 회사의 4행 라벨·5행 상품명이 payload와 일치하고 [후] "신규 설계 반영 대상" 골격이 존재하며, E는 회사·미확인·골격 열이 모두 없다. 시트3 7개 헤더 에메랄드+흰 글자, 차액·특이사항 박스, 면 전용 색 폰트 사용 0을 5건 전 셀로 확인했다.
 - **Excel 실렌더**: Excel 16.0에서 A(다열)·E(overview)를 실제로 열어 비교분석표 인쇄영역 A=`A1:Z69`, E=`A1:G71`, landscape·Zoom=False·FitToPagesWide=1·가로/세로 수동 페이지 분할 0을 확인했다. 번들 스프레드시트 렌더러로 두 파일의 표지·비교분석표·최종비교분석표 6시트를 모두 시각 확인해 헤더/상품명·부록·경고·시트3 박스의 겹침·잘림 0. 숨김 Excel COM 클립보드 PNG는 빈 이미지라 시각 근거에서 제외했다.
-- **위생**: 추가 코드·문서 실명 PII 0, 실 PDF·레이아웃 정본·실데이터 xlsx·임시 렌더 stage 0. `git diff --check` 통과, detached worktree와 임시 산출물은 검증 종료 후 삭제한다.
+- **위생**: 추가 코드·문서 실명 PII 0, 실 PDF·레이아웃 정본·실데이터 xlsx·임시 렌더 stage 0. `git diff --check` 통과, detached worktree와 임시 산출물은 검증 종료 후 삭제 완료했다.
+
+### Codex publish·배포 스모크 (push 후)
+- 지정 커밋 `ad63ee60eb524537737f9ad068a39b30c396bc9c`을 `origin/main`에 push했고 HEAD와 원격은 ahead/behind **0/0**이다.
+- 이 정확한 커밋의 GitHub 상태에서 Vercel production과 Railway `BOHUMFIT - bohumfit`가 모두 **success**, frontend/backend checks도 모두 **success**로 완료됐다.
+- 2026-07-28 19:24:00 KST 재확인 기준 Railway `https://bohumfit.up.railway.app/api/health` **200**·`{"status":"ok"}`, Vercel `https://bohumfit.ai/login` **200**.
+- **Next**: ① Human — A 표준 문서 재다운로드로 [전]·[후] 회사별 열·2단 헤더 확인(E overview는 회사 열 미생성이 정상) ② Chat — 잔여 결정지: Y/N 회사별 표기(집계 확장)·[후] 신규 채움(가입제안서 트랙)·205 배지.
 
 ### 재개 구현 완료 — ★검증 미실행(셸 불능 지속) (2026-07-28 · Claude Code)
 - **전제 확인**: HEAD `8aa2033`(253 귀속 복원) — 252 반려 사유(A 항암약물방사선 회사합 0/합계 200만)는 Codex 253 권위 실측으로 해소 확정(A 계약9 유일 귀속·D 계약6 유일·표준 회사합 대사 0·**5케이스 '?' 잔존 0**). 워킹트리 252 구현분(2단 헤더·[후] 신규 골격·시트3 디자인·테스트) 보존 확인 — 렌더 본체는 변경 없이 유지.

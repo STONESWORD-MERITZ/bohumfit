@@ -85,10 +85,10 @@ def test_two_tier_header_company_and_product():
     assert ws.cell(row=5, column=3).value == "합성상품2호"
     assert ws.cell(row=5, column=2).fill.fgColor.rgb == EMERALD
     assert ws.cell(row=5, column=2).font.color.rgb == WHITE
-    # 회사별 월납은 보험료 합계(50행)에만 — 5행에 숫자 없음.
+    # 회사별 월납은 한 곳에만 — 5행에 숫자 없음(254 개정2: 위치는 상단 9행 "월보험료").
     assert not isinstance(ws.cell(row=5, column=2).value, (int, float))
-    assert ws.cell(row=50, column=2).value == 10_000
-    assert ws.cell(row=50, column=3).value == 20_000
+    assert ws.cell(row=9, column=2).value == 10_000
+    assert ws.cell(row=9, column=3).value == 20_000
 
 
 def test_company_columns_match_payload_and_sum_to_total():

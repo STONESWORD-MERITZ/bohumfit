@@ -44,6 +44,7 @@ from .excel_style import (
     PANEL_LABELS,
     SPECIAL_ITEMS,
     WHITE,
+    section_border,
 )
 
 MAN = 10_000
@@ -121,12 +122,31 @@ def _coverage_maps(before_like: dict) -> dict:
     return {row.get("kb_name"): row for row in (before_like or {}).get("coverages", [])}
 
 
+def _yn_flags(before_like: dict) -> list:
+    """Y/N 플래그 — ★담보 행(coverages)에서 항상 재파생한다(payload 값 신뢰 금지).
+
+    BOHUMFIT-254: 실사용 동선의 [후] payload는 클라이언트 `buildAfterResult`가
+    `{...analysis.before}` 스프레드로 만들어 `yn_flags`가 **[전] 값 그대로 남는다**
+    (coverages만 해지 반영). 그대로 쓰면 해지해도 [후] Y/N이 안 바뀌어 개정3의 목적
+    ("어느 회사 담보가 빠지는지")이 깨진다. 파생 규칙은 246/254와 동일 단일 소스
+    (compute_yn_flags)이므로 서버 생성 payload에서는 결과가 완전히 동일하다.
+    """
+    coverages = (before_like or {}).get("coverages") or []
+    if coverages:
+        return compute_yn_flags(coverages)
+    return (before_like or {}).get("yn_flags") or []
+
+
 def _yn_map(before_like: dict) -> dict:
-    flags = (before_like or {}).get("yn_flags")
-    if not flags:
-        coverages = (before_like or {}).get("coverages", [])
-        flags = compute_yn_flags(coverages) if coverages else []
-    return {f["item"]: f["value"] for f in flags}
+    return {f["item"]: f["value"] for f in _yn_flags(before_like)}
+
+
+def _yn_company_map(before_like: dict) -> dict:
+    """BOHUMFIT-254 개정3: 담보 → {계약 idx: "Y"} — 회사별 Y 표기용.
+
+    구 payload(by_company 없는 yn_flags)는 빈 dict로 폴백해 합계 열만 표기(하위호환).
+    """
+    return {f["item"]: (f.get("by_company") or {}) for f in _yn_flags(before_like)}
 
 
 def _stage_map(before_like: dict) -> dict:
@@ -273,7 +293,13 @@ def _sheet_compare_form(ws, analysis: dict, before: dict, after_before: dict | N
     #   중복 기재를 없애고 양식대로 "보험료 합계"(50행) 한 곳에만 둔다(값 자체는 불변).
     #   ※레이아웃 정본의 구분(손해/생명 종목) 행은 원천 데이터 부재로 미기재 — 기존 메타(구 분=
     #   컨설팅 상태·가입일·납만기·계피관계) 유지(태스크 문서 기록).
+    # BOHUMFIT-254 개정4: 가독 밸런스 — 회사명(4행)·상품명(5행) 랩 여유, 메타/보험료 행은
+    #   촘촘하게(장식 없이 밀도만 조정. 값·색 무변경).
+    ws.row_dimensions[3].height = 20
+    ws.row_dimensions[4].height = 28
     ws.row_dimensions[5].height = 30  # 상품명 2줄 랩 대응
+    for meta_row in (6, 7, 8, 9):
+        ws.row_dimensions[meta_row].height = 17
     for idx, co in enumerate(b_companies):
         _cell(ws, 4, col_b0 + idx, _company_label(co, b_companies), bold=True, fill=FORM_YELLOW, wrap=True)
         _cell(ws, 5, col_b0 + idx, co.get("product") or "-", fill=FORM_YELLOW, wrap=True, size=8, fmt="@")
@@ -292,20 +318,28 @@ def _sheet_compare_form(ws, analysis: dict, before: dict, after_before: dict | N
         _cell(ws, 4, col_new, "신규 설계 반영 대상", bold=True, fill=FORM_YELLOW, wrap=True)
         _cell(ws, 5, col_new, "(가입제안서 반영 전)", fill=FORM_YELLOW, wrap=True, size=8, fmt="@")
 
-    # 6~9행 계약 메타(구 분·가입일·납만기·계피관계) — 합계열은 양식 리터럴 "-"
+    # 6~9행 계약 메타 — BOHUMFIT-254 개정2: 9행을 "월보험료"로 전환(하단 50행에서 상단
+    #   계약 메타 블록으로 이동 — Human 실무 가독 요청). 밀려나는 "계피관계"는 "구 분" 행에
+    #   병기해 정보를 보존한다(236 납입완료 병기와 동일 패턴). ★담보 10~44·Y/N 45~49 좌표
+    #   불변(하단 50행만 비움 — 행 삭제 아님·51/53 좌표 보존). 값 자체는 이동일 뿐 불변.
     def _meta(co: dict, kind: str) -> str:
         if kind == "구 분":
             # BOHUMFIT-236 A 보존: 납입완료 병기(구 시트의 배지 표기를 메타 행으로 이관).
             status = co.get("consulting_status") or "유지"
-            return f"{status}(납입완료)" if co.get("paid_up") else status
+            if co.get("paid_up"):
+                status = f"{status}(납입완료)"
+            # 254: 계피관계 행 → 구 분 행 병기(★상이/동일 양쪽 보존 — 정보 손실 0).
+            remark = co.get("remark") or ""
+            if "계피상이" in remark:
+                status = f"{status}·계피상이"
+            elif remark:
+                status = f"{status}·계피동일"
+            return status
         if kind == "가입일":
             return co.get("contract_date") or "-"
-        if kind == "납만기":
-            return f"{co.get('pay_years') or '-'}년납/{co.get('maturity') or '-'}"
-        remark = co.get("remark") or ""
-        return "상이" if "계피상이" in remark else ("동일" if remark else "-")
+        return f"{co.get('pay_years') or '-'}년납/{co.get('maturity') or '-'}"
 
-    for offset, kind in enumerate(("구 분", "가입일", "납만기", "계피관계")):
+    for offset, kind in enumerate(("구 분", "가입일", "납만기")):
         row = 6 + offset
         ws.merge_cells(start_row=row, start_column=col_name0, end_row=row, end_column=col_name0 + 2)
         _cell(ws, row, col_name0, kind, bold=True, fill=FORM_YELLOW)
@@ -321,6 +355,24 @@ def _sheet_compare_form(ws, analysis: dict, before: dict, after_before: dict | N
             _cell(ws, row, col_a0 + m, "-", fmt="@")
         if new_slot:
             _cell(ws, row, col_a0 + m + a_unk, "-", fmt="@")  # 252 B: 신규 골격 열 메타 자리
+
+    # 9행: 보험료 합계(원 단위) — 구 50행의 라벨·값 그대로(★위치만 이동, 라벨도 원본 정본
+    #   표기 "보험료 합계" 유지 — 레이아웃 정본 r43 라벨과 동일).
+    ws.merge_cells(start_row=9, start_column=col_name0, end_row=9, end_column=col_name0 + 2)
+    _cell(ws, 9, col_name0, "보험료 합계", bold=True, fill=FORM_YELLOW)
+    _cell(ws, 9, col_bsum, (before.get("premium") or {}).get("monthly_total"), bold=True, fmt="#,##0")
+    for idx, co in enumerate(b_companies):
+        _cell(ws, 9, col_b0 + idx, co.get("monthly_premium"), fmt="#,##0")
+    if b_unk:
+        _cell(ws, 9, col_b0 + n, None, fmt="#,##0")  # 미확인 열 — 보험료 개념 없음(공란)
+    if after_before:
+        _cell(ws, 9, col_asum, (after_before.get("premium") or {}).get("monthly_total"), bold=True, fmt="#,##0")
+        for idx, co in enumerate(a_companies):
+            _cell(ws, 9, col_a0 + idx, co.get("monthly_premium"), fmt="#,##0")
+        if a_unk:
+            _cell(ws, 9, col_a0 + m, None, fmt="#,##0")
+        if new_slot:
+            _cell(ws, 9, col_a0 + m + a_unk, None, fmt="#,##0")
 
     before_rows = _coverage_maps(before)
     after_rows = _coverage_maps(after_before) if after_before else {}
@@ -353,32 +405,33 @@ def _sheet_compare_form(ws, analysis: dict, before: dict, after_before: dict | N
             _cell(ws, row, col_a0 + m + a_unk, None, fmt="#,##0", fill=row_fill)  # 252 B: 값 공란 골격
 
     # 45~49행: Y/N 5행 — 값 기입(COUNTA 수식 미채택 근거는 모듈 주석)
+    #   BOHUMFIT-254 개정3: 합계 열에 더해 ★회사별 열에도 Y 표기(해지 시 어느 회사 담보가
+    #   빠지는지 식별 — 누락 방지). 원천 by_company에 값이 있는 계약만 "Y", 없으면 공란
+    #   (compute_yn_flags 파생 — 금액 무변경·합계 Y/N 규칙 불변). 레이아웃 정본도 회사 열 Y 표기.
     yn_before = _yn_map(before)
     yn_after = _yn_map(after_before) if after_before else {}
+    yn_co_before = _yn_company_map(before)
+    yn_co_after = _yn_company_map(after_before) if after_before else {}
     for offset, item in enumerate(YN_ROWS):
         row = 45 + offset
         ws.merge_cells(start_row=row, start_column=col_name0, end_row=row, end_column=col_name0 + 2)
         _cell(ws, row, col_name0, item, bold=True, fill=FORM_YELLOW)
         _cell(ws, row, col_bsum, yn_before.get(item, "N"), bold=True, fmt="@")
+        for idx, co in enumerate(b_companies):
+            _cell(ws, row, col_b0 + idx, yn_co_before.get(item, {}).get(str(co.get("idx"))), fmt="@")
         if after_before:
             _cell(ws, row, col_asum, yn_after.get(item, "N"), bold=True, fmt="@")
-
-    # 50행: 보험료 합계(원 단위)
-    ws.merge_cells(start_row=50, start_column=col_name0, end_row=50, end_column=col_name0 + 2)
-    _cell(ws, 50, col_name0, "보험료 합계", bold=True, fill=FORM_YELLOW)
-    _cell(ws, 50, col_bsum, (before.get("premium") or {}).get("monthly_total"), bold=True, fmt="#,##0")
-    for idx, co in enumerate(b_companies):
-        _cell(ws, 50, col_b0 + idx, co.get("monthly_premium"), fmt="#,##0")
-    if b_unk:
-        _cell(ws, 50, col_b0 + n, None, fmt="#,##0")  # 미확인 열 — 보험료 개념 없음(공란)
-    if after_before:
-        _cell(ws, 50, col_asum, (after_before.get("premium") or {}).get("monthly_total"), bold=True, fmt="#,##0")
-        for idx, co in enumerate(a_companies):
-            _cell(ws, 50, col_a0 + idx, co.get("monthly_premium"), fmt="#,##0")
+            for idx, co in enumerate(a_companies):
+                _cell(ws, row, col_a0 + idx, yn_co_after.get(item, {}).get(str(co.get("idx"))), fmt="@")
+        # 미확인·신규 골격 열은 Y/N 판정 대상이 아니다(공란 — 셀 테두리만 유지).
+        if b_unk:
+            _cell(ws, row, col_b0 + n, None, fmt="@")
         if a_unk:
-            _cell(ws, 50, col_a0 + m, None, fmt="#,##0")
+            _cell(ws, row, col_a0 + m, None, fmt="@")
         if new_slot:
-            _cell(ws, 50, col_a0 + m + a_unk, None, fmt="#,##0")
+            _cell(ws, row, col_a0 + m + a_unk, None, fmt="@")
+
+    # 50행: (254 개정2) 보험료 합계는 상단 9행으로 이동 — 이 행은 블록 구분 여백으로 비운다.
 
     # 51행: 가설계(양식 문구 유지) + 단위·환산 안내(238 정직 표기)
     ws.merge_cells(start_row=51, start_column=col_b0, end_row=51, end_column=col_end - 1)
@@ -408,6 +461,39 @@ def _sheet_compare_form(ws, analysis: dict, before: dict, after_before: dict | N
             _cell(ws, row, col_b0, f"[{row_data.get('group12') or GROUP_ETC}] {row_data.get('kb_name')}", align="left")
             _cell(ws, row, col_asum, _man(row_data.get("summary")), fmt="#,##0")
         last_row = appendix_row + len(extras)
+
+    # BOHUMFIT-254 개정1: 구획 테두리 — 블록 경계에만 굵은 선을 덧댄다(값·구조 무변경).
+    #   세로: [전] 회사 열군 ↔ 합계 ↔ 담보명 ↔ [후] 합계 ↔ [후] 회사 열군 경계.
+    #   가로: 헤더/메타 블록(3~9행) 하단, 담보 블록(10~44) 하단, Y/N 블록(45~49) 하단,
+    #        대분류 선두 강조 행(HIGHLIGHT_ITEMS) 상단 = 섹션 구분선.
+    body_last = 49
+    section_left_cols = {col_bsum, col_name0, col_asum, col_a0} | (
+        {col_b0} if n or b_unk else set()
+    )
+    section_right_cols = {col_bsum, col_name0 + 2, col_asum, col_end - 1}
+    section_bottom_rows = {9, 44, body_last}
+    # 섹션 구분선 = ★대분류(group12) 전환 행 상단(패킷 "대분류 섹션 구분선").
+    #   강조 행 기준으로 그으면 같은 대분류 안(후유장해 2행·종수술 5행)에도 줄이 생겨
+    #   구획이 아니라 소음이 된다. 대분류는 payload 담보 행에서 읽는다(값 무관·표시 전용).
+    section_top_rows = {10}
+    _prev_group = None
+    for offset, item in enumerate(FORM_ITEMS):
+        group = (before_rows.get(item) or {}).get("group12")
+        if _prev_group is not None and group and group != _prev_group:
+            section_top_rows.add(10 + offset)
+        if group:
+            _prev_group = group
+    for row in range(3, body_last + 1):
+        for col in range(col_b0, col_end):
+            cell = ws.cell(row=row, column=col)
+            if cell.border is None:
+                continue
+            cell.border = section_border(
+                left=col in section_left_cols,
+                right=col in section_right_cols,
+                top=row in section_top_rows,
+                bottom=row in section_bottom_rows,
+            )
 
     # BOHUMFIT-250: 우측 고객정보 패널(원본 O열 실측 재현 — 라벨+공란·PII 미기입·인쇄영역 밖).
     panel_col = col_end + 1

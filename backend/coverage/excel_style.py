@@ -34,6 +34,23 @@ _medium = Side(style="medium", color=EMERALD)
 BORDER_GRID = Border(left=_thin, right=_thin, top=_thin, bottom=_thin)
 BORDER_BOX = Border(left=_medium, right=_medium, top=_medium, bottom=_medium)
 
+# BOHUMFIT-254 개정1: 구획 테두리 — 얇은 그리드는 유지하고 블록 경계(회사 열군 ↔ 합계 ↔
+#   담보명 ↔ [후])와 섹션 경계에만 굵은 선을 덧댄다. 레이아웃 정본의 테두리 밀도는 styles.xml
+#   cellXfs 결손으로 판독 불가(254 S0 기록) — 가독 기준 설계이며 값·구조에는 영향이 없다.
+SIDE_THIN = _thin
+SIDE_SECTION = _medium
+
+
+def section_border(*, left: bool = False, right: bool = False,
+                   top: bool = False, bottom: bool = False) -> Border:
+    """지정한 변만 굵은 구획선, 나머지는 기존 얇은 그리드."""
+    return Border(
+        left=SIDE_SECTION if left else SIDE_THIN,
+        right=SIDE_SECTION if right else SIDE_THIN,
+        top=SIDE_SECTION if top else SIDE_THIN,
+        bottom=SIDE_SECTION if bottom else SIDE_THIN,
+    )
+
 
 def font(*, bold: bool = False, size: int = 10, color: str = INK, name: str = "맑은 고딕") -> Font:
     return Font(name=name, bold=bold, size=size, color=color)

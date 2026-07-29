@@ -132,9 +132,19 @@ def compute_yn_flags(coverages: list[dict]) -> list[dict]:
     for item, sources in YN_ITEMS:
         source_rows = [by_name.get(name) for name in sources]
         enrolled = any(row and row.get("enrolled") for row in source_rows)
+        # BOHUMFIT-254 개정3: 계약(회사)별 Y 파생 — 해지 시 "어느 회사 담보가 빠지는지"
+        #   식별용(누락 방지). ★금액은 건드리지 않는다: 원천 9행의 기존 by_company(253 귀속
+        #   정합)에 값이 있는 계약 키만 "Y"로 표시한다(없으면 키 자체를 만들지 않음=공백).
+        #   합계 Y/N 규칙(원천 1건 이상 enrolled)은 불변 — 5케이스 정합 상이 0 실측.
+        per_company: dict[str, str] = {}
+        for row in source_rows:
+            for company_id, amount in ((row or {}).get("by_company") or {}).items():
+                if amount is not None:
+                    per_company[company_id] = "Y"
         flags.append({
             "item": item,
             "value": "Y" if enrolled else "N",
+            "by_company": per_company,
             "sources": [
                 {"kb_name": name, "summary": (by_name.get(name) or {}).get("summary")}
                 for name in sources

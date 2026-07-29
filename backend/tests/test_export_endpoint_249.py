@@ -70,9 +70,9 @@ def test_excel_endpoint_produces_form_sheets_and_preserves_overview_after(client
     assert ws.cell(row=13, column=6).value == 30000   # ★[후] 보존 — 249 결함의 재발 방지 고정
     assert ws.cell(row=16, column=2).value == 10000   # 암진단금 1억
     assert ws.cell(row=16, column=6).value == 10000
-    # ③ 월납 이월(원 단위).
-    assert ws.cell(row=50, column=2).value == 4_675_189
-    assert ws.cell(row=50, column=6).value == 4_675_189
+    # ③ 월납 이월(원 단위) — 254 개정2: 보험료 행은 상단 9행("월보험료")으로 이동(값 불변).
+    assert ws.cell(row=9, column=2).value == 4_675_189
+    assert ws.cell(row=9, column=6).value == 4_675_189
 
 
 def test_excel_endpoint_standard_before_after_equal_when_no_cancel(client):
