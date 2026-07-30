@@ -410,6 +410,194 @@ def parse_overview(pages_lines: list[list[str]]) -> dict:
     return acc
 
 
+# ── BOHUMFIT-256: overview(합계-only) 문서의 회사별 귀속 복원 ────────────────────
+#   배경(255-P1 진단): overview 문서는 '전체 보장현황'에서 담보별 합계만 얻고 by_company가
+#   비어 있어 엑셀 회사 열이 만들어지지 않는다. 그러나 같은 문서의 detail(상품별 가입담보상세)
+#   페이지에는 계약별 담보·금액이 실재한다(진단: 원천 부재 0종).
+#   ★설계 원칙
+#     ① 귀속 게이트 — 담보별 detail 합이 overview summary와 **정확히 일치할 때만** 채운다.
+#        불일치·부재는 미충전 유지(오귀속 0 · 251/253 원칙). summary·enrolled는 절대 불변.
+#     ② 이 경로는 **overview 문서 전용**이며 담보 판정도 자체 리졸버를 쓴다 — 표준 문서가 쓰는
+#        공용 매칭/별칭(constants)에 손대지 않아 표준 회귀 위험이 0이다.
+#     ③ 계약 특정은 253 유일성 원칙 그대로(보험료 → 실패 시 상품명, 유일할 때만).
+def _product_index(contracts: list[dict]) -> dict[str, frozenset]:
+    """상품명(공백 제거) → 계약 idx 집합.
+
+    BOHUMFIT-256: 보험료가 미제공(`monthly_premium=None`)인 계약은 253의 보험료 역인덱스로
+    특정할 수 없다(라*실 실손 계약 실측). 상품명을 보조 키로 두되 중복은 집합으로 보존해
+    유일하지 않으면 귀속하지 않는다.
+    """
+    index: dict[str, set] = {}
+    for contract in contracts:
+        product = _despace(contract.get("product") or "")
+        if len(product) >= 8:  # 너무 짧은 상품명은 오매칭 위험 — 후보에서 제외
+            index.setdefault(product, set()).add(contract["idx"])
+    return {product: frozenset(ids) for product, ids in index.items()}
+
+
+def _detail_idx_with_product_fallback(
+    lines: list[str], premium_index: dict, product_index: dict
+) -> Optional[int]:
+    """보험료 경로(253) → 실패 시 상품명 폴백. 어느 경로든 ★유일할 때만 귀속한다."""
+    idx = _detail_contract_idx(lines, premium_index)
+    if idx is not None:
+        return idx
+    head = _despace("".join(lines[:16]))
+    matched: set = set()
+    for product, ids in product_index.items():
+        if product[:12] in head:
+            matched |= ids
+    if len(matched) == 1:
+        return next(iter(matched))
+    return None  # 복수·0 매칭 = 모호 → '?' 유지
+
+
+# BOHUMFIT-258: 암 진단 계열 분류(Human 결정 A안) — 일반암 → `암진단금`,
+#   유사암(제자리암·상피내암·갑상샘암·소액암) → `유사암진단금`(공용 매칭이 담당),
+#   재진단암·특정암(경계성종양·기타피부암·대장점막내암)·치료비 계열 → 상위 담보에 흡수 금지.
+#   ★"(…제외)" 괄호는 보장 범위 한정 문구이므로 판정 전에 제거한다 —
+#   예: `암진단(기타피부암,갑상선암및대장점막내암제외)`는 ★일반암 행이다(실측).
+_CANCER_EXCLUSION_PAREN = re.compile(r"\([^()]*제외\)")
+_CANCER_NON_GENERAL: tuple[str, ...] = (
+    "유사암", "소액암", "제자리암", "상피내암", "갑상샘암", "갑상선암",
+    "경계성종양", "기타피부암", "대장점막내암", "재진단암",
+    "통합치료생활비",  # ★'생활비'만으로 배제하면 상품명(보험료생활비환급특약)까지 떨군다(실측)
+    "항암",
+)
+
+
+def _cancer_core(compact: str) -> str:
+    return _CANCER_EXCLUSION_PAREN.sub("", compact)
+
+
+# BOHUMFIT-257(가): 상위 담보로 흡수하면 안 되는 ★한정·파생 담보 — overview 귀속 전용 배제.
+#   진단(255-P1) 실측 근거: 상해사망 초과분 = 교통상해사망 5,000만 + 화재상해사망 1,000만,
+#   뇌혈관질환 = 산정특례 진단비 1,000만, 상해/질병수술 = 특정·종수술 계열,
+#   질병/상해입원 = 1인실·2-3인실 입원일당, 유사암 = 통합치료 생활비, 골절 = 수술·부목.
+#   ★공용 매칭(constants)은 손대지 않는다 — 표준 문서 분류·EXTRA 검출에 영향 0.
+_OVERVIEW_LIMITED_VARIANTS: dict[str, tuple[str, ...]] = {
+    "상해사망": ("교통상해사망", "화재상해", "특정상해사망"),
+    "상해후유장해": ("특정상해후유장해", "화재상해후유장해"),
+    # "유사암제외"는 일반암 담보의 문구 — 유사암 담보로 흡수하면 안 된다(실측 과포함 원인).
+    "유사암진단금": ("통합치료생활비", "유사암제외"),
+    "뇌혈관질환": ("산정특례",),
+    "상해수술": ("특정상해수술", "외모", "상해종수술", "종수술"),
+    "질병수술": ("특정질병수술", "124대", "질병종수술", "종질병수술"),
+    # 병실 특약(1인실·2-3인실)만 배제한다. "입원일당"은 기본 입원특약 원문에도 들어가므로
+    # 배제어로 쓰면 정작 귀속해야 할 행까지 떨군다(실측).
+    "질병입원": ("1인실", "2-3인실"),
+    "상해입원": ("1인실", "2-3인실"),
+    # BOHUMFIT-258: 공용 매칭이 암 계열을 `암진단금`으로 흡수하는 경우 차단 —
+    #   일반암 행은 위 direct 규칙이 먼저 처리하므로 여기 걸리지 않는다.
+    "암진단금": _CANCER_NON_GENERAL,
+}
+
+
+def _overview_direct_target(compact: str) -> Optional[str]:
+    """BOHUMFIT-257(나): 공용 매칭이 잡지 못하는(현행 None) 담보를 원문 표기로 직접 판정.
+
+    진단 실측: 표적항암약물허가치료특약 5,000만 · 교통사고 벌금(대인 3,000만+대물 500만) ·
+    가족생활배상책임 1억 · 치과치료(보철치료) 150만 · 재해골절진단특약 50만.
+    ★overview 문서 전용 경로이므로 표준 문서 매칭에는 영향이 없다.
+    """
+    if "표적항암" in compact:
+        return "표적항암치료"
+    if "벌금" in compact and "화재" not in compact and "업무상과실" not in compact:
+        return "벌금(대인/스쿨존/대물)"
+    if "배상책임" in compact:
+        return "가족/일상/자녀배상"
+    if "보철" in compact:
+        return "보철치료비"
+    if "골절" in compact and "진단" in compact and "수술" not in compact and "부목" not in compact:
+        return "골절진단비"
+    # BOHUMFIT-258 A안: 일반암 진단 행만 `암진단금`으로 귀속.
+    core = _cancer_core(compact)
+    if "암진단" in core and not any(bad in core for bad in _CANCER_NON_GENERAL):
+        return "암진단금"
+    return None
+
+
+def _resolve_overview_coverage(line: str) -> Optional[str]:
+    """detail 행 → 표준 담보명(overview 귀속 전용 리졸버).
+
+    ① 실손 계열(256): 원문이 `상해(일반상해,전체상해를 의미)입원의료비`·`…외래의료비`·
+       `…처방조제료` 형태여서 공용 매칭이 잡지 못한다. 통원은 외래+처방조제의 합이 양식의
+       통원의료비 금액과 일치한다(실측: 25만+5만=30만).
+    ② 미등록 담보(257 나): `_overview_direct_target`으로 직접 판정.
+    ③ 공용 매칭 결과에 한정·파생 담보 배제(257 가)를 겹쳐 상위 담보 오귀속을 막는다.
+    """
+    compact = line.replace(" ", "")
+    if "의료비" in compact or "처방조제" in compact:
+        if "비급여" in compact:
+            return "3대비급여실손"
+        injury = "상해" in compact
+        disease = "질병" in compact
+        if "입원의료비" in compact:
+            if injury and not disease:
+                return "상해입원의료비"
+            if disease and not injury:
+                return "질병입원의료비"
+            return None  # 상해·질병 동시 등장 = 모호
+        if "외래의료비" in compact or "처방조제" in compact:
+            if injury and not disease:
+                return "상해통원의료비"
+            if disease and not injury:
+                return "질병통원의료비"
+            return None
+    direct = _overview_direct_target(compact)
+    if direct:
+        return direct
+    meta, _start, _end = match_coverage_span(line)
+    if not meta:
+        return None
+    target = meta[0]
+    if any(bad in compact for bad in _OVERVIEW_LIMITED_VARIANTS.get(target, ())):
+        return None  # 한정·파생 담보 — 상위 담보에 흡수시키지 않는다
+    return target
+
+
+def attribute_overview_by_company(matrix: dict, detail_pages: list[list[str]], contracts: list[dict]) -> dict:
+    """overview 담보 행의 by_company를 detail에서 복원한다(귀속 게이트 통과분만).
+
+    반환: {담보명: 귀속 합계} — 호출부·테스트가 귀속 실적을 확인할 수 있도록 노출한다.
+    ★matrix 행의 summary/enrolled/overview 플래그는 건드리지 않는다.
+    """
+    if not matrix or not detail_pages or not contracts:
+        return {}
+    premium_index = _premium_index(contracts)
+    product_index = _product_index(contracts)
+    cells: dict[str, dict[str, int]] = {}
+    for lines in detail_pages:
+        idx = _detail_idx_with_product_fallback(lines, premium_index, product_index)
+        if idx is None:
+            continue  # 계약 모호 — 귀속하지 않는다(오귀속 금지)
+        key = str(idx)
+        for line in lines:
+            if not re.match(r"\s*\d+\s+", line):
+                continue
+            target = _resolve_overview_coverage(line)
+            if not target or target not in matrix:
+                continue
+            amount = _last_amount(line)
+            if not amount:
+                continue
+            bucket = cells.setdefault(target, {})
+            # 계약 내부는 구성 항목 합(예: 통원 = 외래 + 처방조제).
+            bucket[key] = bucket.get(key, 0) + amount
+
+    filled: dict[str, int] = {}
+    for kb_name, row in matrix.items():
+        got = cells.get(kb_name)
+        if not got:
+            continue
+        values = list(got.values())
+        total = sum(values) if row.get("agg") != "rep" else max(values)
+        if total == row.get("summary"):   # ★귀속 게이트
+            row["by_company"] = dict(got)
+            filled[kb_name] = total
+    return filled
+
+
 def _matrix_contract_indices(matrix: dict) -> set[int]:
     out: set[int] = set()
     for row in matrix.values():
@@ -678,6 +866,10 @@ def parse_document(pdf_bytes: bytes, jong_table: dict | None = None) -> dict:
         contracts = _ensure_contracts_for_matrix_columns(contracts, matrix)
     diagnosis = parse_diagnosis(diagnosis_lines) if diagnosis_lines else {}
     notes, extra = parse_detail_pages(detail_pages, contracts, jong_table) if detail_pages else ({}, {})
+    # BOHUMFIT-256: overview fallback 문서만 — detail에서 계약별 귀속을 복원한다(귀속 게이트
+    #   통과분만 채움·summary 불변). 표준 문서는 matrix_from_overview가 False라 미진입.
+    if matrix_from_overview:
+        attribute_overview_by_company(matrix, detail_pages, contracts)
 
     if not contracts:
         warnings.append("p5 계약리스트를 찾지 못했습니다.")
