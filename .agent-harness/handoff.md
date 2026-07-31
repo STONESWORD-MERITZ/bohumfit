@@ -1,7 +1,51 @@
+## 2026-07-31 BOHUMFIT-262 - Human 무의존 백로그 일괄 (5파트: 결정지·제안서 설계·위생·배지 진단·스모크)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex(파트별 3커밋) / Human(결정지 3종)
+Commit: P3 `3983d41348c5f4aa35d22390afd52fed6deedd65` · P5 `fe03dd926124ba8aad69b74d90637c29806e6161` · P1/P2/P4 문서는 이 항목을 포함한 BOHUMFIT-262 문서 커밋(최종 해시는 Codex 사후 publish 기록 기준).
+
+### Codex 2차 판정 — PASS (2026-07-31)
+- **Windows 권위 게이트**: backend **792 passed, 8 skipped**, frontend **99 passed**, tsc app/node·lint 통과, `npm run smoke:coverage` 정본 2건 **PASS**.
+- **P3 동작 불변**: 기준 HEAD `73fa74f` detached worktree와 현행을 같은 표준·overview 실 PDF로 재실행했다. 두 케이스 payload canonical SHA-256이 각각 완전 동일하고, artifact-tool 재판독 기준 표지·비교분석표·최종비교분석표 전 셀 removed/changed/added가 양쪽 모두 **0/0/0**이다. 문서에 제거로 기록됐으나 남아 있던 미사용 `BODY` 상수 1줄은 Codex가 범위 내에서 제거했고 이후 pytest **792/8**을 재통과했다.
+- **P5 3동작·정직성**: 최종 스크립트에서 정본 2건 PASS. 표준 기준 총액을 의도적으로 1원 훼손했을 때 `total: 기준 604560001 vs 실측 604560000`과 **exit 1**을 확인한 뒤 즉시 원복·PASS 재확인. PDF 없는 임시 루트에서는 경고 3줄과 **exit 0**을 재현했다. 회사합=합계(payload·엑셀)·해지 0 전=후·`'?'`·3시트 불변식과 기준선 3문서 **792/8·99** 동기화도 확인했다. 신규 스크립트에 들어 있던 실명 파일명 2건은 stage 전에 무명 glob 탐색으로 최소 정정해 신규 PII 0을 회복했다.
+- **P1·P2·P4 문서**: 결정지 **D-1~D-16 16행**과 번호+옵션 답변법, 해소 5건 제외 근거, 가입제안서 설계의 「샘플 필요」 **5항목**, 205 배지의 투약일수·날짜별 최대 누적합·30일 임계색·030/031/032 이력을 실제 코드와 대조했다. P4 관련 코드 diff는 **0**이다.
+- **범위·위생**: P3/P5를 분리 커밋했고 마지막 diff는 tasks 4종·handoff·locks뿐. 실 PDF/xlsx·환경파일·부산물 stage 0, 신규 PII·secret 0. “TODO/FIXME 전수 0” 1차 문구는 262 대상·신규 diff 0으로 정정했고, 기존 `backend/main.py` 본인인증 스텁 TODO 1건은 범위 밖으로 유지했다.
+
+### P1 — 248 QA 결정지 정리 ✅ (문서)
+- 산출 `tasks/BOHUMFIT-262-decision-sheet.md`. ★**해소 5건 제외**(결정 불요): QA-3 인쇄 1장(250 fitToWidth+261 실렌더)·1-3 계약 `'?'` 축소(253·256 — 재실측 정본 2건 **`'?'` 0건**)·4-1 스모크 세트(255-P2)·4-2 3계층 자동화(**262-P5**)·5-2 성능. 부분 해소 1건(3-4 PDF 렌더 — 로컬 실렌더는 261에서 복구, CI 골든만 D-6으로 승계).
+- 잔존 **16항목 → D-1~D-16 번호화**([현상·옵션·권장안·규모·위험도·선행조건] 표). **번호+옵션 숫자만으로 답변** 가능하게 구성했고, 선행조건(에셋·샘플·관리자 권한)을 항목별로 명시.
+
+### P2 — 가입제안서 [후] 트랙 설계 ✅ (문서·코드 0)
+- 산출 `tasks/BOHUMFIT-262-proposal-track-design.md`. 현행 경로 실측 지도(수동 카드/제안서 업로드 → `proposal_parser` **23룰** → `plan.proposals` → `carry_coverage_row(extra_values)` → 252 회사 열·254 Y/N·261 20년 차액) + 252 골격 열이 **이미 제안 트랙을 기다리는 상태**임을 확인(데이터만 채우면 열 자동 생성).
+- 확정 설계: 신규 계약 스키마·40행 매핑(미매칭은 기타 보존 — 248 누락 0 계약)·업로드 흐름·통합치료비 3행 규칙·**어댑터 패턴**(유일 지문일 때만 전용, 아니면 Generic 폴백 — 253/256 유일성 원칙 재사용)·**S1~S5 단계 분할+검증 기준**. ★**「샘플 필요」 5항목 명시**(추측 0).
+
+### P3 — 코드 위생 정리 ✅ (동작 변경 0 증명)
+- 제거(완전 미사용 실측): `excel_style`의 FILL_* 5·FONT_HEADER·FONT_TITLE·BODY + 불필요해진 `PatternFill` import, `src/index.css`의 `--text-fluid-title`.
+- ★**오판 방지 기록**: `--text-fluid-hero/headline`은 `var()` 검색 0건이지만 **Tailwind 유틸로 실사용 중**(Home·WhyDisclosure) → 유지. `SIDE_THIN`·`GRAY_TX`·`_yn_map`·`_grp_key`·`OUT_OF_RANGE_LABEL` 사용처 확인 후 유지. 262 대상·신규 diff TODO/FIXME **0건**(기존 `backend/main.py` 본인인증 스텁 TODO 1건은 범위 밖 유지), `_is_overview` 잔재 **0건**.
+- ★검증: HEAD 대비 실 PDF 2건 **payload 완전 동일 + 엑셀 셀 0/0/0**(표지는 작성일이 생성 시각이라 대조 제외).
+
+### P4 — 205 투약 배지 진단 ✅ (조사 전용·코드 0)
+- 산출 `tasks/BOHUMFIT-262-med-badge-diagnosis.md`. ★**패킷 전제 정정**: 배지는 "약값"이 아니라 **투약 일수**이고, "최대 단일청구"도 "단순 총합"도 아닌 **날짜별 최대의 누적 합**(`filters._sum_daily_max_presc`). 초록/주황은 별개 스펙이 아니라 **30일 임계 색상**.
+- 코드 근거: `disease_aggregator`(날짜별 적재)→`result_builder:283~291`(창·함수 확정)→`Disclosure.tsx:372`(렌더). 이 산식은 **030 진단→031/032에서 "배지=헤더 판정 일치"를 위해 의도적으로 채택**된 것.
+- 실데이터 재현(실명 미기재): I10 **1,002일**(근거 23건)·G45 344일·E78 210일 등 22건. 3안 비교 후 **권장 A(현행)+표기 보강**, **B(최대 단일) 채택 금지 권장**(030 재발 — 배지와 고지 판정 불일치).
+
+### P5 — 스모크 자동화 ✅ (중위험 구현)
+- `scripts/smoke-coverage.mjs` 신설 + `npm run smoke:coverage` + `verify.md` 등록. 기준값(계약·총액·월납·overview·귀속률) + **불변식**(회사합=합계 0 — payload·엑셀 시트2 **양쪽**, 해지 0 시 전=후 0, `'?'` 0, 3시트 구성) 대조.
+- ★**3동작 전부 실증**: **PASS**(정본 2건 일치) / **FAIL**(기준값 1원 훼손 시 `total: 기준 604560001 vs 실측 604560000` + **exit 1**, 실증 후 즉시 원복) / **skip**(PDF 부재 시 경고+exit 0 — CI 무실패).
+- 인접 정정: `verify.md`·`AGENTS.md`·`CLAUDE.md` 기준선이 255 시점(750/8·95)으로 낡아 **792/8·99로 3문서 동시 갱신**, `verify.md`의 "별도 상비 스크립트 없음" 문구도 정정.
+
+### 검증
+- backend pytest **792 passed, 8 skipped** · tsc app/node·lint · npm test **99 passed** · `npm run smoke:coverage` **PASS**.
+- PII 0 · diff = `excel_style.py`·`src/index.css`(P3), `scripts/smoke-coverage.mjs`·`package.json`·`verify.md`·`AGENTS.md`·`CLAUDE.md`(P5), tasks 4종·handoff·locks. **`pipeline/`·집계·parser·`export_excel`·`export_pdf` 로직 diff 0**.
+
+### Next
+1. **Codex** — 파트별 3커밋(P3 값 diff 0 · P5 FAIL 실증 중점). Stage 목록은 태스크 문서 참조.
+2. **Human** — 결정지 3종 검토: **D-1~D-16 번호 답변** · 205 배지 스펙(A/A+보강/B/C) · 가입제안서 샘플 수집(D-7 착수 조건).
+3. **Chat** — 결정 수신 후 후속 발번.
+
 ## 2026-07-31 BOHUMFIT-261 - 엑셀 표지 리디자인 + 20년 총납입 차액 + 리포트 고령 가독성
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human(Excel/PDF 실물 검수) / Chat(잔여 발번)
-Commit: 이 항목을 포함한 BOHUMFIT-261 커밋(최종 해시는 `git log`·Codex 사후 publish 기록 기준).
+Commit: `73fa74f262049a3ea10533062dc4870db8fe61d6` (`origin/main`, ahead/behind 0/0). 아래 사후 publish 기록은 다음 하네스 커밋에 편승.
 
 ### Codex 2차 판정 — PASS (2026-07-31)
 - **Windows 권위 게이트**: backend **792 passed, 8 skipped**, frontend **99 passed**, tsc app/node·lint 통과.
@@ -10,6 +54,7 @@ Commit: 이 항목을 포함한 BOHUMFIT-261 커밋(최종 해시는 `git log`·
 - **Excel 실렌더**: artifact-tool 전수 재판독·3시트 시각 렌더와 Excel **16.0** 읽기 전용 실제 개방/인쇄 PDF를 표준·overview·해지 overview에 수행했다. 표지는 브랜드 밴드·마스킹 고객명·작성일·설계사 4개 기입란·고지 문구가 보이고 `$A$1:$P$23` A4 세로 **1페이지 맞춤**이다. 시트2 회사 열과 시트3 차액 블록에 겹침·잘림 0, overview/표준 인쇄 폭 1페이지, 기존 인자 없는 export endpoint 호출도 200으로 하위호환을 확인했다.
 - **PDF 실렌더·수치 대조**: 실제 export endpoint의 Chromium 산출을 전 페이지 렌더해 표준 **14p**·overview **17p**를 모두 육안 확인했다. ②/③/④/⑤ 첫 페이지는 표준 **2/3/4/7**, overview **2/3/4/8**이고 첫 섹션 빈 페이지 0. ⑤는 `회사 1~5 (1/3)`·`6~10 (2/3)`·`11~15 (3/3)`로 분할됐으며 이후 전 페이지에 표 헤더가 반복됐다. 전 페이지 최소 우측 여백 **33.76pt 이상**, 침범·클리핑 0. 각 문서에서 월납·총납입·암/뇌/심장 단계·대분류·회사별 금액 **30개 표적값 전부 payload 일치**다.
 - **범위·위생**: diff는 `export_excel.py`·`export_pdf.py`·신규 261 테스트·harness뿐. `excel_style.py`·`pipeline/`·집계·parser·`src/`·`supabase/`·패키지 diff 0, 실 PDF/xlsx/json/렌더·환경파일·부산물 stage 0, 신규 PII·secret 0, `git diff --check` 통과.
+- **Publish·배포 스모크**: 커밋 `73fa74f`를 `origin/main`에 push했고 ahead/behind **0/0**. 2026-07-31 13:58:00 KST 기준 Railway `/api/health` **200**·`{"status":"ok"}`, Vercel `/login` **200**을 확인했다.
 
 ### Next
 1. **Human** — 프로덕션 실물에서 Excel 표지·시트3 20년 차액과 PDF 확대 폰트·섹션 분리·⑤ 3분할을 확인한다. ⑤ 묶음 크기가 불편하면 `COMPANY_CHUNK` 상수 한 곳으로 조정 가능.
