@@ -1,3 +1,36 @@
+## 2026-07-31 BOHUMFIT-264 - PWA 셸 (manifest·서비스워커·설치 프롬프트·오프라인 폴백)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex(264 커밋·push·배포 검증) / Chat(265 발번)
+Commit: 263 문서 `6e87cc5cdecdd44facc03a2c26858c5d89f8d37e` 선행 push 완료. 264는 이 항목을 포함한 기능 커밋(최종 해시는 Codex publish 결과 기준). 상세는 tasks/BOHUMFIT-264-pwa-shell.md.
+
+### Codex 2차 판정 — PASS (2026-07-31)
+- **263 선행 publish**: `6e87cc5`를 `origin/main`에 push해 ahead/behind **0/0**을 확인했다. 2026-07-31 18:44:41 KST 기준 Railway `/api/health` **200**·`{"status":"ok"}`, Vercel `/login` **200**.
+- **Windows 권위 게이트**: backend **792 passed, 8 skipped**·frontend **109 passed**·tsc app/node·lint 통과. 공개/보호 라우트 스모크 **18/18**, PWA 표적 테스트 **10/10**, `npm run smoke:coverage` 정본 2건 PASS.
+- **PII 캐시 가드**: GET 외·교차 출처·`/api/`·`/coverage/`·`/analyze`·`/auth/`·`/rest/v1/`·xlsx/xls/pdf/csv가 모두 false이고, 셸 내비·동일 출처 정적 자산만 true임을 재현했다. SW는 내비 네트워크 우선→캐시→폴백, 정적 SWR, 나머지 미간섭이다.
+- **Codex 최소 보정 3건**: ①실렌더에서 안내 본문이 기록과 달리 15px임을 발견해 `offline.html`의 `p`를 **16px**로 한 줄 정정했다. 재계측 결과 375px 가로 넘침 0·버튼 48px·본문 16px·theme `#084734`·콘솔 error 0. ②activate가 같은 출처의 모든 캐시를 지우던 한 줄을 `bohumfit-shell-*` 구버전만 삭제하도록 좁혀 265 분석 캐시와 타 캐시를 보호했다. ③install 단계의 자동 `skipWaiting()`을 제거해 최초 설치는 정상 활성화하고, 업데이트는 265 안내 UI의 `SKIP_WAITING` 동의 메시지를 기다리게 했다.
+- **manifest·설치 배너**: id/scope/lang/dir/orientation/categories, any/maskable 192·512 분리, theme `#084734`를 확인했다. 설치됨·30일 dismiss면 미렌더, iOS 대체 문구, PROD 한정 SW 등록이며 기존 레이아웃·라우팅·화면 컴포넌트 diff는 0이다.
+- **빌드·범위**: `npm run build` 통과, `dist/sw.js`·`offline.html`·`site.webmanifest`는 public 원본과 해시 동일. `build:verify`는 기존 Application Control 껍데기 343,225 B·필수 문자열 누락으로 **예상 FAIL**(248 정직 게이트). diff는 선언된 public/src/harness 10파일뿐이고 backend·pipeline·coverage·supabase·vite config·package·실 PDF/xlsx·PII·대용량 루트 HTML diff 0.
+
+### 구현·1차 검증 완료 (2026-07-31 · Claude Code)
+- **시안 확인**: Human 제공 `보험핏 모바일 PWA (오프라인).html`은 6화면 프로토타입(런타임 언팩형 22MB)이라 번들 template에서 문구·색 토큰만 추출. 시안의 **"오프라인 캐시 — 최근 분석 5건 오프라인 열람"**은 패킷 지시대로 **265 A안** 영역이며 264 범위(셸만)와 일치함을 확인.
+- **manifest**(`site.webmanifest` — 파일명·index.html 링크 유지): 기존 필드 유지 + `id`·`scope`·`lang`·`dir`·`orientation`·`categories` 보강, 아이콘을 **`any`/`maskable` 분리 선언**(기존 `"any maskable"` 단일 → 마스킹 크롭 시 원본 보존). 브랜드 자산 재사용(263 실측 규격 일치).
+- **서비스워커**(`public/sw.js` · ★수동): **vite-plugin-pwa 미채택**(vite 버전 이동 요구 위험 — 241 rolldown 전례, 버전 고정이 계약) → 표준 SW API만 사용하고 `public/`에 배치해 **빌드 파이프라인 무접촉**(`vite.config.ts` diff 0). 내비=네트워크 우선→캐시→`/offline.html`, 정적 자산=SWR, 그 외 요청은 손대지 않음. `CACHE_VERSION` + activate 구버전 삭제로 stale 방지, `SKIP_WAITING` 훅 준비.
+- ★**PII 캐시 금지**: `isCacheableRequest()` 한 곳에서 GET 아님·교차 출처·`/api/`·`/coverage/`·`/analyze`·`/auth/`·`/rest/v1/`·`.xlsx|.pdf|.csv`를 전부 제외. **265에서 이 함수만 넓히면 A안 캐시 확장 가능**.
+- **설치 프롬프트**: `beforeinstallprompt` 캡처 → 자체 배너, 설치됨·최근 닫음이면 렌더 0(dismiss 30일 기억), iOS는 "공유 → 홈 화면에 추가" 문구로 대체. SW 등록은 `PROD`에서만·실패 무시. ★배너는 `main.tsx`에서 `<App/>` 형제로 fixed 배치 — **기존 레이아웃·라우팅·화면 컴포넌트 diff 0**.
+- **오프라인 폴백**(`public/offline.html`): 외부 자산 0, 브랜드 마크·재시도 버튼·`online` 자동 복귀·안전영역·다크모드.
+- **검증**: backend pytest **792/8 불변·backend diff 0** · npm test **109**(99+10) · tsc app/node·lint · ★**라우트 스모크 18 파일 전부 green**(SW 도입이 라우팅 무영향) · ★**PII 캐시 가드 테스트**(분석/파일/API/POST/교차출처 전부 false) · manifest 필드·아이콘 규격 테스트 · **오프라인 폴백 실렌더 375px**(가로 넘침 false·버튼 48px·본문 16px·theme-color #084734) · **빌드 자산 복사 확인**(`dist/sw.js`·`offline.html`·`site.webmanifest`) · `smoke:coverage` PASS · PII 0.
+- **작업 중 정정 1건**: lint(react-hooks/set-state-in-effect)가 effect 내 `setVisible` 호출을 잡아 **iOS 초기 노출을 useState lazy initializer로 이동**(cascading render 방지).
+
+### 잔여(기록)
+- **실기기 설치 확인은 로컬 불가**(HTTPS 필요 + 248 로컬 번들 껍데기) → Codex/프로덕션 확인 필요.
+- SW **업데이트 안내 UI**(새 버전 → 새로고침 토스트)는 265로 이월(훅만 준비).
+- 시안의 "최근 분석 5건 오프라인 열람"은 265 A안(24h 만료·로그아웃 삭제)에서 구현.
+
+### Next
+1. **Codex** — ★263(`6e87cc5`) 먼저 push → 264 검증·커밋(라우트 스모크·PII 캐시 가드·프로덕션 실기기 설치).
+2. **Chat** — 265 발번(디자인 토큰·공통 컴포넌트 + SW 업데이트 안내 + 분석 결과 A안 캐시).
+3. **Human** — 262 결정지 3건(D-1~D-16·배지 스펙·제안서 샘플).
+
 ## 2026-07-31 BOHUMFIT-263 - 모바일 PWA 현행 실측 + 갭 분석 (조사 전용 · 코드 0)
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex(문서 커밋·push) -> Human(시안 확보) / Chat(갭 대조 후 발번)
