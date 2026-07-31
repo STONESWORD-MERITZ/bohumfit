@@ -53,7 +53,6 @@
      ⚠본문·캡션·버튼에 사용 금지(고정 rem 유지). 순수 vw 단독 사용 금지. */
   --text-fluid-hero: clamp(2.25rem, 1.66rem + 2.61vw, 3.75rem);      /* 36→60px — Home 히어로 h1 */
   --text-fluid-headline: clamp(1.875rem, 1.43rem + 1.96vw, 3rem);    /* 30→48px — WhyDisclosure 히어로 h1 */
-  --text-fluid-title: clamp(1.875rem, 1.73rem + 0.65vw, 2.25rem);    /* 30→36px — HomeMission 헤드라인 h2 */
 
   /* 시맨틱 — 저채도 파스텔 배경 + 진한 동계열 텍스트 */
   --color-success-50: #EBF6EF;

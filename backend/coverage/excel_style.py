@@ -6,7 +6,7 @@
 """
 from __future__ import annotations
 
-from openpyxl.styles import Border, Font, PatternFill, Side
+from openpyxl.styles import Border, Font, Side
 
 # FIT 팔레트(openpyxl ARGB — 앞 FF 불투명). 출처: src/index.css(브랜드 정본)·구 exporter FIT v1.1.
 EMERALD = "FF084734"        # 에메랄드 파인 — 헤더 면·강조 텍스트(흰 글자 대비 10.7:1)
@@ -14,7 +14,6 @@ EMERALD_SOFT = "FFEEF6F1"   # 에메랄드 소프트 면
 GREENTEA = "FFCDEDB3"       # 그린 티 — ★면 전용(대분류 선두 강조 행)
 LIME = "FFCEF17B"           # 라임 글로우 — ★면 전용(특수 강조: 암 주요치료비·순환계 치료비)
 INK = "FF0A0A0A"            # 잉크(제목)
-BODY = "FF1E293B"           # 본문
 GRAY_SOFT = "FFF1F1F1"
 GRAY_TX = "FF7A7A78"
 AMBER_TX = "FFB45309"       # 악화/증가 경고 텍스트(구 exporter 상태 색 선례)
@@ -22,12 +21,6 @@ WHITE = "FFFFFFFF"
 
 # 면 전용 색 목록 — 코드 검사 테스트가 이 목록으로 "폰트 색 사용 0"을 고정한다.
 FILL_ONLY_COLORS = (LIME, GREENTEA)
-
-FILL_HEADER = PatternFill("solid", fgColor=EMERALD)
-FILL_HIGHLIGHT = PatternFill("solid", fgColor=GREENTEA)
-FILL_SPECIAL = PatternFill("solid", fgColor=LIME)
-FILL_SOFT = PatternFill("solid", fgColor=EMERALD_SOFT)
-FILL_GRAY = PatternFill("solid", fgColor=GRAY_SOFT)
 
 _thin = Side(style="thin", color="FFB9C4BD")
 _medium = Side(style="medium", color=EMERALD)
@@ -55,9 +48,6 @@ def section_border(*, left: bool = False, right: bool = False,
 def font(*, bold: bool = False, size: int = 10, color: str = INK, name: str = "맑은 고딕") -> Font:
     return Font(name=name, bold=bold, size=size, color=color)
 
-
-FONT_HEADER = font(bold=True, color=WHITE)
-FONT_TITLE = font(bold=True, size=13, color=EMERALD)
 
 # 비분양식 원본 실측(250 S0) — 강조 담보 행(값 셀 포함 행 전체 연노랑 → 그린 티 치환).
 HIGHLIGHT_ITEMS = frozenset({
