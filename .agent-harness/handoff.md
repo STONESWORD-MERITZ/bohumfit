@@ -1,3 +1,37 @@
+## 2026-07-30 BOHUMFIT-259 - overview 엑셀 회사 열 렌더 + [후] 회사별 이월 (255-B 완결)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Chat(260 발번) / Human(260 후 실물 검수)
+Commit: 이 항목을 포함한 BOHUMFIT-259 커밋(최종 해시는 `git log`·Codex 최종 보고 기준). 실 PDF·엑셀 로컬 참조만·stage 0.
+
+### Codex 2차 판정 — PASS (2026-07-31)
+- **Windows 권위 게이트**: backend **782 passed, 8 skipped**(신규 표적 11/11)·tsc app/node·lint·frontend **95 passed**. `src/` diff 0으로 프런트 기준선 불변을 확인했다.
+- **엔드포인트 실 PDF 해지 3종**: `POST /coverage/analyze`→`POST /coverage/export/excel` 실제 동선에서 해지 0은 `[전]`/`[후]` 각 **15열**, 회사합=합계 상이 0·전=후 상이 0·overview 합계 **1,400,240,000**·전체 **1,542,990,000**·월납 **4,675,189**·합계형 경고 0. 계약1 해지는 `[후]` 14열·overview **109,600,000** 정확 감소, 3건 해지는 `[후]` 12열·회사합 대사 0·월납 **4,544,899**로 재계산됐다.
+- **가드·이월·경고 정본**: `_company_columns_available`이 enrolled overview 전행 귀속일 때만 회사 열을 열고 부분 귀속은 합계만 유지한다. `new_slot`·미확인 열도 회사 열 존재 기준이며, 귀속 overview는 `carry_coverage_row` 일반 경로로 해지 반영·미귀속 overview만 합계 보존+경고한다. `consulting`·`compare`는 같은 경고 헬퍼를 공유한다.
+- **HEAD `3748719` 회귀 대조**: 표준 산출물 3시트의 값·수식 좌표 diff **0/0/0**, 값/수식 결합 해시 동일, payload 해시 동일, 인쇄영역·페이지 설정·Excel 자체 렌더 PDF 바이트까지 동일했다. overview는 좌표 diff **112/25/405**가 의도된 열 이동이며 좌표 무관 다중집합에서 **구 값 소실 0·신규 293개**를 재현했다.
+- **Excel 실렌더**: Excel **16.0**으로 표준·overview 각 3시트를 읽기 전용 개방하고 실제 PDF 렌더했다. overview 비교표는 `[전]`/`[후]` 15개 상품 열·2단 헤더·Y/N 회사별·보험료 상단이 보이고, 표준은 변경 전과 동일했다. 비교표 인쇄영역은 표준 `$A$1:$AL$63`, overview `$A$1:$AL$71`, 둘 다 가로 **1페이지 맞춤**이며 수식 오류 0이다.
+- **범위·위생**: diff는 `export_excel.py`·`aggregator.py`·`consulting.py`·`compare.py`·신규 테스트·259 harness뿐. `pipeline/`·`parser.py`·`constants.py`·`src/`·`supabase/` diff 0, 실 PDF/xlsx·환경파일·부산물 stage 0, 신규 PII·secret 0, `git diff --check` 통과.
+
+### Next
+1. **Chat** — BOHUMFIT-260(`buildAfterResult` overview 이월 동기화, 규모 S) 발번. 화면에서 해지한 뒤 다운로드할 때 `[후]` 합계가 남는 클라이언트 미러를 서버 정본과 맞춘다.
+2. **Human** — 260 반영 후 overview 문서를 해지 체크 포함으로 재다운로드해 회사 열·`[후]` 감소를 최종 검수한다.
+
+### 구현·1차 검증 완료 (2026-07-30 · Claude Code)
+- **S0 실측 3지점**: ①렌더 가드(`b_companies/a_companies` + `new_slot`·`b_unk`/`a_unk`가 모두 `not overview`에 묶임 + `_unknown_bucket_present`가 overview 행을 건너뜀) ②`carry_coverage_row` overview 분기가 by_company를 버리고 합계만 이월 ③`consulting`·`compare`가 "overview 존재+해지"면 경고 → 귀속된 문서에서는 **사실과 다른 경고**. ★239의 "해지 반영 불가" 제약이 256~258 귀속으로 **해소**됨을 확인.
+- **A 렌더 가드 전환**: `_company_columns_available()` 신설 — 가드 기준을 **"overview 여부" → "by_company 유무"**로 전환. enrolled overview 행이 전부 귀속돼 있으면 회사 열 전개, ★**부분 귀속이면 합계만**(빈 회사 열 오독 = 252 반려 사유와 동종 차단). `[전]`·`[후]` 각각 판정. `new_slot`·미확인 열 조건도 회사 열 존재(n/m) 기준으로 전환하고 `_unknown_bucket_present`의 overview 배제 제거(귀속 행의 `'?'`는 미확인 열로 정직 노출 — 252 가드 일관 적용). 가드 전환으로 죽은 `_is_overview()` 정리.
+- **B [후] 회사별 이월**: `carry_coverage_row`(249 정본)에서 **귀속된 overview 행은 일반 행과 동일 경로**(keep/cancel 필터+`'?'` 이월+제안 병합+재집계), 미귀속 행만 종전 합계 이월. ★표준 문서 경로·일반 행 규칙 무변경. 회사합=합계 보장이라 해지 0이면 재집계가 `[전]`과 동일.
+- **C 경고 조건부화**: `overview_rows_need_cancel_warning()` 신설 — 귀속 안 된 overview 행이 있을 때만 경고. `consulting`·`compare`가 공유(조건·문구 동기).
+- **검증**: pytest **782 passed, 8 skipped**(771+11) · ★overview 엑셀 엔드포인트 경유 해지 **0/1/3건** 전부 통과 — 해지 0: `[전]`/`[후]` 각 15열·2단 헤더 15/15·회사합=합계 상이 **0**(양쪽)·셀=payload 0·**전=후 상이 0**·overview 합계 **1,400,240,000**·총액 **1,542,990,000**·월납 **4,675,189** 불변·합계형 경고 **0건** / 해지 1건: `[후]` 14열·대사 0·감소분 **109,600,000 = 계약1의 실손 4종+3대비급여**(회사 단위 정확 반영) / 해지 3건: 12열·대사 0·월납 재계산.
+- **★표준 문서 회귀 0**: 엑셀 산출물 **셀 단위 removed/changed/added 0/0/0 + 해시 동일**(HEAD `3748719` coverage 7모듈 별도 프로세스 대조) + payload 전수 diff 0 + 인쇄영역 동일. overview는 값 보존을 좌표 무관으로 별도 증명(**구 값 중 신 산출물에 없는 것 0**, 신규 293개는 회사 열 신설분 — 셀 좌표 diff는 합계 열 2→17열 이동에 따른 의도된 변화).
+- tsc·lint·npm **95** 불변(프런트 무접촉) · PII 0 · diff = export_excel·aggregator·consulting·compare + 테스트 1 + harness(**`pipeline/`·`parser.py`·`constants.py`·`src/` diff 0**).
+
+### ★잔여(스코프 밖 · 기록)
+- 클라이언트 미러(`src/lib/coverageAfterDisplayCache.buildAfterResult`)는 overview 행을 여전히 합계 수준으로 이월한다(249 주석의 "규칙 변경 시 동기 수정" 대상). 화면 내보내기는 **클라이언트가 만든 `afterResult`를 POST**하므로, 프런트에서 해지한 경우 overview `[후]` 회사 열이 합계로 남을 수 있다 → 프런트 동기 태스크 필요(**규모 S**, 이번은 `src/` 무접촉 계약으로 미포함).
+
+### Next
+1. **Codex** — 2차 검증(overview `[전]`·`[후]` 회사열·표준 셀 diff 0·해지 시나리오·Excel 실렌더·배포 스모크) → 커밋·push.
+2. **Human** — ★overview 문서 재다운로드 최종 검수(주력 고객층 커버리지 완성 — 표준 문서처럼 회사별로 나오는지).
+3. **Chat** — ★프런트 클라이언트 미러 동기화(위 잔여·S) + 잔여([후] 신규 계약·205 배지·간편 시트·사양 4건·카탈로그).
+
 ## 2026-07-30 BOHUMFIT-256~258 - Codex 2차 검증 · 통합 publish
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Chat(255-B 발번) / Human(255-B 후 실물 검수)

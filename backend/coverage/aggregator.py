@@ -83,8 +83,11 @@ def _apply_exclusions(matrix: dict, extras: dict) -> tuple[dict, dict, dict]:
 def carry_coverage_row(row: dict, kept_ids: set, known_ids: set, extra_values: dict | None = None) -> dict:
     """BOHUMFIT-249: [후] 이월 행 변환의 ★단일 소스(211 패리티 — 246 회송 보정 규칙 통일).
 
-    - overview(합계-only) 행: 합계 수준(summary·enrolled) 이월 — 계약 귀속이 없어 해지 반영
-      불가(유지 간주). 신규 제안 값(extra_values)은 합계에 가산.
+    - overview 행: **계약 귀속(by_company)이 있으면 일반 행과 동일 규칙**으로 이월한다
+      (BOHUMFIT-259 — 256~258이 overview by_company를 채운 뒤부터 해지 반영이 가능해졌다.
+      회사합=합계가 보장되므로 해지 0이면 재집계 결과가 [전]과 동일하다). 귀속이 없는
+      overview 행(구 데이터·타 변형 문서)만 종전대로 합계 수준 이월 — 해지 반영 불가.
+      신규 제안 값(extra_values)은 합계에 가산.
     - 일반 행: 계약 귀속 확인분은 keep/cancel(kept_ids) 필터, 계약 미상 키('?' 등 known_ids
       밖)는 해지 대상이 아니므로 그대로 이월. 신규 제안 값 병합 후 재집계.
     소비처: consulting.apply_consulting_plan · compare.build_after_analysis.
@@ -95,7 +98,10 @@ def carry_coverage_row(row: dict, kept_ids: set, known_ids: set, extra_values: d
 
     extra_values = {key: value for key, value in (extra_values or {}).items() if value is not None}
     updated = deepcopy(row)
-    if row.get("overview"):
+    # BOHUMFIT-259: 귀속된 overview 행은 아래 일반 경로(keep/cancel 필터 + 재집계)를 탄다.
+    if row.get("overview") and not any(
+        value is not None for value in (row.get("by_company") or {}).values()
+    ):
         by_company = dict(extra_values)
         added = aggregate_coverage_values(by_company, row.get("agg")) if by_company else None
         summary = row.get("summary")
@@ -122,6 +128,19 @@ OVERVIEW_CANCEL_WARNING = (
     "전체 보장현황(합계형) 문서는 계약별 보장 귀속이 없어 해지를 보장 합계에 반영할 수 "
     "없습니다 — 해당 보장행은 [전] 합계 수준으로 유지됩니다."
 )
+
+
+def overview_rows_need_cancel_warning(coverages: list[dict]) -> bool:
+    """BOHUMFIT-259: 해지 경고가 필요한지 — ★귀속되지 않은 overview 행이 있을 때만 True.
+
+    256~258로 overview by_company가 채워지면 해지가 회사 열 단위로 정확히 반영되므로
+    239/246의 "합계에 반영 불가" 경고는 사실과 달라진다(불필요한 경고 제거).
+    """
+    return any(
+        row.get("overview")
+        and not any(value is not None for value in (row.get("by_company") or {}).values())
+        for row in coverages or []
+    )
 
 
 def compute_yn_flags(coverages: list[dict]) -> list[dict]:

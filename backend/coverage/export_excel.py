@@ -13,7 +13,9 @@
 - 단위: 보장금액 **만원**(시트3 "만원" 서식 접미 근거 추정 — 244 결정 11 계류), 보험료 **원**.
 - 차액 = 후−전(개선 +). H10 = "심장중기"(원본 오타 정정). K7 이중합산 미이식(값 기입이라 비해당).
 - 종수술 estimated 행: 표시명 "(표준환산)" 유지 + 시트2 하단 "표준 환산 기준" 문구(238).
-- overview(합계형) 문서: 계약 열 없이 합계 열만 + 특이사항에 246 경고 기재.
+- overview(합계형) 문서: BOHUMFIT-259부터 by_company가 귀속되면 표준 문서와 동일하게 회사 열을
+  전개한다(가드 기준 = overview 여부 → ★by_company 유무). 미귀속·부분 귀속이면 종전대로
+  합계 열만 + 특이사항에 246 경고 기재.
 - 양식 밖 담보(기타 그룹·종수술비 버킷·(계약 미확인) 등)는 시트2 하단 "부록: 기타(정보 보존)"
   블록에 전량 수록 — 누락 0(양식 35행에 자리가 없어도 산출물에서 유실하지 않는다).
 
@@ -157,8 +159,25 @@ def _stage_map(before_like: dict) -> dict:
     return compute_stage_totals(coverages) if coverages else {}
 
 
-def _is_overview(before_like: dict) -> bool:
-    return any(row.get("overview") for row in (before_like or {}).get("coverages", []))
+def _company_columns_available(before_like: dict) -> bool:
+    """BOHUMFIT-259: 회사 열을 전개해도 되는지 — ★가드 기준을 "overview 여부"가 아니라
+    "by_company 유무"로 전환한다.
+
+    256~258이 overview 문서의 by_company를 채운 뒤부터 합계형 문서도 표준 문서와 동일하게
+    회사별 전개가 가능하다. 단 **부분 귀속**(귀속된 행과 빈 행이 섞인 상태)에서는 빈 회사 열이
+    "어느 회사에도 없음"으로 오독되므로(252 반려 사유와 동종) 합계만 유지한다.
+    overview 행이 없는 표준 문서는 항상 True(기존 경로 무변경).
+    """
+    rows = [
+        row for row in (before_like or {}).get("coverages", [])
+        if row.get("overview") and row.get("enrolled")
+    ]
+    if not rows:
+        return True
+    return all(
+        any(value is not None for value in (row.get("by_company") or {}).values())
+        for row in rows
+    )
 
 
 # BOHUMFIT-252(재개): '?'(계약 미상 — 246/253 데이터 모델) 버킷 렌더 정책.
@@ -169,7 +188,9 @@ def _unknown_bucket_present(before_like: dict, companies: list) -> bool:
     ids = {str(c.get("idx")) for c in companies}
     form_names = set(FORM_ITEMS)
     for row in (before_like or {}).get("coverages", []):
-        if row.get("overview") or not row.get("enrolled") or row.get("kb_name") not in form_names:
+        # BOHUMFIT-259: overview 배제 제거 — 귀속되지 않은 overview 행은 by_company가 비어
+        #   있어 자동으로 미해당이고, 귀속된 행에 '?'가 남으면 미확인 열을 정직하게 노출한다.
+        if not row.get("enrolled") or row.get("kb_name") not in form_names:
             continue
         if any(k not in ids and v is not None for k, v in (row.get("by_company") or {}).items()):
             return True
@@ -232,11 +253,15 @@ def _sheet_cover(ws, analysis: dict) -> None:
 def _sheet_compare_form(ws, analysis: dict, before: dict, after_before: dict | None) -> None:
     ws.title = "비교분석표"
     customer = (before.get("customer") or {}).get("name") or ""
-    overview = _is_overview(before)
-
-    b_companies = [] if overview else (before.get("contract_list") or before.get("companies") or [])
-    a_companies = [] if (after_before is None or overview) else (
-        after_before.get("contract_list") or after_before.get("companies") or []
+    # BOHUMFIT-259: 회사 열 전개 여부는 by_company 유무로 판단(overview도 귀속되면 전개).
+    #   [전]·[후]를 각각 판정한다 — 해지로 [후] 귀속 상태가 달라질 수 있다.
+    b_companies = (
+        (before.get("contract_list") or before.get("companies") or [])
+        if _company_columns_available(before) else []
+    )
+    a_companies = (
+        (after_before.get("contract_list") or after_before.get("companies") or [])
+        if (after_before is not None and _company_columns_available(after_before)) else []
     )
     n, m = len(b_companies), len(a_companies)
     # BOHUMFIT-252 B: [후] 신규 계약 열 골격 — 가입제안서 트랙 미착수 상태에서는 헤더 자리만
@@ -246,13 +271,15 @@ def _sheet_compare_form(ws, analysis: dict, before: dict, after_before: dict | N
         (co.get("consulting_status") == "신규제안") or (co.get("remark") == "신규제안")
         for co in a_companies
     )
-    new_slot = 1 if (after_before is not None and not overview and not has_proposal) else 0
+    #   BOHUMFIT-259: overview 기준 → ★[후] 회사 열 존재 기준으로 전환(귀속된 overview도
+    #   표준 문서와 동일하게 골격 열을 갖는다. 회사 열이 없으면 종전대로 미생성).
+    new_slot = 1 if (after_before is not None and m and not has_proposal) else 0
     # BOHUMFIT-252(재개): '?' 버킷 잔존 시에만 "계약 미확인" 열 — 회사합=합계 대사가 눈에
     #   보이도록(모호 문서 오독 방지). 실 5케이스는 253 복원으로 잔존 0 → 열 미출력(현행 동일).
     b_ids = {str(c.get("idx")) for c in b_companies}
     a_ids = {str(c.get("idx")) for c in a_companies}
-    b_unk = 1 if (not overview and _unknown_bucket_present(before, b_companies)) else 0
-    a_unk = 1 if (after_before is not None and not overview
+    b_unk = 1 if (n and _unknown_bucket_present(before, b_companies)) else 0
+    a_unk = 1 if (after_before is not None and m
                   and _unknown_bucket_present(after_before, a_companies)) else 0
 
     # 열 배치(1-base): A 여백 | [전] n열(+미확인) | [전]합계 | 담보명 3열 | [후]합계 | [후] m열(+미확인+신규 골격) | 여백

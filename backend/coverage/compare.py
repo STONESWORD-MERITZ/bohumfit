@@ -5,7 +5,12 @@ from collections import defaultdict
 from copy import deepcopy
 from typing import Any
 
-from .aggregator import OVERVIEW_CANCEL_WARNING, aggregate_coverage_values, carry_coverage_row
+from .aggregator import (
+    OVERVIEW_CANCEL_WARNING,
+    aggregate_coverage_values,
+    carry_coverage_row,
+    overview_rows_need_cancel_warning,
+)
 from .constants import GROUP13
 
 STATUS_SUFFICIENT = "충분"
@@ -337,10 +342,11 @@ def build_after_analysis(analysis: dict, plan: dict | None = None) -> dict:
         carry_coverage_row(row, kept_contract_ids, known_contracts, proposal_values.get(row.get("kb_name")))
         for row in before.get("coverages", [])
     ]
-    if any(row.get("overview") for row in after_coverages) and any(
+    # BOHUMFIT-259: 귀속되지 않은 overview 행이 있을 때만 경고(귀속분은 해지가 회사 열
+    #   단위로 정확히 반영된다 — consulting 경로와 동일 조건).
+    if overview_rows_need_cancel_warning(before.get("coverages", [])) and any(
         _disposition(decision.get("disposition")) == "cancel" for decision in decisions.values()
     ):
-        # 보존+경고 정책(246와 동일 문구 — consulting 경로와 동기).
         if OVERVIEW_CANCEL_WARNING not in warnings:
             warnings.append(OVERVIEW_CANCEL_WARNING)
     for kb_name, meta in sorted(proposal_meta.items(), key=lambda item: (_group_key(item[1].get("group12")), item[0])):

@@ -12,6 +12,7 @@ from typing import Any
 
 from .aggregator import (
     OVERVIEW_CANCEL_WARNING,
+    overview_rows_need_cancel_warning,
     build_final,
     carry_coverage_row,
     compute_stage_totals,
@@ -115,10 +116,9 @@ def apply_consulting_plan(before: dict, plan: dict | None) -> dict:
         carry_coverage_row(row, kept_keys, known_contracts)
         for row in before.get("coverages", [])
     ]
-    overview_carryover = any(row.get("overview") for row in coverages)
-
-    if overview_carryover and cancel_requested:
-        # 보존+경고 정책(246): 합계형 문서는 해지를 보장 합계에 반영할 수 없다.
+    # BOHUMFIT-259: 귀속(by_company)된 overview 행은 해지가 회사 열 단위로 반영되므로
+    #   경고 대상이 아니다 — 귀속되지 않은 행이 남아 있을 때만 보존+경고(246 정책 유지).
+    if cancel_requested and overview_rows_need_cancel_warning(before.get("coverages", [])):
         warnings.append(OVERVIEW_CANCEL_WARNING)
 
     # BOHUMFIT-234/236: 일시납 월납 합산 제외 + 납입완료 제외 부값 병기(build_before와 동일 규칙).
