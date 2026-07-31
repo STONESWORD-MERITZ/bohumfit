@@ -24,6 +24,7 @@
 from __future__ import annotations
 
 import io
+from datetime import datetime
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -39,6 +40,7 @@ from .excel_style import (
     EMERALD,
     EMERALD_SOFT,
     GRAY_SOFT,
+    GRAY_TX,
     GREENTEA,
     HIGHLIGHT_ITEMS,
     INK,
@@ -50,6 +52,9 @@ from .excel_style import (
 )
 
 MAN = 10_000
+# BOHUMFIT-261 P2: 상담 임팩트용 '20년 동일 기준' 총납입 환산 개월(12개월 × 20년).
+#   실제 납만기 기준 총납입(paid_total)과는 성격이 다른 별개 지표다 — 대체가 아니라 병기.
+MONTHS_20Y = 240
 
 # 비분양식 시트2 10~44행(35행) — 244 S3 실측 순서 그대로(양식이 곧 스키마).
 FORM_ITEMS: tuple[str, ...] = (
@@ -221,32 +226,74 @@ def _special_notes(analysis: dict) -> list[str]:
 
 
 # ── 시트1: 표지(세로) — S3 실측(병합 9·문구 원문) ────────────────────────────────
-def _sheet_cover(ws, analysis: dict) -> None:
+def _sheet_cover(ws, analysis: dict, generated_at=None) -> None:
+    """BOHUMFIT-261 P1: 표지 리디자인 — 브랜드 밴드 + 고객명 대제목 + 작성일 + 설계사 블록
+    + 하단 고지 문구. PDF 표지(export_pdf._cover_page)와 항목·문구를 맞춘다(자료 일관성).
+    ★값·집계와 무관한 표시 계층이며 A4 세로 1장 인쇄에 맞춘다.
+    """
     ws.title = "표지(세로)"
     cover = analysis.get("report_cover") or {}
     customer = ((analysis.get("before") or {}).get("customer") or {}).get("name")
     display_name = cover.get("customer_name") or customer or "OOO"
-    for merge in ("A1:A22", "B1:P1", "B2:P2", "B4:P4", "B5:P5", "B6:P6", "B7:P7", "B8:P9", "B10:P22"):
+    written = cover.get("written_date") or (generated_at.strftime("%Y-%m-%d") if generated_at else "")
+
+    ws.column_dimensions["A"].width = 2.0
+    for col in "BCDEFGHIJKLMNOP":
+        ws.column_dimensions[col].width = 6.4
+    for merge in ("B2:P4", "B7:P7", "B8:P9", "B11:P11",
+                  "C13:F13", "G13:P13", "C14:F14", "G14:P14",
+                  "C15:F15", "G15:P15", "C16:F16", "G16:P16",
+                  "C17:F17", "G17:P17", "B20:P22"):
         ws.merge_cells(merge)
-    ws.column_dimensions["A"].width = 1.5
-    ws.column_dimensions["B"].width = 10.8
-    ws.column_dimensions["C"].width = 9.0
-    ws.row_dimensions[1].height = 75
-    ws.row_dimensions[2].height = 42
-    for row in (4, 5, 6, 7):
-        ws.row_dimensions[row].height = 28.9
-    _cell(ws, 1, 2, f"{display_name}님을 위한", size=28, align="left", border=False, name="바탕")
-    _cell(ws, 2, 2, "보험 보장 분석 리포트", size=28, align="left", border=False, bold=True,
-          name="바탕", color=EMERALD)  # 250: 브랜드 타이포 강조
-    # 설계사 4항목 — 제공 데이터 채움·미제공은 양식 placeholder 유지(244 S3 문구).
-    planner_rows = [
-        (f"● {cover['planner_name']}" if cover.get("planner_name") else "● 본인이름", "나눔고딕"),
-        (f"● 직급: {cover['ga_name']}" if cover.get("ga_name") else "● 직급:", "Cambria"),
-        ("● E-MAIL : ", "Cambria"),
-        ("● TEL : ", "Cambria"),
-    ]
-    for offset, (text, font_name) in enumerate(planner_rows):
-        _cell(ws, 4 + offset, 2, text, size=20, align="left", border=False, bold=True, name=font_name)
+
+    # ── 브랜드 밴드(에메랄드 면 + 흰 글자) ────────────────────────────────
+    ws.row_dimensions[2].height = 26
+    ws.row_dimensions[3].height = 20
+    ws.row_dimensions[4].height = 14
+    band = _cell(ws, 2, 2, "BohumFit  보험핏", size=22, bold=True, fill=EMERALD,
+                 align="left", border=False, name="맑은 고딕")
+    band.alignment = Alignment(horizontal="left", vertical="center", indent=1)
+    for col in range(3, 17):  # 병합 셀 면 색 채우기(테두리 없는 밴드)
+        _cell(ws, 2, col, None, fill=EMERALD, border=False)
+
+    # ── 고객명 대제목 ─────────────────────────────────────────────────────
+    ws.row_dimensions[7].height = 34
+    ws.row_dimensions[8].height = 40
+    _cell(ws, 7, 2, f"{display_name} 님을 위한", size=20, align="left", border=False, name="맑은 고딕")
+    _cell(ws, 8, 2, "보험 보장 분석 리포트", size=30, bold=True, align="left", border=False,
+          name="맑은 고딕", color=EMERALD)
+    if written:
+        _cell(ws, 11, 2, f"작성일  {written}", size=11, align="left", border=False,
+              color=GRAY_TX, fmt="@")
+
+    # ── 설계사 정보 블록(라벨 + 기입란) ───────────────────────────────────
+    #   제공된 값은 채우고 미제공은 빈 기입란(밑줄)으로 남긴다 — 설계사 수기 보완용.
+    planner_fields = (
+        ("소속(GA)", cover.get("ga_name")),
+        ("설계사명", cover.get("planner_name")),
+        ("연락처", cover.get("planner_tel")),
+        ("E-MAIL", cover.get("planner_email")),
+    )
+    _cell(ws, 12, 2, "담당 설계사", size=12, bold=True, align="left", border=False, color=EMERALD)
+    for offset, (label, value) in enumerate(planner_fields):
+        row = 13 + offset
+        ws.row_dimensions[row].height = 22
+        _cell(ws, row, 3, label, size=11, bold=True, fill=EMERALD_SOFT, align="left")
+        _cell(ws, row, 7, value or "", size=11, align="left", fmt="@")
+
+    # ── 하단 고지 문구(PDF 표지와 동일 취지) ──────────────────────────────
+    note = _cell(ws, 20, 2,
+                 "고객 설명용 요약 리포트입니다. 실제 보장 내용과 보험금 지급 여부는 각 보험사 "
+                 "약관과 증권을 따르며, 본 자료는 보험 모집·중개·상품추천·가입권유를 목적으로 "
+                 "하지 않습니다.", size=9, align="left", border=False, color=GRAY_TX, wrap=True)
+    note.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+
+    ws.sheet_view.showGridLines = False
+    ws.page_setup.orientation = "portrait"
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 1
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.print_area = "A1:P23"
 
 
 # ── 시트2: 비교분석표 — 계약 열 전부 전개(동적) ─────────────────────────────────
@@ -611,15 +658,26 @@ def _sheet_final_form(ws, analysis: dict, before: dict, after_before: dict | Non
 
     ws.merge_cells("H13:K13")
     _cell(ws, 13, 8, "보험료 차액(후−전)", bold=True, size=12, fill=FORM_YELLOW)
-    ws.merge_cells("H14:K15")
+    ws.merge_cells("H14:K14")
     delta = (after_monthly - before_monthly) if (after_monthly is not None and before_monthly is not None) else None
     # 250: 절감(음수)=에메랄드·증가=앰버(FIT 상태 색 선례 — 빨강 대체 근거는 태스크 문서).
     delta_color = EMERALD if (delta is None or delta <= 0) else AMBER_TX
     delta_cell = _cell(ws, 14, 8, delta, bold=True, fmt='#,##0"원"', color=delta_color, size=12)
     delta_cell.border = BORDER_BOX
 
-    ws.merge_cells("H17:K18")
-    notes_header = _cell(ws, 17, 8, "특이사항", bold=True, size=12, fill=FORM_YELLOW)
+    # BOHUMFIT-261 P2: ★20년 납부 시 총납입 차액 — 월납 차액 × 240개월(상담 임팩트용 동일
+    #   기준 지표). 실제 납만기 기준 총납입 차액(PDF ④ "총납입보험료" 카드)과는 성격이 달라
+    #   대체가 아니라 ★병기한다(라벨로 기준을 명시).
+    ws.merge_cells("H15:K15")
+    _cell(ws, 15, 8, "20년 납부 시 총납입 차액", bold=True, size=10, fill=FORM_BLUE)
+    ws.merge_cells("H16:K16")
+    delta_20y = delta * MONTHS_20Y if delta is not None else None
+    delta20_cell = _cell(ws, 16, 8, delta_20y, bold=True, fmt='#,##0"원"',
+                         color=(EMERALD if (delta_20y is None or delta_20y <= 0) else AMBER_TX), size=12)
+    delta20_cell.border = BORDER_BOX
+
+    ws.merge_cells("H18:K18")
+    notes_header = _cell(ws, 18, 8, "특이사항", bold=True, size=12, fill=FORM_YELLOW)
     notes_header.border = BORDER_BOX
     ws.merge_cells("H19:K45")
     notes = _special_notes(analysis)
@@ -628,8 +686,11 @@ def _sheet_final_form(ws, analysis: dict, before: dict, after_before: dict | Non
     ws.print_area = "A1:L46"
 
 
-def build_workbook_bytes(analysis: dict) -> bytes:
-    """분석 dict([전]만 또는 전후 비교 결과) → 비분양식 3시트 xlsx 바이트."""
+def build_workbook_bytes(analysis: dict, generated_at=None) -> bytes:
+    """분석 dict([전]만 또는 전후 비교 결과) → 비분양식 3시트 xlsx 바이트.
+
+    BOHUMFIT-261: generated_at은 표지 작성일 표기용(미지정 시 호출 시각).
+    """
     before = analysis.get("before", {}) or {}
     after = analysis.get("after") or {}
     after_before = after.get("before") or None
@@ -638,7 +699,7 @@ def build_workbook_bytes(analysis: dict) -> bytes:
     except Exception:
         pass  # 비교 파생 실패는 특이사항 축소일 뿐 — 생성 자체는 진행(정보 보존)
     wb = Workbook()
-    _sheet_cover(wb.active, analysis)
+    _sheet_cover(wb.active, analysis, generated_at or datetime.now())
     _sheet_compare_form(wb.create_sheet(), analysis, before, after_before)
     _sheet_final_form(wb.create_sheet(), analysis, before, after_before)
     stream = io.BytesIO()

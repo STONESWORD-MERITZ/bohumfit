@@ -66,6 +66,9 @@ def _item_key(name) -> int:
     return _ITEM_ORDER_IDX.get(name, len(NEW_ITEM_ORDER))
 
 
+COMPANY_CHUNK = 5  # BOHUMFIT-261 P3: 표 1개당 회사 열 수(실측 — 5개면 ≈160mm로 A4 세로 안착)
+
+
 def _group_coverages(coverages: list) -> list:
     """BOHUMFIT-240 P3/248: 대분류 순서 그룹핑 + 그룹 내 = 비분양식 시트2 항목 순서."""
     grouped: dict[str, list] = {}
@@ -197,34 +200,56 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
         after_prem = after_final.get("premium") or after_before.get("premium") or {}
         after_companies = after_before.get("contract_list") or after_before.get("companies", [])
         # BOHUMFIT-240 P1: 헤더 라벨을 회사명으로(동일 회사 복수 계약은 (1)/(2) 구분).
-        after_comp_name_head = "".join(
-            f'<th class="num company-name">{_esc(_company_label(co, after_companies))}</th>'
-            for co in after_companies
-        )
-        after_comp_premium_head = "".join(
-            f'<th class="num company-premium">{_won(co.get("monthly_premium"))}</th>'
-            for co in after_companies
-        )
+        # BOHUMFIT-261 P3: ★회사 열 분할 — 폰트 확대(12pt) 후 15계약(17열)은 A4 세로(174mm)는
+        #   물론 가로(267mm)로도 넘친다(필요 폭 ≈356mm 실측). 가로 페이지로는 해결되지 않으므로
+        #   회사를 COMPANY_CHUNK개씩 끊어 표를 반복하고, 담보·후 보장금액 열은 매 표에 반복해
+        #   어느 묶음이든 대조가 가능하게 한다(가독성 우선 — 페이지 수 증가 허용).
+        company_chunks = [
+            after_companies[i:i + COMPANY_CHUNK] for i in range(0, len(after_companies), COMPANY_CHUNK)
+        ] or [[]]
         # BOHUMFIT-240 P3: 담보를 13대분류 섹션으로 그룹핑(대분류 헤더 행 + 소속 담보).
         #   대분류는 섹션 헤더 행으로 제공하므로 per-row 대분류 열은 제거한다.
-        col_span = 2 + len(after_companies)
-        after_rows = []
         NEW_PLACEHOLDERS = ("면역항암치료", "암 주요치료비", "심혈관질환")
-        for group, group_rows in _group_coverages(after_before.get("coverages", [])):
-            # BOHUMFIT-248 P3: 기타 그룹은 정보 보존 문구 병기(화면 247 접이식과 의미 동일).
-            head = f"{group} (신 체계 미포섭 — 정보 보존)" if group == "기타" else group
-            after_rows.append(f'<tr class="grp-head"><td colspan="{col_span}">{_esc(head)}</td></tr>')
-            for c in group_rows:
-                by = c.get("by_company", {})
-                cells = "".join(f'<td class="num">{_fmt_krw(by.get(str(co.get("idx"))))}</td>' for co in after_companies)
-                # BOHUMFIT-248 P3: 신담보 3행 오독 방지 표기(247 화면 배지와 동일 의미).
-                tag = ' <small class="new-tag">[신규 설계 반영 대상]</small>' if (
-                    c.get("kb_name") in NEW_PLACEHOLDERS and not c.get("enrolled")
-                ) else ""
-                after_rows.append(
-                    f'<tr><td class="nm indent">{_esc(c.get("kb_name"))}{tag}</td>'
-                    f'<td class="num strong">{_fmt_krw(c.get("summary"))}</td>{cells}</tr>'
-                )
+        grouped = list(_group_coverages(after_before.get("coverages", [])))
+        coverage_tables = []
+        for chunk_no, chunk in enumerate(company_chunks, start=1):
+            col_span = 2 + len(chunk)
+            chunk_rows = []
+            for group, group_rows in grouped:
+                # BOHUMFIT-248 P3: 기타 그룹은 정보 보존 문구 병기(화면 247 접이식과 의미 동일).
+                head = f"{group} (신 체계 미포섭 — 정보 보존)" if group == "기타" else group
+                chunk_rows.append(f'<tr class="grp-head"><td colspan="{col_span}">{_esc(head)}</td></tr>')
+                for c in group_rows:
+                    by = c.get("by_company", {})
+                    cells = "".join(
+                        f'<td class="num">{_fmt_krw(by.get(str(co.get("idx"))))}</td>' for co in chunk
+                    )
+                    # BOHUMFIT-248 P3: 신담보 3행 오독 방지 표기(247 화면 배지와 동일 의미).
+                    tag = ' <small class="new-tag">[신규 설계 반영 대상]</small>' if (
+                        c.get("kb_name") in NEW_PLACEHOLDERS and not c.get("enrolled")
+                    ) else ""
+                    chunk_rows.append(
+                        f'<tr><td class="nm indent">{_esc(c.get("kb_name"))}{tag}</td>'
+                        f'<td class="num strong">{_fmt_krw(c.get("summary"))}</td>{cells}</tr>'
+                    )
+            name_head = "".join(
+                f'<th class="num company-name">{_esc(_company_label(co, after_companies))}</th>' for co in chunk
+            )
+            premium_head = "".join(
+                f'<th class="num company-premium">{_won(co.get("monthly_premium"))}</th>' for co in chunk
+            )
+            caption = ""
+            if len(company_chunks) > 1:
+                start = (chunk_no - 1) * COMPANY_CHUNK + 1
+                caption = (f'<h3 class="chunk-caption">회사 {start}~{start + len(chunk) - 1} '
+                           f'({chunk_no}/{len(company_chunks)})</h3>')
+            coverage_tables.append(
+                caption
+                + '<table><thead>'
+                + f'<tr><th rowspan="2">담보</th><th rowspan="2" class="num">후 보장금액</th>{name_head}</tr>'
+                + f'<tr>{premium_head}</tr>'
+                + f'</thead><tbody>{"".join(chunk_rows)}</tbody></table>'
+            )
         after_contract_rows = []
         for co in after_companies:
             after_contract_rows.append(
@@ -251,11 +276,7 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
 </div>
 <table class="contract-list"><thead><tr><th>번호</th><th>구분</th><th>회사명</th><th>상품명</th><th>납입기간</th><th>만기</th><th class="num">월보험료</th></tr></thead>
 <tbody>{''.join(after_contract_rows)}</tbody></table>
-<table><thead>
-<tr><th rowspan="2">담보</th><th rowspan="2" class="num">후 보장금액</th>{after_comp_name_head}</tr>
-<tr>{after_comp_premium_head}</tr>
-</thead>
-<tbody>{''.join(after_rows)}</tbody></table>
+{''.join(coverage_tables)}
 {jong_note}
 </section>
 """
@@ -414,59 +435,67 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
     return f"""<!DOCTYPE html>
 <html lang="ko"><head><meta charset="utf-8"><style>
 * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-html, body {{ font-family: 'Pretendard','Noto Sans KR','Noto Sans CJK KR','Malgun Gothic',sans-serif; color: {INK_BODY}; font-size: 10pt; line-height: 1.5; word-break: keep-all; }}
+html, body {{ font-family: 'Pretendard','Noto Sans KR','Noto Sans CJK KR','Malgun Gothic',sans-serif; color: {INK_BODY}; font-size: 13.5pt; line-height: 1.65; word-break: keep-all; }}
 .cover-page {{ min-height: 248mm; page-break-after: always; display: flex; flex-direction: column; justify-content: space-between; padding: 18mm 18mm 16mm; background: #fff; }}
 .cover-brand {{ display: flex; align-items: center; gap: 10px; }}
 .cover-logo {{ display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; background: {EMERALD}; color: #fff; border-radius: 8px; font-weight: 900; font-size: 19pt; }}
 .cover-word {{ font-size: 19pt; font-weight: 900; color: {INK}; }}
 .cover-word small {{ display: block; font-size: 8pt; color: {GRAY}; letter-spacing: 1.5px; }}
-.cover-title p {{ color: {EMERALD}; font-weight: 800; font-size: 10pt; margin-bottom: 6px; }}
+.cover-title p {{ color: {EMERALD}; font-weight: 800; font-size: 13pt; margin-bottom: 6px; }}
 .cover-title h1 {{ font-size: 34pt; line-height: 1.15; color: {INK}; margin: 0; }}
 .cover-grid {{ display: grid; grid-template-columns: 120px 1fr; gap: 24px; align-items: start; margin-top: 26mm; }}
 .ga-logo-slot {{ height: 74px; border: 1px dashed {LINE}; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: {GRAY}; font-size: 8pt; font-weight: 800; letter-spacing: 1.4px; }}
 .cover-fields {{ border-top: 2px solid {EMERALD}; }}
 .cover-field {{ display: flex; justify-content: space-between; gap: 24px; border-bottom: 1px solid {LINE}; padding: 9px 0; }}
-.cover-field span {{ color: {GRAY}; font-size: 9pt; font-weight: 700; }}
-.cover-field strong {{ color: {INK}; font-size: 11pt; }}
-.cover-note {{ color: {GRAY}; font-size: 8pt; }}
+.cover-field span {{ color: {GRAY}; font-size: 12pt; font-weight: 700; }}
+.cover-field strong {{ color: {INK}; font-size: 14pt; }}
+.cover-note {{ color: {GRAY}; font-size: 11pt; }}
 .head {{ display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid {EMERALD}; padding-bottom: 10px; margin-bottom: 16px; }}
 .brand {{ display: flex; align-items: center; gap: 8px; }}
 .logo-mark {{ display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; background: {EMERALD}; color: #fff; border-radius: 7px; font-weight: 800; font-size: 15pt; }}
 .wordmark {{ font-size: 17pt; font-weight: 800; color: {INK}; letter-spacing: .2px; }}
 .wordmark small {{ display: block; font-size: 8pt; font-weight: 700; color: {GRAY}; letter-spacing: 1.2px; }}
-.head-meta {{ text-align: right; font-size: 8.5pt; color: {GRAY}; line-height: 1.6; }}
-h1 {{ font-size: 14pt; color: {INK}; margin: 4px 0 12px; }}
-h2 {{ font-size: 11.5pt; color: {EMERALD}; margin: 18px 0 8px; }}
-h3 {{ font-size: 9.5pt; color: {INK}; margin: 12px 0 6px; }}
-.report-section {{ margin-top: 18px; padding-top: 14px; border-top: 2px solid {LINE}; }}
+.head-meta {{ text-align: right; font-size: 11.5pt; color: {GRAY}; line-height: 1.6; }}
+h1 {{ font-size: 20pt; color: {INK}; margin: 4px 0 12px; }}
+h2 {{ font-size: 16pt; color: {EMERALD}; margin: 18px 0 8px; }}
+h3 {{ font-size: 13pt; color: {INK}; margin: 12px 0 6px; }}
+/* BOHUMFIT-261 P3: 섹션마다 새 페이지에서 시작(고객이 섹션 단위로 읽는다). 첫 섹션은
+   표지 다음 페이지의 브랜드 헤더 아래에 이어져야 하므로 예외(빈 페이지 방지). */
+.report-section {{ page-break-before: always; margin-top: 18px; padding-top: 14px; border-top: 2px solid {LINE}; }}
+.report-section.first-section {{ page-break-before: auto; margin-top: 10px; padding-top: 0; border-top: none; }}
+/* 표가 페이지를 넘어가면 헤더를 매 페이지 반복하고 행은 쪼개지지 않게 한다. */
+thead {{ display: table-header-group; }}
+tr {{ page-break-inside: avoid; }}
+table {{ page-break-inside: auto; }}
 .report-section h2 {{ margin-top: 0; }}
 .cards {{ display: flex; gap: 10px; margin-bottom: 8px; }}
 .card {{ flex: 1; border: 1px solid {LINE}; border-radius: 8px; padding: 8px 12px; }}
 .card.highlight {{ border-color: {EMERALD}; background: {EMERALD_SOFT}; }}
-.card .k {{ font-size: 8.5pt; color: {GRAY}; }}
-.card .v {{ font-size: 13pt; font-weight: 800; color: {INK}; margin-top: 2px; }}
-.card .delta {{ margin-top: 2px; font-size: 8.5pt; font-weight: 800; color: {GRAY}; }}
+.card .k {{ font-size: 11.5pt; color: {GRAY}; }}
+.card .v {{ font-size: 17pt; font-weight: 800; color: {INK}; margin-top: 2px; }}
+.card .delta {{ margin-top: 3px; font-size: 11.5pt; font-weight: 800; color: {GRAY}; }}
 .card .delta.good {{ color: {EMERALD}; }}
 .card .delta.warn {{ color: {AMBER}; }}
 table {{ width: 100%; border-collapse: collapse; margin-top: 4px; }}
-th, td {{ border: 1px solid {LINE}; padding: 4px 6px; font-size: 9pt; }}
+th, td {{ border: 1px solid {LINE}; padding: 7px 8px; font-size: 12pt; }}
 th {{ background: {EMERALD}; color: #fff; font-weight: 700; }}
-th.company-premium {{ background: {EMERALD_SOFT}; color: {EMERALD}; font-size: 8pt; }}
-td.grp {{ color: {GRAY}; font-size: 8pt; }}
+th.company-premium {{ background: {EMERALD_SOFT}; color: {EMERALD}; font-size: 10.5pt; }}
+td.grp {{ color: {GRAY}; font-size: 10.5pt; }}
 td.nm {{ color: {INK}; font-weight: 600; }}
 td.num {{ text-align: right; }}
 td.strong {{ font-weight: 800; color: {INK}; }}
 td.st {{ text-align: center; }}
-.badge {{ display: inline-block; border-radius: 10px; padding: 1px 8px; font-size: 8pt; font-weight: 700; }}
+.badge {{ display: inline-block; border-radius: 10px; padding: 2px 9px; font-size: 10.5pt; font-weight: 700; }}
 .good {{ color: {EMERALD}; font-weight: 800; text-align: center; }}
 .warn {{ color: {AMBER}; font-weight: 800; text-align: center; }}
 .empty {{ text-align: center; color: {GRAY}; }}
 .cancelled td {{ color: {GRAY}; text-decoration: line-through; }}
-.status-chip {{ display: inline-block; border-radius: 10px; padding: 1px 8px; font-size: 8pt; font-weight: 800; }}
+.status-chip {{ display: inline-block; border-radius: 10px; padding: 2px 9px; font-size: 10.5pt; font-weight: 800; }}
 .good-bg {{ color: {EMERALD}; background: {EMERALD_SOFT}; }}
 .warn-bg {{ color: {AMBER}; background: {AMBER_SOFT}; }}
-.proposal-slot {{ border: 1px dashed {EMERALD}; border-radius: 8px; background: {EMERALD_SOFT}; color: {EMERALD}; padding: 8px 10px; margin-bottom: 8px; font-size: 8.5pt; font-weight: 800; text-align: center; }}
-.notes {{ margin-top: 8px; font-size: 8pt; color: {GRAY}; }}
+.proposal-slot {{ border: 1px dashed {EMERALD}; border-radius: 8px; background: {EMERALD_SOFT}; color: {EMERALD}; padding: 10px 12px; margin-bottom: 10px; font-size: 11.5pt; font-weight: 800; text-align: center; }}
+.chunk-caption {{ margin: 14px 0 4px; color: {GRAY}; font-size: 12pt; font-weight: 800; }}
+.notes {{ margin-top: 10px; font-size: 11pt; color: {GRAY}; }}
 .notes li {{ list-style: none; margin: 1px 0; }}
 .contract-list th, .contract-list td {{ font-size: 8.3pt; }}
 /* BOHUMFIT-236 B: 헤더 줄바꿈 불일치 해소 — 헤더 nowrap + 셀 세로 중앙 통일. */
@@ -490,7 +519,7 @@ td.indent {{ padding-left: 12px; }}
 </div>
 <h1>보장분석 리모델링표</h1>
 
-<section class="report-section">
+<section class="report-section first-section">
 <h2>② 컨설팅 전 계약 — 유지/해지</h2>
 {premium_note}
 <table class="contract-list"><thead><tr><th>번호</th><th>처리</th><th>회사명</th><th>상품명</th><th>납입기간</th><th>만기</th><th class="num">월보험료</th><th>비고</th></tr></thead>

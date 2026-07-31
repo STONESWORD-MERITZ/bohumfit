@@ -1,7 +1,32 @@
+## 2026-07-31 BOHUMFIT-261 - 엑셀 표지 리디자인 + 20년 총납입 차액 + 리포트 고령 가독성
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human(Excel/PDF 실물 검수) / Chat(잔여 발번)
+Commit: 이 항목을 포함한 BOHUMFIT-261 커밋(최종 해시는 `git log`·Codex 사후 publish 기록 기준).
+
+### Codex 2차 판정 — PASS (2026-07-31)
+- **Windows 권위 게이트**: backend **792 passed, 8 skipped**, frontend **99 passed**, tsc app/node·lint 통과.
+- **★HEAD 값 불변 대조**: detached 기준 HEAD `3384e6e`와 같은 표준·overview 실데이터 payload를 각각 렌더했다. 시트2 숫자 셀은 양쪽 모두 removed/changed/added **0/0/0**, 시트3은 계획된 `H13:K18` 차액/특이사항 블록 밖에서 숫자뿐 아니라 모든 셀 값 diff **0/0/0**이다. 수식 오류도 0.
+- **★20년 산식 실물**: overview의 월보험료 합계 **250,825원**인 해지 조합으로 월납 차액 **−250,825원**, 20년 차액 **−60,198,000원(×240)**을 Excel 셀에서 재현했다. 두 값 모두 절감 에메랄드이며 기존 월납 차액 행·이동된 특이사항 블록이 함께 유지된다. 합성 **−10,000→−2,400,000** 및 증가 앰버는 신규 회귀 테스트로 고정됐다.
+- **Excel 실렌더**: artifact-tool 전수 재판독·3시트 시각 렌더와 Excel **16.0** 읽기 전용 실제 개방/인쇄 PDF를 표준·overview·해지 overview에 수행했다. 표지는 브랜드 밴드·마스킹 고객명·작성일·설계사 4개 기입란·고지 문구가 보이고 `$A$1:$P$23` A4 세로 **1페이지 맞춤**이다. 시트2 회사 열과 시트3 차액 블록에 겹침·잘림 0, overview/표준 인쇄 폭 1페이지, 기존 인자 없는 export endpoint 호출도 200으로 하위호환을 확인했다.
+- **PDF 실렌더·수치 대조**: 실제 export endpoint의 Chromium 산출을 전 페이지 렌더해 표준 **14p**·overview **17p**를 모두 육안 확인했다. ②/③/④/⑤ 첫 페이지는 표준 **2/3/4/7**, overview **2/3/4/8**이고 첫 섹션 빈 페이지 0. ⑤는 `회사 1~5 (1/3)`·`6~10 (2/3)`·`11~15 (3/3)`로 분할됐으며 이후 전 페이지에 표 헤더가 반복됐다. 전 페이지 최소 우측 여백 **33.76pt 이상**, 침범·클리핑 0. 각 문서에서 월납·총납입·암/뇌/심장 단계·대분류·회사별 금액 **30개 표적값 전부 payload 일치**다.
+- **범위·위생**: diff는 `export_excel.py`·`export_pdf.py`·신규 261 테스트·harness뿐. `excel_style.py`·`pipeline/`·집계·parser·`src/`·`supabase/`·패키지 diff 0, 실 PDF/xlsx/json/렌더·환경파일·부산물 stage 0, 신규 PII·secret 0, `git diff --check` 통과.
+
+### Next
+1. **Human** — 프로덕션 실물에서 Excel 표지·시트3 20년 차액과 PDF 확대 폰트·섹션 분리·⑤ 3분할을 확인한다. ⑤ 묶음 크기가 불편하면 `COMPANY_CHUNK` 상수 한 곳으로 조정 가능.
+2. **Chat** — 잔여 `[후]` 신규 계약·205 배지·간편 시트·사양 4건·카탈로그 후속 발번.
+
+### 구현·1차 검증 완료 (2026-07-31 · Claude Code)
+- **S0 실측 3건**: ①엑셀 표지는 제목 2줄+설계사 라벨뿐이고 PDF 표지는 이미 브랜드·작성일·고지를 갖춰 **두 산출물의 격이 어긋나 있었다** ②시트3 차액 블록에는 **월납 차액 1개만** 있고, 패킷이 말한 "총납입(실제 납만기 기준)" 행은 **엑셀이 아니라 PDF ④ 카드**에 존재(→ 엑셀은 신설이 아니라 추가가 맞음) ③★**⑤ 회사별 표 폭**: 15계약=17열 ≈**356mm** 필요 — A4 세로 174mm는 물론 **가로 267mm로도 넘침** → 가로 페이지로는 해결 불가, **열 분할이 유일 해법**(회사 5개=160mm 안착·6개는 179mm 넘침).
+- **P1 엑셀 표지**: 브랜드 밴드(에메랄드+흰 글자 `BohumFit 보험핏`)·고객명 대제목·작성일·담당 설계사 블록(소속/설계사명/연락처/E-MAIL — 제공값 채움, 미제공은 테두리 기입란)·하단 고지 문구(PDF와 동일 취지). A4 세로 1장(fitToWidth/Height=1·print_area A1:P23). `build_workbook_bytes(analysis, generated_at=None)`로 작성일 주입(기존 호출부 하위호환).
+- **P2 20년 차액**: `MONTHS_20Y=240` 상수 + 시트3 `H15` "20년 납부 시 총납입 차액"·`H16` 값(월납 차액×240). **기존 월납 차액 행은 유지(병기)** — 성격이 다른 지표라 대체 금지. 절감=에메랄드/증가=앰버(250), 특이사항 블록 H17→H18 이동.
+- **P3 PDF 가독성**: 폰트 약 **1.35배**(body 10→13.5pt·표 셀 9→12pt·h2 11.5→16pt·카드 값 13→17pt 등) · **섹션마다 새 페이지**(`.report-section{page-break-before:always}` + 첫 섹션 예외로 빈 페이지 방지) · **표 헤더 매 페이지 반복**(`thead{display:table-header-group}`)·행 쪼개짐 방지 · **⑤ 회사 열 5개씩 분할**(`COMPANY_CHUNK=5`, 묶음 캡션 `회사 1~5 (1/3)`).
+- **검증**: pytest **792 passed, 8 skipped**(784+8) · tsc·lint·npm **99**(프런트 무접촉) · ★**엑셀 값 불변** — HEAD(`3384e6e`) coverage 8모듈 별도 실행 대비 **시트2 숫자 셀 0/0/0**(표준·overview), 시트3도 차액 블록 외 diff 0 · 20년 산식 검증(해지 1건 `-10,000→-2,400,000`) · ★**실렌더(Chromium)**: 표준 **14p**·overview **17p**, **우측 여백 침범 단어 0**(폰트 확대 후에도 넘침 없음) · 섹션 분리 실렌더 확인(④·⑤ 새 페이지 시작, ⑤는 3개 표로 분할되고 각 페이지 헤더 반복) · PII 0 · diff = export_excel·export_pdf + 테스트 1 + harness(**excel_style·pipeline·집계·parser·src diff 0**).
+- **Next**: ① Codex — 2차 검증(값 불변·20년 산식·PDF 섹션/폰트·실렌더·배포 스모크) → 커밋·push ② Human — 표지·20년 차액·PDF 가독성 실물 검수(⑤ 묶음 크기는 `COMPANY_CHUNK` 한 곳으로 조정 가능) ③ Chat — 잔여([후] 신규·205 배지·간편 시트·사양 4건).
+
 ## 2026-07-30 BOHUMFIT-260 - 클라이언트 미러 overview 이월 동기화 (259 잔여 해소)
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human(overview 해지 포함 실물 검수) / Chat(잔여 발번)
-Commit: 이 항목을 포함한 BOHUMFIT-260 커밋(최종 해시는 `git log`·Codex 사후 publish 기록 기준).
+Commit: `3384e6e2a344f6607bac24e8a5fa338c106b3865` (`origin/main`, ahead/behind 0/0). 아래 사후 publish 기록은 다음 하네스 커밋에 편승.
 
 ### Codex 2차 판정 — PASS (2026-07-31)
 - **Windows 권위 게이트**: backend **784 passed, 8 skipped**·공유 골든 표적 **2/2 passed**, frontend **99 passed**, tsc app/node·lint 통과.
@@ -9,6 +34,7 @@ Commit: 이 항목을 포함한 BOHUMFIT-260 커밋(최종 해시는 `git log`·
 - **★실데이터 동등성**: 실제 overview 분석 결과로 서버 정본과 클라이언트 `buildAfterResult`의 담보 전 행·회사 귀속·summary·enrolled·경고를 대조해 상이 **0**. 해지 0/1/3 overview 합계는 각각 **1,400,240,000 / 1,290,640,000 / 1,097,640,000**, 계약1 감소분 **109,600,000**도 서버와 동일했다. overview 귀속 **26/26**·전체 총액 **1,542,990,000**은 HEAD와 같고, 표준 문서 payload SHA-256도 기준 HEAD `17c05ad`와 동일했다.
 - **★화면→내보내기 실물 경로**: 클라이언트가 만든 해지 1건 `afterResult`를 `POST /coverage/export/excel`에 그대로 보내 **200**·3시트 xlsx를 받았다. `[전]` 상품 15개·`[후]` 14개, 해지 계약만 부재, `[후]` 회사 헤더 14개를 확인했다. artifact-tool 전수 재판독에서 수식 오류 0, Excel **16.0** 실제 개방·PDF 렌더에서 3시트 모두 겹침/잘림 0·가로 1페이지 맞춤이었다.
 - **서버 무접촉·범위·위생**: `backend/coverage/*.py`·`pipeline/`·`supabase/`·패키지 diff 0. 변경은 프런트 정본/테스트·공유 골든/백엔드 골든 테스트·260 harness뿐이며 실 PDF/xlsx·환경파일·임시 산출물 stage 0, 신규 PII·secret 0, `git diff --check` 통과.
+- **Publish·배포 스모크**: 커밋 `3384e6e`을 `origin/main`에 push했고 ahead/behind **0/0**. 2026-07-31 11:40:20 KST 기준 Railway `/api/health` **200**·`{"status":"ok"}`, Vercel `/login` **200**이다. 인증정보·실 PDF 전송 없이 공개 GET만 수행했다.
 
 ### Next
 1. **Human** — overview 문서 최종 재다운로드 2종: (a) 해지 없이 `[전]`·`[후]` 회사 열 15개·2단 헤더·Y/N 회사별, (b) 화면에서 계약 1건 해지 후 `[후]`에서 해당 계약 열만 빠지는지 확인.
