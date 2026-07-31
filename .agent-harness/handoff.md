@@ -1,7 +1,40 @@
+## 2026-07-31 BOHUMFIT-263 - 모바일 PWA 현행 실측 + 갭 분석 (조사 전용 · 코드 0)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex(문서 커밋·push) -> Human(시안 확보) / Chat(갭 대조 후 발번)
+Commit: Codex 커밋 후 해시 기록 예정. **코드 diff 0**(문서만). 실 PDF·엑셀 미접촉·PII 0.
+상세 정본은 `tasks/BOHUMFIT-263-mobile-pwa-audit.md`.
+
+### Codex 2차 판정 — PASS (2026-07-31)
+- **프로덕션 실렌더 보완**: 로컬 343.22 kB 껍데기는 판정에서 제외하고
+  `https://bohumfit.ai`를 Chrome 375·390·430px로 직접 계측했다. 홈·로그인·고지 샘플·
+  요금제는 세 폭 모두 문서 가로 넘침 0·콘솔 error 0. 최소 글자는 11~12px이고 44px 미만
+  상호작용 요소는 각각 5/3/8/5개였다. 헤더 햄버거는 36×36으로 개선 대상이다.
+- **인증 한계 명시**: `/disclosure`·`/coverage-compare`·`/dashboard`는 로그인 세션이 없어
+  모두 `/login`으로 정상 리다이렉트됐다. 내부 화면은 소스 정적 분석으로 보완했다.
+- **반응형 정정**: 브레이크포인트는 **sm 24 / md 102 / lg 15 / xl 1 / 2xl 1**(총 143).
+  모바일 전환 6건·안전영역 0건. Disclosure 소형 글자 70건, CoverageRemodel 58건.
+  ★40행×15열 표는 `overflow-x-auto`+담보 sticky가 있으나 정적 폭 약 1,680px로 375px의
+  약 4.5배다. 한 화면에 회사 2~3개만 보여 모바일 카드/회사 선택 계층이 필요하다.
+- **PWA·자산 실측**: manifest·192/512·apple-touch·favicon·viewport·theme-color는 존재.
+  service worker·오프라인·앱 설치 프롬프트·앱모드 감지·안전영역은 0건이다. 이미지 직접
+  확인 결과 **앱 아이콘=흰 타일+에메랄드 ㅍ**, **파비콘=에메랄드 타일+흰 ㅍ**으로 현행
+  브랜드 규격과 일치한다. 설치 메타데이터는 있으나 실질 PWA 생명주기는 미구현이다.
+- **갭·분할안**: R1~R8(회사별 열·Y/N·해지·`'?'`·수동담보·방향고정·내보내기·overview
+  경고)은 전부 표시 계층에서 보존 가능하고 집계/payload 변경은 불필요하다. M1 가독성·터치(S)
+  → M2 표 모바일 뷰(M) → M3 PWA 실질화(M) → M4 앱 셸(M~L) 순으로 권장했다.
+- **게이트·범위**: backend pytest **792 passed, 8 skipped** · npm test **99 passed** ·
+  tsc app/node · lint 클린. 최종 diff는 task·handoff·locks 문서 3종뿐이며 코드·PII·
+  실 PDF/xlsx diff 0.
+
+### Next
+1. **Human** — Claude Design 시안 확보(현행 아이콘 규격 유지).
+2. **Chat** — 시안과 R1~R8 유지 요건·M1~M4를 대조해 구현 단계 발번.
+3. 참고 — M1(가독성·터치)은 시안 없이도 착수 가능하다.
+
 ## 2026-07-31 BOHUMFIT-262 - Human 무의존 백로그 일괄 (5파트: 결정지·제안서 설계·위생·배지 진단·스모크)
 
-Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex(파트별 3커밋) / Human(결정지 3종)
-Commit: P3 `3983d41348c5f4aa35d22390afd52fed6deedd65` · P5 `fe03dd926124ba8aad69b74d90637c29806e6161` · P1/P2/P4 문서는 이 항목을 포함한 BOHUMFIT-262 문서 커밋(최종 해시는 Codex 사후 publish 기록 기준).
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human(결정지 3종) / Chat(결정 수신 후 발번)
+Commit: P3 `3983d41348c5f4aa35d22390afd52fed6deedd65` · P5 `fe03dd926124ba8aad69b74d90637c29806e6161` · P1/P2/P4 문서 `8325131d663255e6164fe22d44504299e7716f21` (`origin/main`, ahead/behind 0/0). 아래 사후 publish 기록은 다음 하네스 커밋에 편승.
 
 ### Codex 2차 판정 — PASS (2026-07-31)
 - **Windows 권위 게이트**: backend **792 passed, 8 skipped**, frontend **99 passed**, tsc app/node·lint 통과, `npm run smoke:coverage` 정본 2건 **PASS**.
@@ -9,6 +42,7 @@ Commit: P3 `3983d41348c5f4aa35d22390afd52fed6deedd65` · P5 `fe03dd926124ba8aad6
 - **P5 3동작·정직성**: 최종 스크립트에서 정본 2건 PASS. 표준 기준 총액을 의도적으로 1원 훼손했을 때 `total: 기준 604560001 vs 실측 604560000`과 **exit 1**을 확인한 뒤 즉시 원복·PASS 재확인. PDF 없는 임시 루트에서는 경고 3줄과 **exit 0**을 재현했다. 회사합=합계(payload·엑셀)·해지 0 전=후·`'?'`·3시트 불변식과 기준선 3문서 **792/8·99** 동기화도 확인했다. 신규 스크립트에 들어 있던 실명 파일명 2건은 stage 전에 무명 glob 탐색으로 최소 정정해 신규 PII 0을 회복했다.
 - **P1·P2·P4 문서**: 결정지 **D-1~D-16 16행**과 번호+옵션 답변법, 해소 5건 제외 근거, 가입제안서 설계의 「샘플 필요」 **5항목**, 205 배지의 투약일수·날짜별 최대 누적합·30일 임계색·030/031/032 이력을 실제 코드와 대조했다. P4 관련 코드 diff는 **0**이다.
 - **범위·위생**: P3/P5를 분리 커밋했고 마지막 diff는 tasks 4종·handoff·locks뿐. 실 PDF/xlsx·환경파일·부산물 stage 0, 신규 PII·secret 0. “TODO/FIXME 전수 0” 1차 문구는 262 대상·신규 diff 0으로 정정했고, 기존 `backend/main.py` 본인인증 스텁 TODO 1건은 범위 밖으로 유지했다.
+- **Publish·배포 스모크**: 위 3커밋을 순서대로 `origin/main`에 push했고 최종 ahead/behind **0/0**. 2026-07-31 15:50:30 KST 기준 Railway `/api/health` **200**·`{"status":"ok"}`, Vercel `/login` **200**을 확인했다.
 
 ### P1 — 248 QA 결정지 정리 ✅ (문서)
 - 산출 `tasks/BOHUMFIT-262-decision-sheet.md`. ★**해소 5건 제외**(결정 불요): QA-3 인쇄 1장(250 fitToWidth+261 실렌더)·1-3 계약 `'?'` 축소(253·256 — 재실측 정본 2건 **`'?'` 0건**)·4-1 스모크 세트(255-P2)·4-2 3계층 자동화(**262-P5**)·5-2 성능. 부분 해소 1건(3-4 PDF 렌더 — 로컬 실렌더는 261에서 복구, CI 골든만 D-6으로 승계).
