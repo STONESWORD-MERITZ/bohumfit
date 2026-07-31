@@ -123,3 +123,50 @@ describe("coverage after display cache", () => {
     }
   });
 });
+
+// ── BOHUMFIT-260: overview [후] 이월 서버 동등성(공유 골든 — 251 골든 픽스처 선례) ──────
+describe("BOHUMFIT-260 overview carry parity with backend", () => {
+  type Scenario = {
+    label: string;
+    cancel: string[];
+    expected: Record<string, { by_company: Record<string, number>; summary: number | null; enrolled: boolean }>;
+    cancel_warning: boolean;
+  };
+  const golden = JSON.parse(
+    readFileSync(resolve(process.cwd(), "backend/tests/fixtures/overview_carry_parity_260.json"), "utf8"),
+  ) as { analysis: AnalyzeResult; scenarios: Scenario[] };
+
+  const OVERVIEW_CANCEL_WARNING =
+    "전체 보장현황(합계형) 문서는 계약별 보장 귀속이 없어 해지를 보장 합계에 반영할 수 없습니다 — 해당 보장행은 [전] 합계 수준으로 유지됩니다.";
+
+  for (const scenario of golden.scenarios) {
+    it(`matches the backend golden: ${scenario.label}`, () => {
+      const analysis = JSON.parse(JSON.stringify(golden.analysis)) as AnalyzeResult;
+      const decisions: Record<string, ContractDecision> = Object.fromEntries(
+        scenario.cancel.map((idx) => [idx, { disposition: "cancel" as const }]),
+      );
+      const after = buildAfterResult(analysis, decisions, []);
+      const rows = new Map(after.after.before.coverages.map((row) => [row.kb_name, row]));
+
+      for (const [name, expected] of Object.entries(scenario.expected)) {
+        const row = rows.get(name)!;
+        expect({ name, by: row.by_company }).toEqual({ name, by: expected.by_company });
+        expect({ name, summary: row.summary }).toEqual({ name, summary: expected.summary });
+        expect({ name, enrolled: row.enrolled }).toEqual({ name, enrolled: expected.enrolled });
+      }
+
+      const messages = after.comparison.cautions.map((caution) => caution.message);
+      expect(messages.includes(OVERVIEW_CANCEL_WARNING)).toBe(scenario.cancel_warning);
+    });
+  }
+
+  it("keeps attributed overview rows out of the summary-only path", () => {
+    const analysis = JSON.parse(JSON.stringify(golden.analysis)) as AnalyzeResult;
+    const after = buildAfterResult(analysis, { "1": { disposition: "cancel" } }, []);
+    const injury = after.after.before.coverages.find((row) => row.kb_name === "상해사망")!;
+    // 귀속 행이므로 합계 유지가 아니라 회사 단위로 줄어야 한다(259/260 핵심).
+    expect(injury.summary).not.toBe(60000000);
+    expect(injury.by_company["1"]).toBeUndefined();
+    expect(injury.overview).toBe(true); // 출처 표식은 보존
+  });
+});

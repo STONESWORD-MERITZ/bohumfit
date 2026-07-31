@@ -1,7 +1,32 @@
+## 2026-07-30 BOHUMFIT-260 - 클라이언트 미러 overview 이월 동기화 (259 잔여 해소)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Human(overview 해지 포함 실물 검수) / Chat(잔여 발번)
+Commit: 이 항목을 포함한 BOHUMFIT-260 커밋(최종 해시는 `git log`·Codex 사후 publish 기록 기준).
+
+### Codex 2차 판정 — PASS (2026-07-31)
+- **Windows 권위 게이트**: backend **784 passed, 8 skipped**·공유 골든 표적 **2/2 passed**, frontend **99 passed**, tsc app/node·lint 통과.
+- **★공유 골든 양방향**: `overview_carry_parity_260.json` 하나를 pytest와 Vitest가 함께 대조했다. 귀속/미귀속 overview·`'?'` 혼재·일반 행과 해지 0/1/3의 `by_company`·summary·enrolled·경고가 서버/클라이언트에서 문자·값 단위로 일치했고, 분기 자체 검사도 통과했다.
+- **★실데이터 동등성**: 실제 overview 분석 결과로 서버 정본과 클라이언트 `buildAfterResult`의 담보 전 행·회사 귀속·summary·enrolled·경고를 대조해 상이 **0**. 해지 0/1/3 overview 합계는 각각 **1,400,240,000 / 1,290,640,000 / 1,097,640,000**, 계약1 감소분 **109,600,000**도 서버와 동일했다. overview 귀속 **26/26**·전체 총액 **1,542,990,000**은 HEAD와 같고, 표준 문서 payload SHA-256도 기준 HEAD `17c05ad`와 동일했다.
+- **★화면→내보내기 실물 경로**: 클라이언트가 만든 해지 1건 `afterResult`를 `POST /coverage/export/excel`에 그대로 보내 **200**·3시트 xlsx를 받았다. `[전]` 상품 15개·`[후]` 14개, 해지 계약만 부재, `[후]` 회사 헤더 14개를 확인했다. artifact-tool 전수 재판독에서 수식 오류 0, Excel **16.0** 실제 개방·PDF 렌더에서 3시트 모두 겹침/잘림 0·가로 1페이지 맞춤이었다.
+- **서버 무접촉·범위·위생**: `backend/coverage/*.py`·`pipeline/`·`supabase/`·패키지 diff 0. 변경은 프런트 정본/테스트·공유 골든/백엔드 골든 테스트·260 harness뿐이며 실 PDF/xlsx·환경파일·임시 산출물 stage 0, 신규 PII·secret 0, `git diff --check` 통과.
+
+### Next
+1. **Human** — overview 문서 최종 재다운로드 2종: (a) 해지 없이 `[전]`·`[후]` 회사 열 15개·2단 헤더·Y/N 회사별, (b) 화면에서 계약 1건 해지 후 `[후]`에서 해당 계약 열만 빠지는지 확인.
+2. **Chat** — 잔여 `[후]` 신규 계약·205 배지·간편 시트·사양 4건·카탈로그 후속 발번.
+
+### 구현·1차 검증 완료 (2026-07-30 · Claude Code)
+- **S0 — 서버 대비 차이 ★2건 확정**: ①이월 분기 `if (coverage.overview)`가 **무조건** 합계 이월(서버 259는 "미귀속 행만") ②해지 경고가 "overview 존재"면 무조건(서버는 "미귀속 행이 있을 때만"). 그 외(일반 행 필터·`'?'` 이월·제안 병합·재집계·null 셀 유지)는 이미 서버와 동일해 변경 대상 아님.
+- **구현(프런트만·서버 무접촉)**: `isAttributedRow()` 헬퍼 신설(by_company에 실제 값이 있으면 귀속 — 서버 `carry_coverage_row` 판정과 동일) → 이월 분기를 `overview && !isAttributedRow`로 좁혀 귀속 행은 일반 경로(keep/cancel + `'?'` 이월 + 재집계)를 타게 하고, 해지 경고 조건도 동일하게 좁혔다. `overview` 표식은 스프레드로 보존.
+- **★동등성 고정(251 골든 선례)**: 공유 골든 `backend/tests/fixtures/overview_carry_parity_260.json` 신설 — 귀속/미귀속 overview·`'?'` 혼재·일반 행을 모두 담고 해지 0/1/3(전부) 시나리오의 by_company·summary·enrolled·경고 유무를 명시. **서버**(`test_overview_carry_parity_260.py`)와 **클라이언트**(`coverageAfterDisplayCache.test.ts`)가 같은 골든을 대조한다 + 골든이 분기를 모두 덮는지 자체 검사 테스트 포함.
+- **검증**: backend pytest **784 passed, 8 skipped**(782+2) · npm test **99 passed**(95+4) · tsc app/node·lint 클린.
+- **★실데이터 서버↔클라이언트 동등성**(overview 정본, 해지 0/1/3건): 담보별 by_company·summary·enrolled·cautions **전 항목 완전 일치**. overview 합계도 서버와 동일 — 해지 0 **1,400,240,000** / 해지 1건 **1,290,640,000**(감소분 **109,600,000** = 계약1 실손분, 259 서버 결과 재현) / 해지 3건 **1,097,640,000**. ※실데이터 대조는 스크래치 임시 JSON+임시 테스트로 하고 **검증 직후 삭제**(레포에 실데이터 0).
+- **무영향 확인**: 서버 `backend/coverage/*.py` diff **0**(추가된 것은 골든 픽스처·테스트뿐) · 표준 문서 payload HEAD 대비 diff 0 · overview 귀속 26/26·합계·총액 HEAD 동일 · PII 0.
+- **Next**: ① Codex — 2차 검증(골든 양방향·화면 해지 시나리오·표준 무영향·배포 스모크) → 커밋·push ② ★Human — overview 문서 재다운로드 최종 검수(**해지 체크 포함** — 화면에서 계약 해지 후 받은 엑셀의 `[후]` 회사 열에서 그 계약만 빠지는지) ③ Chat — 잔여([후] 신규 계약·205 배지·간편 시트·사양 4건·카탈로그).
+
 ## 2026-07-30 BOHUMFIT-259 - overview 엑셀 회사 열 렌더 + [후] 회사별 이월 (255-B 완결)
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Chat(260 발번) / Human(260 후 실물 검수)
-Commit: 이 항목을 포함한 BOHUMFIT-259 커밋(최종 해시는 `git log`·Codex 최종 보고 기준). 실 PDF·엑셀 로컬 참조만·stage 0.
+Commit: `17c05adfcd9c7374ff1bb4f2319f2f3c87d3ec80` (`origin/main`, ahead/behind 0/0). 아래 사후 publish 기록은 다음 하네스 커밋에 편승.
 
 ### Codex 2차 판정 — PASS (2026-07-31)
 - **Windows 권위 게이트**: backend **782 passed, 8 skipped**(신규 표적 11/11)·tsc app/node·lint·frontend **95 passed**. `src/` diff 0으로 프런트 기준선 불변을 확인했다.
@@ -10,6 +35,7 @@ Commit: 이 항목을 포함한 BOHUMFIT-259 커밋(최종 해시는 `git log`·
 - **HEAD `3748719` 회귀 대조**: 표준 산출물 3시트의 값·수식 좌표 diff **0/0/0**, 값/수식 결합 해시 동일, payload 해시 동일, 인쇄영역·페이지 설정·Excel 자체 렌더 PDF 바이트까지 동일했다. overview는 좌표 diff **112/25/405**가 의도된 열 이동이며 좌표 무관 다중집합에서 **구 값 소실 0·신규 293개**를 재현했다.
 - **Excel 실렌더**: Excel **16.0**으로 표준·overview 각 3시트를 읽기 전용 개방하고 실제 PDF 렌더했다. overview 비교표는 `[전]`/`[후]` 15개 상품 열·2단 헤더·Y/N 회사별·보험료 상단이 보이고, 표준은 변경 전과 동일했다. 비교표 인쇄영역은 표준 `$A$1:$AL$63`, overview `$A$1:$AL$71`, 둘 다 가로 **1페이지 맞춤**이며 수식 오류 0이다.
 - **범위·위생**: diff는 `export_excel.py`·`aggregator.py`·`consulting.py`·`compare.py`·신규 테스트·259 harness뿐. `pipeline/`·`parser.py`·`constants.py`·`src/`·`supabase/` diff 0, 실 PDF/xlsx·환경파일·부산물 stage 0, 신규 PII·secret 0, `git diff --check` 통과.
+- **Publish·배포 스모크**: 커밋 `17c05ad`을 `origin/main`에 push했고 ahead/behind **0/0**. 2026-07-31 10:00:57 KST 기준 Railway `https://bohumfit.up.railway.app/api/health` **200**·`{"status":"ok"}`, Vercel `https://bohumfit.ai/login` **200**이다. 인증정보·실 PDF 전송 없이 공개 GET만 수행했다.
 
 ### Next
 1. **Chat** — BOHUMFIT-260(`buildAfterResult` overview 이월 동기화, 규모 S) 발번. 화면에서 해지한 뒤 다운로드할 때 `[후]` 합계가 남는 클라이언트 미러를 서버 정본과 맞춘다.

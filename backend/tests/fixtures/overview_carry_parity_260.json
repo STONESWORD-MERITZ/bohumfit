@@ -1,0 +1,87 @@
+{
+  "comment": "BOHUMFIT-260 서버↔클라이언트 overview 이월 동등성 골든(251 골든 픽스처 선례). 서버 compare.build_after_analysis와 클라이언트 buildAfterResult가 동일 입력에서 동일한 [후] overview 이월·해지 경고를 내야 한다. 익명 합성 — PII 0. 규칙 변경 시 이 골든과 양쪽 테스트를 함께 갱신한다.",
+  "analysis": {
+    "before": {
+      "customer": { "name": "홍길동", "age": 50, "sex": "남자" },
+      "premium": { "monthly_total": 60000, "monthly_total_active": 60000, "paid_total": 14400000, "currency": "KRW" },
+      "companies": [
+        { "idx": "1", "insurer": "합성손보1", "product": "합성상품1호", "contract_date": "2021-01-01", "pay_cycle": "월납", "pay_years": 20, "pay_months": 240, "maturity": "100세", "monthly_premium": 10000, "paid_total": 2400000 },
+        { "idx": "2", "insurer": "합성손보2", "product": "합성상품2호", "contract_date": "2022-01-01", "pay_cycle": "월납", "pay_years": 20, "pay_months": 240, "maturity": "100세", "monthly_premium": 20000, "paid_total": 4800000 },
+        { "idx": "3", "insurer": "합성생명3", "product": "합성상품3호", "contract_date": "2023-01-01", "pay_cycle": "월납", "pay_years": 20, "pay_months": 240, "maturity": "100세", "monthly_premium": 30000, "paid_total": 7200000 }
+      ],
+      "contract_list": [
+        { "idx": "1", "insurer": "합성손보1", "product": "합성상품1호", "contract_date": "2021-01-01", "pay_cycle": "월납", "pay_years": 20, "pay_months": 240, "maturity": "100세", "monthly_premium": 10000, "paid_total": 2400000 },
+        { "idx": "2", "insurer": "합성손보2", "product": "합성상품2호", "contract_date": "2022-01-01", "pay_cycle": "월납", "pay_years": 20, "pay_months": 240, "maturity": "100세", "monthly_premium": 20000, "paid_total": 4800000 },
+        { "idx": "3", "insurer": "합성생명3", "product": "합성상품3호", "contract_date": "2023-01-01", "pay_cycle": "월납", "pay_years": 20, "pay_months": 240, "maturity": "100세", "monthly_premium": 30000, "paid_total": 7200000 }
+      ],
+      "coverages": [
+        {
+          "kb_name": "상해사망", "kb_group": "사망", "group12": "사망", "agg": "sum",
+          "summary": 60000000, "by_company": { "1": 10000000, "2": 20000000, "3": 30000000 },
+          "enrolled": true, "overview": true
+        },
+        {
+          "kb_name": "질병사망", "kb_group": "사망", "group12": "사망", "agg": "sum",
+          "summary": 15000000, "by_company": { "1": 5000000, "?": 10000000 },
+          "enrolled": true, "overview": true
+        },
+        {
+          "kb_name": "암진단금", "kb_group": "암 진단", "group12": "암", "agg": "sum",
+          "summary": 40000000, "by_company": {},
+          "enrolled": true, "overview": true
+        },
+        {
+          "kb_name": "상해수술", "kb_group": "수술", "group12": "수술", "agg": "sum",
+          "summary": 3000000, "by_company": { "2": 1000000, "3": 2000000 },
+          "enrolled": true
+        }
+      ]
+    },
+    "final": {
+      "premium": { "monthly_total": 60000, "monthly_total_active": 60000, "paid_total": 14400000, "currency": "KRW" },
+      "coverages": [
+        { "group12": "사망", "kb_name": "상해사망", "agg": "sum", "value": 60000000, "recommended": 100000000, "gap": -40000000, "status": "부족" },
+        { "group12": "사망", "kb_name": "질병사망", "agg": "sum", "value": 15000000, "recommended": 20000000, "gap": -5000000, "status": "부족" },
+        { "group12": "암", "kb_name": "암진단금", "agg": "sum", "value": 40000000, "recommended": 30000000, "gap": 10000000, "status": "충분" },
+        { "group12": "수술", "kb_name": "상해수술", "agg": "sum", "value": 3000000, "recommended": 5000000, "gap": -2000000, "status": "부족" }
+      ],
+      "rollup_by_group12": []
+    },
+    "warnings": []
+  },
+  "scenarios": [
+    {
+      "label": "해지 0건 — 전=후 동일",
+      "cancel": [],
+      "expected": {
+        "상해사망": { "by_company": { "1": 10000000, "2": 20000000, "3": 30000000 }, "summary": 60000000, "enrolled": true },
+        "질병사망": { "by_company": { "1": 5000000, "?": 10000000 }, "summary": 15000000, "enrolled": true },
+        "암진단금": { "by_company": {}, "summary": 40000000, "enrolled": true },
+        "상해수술": { "by_company": { "2": 1000000, "3": 2000000 }, "summary": 3000000, "enrolled": true }
+      },
+      "cancel_warning": false
+    },
+    {
+      "label": "해지 1건(계약1) — 귀속 overview는 회사 단위 반영, 미귀속은 합계 유지, '?'는 이월",
+      "cancel": ["1"],
+      "expected": {
+        "상해사망": { "by_company": { "2": 20000000, "3": 30000000 }, "summary": 50000000, "enrolled": true },
+        "질병사망": { "by_company": { "?": 10000000 }, "summary": 10000000, "enrolled": true },
+        "암진단금": { "by_company": {}, "summary": 40000000, "enrolled": true },
+        "상해수술": { "by_company": { "2": 1000000, "3": 2000000 }, "summary": 3000000, "enrolled": true }
+      },
+      "cancel_warning": true
+    },
+    {
+      "label": "해지 3건(전부) — 귀속분 소멸·'?' 이월·미귀속 합계 유지",
+      "cancel": ["1", "2", "3"],
+      "expected": {
+        "상해사망": { "by_company": {}, "summary": null, "enrolled": false },
+        "질병사망": { "by_company": { "?": 10000000 }, "summary": 10000000, "enrolled": true },
+        "암진단금": { "by_company": {}, "summary": 40000000, "enrolled": true },
+        "상해수술": { "by_company": {}, "summary": null, "enrolled": false }
+      },
+      "cancel_warning": true
+    }
+  ]
+}

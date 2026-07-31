@@ -473,6 +473,12 @@ function buildConsultingPlan(
   };
 }
 
+// BOHUMFIT-260: 서버 `aggregator.carry_coverage_row`(249 정본 · 259 확장)와 동일 판정 —
+//   by_company에 실제 값이 하나라도 있으면 "계약 귀속된" 행이다(overview 여부와 무관).
+function isAttributedRow(coverage: { by_company?: Record<string, number | null> }): boolean {
+  return Object.values(coverage.by_company || {}).some((amount) => amount != null);
+}
+
 export function buildAfterResult(
   analysis: AnalyzeResult,
   decisions: Record<string, ContractDecision>,
@@ -540,7 +546,10 @@ export function buildAfterResult(
     // BOHUMFIT-246 회송 보정(247 패리티 반영): 전체 보장현황(합계-only) 행은 계약별 셀이
     // 없어 재집계 시 값이 소실된다 — 해지 체크 불가 행이므로 합계 수준(summary·enrolled)을
     // 그대로 이월한다(backend consulting.apply_consulting_plan과 동일 규칙).
-    if (coverage.overview) {
+    // ★BOHUMFIT-260: 단 256~258로 계약 귀속(by_company)이 채워진 overview 행은 해지를 회사
+    //   단위로 반영할 수 있다 — 서버 aggregator.carry_coverage_row(259)와 동일하게 아래
+    //   일반 경로(keep/cancel 필터 + '?' 이월 + 재집계)를 태운다.
+    if (coverage.overview && !isAttributedRow(coverage)) {
       const byCompany: Record<string, number | null> = { ...(proposalAmounts[coverage.kb_name] || {}) };
       const proposalSum = aggregateCoverageValues(byCompany, coverage.agg);
       return {
@@ -633,9 +642,11 @@ export function buildAfterResult(
 
   const comparison = compareFinals(analysis.final, afterFinal);
   // BOHUMFIT-246/247: 합계형(overview) 문서 + 해지 요청 — 보존+경고 정책(backend 동일 문구).
+  // ★BOHUMFIT-260: 귀속된 overview 행은 해지가 회사 단위로 반영되므로 경고 대상이 아니다 —
+  //   서버 `aggregator.overview_rows_need_cancel_warning`(259)과 동일 조건.
   if (
     plan.existing.some((entry) => entry.disposition === "cancel") &&
-    analysis.before.coverages.some((coverage) => coverage.overview)
+    analysis.before.coverages.some((coverage) => coverage.overview && !isAttributedRow(coverage))
   ) {
     comparison.cautions.push({
       level: "warning",
