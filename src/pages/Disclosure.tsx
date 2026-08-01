@@ -5,6 +5,9 @@ import UsageBadge from "../components/UsageBadge";
 import { useToast } from "../components/ToastContext"; // BOHUMFIT-131
 import AnimatedNumber from "../components/AnimatedNumber"; // BOHUMFIT-132
 import Badge, { type BadgeVariant } from "../components/ui/Badge"; // BOHUMFIT-133a
+// BOHUMFIT-267: 고지 결과 모바일 껍데기(헤더 요약·문안 시트·하단 액션). ★질병 카드는 기존 것을 그대로 쓴다.
+import { useIsMobile } from "../components/mobile/useIsMobile";
+import DisclosureMobileShell from "../components/mobile/DisclosureMobileShell";
 import { Upload, FileText, CheckCircle2 } from "lucide-react"; // BOHUMFIT-136b
 import { useAuth } from "../lib/auth-context";
 import {
@@ -612,6 +615,8 @@ function DisclosureSection({
   resultWindowYears,
   onResultWindowYearsChange,
   unassignedSurgeries = [],
+  customerName,
+  fileCount,
 }: {
   reports: Record<string, SummaryItem[]>;
   memo: string;
@@ -624,10 +629,15 @@ function DisclosureSection({
   onResultWindowYearsChange: (years: number) => void;
   // BOHUMFIT-251(3차): 기간 필터 문안에도 미특정 수술 블록 출력(서버 문안과 4경로 정합).
   unassignedSurgeries?: { date?: string; surgery_name?: string; hospital?: string }[];
+  // BOHUMFIT-267 P1: 모바일 헤더 요약 표시용(없으면 해당 항목만 생략 — 데스크톱은 사용하지 않는다).
+  customerName?: string;
+  fileCount?: number;
 }) {
   const [memoOpen, setMemoOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const { showToast } = useToast(); // BOHUMFIT-131
+  // BOHUMFIT-267 P1: 266과 같은 방식 — CSS 숨김이 아니라 JS 판정(미지원 환경은 데스크톱 폴백).
+  const isMobile = useIsMobile();
   const copy = modeCopy[mode];
   const hasItems = Object.keys(reports).length > 0;
   const resultWindowCutoffIso = referenceDate ? subYearsIso(referenceDate, resultWindowYears) : "";
@@ -651,9 +661,20 @@ function DisclosureSection({
     window.setTimeout(() => setCopied(false), 2000);
   };
 
-  return (
-    <div>
-      {visibleMemo && (
+  // BOHUMFIT-267 P1: 모바일 헤더 요약용 집계 — ★섹션 렌더와 **같은 필터**를 써서 건수가 어긋나지 않게 한다.
+  const mobileGroups = Object.entries(reports).map(([qTitle, items]) => {
+    const visible = resultWindowActive
+      ? items
+          .map((it) => filterDisclosureItemEvidenceByWindow(it, resultWindowCutoffIso))
+          .filter((it): it is SummaryItem => it !== null)
+      : items;
+    return { qNum: extractQNumber(qTitle), title: qTitle, count: visible.length };
+  });
+
+  const body = (
+    <>
+      {/* BOHUMFIT-267 P1: 모바일에서는 문안을 인라인 pre 대신 BottomSheet로 보여준다(셸이 담당). */}
+      {!isMobile && visibleMemo && (
         <section data-tour="copy" className="mb-4 overflow-hidden rounded-[8px] bg-white shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
           <div className="flex items-center justify-between gap-3 px-5 py-4">
             <button type="button" onClick={() => setMemoOpen(!memoOpen)} aria-expanded={memoOpen} className="text-left text-sm font-bold text-ink">
@@ -752,8 +773,29 @@ function DisclosureSection({
           <p className="text-sm font-bold text-emerald-700">{label}</p>
         </div>
       )}
-    </div>
+    </>
   );
+
+  // BOHUMFIT-267 P1: 모바일은 헤더 요약 + 문안 시트 + 하단 고정 액션으로 감싼다.
+  //   ★질병 카드(`DiseaseCard`)는 그대로 넘긴다 — 251 수술 건별·동일일자 복수코드·미특정 블록 누락 0.
+  if (isMobile) {
+    return (
+      <DisclosureMobileShell
+        groups={mobileGroups}
+        referenceDate={referenceDate}
+        windowYears={resultWindowYears}
+        productLabel={productLabel}
+        customerName={customerName}
+        fileCount={fileCount}
+        memo={visibleMemo}
+        memoLabel={copy.memoLabel}
+      >
+        {body}
+      </DisclosureMobileShell>
+    );
+  }
+
+  return <div>{body}</div>;
 }
 
 function DisclaimerBox() {
@@ -1457,6 +1499,8 @@ export function ResultView({
               resultWindowYears={resultWindowYears}
               onResultWindowYearsChange={setResultWindowYears}
               unassignedSurgeries={result.unassigned_surgeries || []}
+              // BOHUMFIT-267 P1: 모바일 헤더 요약에만 쓰인다(데스크톱 렌더에는 영향 없음).
+              customerName={result.customer_name || undefined}
             />
           )}
         </div>

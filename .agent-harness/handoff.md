@@ -1,8 +1,82 @@
-## 2026-08-01 BOHUMFIT-266 - 보장분석 모바일: 3단 점진 공개 + 스와이프 해지
+## 2026-08-01 BOHUMFIT-267 - 고지 결과 모바일 + 266 잔여 표 가독성
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(2차 검증·커밋)
-Commit: **미커밋·미푸시**(git 쓰기 0). 기준 HEAD `c24bfa781e84a6f8ef392e0c122b2392e8eb9b36`(265).
+Commit: **미커밋·미푸시**(git 쓰기 0). 기준 HEAD `9eef3cf3e67c2064181fc329bcab4573d79b5545`(266).
+상세는 tasks/BOHUMFIT-267-disclosure-mobile.md.
+
+### STEP 0 실측 — ★전제 반전 2건
+1. **배지 4단 매핑은 오표기를 만든다.** 실제 판정은 **Q1~Q5 5종**(Q1 3개월 / Q2 1년·간편 10년 / Q3 5년 /
+   Q4 5년 초과 10년 / Q5 5년 중대질병 — `Disclosure.tsx:410~412` 실측)인데 265 `DisclosureBadge`는 4단이고,
+   시안 원본은 그마저 "고지대상 · 5년"이라 265 Human 확정(10년)과도 다르다. 5종을 4단에 접으면 일부 판정이
+   **다른 기간으로 표기**된다 — 고지 판정은 이 서비스의 핵심 산출물이라 임의 매핑은 실무 리스크다.
+   → **모바일도 현행 Q 판정·기간 라벨을 그대로 쓴다**(오표기 0). 265 토큰의 시각 스타일만 차용하고
+   `DisclosureBadge` 4단 컴포넌트는 이번에 쓰지 않았다. **통합 여부는 Human 결정**(아래).
+2. **질병 카드를 새로 그리면 251 정보가 샌다.** `DiseaseCard`에 251 수술 건별 전개·동일일자 복수코드·
+   미특정 블록이 들어 있어 재작성은 누락 위험이 실재한다.
+   → **기존 `DiseaseCard`를 children으로 그대로 통과**시키고, 새로 만든 것은 **껍데기**(헤더 요약·문안 시트·
+   하단 액션)뿐이다. 정보 동등성이 "테스트로 확인"이 아니라 **구조적으로 보장**된다.
+
+### 구현
+- **P1** `DisclosureMobileShell` — ①헤더 요약(총 건수·**Q별 집계**·기준일·조회기간·고객명/서류 건수 optional,
+  집계는 섹션 렌더와 **같은 기간 필터** 사용) ②질병 카드 그대로 ③카톡 문안 **265 BottomSheet**(문자열 그대로 ·
+  복사 시 `showUndoToast` scope `copy-done` · 되돌리기는 이전 클립보드 복원) ④**PrimaryAction 56px 하단 고정**.
+- **P2** `CoverageInsightMobile` — 종합비교(560px 표)를 **항목 리스트**로, Y/N(420px 표)을 **배지 리스트**로.
+  `CoverageInsightBlocks`에서 `useIsMobile` 분기 — 같은 `STAGE_ROWS`·같은 배열을 넘겨 값·순서가 갈라질 수 없다.
+- 266과 같은 방식(CSS 숨김 아님 · matchMedia 부재 시 데스크톱 폴백). diff는 분기 래핑뿐이다.
+
+### 검증(1차 · Windows 로컬)
+- ★**데스크톱 회귀 0을 HEAD 사본 대비 실렌더 4건으로 증명**: `Disclosure` 결과 화면(업로드→분석→문안·카드) ·
+  `CoverageRemodel` 결과 화면 · `StageComparisonTable` · `YnFlagTable` — **전부 `innerHTML`·노드 수 완전 일치**.
+  빈 화면 오통과 방지 마커 병행. 사본·일회성 스크립트는 **삭제**(잔재 0).
+- ★**카톡 문안 문자열 동등성**(`toBe`) · **251 수술 상세 무손상** · P2 리스트 값·순서·증감 산식 일치 ·
+  모바일 경로 `table`·`overflow-x`·`min-w-[` **0건** · 폰트 **15px 이상**.
+- `npm test` **203 passed / 26 files**(190 + 13) · tsc app/node · lint · backend **792/8**(★`backend/` diff 0) ·
+  라우트 **18/18** · `smoke:coverage` PASS · `build:verify` **343,225 B**(264~266 동일 수치 예상 FAIL) · PII 0.
+- 자체 정정 1건: 265 "5년 잔재 0" 가드가 **내가 새로 쓴 주석**을 잡아 1건 실패 → 기간 숫자 예시를 빼고
+  질문별 기간 정본(`windowLabels`)을 가리키도록 수정(가드는 의도대로 동작한 것).
+
+### Codex 2차 검증 — PASS (2026-08-01 · 커밋 직전)
+- **Windows 전체 게이트**: backend **792 passed, 8 skipped** · frontend **203 passed / 26 files** ·
+  tsc app/node · lint · 라우트 **18/18** · `smoke:coverage` 정본 2건 PASS. 251 문안 골든은 서버
+  pytest **14/14**·프런트 vitest **14/14**로 4경로 문자 단위 동등성을 재현했다.
+- **데스크톱 HEAD 완전 동등성**: 별도 worktree의 `9eef3cf`와 동일 픽스처를 렌더했다. Disclosure
+  `86d0266b…b560`/**99 nodes**, CoverageRemodel `3bfdf964…a44f`/**442**, StageComparisonTable
+  `ec137641…5c70`/**58**, YnFlagTable `a3a8b8cc…5574`/**24**로 `innerHTML` 해시·노드 수가 양쪽 모두
+  완전 일치했다. 실제 마커를 함께 단언했고 임시 테스트·worktree는 삭제했다.
+- **문안·251 무손상**: 모바일은 기존 `visibleMemo`와 `DiseaseCard`를 그대로 전달하며, 문안 생성부·251 공유
+  골든·`disclosureWindow` diff 0. 새 시트에서도 `[고지 문안]\nL050…\nL0292…` 문자열을 그대로 확인했다.
+- **375/390/430px 실제 CSS 실렌더**: 세 폭 모두 문서 overflow **0**, 신규 모바일 글자 하한 **15px**,
+  상세 조작 **44px**, 주 액션 **56px**, 종합비교/Y/N `table`·고정폭·가로 스크롤 0. 문안 시트도 overflow 0,
+  핸들은 시각 4px + `::before` 실제 히트영역 **44×44px**임을 측정했다. 일회성 하네스는 삭제했다.
+- `npm run build` 성공(**343,225 B**) 후 `build:verify`가 알려진 껍데기를 계약대로 exit 1로 거부했다.
+  최종 범위는 선언 8파일뿐이며 backend/pipeline/coverage/public/SW/package/lock/supabase·PII·구브랜드 diff 0,
+  `git diff --check` clean. 코드 보정 없이 PASS했다.
+
+### ★Human 결정 필요 2건
+1. **고지 배지 체계** — 265 4단 vs 현행 Q1~Q5 5종. 4단으로 통합하면 일부 질문의 기간이 사라지거나 달라진다.
+   통합 여부·매핑 규칙은 **판정 정책**이라 Human 확정이 필요하다(이번에는 현행 유지).
+2. **`DiseaseCard` 폰트 하한** — 263이 지적한 소형 폰트 70건이 이 카드에 몰려 있다(11~13px). 265 하한(15px)에
+   맞추려면 **데스크톱 표시도 함께 바뀌므로** 제1원칙과 충돌한다 → 별도 태스크 필요.
+
+### Human 실기기 확인 잔여
+- 바텀시트 조작감·하단 고정 액션이 실제 고객 데이터의 마지막 카드를 가리지 않는지.
+
+### Next
+1. **Codex** — 2차 검증(★데스크톱 회귀 0 재현 · 문안 동등성 · **375~430px 실렌더** · 배포 스모크) → 커밋·push.
+2. **Human** — 폰에서 고지 결과 실사용(카드 탐색·카톡 문안 복사) + 위 결정 2건.
+3. **Chat** — 268(업로드·분석 진행) → 269(홈·네비) 발번.
+
+## 2026-08-01 BOHUMFIT-266 - 보장분석 모바일: 3단 점진 공개 + 스와이프 해지
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human**(폰 실사용) / Chat(267 발번)
+Commit: `9eef3cf3e67c2064181fc329bcab4573d79b5545` — `origin/main` push 완료, ahead/behind **0/0**. 이 publish 사후 기록은 다음 하네스 커밋에 편승.
 상세는 tasks/BOHUMFIT-266-coverage-mobile.md.
+
+### Publish·배포 스모크 (2026-08-01 20:34 KST)
+- Vercel production이 정확히 커밋 `9eef3cf3e67c2064181fc329bcab4573d79b5545`으로 **READY**임을 배포 메타데이터에서 확인했다. `https://bohumfit.ai/login` **200**(1,805 B), 프로덕션 콘솔 error **0**.
+- Railway `https://bohumfit.up.railway.app/api/health`는 배포 대기 중 첫 요청 1회 **502** 후 재시도에서 **200**·`{"status":"ok"}`로 회복했다. backend diff 0이며 최종 표준 스모크는 200으로 마감했다.
+- 프로덕션 `/coverage-compare`는 비로그인 세션을 정상적으로 `/login`으로 보냈고, 공개 로그인 화면은 **375/390/430px 모두 가로 넘침 0**이었다. 인증된 보장분석 결과 화면은 로그인·고객 분석 상태 없이 진입할 수 없어, 위 일회성 로컬 컴포넌트 실렌더로 266 화면 자체를 측정하고 실제 프로덕션 결과 화면은 Human 폰 검수로 이관했다.
+- **Next**: ① Human — 폰에서 보장분석 3단 탐색·스와이프 해지·6초 되돌리기 실사용 ② Chat — 267(고지 결과 모바일) 발번, 266 잔여 종합비교 560px·Y/N 420px·12px 폰트 보정 포함.
 
 ### Codex 2차 검증 — PASS (2026-08-01 · 커밋 직전)
 - **Windows 전체 게이트**: backend **792 passed, 8 skipped** · frontend **190 passed / 25 files** · 266 표적 **29/29** · tsc app/node · lint · 라우트 **18/18** · `smoke:coverage` 정본 2건 PASS. `npm run build` 성공(**343,225 B**), `build:verify`는 248 계약대로 필수 문자열 누락 껍데기를 검출해 예상 FAIL.

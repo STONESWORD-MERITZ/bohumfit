@@ -3,6 +3,10 @@
 // 이 파일은 표시 전용이다(FIT 브랜드 토큰만 사용).
 import { type YnFlag } from "../lib/coverageAfterDisplayCache";
 import { formatCoverageAmount, formatCoverageDeltaAmount } from "../lib/coverageFormat";
+// BOHUMFIT-267 P2: 모바일에서는 고정폭 표 대신 리스트로 편다(가로 스크롤 0·15px 하한).
+//   ★데스크톱 경로는 건드리지 않고 분기만 추가한다(266과 같은 방식 — CSS 숨김이 아니라 JS 판정).
+import { useIsMobile } from "./mobile/useIsMobile";
+import { StageComparisonMobile, YnFlagMobile } from "./mobile/CoverageInsightMobile";
 
 // 시트3 종합비교 표시 라벨(암/뇌 초·중·말/심장 초·중·말 — H10 심장중기 정정 반영).
 const STAGE_ROWS: { key: string; label: string; section: string }[] = [
@@ -22,6 +26,10 @@ export function StageComparisonTable({
   before: Record<string, number>;
   after: Record<string, number> | null;
 }) {
+  // BOHUMFIT-267 P2: 같은 STAGE_ROWS를 넘겨 라벨·순서·값이 데스크톱 표와 어긋날 수 없게 한다.
+  const isMobile = useIsMobile();
+  if (isMobile) return <StageComparisonMobile rows={STAGE_ROWS} before={before} after={after} />;
+
   return (
     <div className="overflow-x-auto" data-testid="stage-comparison">
       <table className="w-full min-w-[560px] table-fixed text-[12px]">
@@ -78,6 +86,10 @@ export function StageComparisonTable({
 
 export function YnFlagTable({ before, after }: { before: YnFlag[]; after: YnFlag[] | null }) {
   const afterByItem = new Map((after || []).map((flag) => [flag.item, flag.value]));
+  // BOHUMFIT-267 P2 — 모바일은 배지 리스트(같은 before/after 배열을 그대로 넘긴다).
+  const isMobile = useIsMobile();
+  if (isMobile) return <YnFlagMobile before={before} after={after} />;
+
   return (
     <div className="overflow-x-auto" data-testid="yn-flags">
       <table className="w-full min-w-[420px] table-fixed text-[12px]">
