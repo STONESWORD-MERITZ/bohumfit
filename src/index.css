@@ -96,6 +96,37 @@
   --radius-btn: 0.625rem;
   --shadow-hover: 0 2px 8px rgba(26, 26, 30, 0.06);
   --shadow-overlay: 0 12px 32px rgba(26, 26, 30, 0.12);
+
+  /* ══ BOHUMFIT-265 모바일 스케일(시안 실측) — ★additive. 기존 토큰 값은 하나도 바꾸지 않는다.
+     사용은 266~ 화면 개편에서 시작하며, 265에서는 공통 컴포넌트만 이 토큰을 참조한다. ══ */
+
+  /* 타이포 3단 — 화면 제목 / 본문(고객 가독 최소) / 보조(하한선).
+     ★본문 하한 16px·보조 하한 15px: 40~50대 고객이 실제로 읽는 화면이라 15px 미만 회색 본문 금지
+     (가드 테스트 `mobileTokens.test.ts`가 위반을 막는다). */
+  --text-m-title: 1.25rem;            /* 20px — 화면 제목 */
+  --text-m-title--line-height: 1.35;
+  --text-m-title--font-weight: 700;
+  --text-m-title--letter-spacing: -0.02em;
+  --text-m-body: 1rem;                /* 16px — 본문(고객 가독 최소) */
+  --text-m-body--line-height: 1.65;
+  --text-m-sub: 0.9375rem;            /* 15px — 보조(★하한선) */
+  --text-m-sub--line-height: 1.55;
+
+  /* 터치 — 주요 액션 56 / 탭 영역 44(시각 크기와 무관하게 히트 영역 기준). */
+  --size-m-action: 3.5rem;            /* 56px */
+  --size-m-tap: 2.75rem;              /* 44px */
+
+  /* 간격·반경 — 화면 좌우 20 / 카드 20 · 버튼 15 · 배지 8. */
+  --spacing-m-gutter: 1.25rem;        /* 20px */
+  --radius-m-card: 1.25rem;           /* 20px */
+  --radius-m-btn: 0.9375rem;          /* 15px */
+  --radius-m-badge: 0.5rem;           /* 8px */
+
+  /* 상태 면(신설) — ★면 전용. 경고/검토는 배지·행 배경으로만 쓰고 글자색으로 쓰지 않는다.
+     글자는 기존 warning-700 / ink 계열을 그대로 사용(대비 확보). */
+  --color-surface-warning: #FBF4E4;   /* 경고 면 — 고지대상 */
+  --color-surface-review: #EEF2F7;    /* 검토 면 — 재검사·확인 필요(무채색 계열) */
+  --color-surface-muted: #F4F4F1;     /* 해당없음 면 */
 }
 
 html, body {
@@ -314,4 +345,39 @@ textarea {
   padding: 14px 16px;
   border-radius: 14px;
   resize: vertical;
+}
+
+/* ══ BOHUMFIT-265 모바일 공통 기반 — ★신설 클래스만(기존 규칙 무변경).
+   장식 그라디언트 금지: 배경은 단색 면 + 헤어라인 보더로만 구분한다. ══ */
+
+/* 탭 영역 44px 보장 — 시각 크기는 그대로 두고 히트 영역만 넓힌다(레이아웃 밀림 0). */
+.m-tap {
+  position: relative;
+}
+.m-tap::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  min-width: var(--size-m-tap);
+  min-height: var(--size-m-tap);
+  transform: translate(-50%, -50%);
+}
+
+/* 바텀시트 — 하단 안전영역까지 배경을 연장한다(홈 인디케이터 가림 방지). */
+.m-sheet {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--spacing-m-gutter));
+}
+/* 하단 고정 주 액션 — 엄지 도달 영역. 배경은 단색 + 상단 헤어라인. */
+.m-action-bar {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .m-sheet,
+  .m-swipe-card {
+    transition: none !important;
+  }
 }

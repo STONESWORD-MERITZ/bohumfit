@@ -2,7 +2,19 @@
 import { useEffect, useState } from "react";
 
 export type ToastType = "success" | "error" | "warning" | "info";
-export type ToastData = { id: number; type: ToastType; message: string };
+/**
+ * BOHUMFIT-265: 되돌리기 액션·지속시간 additive.
+ *  ★기본값은 기존과 동일(3초·액션 없음) — 기존 호출부 동작 불변.
+ *  ★되돌리기 토스트(6초)는 해지 확정·복사 완료·분석 완료 3곳에서만 쓴다(남용 금지 — tokens.ts 참조).
+ */
+export type ToastAction = { label: string; onAct: () => void };
+export type ToastData = {
+  id: number;
+  type: ToastType;
+  message: string;
+  durationMs?: number;
+  action?: ToastAction;
+};
 
 const STYLE: Record<ToastType, { bar: string; icon: string; tone: string }> = {
   success: { bar: "border-l-emerald-500", icon: "✓", tone: "text-emerald-600" },
@@ -21,13 +33,15 @@ export function ToastItem({
   const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
-    const fadeAt = window.setTimeout(() => setLeaving(true), 2700);
-    const closeAt = window.setTimeout(() => onClose(toast.id), 3000);
+    // BOHUMFIT-265: 지속시간은 토스트별로 지정 가능(미지정 = 기존 3초 그대로).
+    const total = toast.durationMs ?? 3000;
+    const fadeAt = window.setTimeout(() => setLeaving(true), Math.max(0, total - 300));
+    const closeAt = window.setTimeout(() => onClose(toast.id), total);
     return () => {
       window.clearTimeout(fadeAt);
       window.clearTimeout(closeAt);
     };
-  }, [toast.id, onClose]);
+  }, [toast.id, toast.durationMs, onClose]);
 
   const s = STYLE[toast.type];
   // BOHUMFIT-137: 오류·경고는 role="alert"(스크린리더 즉시), 그 외 정보성은 status.
@@ -46,6 +60,19 @@ export function ToastItem({
         {s.icon}
       </span>
       <p className="flex-1 text-[13px] font-medium leading-5 text-gray-800">{toast.message}</p>
+      {/* BOHUMFIT-265: 되돌리기 — 누르면 즉시 실행하고 토스트를 닫는다. */}
+      {toast.action && (
+        <button
+          type="button"
+          onClick={() => {
+            toast.action?.onAct();
+            onClose(toast.id);
+          }}
+          className="m-tap shrink-0 px-2 text-[13px] font-bold text-accent-600 underline"
+        >
+          {toast.action.label}
+        </button>
+      )}
       <button
         type="button"
         onClick={() => onClose(toast.id)}

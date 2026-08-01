@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.tsx";
 import InstallPrompt from "./components/InstallPrompt";
+import UpdatePrompt from "./components/mobile/UpdatePrompt";
 import { AuthProvider } from "./lib/AuthContext";
 import { registerServiceWorker } from "./lib/pwa";
 
@@ -35,6 +36,11 @@ createRoot(document.getElementById("root")!).render(
       <App />
       {/* 264: 설치 안내 배너 — 설치됨·최근 닫음이면 스스로 렌더하지 않는다(기존 화면 무간섭). */}
       <InstallPrompt />
+      {/* 265: 새 버전 안내 — 대기 중인 서비스워커가 없으면 렌더하지 않는다(기존 화면 무간섭·fixed 배치).
+          ★자동 새로고침 금지: 사용자가 "새로고침"을 눌러야 SKIP_WAITING을 보내고, 제어권이 넘어온 뒤 1회만 리로드한다.
+          264가 install 단계의 자동 skipWaiting()을 제거했기 때문에 이 배선이 없으면
+          새 버전이 "모든 탭을 닫기 전까지" 적용되지 않는다(Human 승인으로 265에 포함). */}
+      <UpdatePrompt />
     </AuthProvider>
   </StrictMode>,
 );

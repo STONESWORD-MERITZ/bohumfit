@@ -1,7 +1,133 @@
+## 2026-07-31 BOHUMFIT-265 - 모바일 디자인 토큰 + 공통 컴포넌트 + 오프라인 캐시(A안)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(반려 3건 해소 재검증·커밋)
+Commit: Codex 재검증 **PASS**, 커밋·push 직전. 직전 HEAD `901cd071e4d5ad3ec8cd7e64f2b0ca667e1d6446`(264). 상세는 tasks/BOHUMFIT-265-mobile-tokens-and-shared.md.
+
+### Codex 반려 보정 재검증 — PASS (2026-08-01)
+- **반려 1 해소**: `onAuthStateChange` 한 곳의 사용자 id 전이 판정으로 수동·30분 무활동·PhoneVerify·ResetPassword 직접 호출·세션 만료/갱신 실패·다른 탭 로그아웃을 포섭한다. 같은 id 토큰 갱신은 미삭제, 계정 전환은 삭제, 비로그인 초기 진입은 저장소 미접근. 표적 **7/7**과 구조 가드 통과. 카카오는 외부 이탈 직전 flush만 두며 `clear()` 멱등 구조를 확인했다.
+- **반려 2 해소**: ConsentGate Human 확정 문구가 업로드 원본 미저장·요청 히스토리 90일·자동 요약 7일·기기 최근 5건/24시간의 3층 정책을 모두 고지한다. PrivacyPolicy 3·4항 근거와 상호 모순 0, 문구의 5건/24시간은 `MAX_ENTRIES`·`TTL_MS` 구현 상수 가드와 일치한다.
+- **반려 3 해소**: `src/components/mobile` 제품 코드·주석의 `5년` **0건**. 남은 항목은 알릴의무 질문 기간·심평원/공단 자료 범위라는 별개 도메인임을 태스크에 기록했고, 모바일 전 파일 주석 포함 가드가 통과했다.
+- **Windows 전체 게이트**: backend **792 passed, 8 skipped** · frontend **161 passed / 23 files** · tsc app/node · lint · 라우트 **18/18** · Disclosure/CoverageRemodel/PrivacyPolicy 배선 회귀 **9건 포함 27/27** · `smoke:coverage` 정본 2건 PASS. `npm run build` 성공, **343,225 B**; `build:verify`는 248 계약대로 동일 껍데기를 검출해 예상 FAIL.
+- **범위·보호**: P1/P2/P3 표적 계약 통과, PrivacyPolicy +2/-0과 기존 조항 보존. backend·pipeline·coverage·supabase·`public/sw.js`·vite config·package/lock·App diff 0, SW 원본/HEAD 해시 동일, SURIT/구브랜드 추가 0, PII/secret 0, `git diff --check` clean.
+- **배포 이관**: 이번 diff는 `public/sw.js` 변경 0이라 waiting worker가 생성되지 않는다. 업데이트 안내 실동작은 다음 SW 변경 배포 때 확인하며, 이번 publish 후에는 Railway health와 Vercel `/login`만 표준 확인한다.
+
+### Codex 반려 3건 보정 완료 (2026-08-01 · Claude Code)
+- **보정 1(★최우선) — 로그아웃 경로 전수 + 단일 삭제 지점**. `supabase.auth.signOut` 호출부와 세션 소멸 경로를
+  전수 실측해 **5경로**를 확정했다: ①명시적 로그아웃 ②**30분 무활동 자동 종료**(반려 1) ③`PhoneVerify`(①에 위임)
+  ③'**`ResetPassword.tsx:75` supabase 직접 호출** — ★**Codex 지적에 없던 4번째 누락으로 이번 실측에서 발견**
+  ④세션 만료·토큰 갱신 실패 ⑤다른 탭 로그아웃. 보정 전에는 ①③만 삭제됐다.
+  → 삭제를 호출부에 복제하지 않고 **`onAuthStateChange` 구독 한 곳**으로 모았다(249·251 단일 소스 선례).
+  판정은 이벤트 이름이 아니라 **사용자 id 전이**(`lastUserIdRef`) — id가 사라지거나 바뀌면 삭제, `TOKEN_REFRESHED`처럼
+  같은 사용자가 유지되면 삭제하지 않는다(SDK 이벤트명 변화에 영향받지 않게). ②③'는 호출부 무수정으로 해소됐고
+  **새 로그아웃 경로가 생겨도 자동 포섭**된다. ★예외 1곳: 카카오 로그아웃은 즉시 외부 이동이라 구독의 비동기 삭제가
+  끊길 수 있어 `window.location.href` **직전에만** flush(정책 아님·멱등).
+- **보정 2 — ConsentGate 문구(Human 확정본)**: "자료 **원본**은 분석 후 저장하지 않음 / 분석 결과는 히스토리 요청 시
+  **90일**·요약 기록 **7일** 서버 보관 / 오프라인 열람용 최근 5건 **기기 24시간**(로그아웃 시 즉시 삭제)".
+  반려 사유였던 자기모순(동의 화면의 "분석 결과 서버 저장 0" 단언 ↔ 방침 40·50행 90일 / 41·51행 7일)이 해소됐고
+  **3층 구조를 그대로 노출**한다. 15px 하한 유지, `PrivacyPolicy` 4항 문단은 현행 유지(이미 정합).
+- **보정 3 — "5년" 잔재**: `DisclosureBadge.tsx:1`·`tokens.ts:46` 주석 2건을 "장기 고지 배지는 **10년** 기준으로
+  Human 확정(초기 검토안에서 상향)"으로 정정(이력 의미 보존·숫자 표기 제거). ★**제외 근거**: `Disclosure.tsx`(Q3
+  "5년 이내"·Q4 "5년 초과 10년")·`ReportSample`·`whyContent`·`DownloadGuide`(심평원 5년/공단 10년)·`backend/`는
+  **알릴의무 질문 기간·자료 제공 범위**라는 별개 도메인이라 그대로 둔다. 가드를 `src/components/mobile` 전 파일
+  **주석까지** 스캔하도록 강화했다.
+- **보정 검증**: ★로그아웃 3경로 실동작 테스트(`authCacheClear.test.tsx` 7건 — 수동/**무활동 자동**/세션 만료·갱신 실패/
+  비밀번호 변경 후 종료에서 전량 삭제 확인, 토큰 갱신은 미삭제, **계정 전환은 삭제**, 비로그인은 저장소 미접근) ·
+  구조 가드(삭제가 구독에만 존재·무활동 타이머에 복제 0·flush는 리다이렉트 직전) · ★고지 3층 정합(90일·7일·24h)
+  동의화면↔방침 상호 검사 + 수치가 `MAX_ENTRIES`·`TTL_MS` 구현 상수와 일치 ·
+  `npm test` **161**(149+12) · tsc app/node · lint · backend **792/8**(`backend/` diff 0) · 라우트 **18/18** ·
+  Disclosure·CoverageRemodel 렌더 회귀 0 · `smoke:coverage` PASS · "5년" 제품 코드 **0건** ·
+  `build:verify` **343,225 B** 동일 수치 예상 FAIL · PII 0.
+  정정 1건: 새 모순 가드가 변경 사유 주석까지 잡아 오탐 → **렌더 문구만** 검사하도록 주석 제거 후 비교.
+
+### Codex 2차 판정 — RETURNED (2026-07-31 · 커밋 0)
+- **통과 게이트**: backend **792 passed, 8 skipped** · frontend **149 passed / 22 files** · tsc app/node · lint · 라우트 **18/18** · `smoke:coverage` 정본 2건 PASS. `npm run build`는 **343,225 B**, `build:verify`는 248 계약대로 껍데기를 검출해 예상 FAIL. backend·`public/sw.js`·`vite.config.ts`·package/lock diff 0, SW 원본/HEAD 해시 동일.
+- **반려 1 — 로그아웃 삭제 우회**: 명시적 `AuthContext.signOut()`은 캐시를 먼저 지우지만, 30분 무활동 종료 경로(`AuthContext.tsx:41`)는 `supabase.auth.signOut()`을 직접 호출해 `clearAnalysisCache()`를 거치지 않는다. 따라서 "로그아웃 시 즉시/전량 삭제" 계약과 PrivacyPolicy 신규 고지가 실제로 성립하지 않는다. 모든 로그아웃 경로를 단일 삭제 경로로 모으고 무활동 로그아웃 회귀를 추가해야 한다.
+- **반려 2 — 고지 자기모순**: `ConsentGate`는 "업로드 자료와 분석 결과는 서버에 저장하지 않는다"고 단언하고 주석도 서버 저장 0이라고 쓰지만, 같은 개인정보처리방침은 사용자 요청 히스토리의 분석 결과를 **90일**(`PrivacyPolicy.tsx:40,50`), 자동 결과 요약을 **7일**(`:41,51`) 서버 DB에 저장한다고 명시한다. `PrivacyPolicy` 추가 문단은 이 모순을 피해 작성됐으나 ConsentGate는 피하지 못했다. 데이터·약관 문구 결정이므로 Codex가 임의 수정하지 않고 Human 확정 후 정합화가 필요하다.
+- **추가 게이트 편차**: 런타임 라벨은 10년이지만 `src/components/mobile/DisclosureBadge.tsx:1`, `tokens.ts:46` 주석에 **"5년" 2건**이 남아 있어 패킷의 broad grep 0 조건은 미충족이다. 한 줄급 정리 대상이다.
+- **배포 검증 보류**: 커밋·push가 없으므로 Railway/Vercel 및 프로덕션 SW 업데이트 안내 확인은 실행하지 않았다. 또한 이번 diff는 `public/sw.js`가 완전 동일하므로 앱 번들만 배포해서는 새 waiting worker가 생기지 않는다. 실제 안내 실증은 다음 SW 스크립트 변경 배포 또는 명시적 SW 버전 갱신 시 수행해야 한다.
+- **재검증 조건**: 위 두 개인정보 결함과 5년 주석을 보정하고, 무활동 로그아웃 삭제 테스트를 추가한 뒤 동일 전체 게이트로 재요청. 기존 265·264 이하 handoff 엔트리는 온전하며 stage/commit/push 0.
+
+### 구현·1차 검증 완료 (Claude Code)
+- **P1 토큰(additive)**: `src/index.css @theme`에 모바일 스케일 신설 — 타이포 3단(제목 20 / 본문 16 / 보조 15),
+  터치(액션 56 · 탭 44 + `.m-tap::before` 히트 확장), 간격 20, 반경 20/15/8, 상태 면 3종(경고·검토·중립).
+  ★기존 값(accent-600 #084734 · 라임 #CEF17B · 그린티 #CDEDB3 · 타이포 4단 · radius-card/btn)은 **하나도 바꾸지 않았다**.
+  TS 정본 `src/components/mobile/tokens.ts` + 가드 테스트로 **15px 미만 회색 본문 금지 · 면 전용 색 폰트/보더 금지 ·
+  장식 그라디언트 금지**를 고정(모바일 컴포넌트 전체 스캔).
+- **P2 공통 컴포넌트(정의만 · 화면 적용 0)**: `BottomSheet`(배경 탭·핸들·Esc·안전영역·맥락 유지),
+  `PrimaryAction`(56px 하단 고정·진행 중 라벨 교체·★전체 화면 스피너 없음), `DisclosureBadge` 4단(★10년 확정 반영),
+  `SwipeActionCard`(좌 해지·우 복원·★임계 72px 미만 무효·해지 시 회색 면+취소선),
+  `UpdatePrompt`(264 훅 사용 · ★자동 새로고침 금지 — 사용자가 누를 때만 SKIP_WAITING → controllerchange 1회 리로드).
+  Toast는 **확장만**: `showUndoToast`(6초·되돌리기) 추가, 기존 `showToast`(3초) 시그니처·동작 불변.
+  ★남용 금지: 되돌리기 토스트 허용 범위를 해지 확정·복사 완료·분석 완료 3곳으로 상수화.
+- **P3 오프라인 캐시(A안)**: `src/lib/analysisCache.ts` — **IndexedDB 별도 스토어**를 선택했다.
+  근거: localStorage는 용량·동기 blocking, Cache Storage는 264 `bohumfit-shell-*` 정리 규칙과 얽힌다.
+  ★**SW 무접촉** — `isCacheableRequest()` diff 0으로 PII 캐시 금지 계약을 그대로 두고, 분석 결과는 앱이 직접 넣는다.
+  최근 **5건** · **24h 만료**(경계: 정확히 24h면 만료) · 읽을 때 만료분 즉시 삭제 ·
+  **로그아웃 시 `supabase.auth.signOut()` 이전에 전량 삭제** · **비로그인 조회 차단**(저장소를 열지 않음).
+- **고지 문구 정합**: `ConsentGate` — "업로드 자료와 분석 결과는 저장하지 않으며" →
+  "**서버에** 저장하지 않으며, 오프라인 열람을 위해 **이 기기에 24시간 임시 보관**되고 **로그아웃 시 삭제**"(11px → 15px).
+
+### 검증(1차 · Windows 로컬 직접 실행)
+- backend `pytest -q` **792 passed, 8 skipped**(기준선 불변 · backend diff 0)
+- frontend `npm test` **140 passed**(기준선 109 + 신규 31 · 라우트 스모크 18 포함 21파일 green)
+- `tsc app/node` clean · `npm run lint` clean · `npm run build` 성공(343.22 kB — 248 기록대로 로컬 껍데기,
+  `build:verify`는 예상 FAIL) · `npm run smoke:coverage` **PASS**(표준·overview 2건 기준값 일치)
+- PII 0 · 실 PDF/xlsx 미접촉 · **시안 HTML 레포 이동 0**(Desktop 유일본 보존 — 264 사례 준수)
+
+### ★Human 보고 — 약관·개인정보처리방침 검토 지점(수정 0 · 목록만)
+1. `src/pages/PrivacyPolicy.tsx:39` "서비스 데이터베이스에 저장하지 않습니다" — 서버 저장 0은 여전히 사실이나
+   **"기기 24시간 임시 보관"이 방침 본문에 없음** → 문장 추가 검토 필요(★본 태스크 범위 밖).
+2. `src/pages/InsuranceCalculator.tsx:268`(업로드 PDF) · 3. `Disclosure.tsx:1046`·`InsuranceCalculator.tsx:346`(입력값)
+   — 캐시 대상이 아니라 **현행 유지 가능**.
+4. `backend/pipeline/report_pdf.py:105`(산출 PDF 하단 고지) — 백엔드 무접촉 계약상 미수정, 방침 확정 후 일괄.
+
+### 테스트 자체 결함 2건 정정(작성 후 실측에서 발견 · 제품 코드 변경 0)
+- `analysisCache.test.ts` 로그아웃 배선 검사 — signOut 본문 슬라이스 경계를 `"return ("`로 잡았더니
+  **앞선 `useEffect`의 `return () =>`에 먼저 매칭돼 슬라이스가 빈 문자열**이 됐다(검사가 무력화된 상태로 통과할 뻔).
+  경계를 `"\n  };"`로 고치고 **`clearAnalysisCache()`가 `supabase.auth.signOut()`보다 앞**인지도 함께 단언.
+- 같은 파일 SW 가드 검사 — sw.js 차단 목록은 **정규식 리터럴(`/\/api\//i`)이라 `/api/` 문자열이 없다**.
+  `\/`→`/` 복원 후 비교하도록 정정 + `function isCacheableRequest` 존재 단언 추가.
+
+### 마무리 2건 — Human 승인 후 반영 (추가분)
+- **UpdatePrompt 배선**: `src/main.tsx`에 264 `InstallPrompt`와 동일 패턴으로 배선(`AuthProvider` 안 · `<App/>` **형제** ·
+  `fixed`). diff는 **import 1줄 + 배선 1줄 + 주석 4줄, 삭제 0**이고 화면 컴포넌트는 무접촉이다.
+  대기 중인 새 버전이 없으면 `null` 렌더라 평상시 DOM 추가가 **0**이며, 자동 새로고침 금지 흐름
+  (클릭 → `SKIP_WAITING` → `controllerchange` 1회 리로드)은 그대로다.
+  ★이 배선으로 264가 자동 `skipWaiting()`을 제거하며 생긴 "모든 탭을 닫기 전엔 새 버전이 적용 안 됨" 상태가 해소됐다.
+- **PrivacyPolicy 1문단 추가**: `4. 개인정보의 보유 및 이용기간`에 "오프라인 열람용 기기 내 임시 보관: 최근 분석 5건 ·
+  24시간 후 자동 삭제 · 로그아웃 시 즉시 삭제 · **서비스 서버로 전송되지 않음**" 한 문단(총 **+2줄·삭제 0**).
+  ★**패킷 제시 문안의 첫 문장("분석 결과는 서비스 데이터베이스에 저장하지 않습니다")은 넣지 않았다** —
+  같은 방침 40·41행과 50·51행에 **"이용자가 '히스토리에 저장'을 요청하면 분석 결과를 DB에 90일 보관"**,
+  **"분석 결과 요약을 최근 10건 자동 기록(7일)"** 조항이 이미 있어 그대로 넣으면 방침이 자기모순이 된다.
+  서버 미저장 원칙은 39행에 이미 있으므로 추가 문단은 **이번에 새로 생긴 사실만** 기술했다(취지·범위는 패킷 그대로).
+- **신규 테스트 9건**(`updatePromptWiring.test.tsx`): 배선 위치 · ★배선부 자동 리로드 코드 0 · 264 배너 배선 보존 ·
+  null 렌더 DOM 0 · ★**PrivacyPolicy·Disclosure·CoverageRemodel 3화면의 마크업·노드 수가 배선 전후 완전 동일** ·
+  신규 고지 문장 렌더 · ★기존 조항 5문장 + 조항 번호 3개 보존.
+- 마무리 검증: `npm test` **149**(140+9) · tsc app/node · lint · backend **792/8**(`backend/` diff 0) ·
+  라우트 스모크 **18/18** · `smoke:coverage` PASS · `build:verify` **343,225 B**(264·265 본편과 동일 수치 · 예상 FAIL) ·
+  diff 범위 = 265 기존 + `main.tsx`(+6) + `PrivacyPolicy.tsx`(+2) · PII 0.
+  환경 공백 1건: jsdom에 `scrollIntoView`가 없어 Disclosure 렌더가 죽어 **테스트에서만** 폴리필(제품 코드 변경 0).
+
+### 남은 것 / 주의
+- 오프라인 **열람 화면**(캐시 목록 UI)은 266~ 범위 — 265는 저장·만료·삭제 계약만 세웠다.
+- `saveAnalysis()` **호출부도 아직 없다**(분석 완료 시 적재는 266~) — 265는 저장소 계층만이다.
+- 공통 컴포넌트 5종은 **아직 어떤 화면에도 붙지 않았다**(기존 화면 회귀 0의 근거). 배선된 것은 `UpdatePrompt` 하나뿐이다.
+- `backend/pipeline/report_pdf.py:105` 산출 PDF 고지는 백엔드 무접촉 계약상 **범위 밖** — 후속 태스크 후보로 기록.
+- `TermsOfService.tsx`는 저장 관련 문구 **0건**이라 무접촉(실측).
+
+### Next
+1. **Codex** — 반려 3건 해소 중점 재검증 → 커밋·push. ★확인 포인트: ①**무활동 30분 자동 로그아웃 후 기기 캐시 0**
+   (구독 단일 지점이 실제로 발동하는지 · `ResetPassword` 경로 포함) ②동의 화면↔방침 **90일·7일·24h 3층 정합** ·
+   "5년" 제품 코드 0 ③기존 회귀 0(라우트 18/18 · Disclosure·CoverageRemodel). 배포 후 캐시 24h 만료·비로그인 차단.
+   ※**SW 업데이트 안내 실동작**은 이번 diff에 `public/sw.js` 변경이 없어 waiting worker가 생기지 않는다 —
+   Codex 반려 기록대로 **다음 SW 스크립트 변경 배포 또는 명시적 SW 버전 갱신 시** 확인한다.
+2. **Chat** — 266(보장분석 모바일 3단 점진 공개 + 스와이프 해지 + `saveAnalysis` 호출부 + 오프라인 목록 UI) 발번.
+3. **Human**(후속) — 백엔드 산출 PDF 고지(`report_pdf.py:105`) 문구 정합 시점 결정.
+
 ## 2026-07-31 BOHUMFIT-264 - PWA 셸 (manifest·서비스워커·설치 프롬프트·오프라인 폴백)
 
-Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Codex(264 커밋·push·배포 검증) / Chat(265 발번)
-Commit: 263 문서 `6e87cc5cdecdd44facc03a2c26858c5d89f8d37e` 선행 push 완료. 264는 이 항목을 포함한 기능 커밋(최종 해시는 Codex publish 결과 기준). 상세는 tasks/BOHUMFIT-264-pwa-shell.md.
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: Chat(265 발번) / Human(262 결정·261 실물 검수)
+Commit: 263 문서 `6e87cc5cdecdd44facc03a2c26858c5d89f8d37e` 선행 push · 264 기능 `901cd071e4d5ad3ec8cd7e64f2b0ca667e1d6446` 후행 push. 둘 다 `origin/main`, ahead/behind **0/0**. 이 publish 사후 기록은 다음 하네스 커밋에 편승. 상세는 tasks/BOHUMFIT-264-pwa-shell.md.
 
 ### Codex 2차 판정 — PASS (2026-07-31)
 - **263 선행 publish**: `6e87cc5`를 `origin/main`에 push해 ahead/behind **0/0**을 확인했다. 2026-07-31 18:44:41 KST 기준 Railway `/api/health` **200**·`{"status":"ok"}`, Vercel `/login` **200**.
@@ -10,6 +136,13 @@ Commit: 263 문서 `6e87cc5cdecdd44facc03a2c26858c5d89f8d37e` 선행 push 완료
 - **Codex 최소 보정 3건**: ①실렌더에서 안내 본문이 기록과 달리 15px임을 발견해 `offline.html`의 `p`를 **16px**로 한 줄 정정했다. 재계측 결과 375px 가로 넘침 0·버튼 48px·본문 16px·theme `#084734`·콘솔 error 0. ②activate가 같은 출처의 모든 캐시를 지우던 한 줄을 `bohumfit-shell-*` 구버전만 삭제하도록 좁혀 265 분석 캐시와 타 캐시를 보호했다. ③install 단계의 자동 `skipWaiting()`을 제거해 최초 설치는 정상 활성화하고, 업데이트는 265 안내 UI의 `SKIP_WAITING` 동의 메시지를 기다리게 했다.
 - **manifest·설치 배너**: id/scope/lang/dir/orientation/categories, any/maskable 192·512 분리, theme `#084734`를 확인했다. 설치됨·30일 dismiss면 미렌더, iOS 대체 문구, PROD 한정 SW 등록이며 기존 레이아웃·라우팅·화면 컴포넌트 diff는 0이다.
 - **빌드·범위**: `npm run build` 통과, `dist/sw.js`·`offline.html`·`site.webmanifest`는 public 원본과 해시 동일. `build:verify`는 기존 Application Control 껍데기 343,225 B·필수 문자열 누락으로 **예상 FAIL**(248 정직 게이트). diff는 선언된 public/src/harness 10파일뿐이고 backend·pipeline·coverage·supabase·vite config·package·실 PDF/xlsx·PII·대용량 루트 HTML diff 0.
+
+### Publish·프로덕션 대체 검증 (2026-07-31 18:54:59 KST)
+- **배포 자산**: `https://bohumfit.ai/site.webmanifest` **200**(898B·id/scope `/`·lang ko·portrait·theme `#084734`·아이콘 4개), `/sw.js` **200**(4,491B·`bohumfit-shell-v1`·셸 캐시 한정 삭제·`SKIP_WAITING` 메시지·install 자동 skip 없음), `/offline.html` **200**(2,453B).
+- **설치 조건 실증**: HTTPS 프로덕션에서 브라우저의 `beforeinstallprompt`를 앱이 실제 수신해 **「보험핏을 홈 화면에 추가」 배너와 설치 버튼이 렌더**됐다(390px·console error 0). 이는 manifest·아이콘·SW를 포함한 브라우저 설치 조건이 충족됐다는 동작 증거다. Lighthouse는 별도 실행하지 않았다.
+- **SW 등록 확인 한계**: 브라우저 안전 실행 컨텍스트가 `navigator.serviceWorker` 등록 객체를 노출하지 않아 active scriptURL/controller 직접 판독은 불가했다. 대신 PROD 등록 코드·SW 200·실제 install event 발생을 교차 확인했다. OS 홈 화면 설치 완료·실기기 standalone 실행은 Human 최종 확인 항목이다.
+- **오프라인 폴백**: 프로덕션 `/offline.html`을 375px로 실렌더해 가로 넘침 0·버튼 48px·본문 16px·theme `#084734`·console error 0을 재현했다. 브라우저 제어 환경에서 네트워크 강제 오프라인 토글은 불가해 실제 fetch 실패→폴백 전환은 로컬 SW 분기/테스트로 대체했으며, 실기기 비행기 모드 확인은 Human에 남긴다.
+- 표준 배포 스모크: Railway `/api/health` **200**·`{"status":"ok"}`, Vercel `/login` **200**.
 
 ### 구현·1차 검증 완료 (2026-07-31 · Claude Code)
 - **시안 확인**: Human 제공 `보험핏 모바일 PWA (오프라인).html`은 6화면 프로토타입(런타임 언팩형 22MB)이라 번들 template에서 문구·색 토큰만 추출. 시안의 **"오프라인 캐시 — 최근 분석 5건 오프라인 열람"**은 패킷 지시대로 **265 A안** 영역이며 264 범위(셸만)와 일치함을 확인.
