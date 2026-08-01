@@ -1,7 +1,75 @@
+## 2026-08-01 BOHUMFIT-266 - 보장분석 모바일: 3단 점진 공개 + 스와이프 해지
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(2차 검증·커밋)
+Commit: **미커밋·미푸시**(git 쓰기 0). 기준 HEAD `c24bfa781e84a6f8ef392e0c122b2392e8eb9b36`(265).
+상세는 tasks/BOHUMFIT-266-coverage-mobile.md.
+
+### Codex 2차 검증 — PASS (2026-08-01 · 커밋 직전)
+- **Windows 전체 게이트**: backend **792 passed, 8 skipped** · frontend **190 passed / 25 files** · 266 표적 **29/29** · tsc app/node · lint · 라우트 **18/18** · `smoke:coverage` 정본 2건 PASS. `npm run build` 성공(**343,225 B**), `build:verify`는 248 계약대로 필수 문자열 누락 껍데기를 검출해 예상 FAIL.
+- **데스크톱 HEAD 완전 동등성 재현**: 별도 worktree의 `c24bfa7`과 현재본에 동일한 동의→업로드→전후 계산→계약 1건 해지→재계산 동선을 실행했다. 초기 `innerHTML` SHA-256 `3bfdf964…a44f`, **442 nodes / 29,395 B**, 해지 후 `190adaa0…942`, **442 nodes / 29,389 B**로 양쪽이 모두 완전 일치했고 빈 화면 방지(`>200` nodes·⑤ 문구)도 통과했다. 임시 테스트·worktree는 즉시 삭제했다.
+- **모바일 값·구조**: 골든 해지 0/1/3 시나리오에서 1단 premium·20년 차액, 2단 담보 값, 3단 전 담보×전 계약 `by_company` 렌더를 재확인했다. 실 PDF 정본 2건을 다시 파싱해 `pickKeyCoverages()`가 각각 **8행**을 채우고 실제 `kb_name`을 반환함을 확인했다. 스와이프 임계 **72px**, 해지/복원 모두 기존 `updateContractDecision` 단일 진입점, 6초 되돌리기, 병행 버튼을 코드·테스트로 확인했다.
+- **375/390/430px 브라우저 실측**: 인증·환경변수와 무관한 일회성 컴포넌트 하네스로 실제 CSS를 렌더했다(레포 잔재 0). 세 폭 모두 `document.scrollWidth == clientWidth`(**360/375/415px**)로 가로 넘침 0, 담보 행 최소 **47.25px**, 보조 조작 히트영역 **44px**, 주요 버튼 **56px**. 3단은 문서 overflow 0인 채 내부만 **720px > 415px** 가로 스크롤, 헤더·본문 첫 열 모두 `sticky; left:0`, 닫기 44px를 확인했다. 로컬 실제 보호 라우트는 공개 Supabase 환경변수 부재로 빈 화면이라 이 하네스로 대체했으며, 프로덕션 인증 결과 화면은 배포 후 Human 실사용 검수로 남긴다.
+- **범위·위생**: `CoverageRemodel.tsx` **+71/-1**(데스크톱 JSX 조건 래핑) + 모바일 신규 4 + 테스트 2 + harness만. backend·pipeline·coverage·public/SW·package/lock·supabase diff 0, PII·SURIT·구브랜드 색상 0, 임시 산출물 0, `git diff --check` clean. 1차 문서·테스트에 남은 실사용자 성명 2건은 각각 `표준 B`·`overview E`로 마스킹했고, 태스크의 실제 파일 구성(3단 뷰 한 파일·신규 4개)도 코드와 맞게 바로잡았다.
+
+### STEP 0 실측 — ★명세 전제 1건 반전
+시안의 담보 8개를 **kb_name 그대로 상수화하면 실데이터에서 깨진다**. 실 PDF 2건에서 정본 kb_name을 뽑아
+대조한 결과, 시안 "뇌혈관질환진단비"는 한 문서엔 `뇌혈관질환`·다른 문서엔 `뇌졸중`/`뇌출혈`,
+"허혈성심장질환진단비"는 `허혈성심장질환` 또는 `급성심근경색`, **"실손의료비"는 양쪽 문서에 아예 없다**.
+그대로 넣으면 8칸 중 3~4칸이 빈 행이 된다.
+→ **슬롯(의미 단위) + 후보 kb_name 배열**로 정의하고 문서에 실재하는 첫 후보를 채택, 못 채운 슬롯은
+[후] 금액이 큰 담보로 보충해 **항상 8행**을 채운다. 표시 이름은 실제 `kb_name`(설계사가 원문서와 대조하는 화면).
+슬롯·후보는 `coverageMobileSlots.ts` 한 곳 — 명세의 "상수화·변경 용이" 취지는 유지했다.
+
+### 구현
+- **반응형 분기 방식**: ★CSS(`md:hidden`)가 아니라 **JS 판정**(`useIsMobile` = matchMedia ≤767px).
+  CSS로 하면 양쪽 마크업이 **둘 다 DOM에 남아** 데스크톱 노드 수가 늘어 제1원칙을 깬다.
+  matchMedia가 없는 환경은 **데스크톱 폴백** — 기존 경로가 항상 기본값이다.
+- **1단 요약**(`CoverageMobileSummary`): 월납 차액을 가장 크게 + 전→후 · 총납입 차액 ·
+  **20년 총납입 차액**(261과 같은 240개월 산식) · 증액/감액 담보 수.
+- **2단 주요 담보 8행**(`CoverageMobileCoverages`): 담보명 + 현재/리모델링 2열, 행 탭 → **계약별 내역 아코디언**
+  (계약을 세로로 편다 — ★가로 스크롤 0). 하단에 3단 진입 버튼 1개(시안 의도).
+- **3단 전체 표**(`CoverageMobileMatrix`): 전체화면 · **첫 열 sticky + 가로 스크롤은 여기에만**.
+- **스와이프 해지**(`CoverageContractCards`): 265 `SwipeActionCard` 적용(좌 해지·우 복원·임계 72px·
+  회색 면+취소선+배지) + `showUndoToast` 6초 되돌리기. ★기존 진입점 `updateContractDecision`만 호출하고
+  payload·재계산 흐름은 손대지 않았다. ★스와이프를 모르는 사용자를 위해 같은 동작 버튼을 병기했다.
+- `CoverageRemodel.tsx` diff는 **+71/-1의 분기 래핑뿐** — 기존 JSX는 한 줄도 고치지 않았다.
+
+### 검증(1차 · Windows 로컬)
+- ★**데스크톱 회귀 0을 HEAD 대비 실렌더로 증명**: `git show HEAD:...`로 265 사본을 꺼내 같은 동선을 태우고
+  `innerHTML`·노드 수를 대조 — **초기 결과 화면·해지 토글 후 모두 완전 일치**. 빈 화면 통과 방지 단언 포함.
+  사본·일회성 스크립트는 검증 후 **삭제**(레포 잔재 0).
+- ★**모바일 = 데스크톱 값 동등성**: 골든 픽스처로 **해지 0/1/3건** 각각 1단 수치·2단 담보 행·
+  3단 **모든 담보 × 모든 계약 by_company 셀**을 payload와 1:1 대조. 포맷터를 props 주입해 표기까지 동일.
+- `npm test` **190 passed / 25 files**(161 + 29) · tsc app/node · lint · backend **792/8**(★`backend/` diff 0) ·
+  라우트 **18/18** · `smoke:coverage` PASS · `build:verify` **343,225 B**(264·265와 동일 수치 예상 FAIL) · PII 0.
+
+### 실측 기록 2건
+1. "대분류별 보장 변화 요약"은 골든 픽스처에서 **데스크톱에도 렌더되지 않는다**(`comparisonValueGroups` 빔).
+   데스크톱 존재 단언을 넣었다 실패해 확인했고, 모바일 부재 단언도 무의미해져 양쪽 다 실재하는
+   `min-w-[680px]` 표 대조로 교체했다.
+2. **모바일에 종합비교(560px)·Y/N(420px) 표는 남는다** — 266 범위 밖이라 손대지 않았다. 둘 다
+   `overflow-x-auto` 안이라 문서 넘침은 없고(263과 같은 기준), 1,680px 매트릭스는 사라진 것을 테스트로 고정.
+   두 블록의 모바일 최적화(12px 폰트 포함)는 **267~ 후속 후보**.
+
+### 로컬에서 못 한 것 (Codex 몫)
+- **375/390/430px 실렌더 넘침 측정** — jsdom은 레이아웃을 계산하지 않는다. 구조적 근거(고정폭 표 0 ·
+  남은 표 전부 `overflow-x-auto`)까지만 고정했고 **실측은 프로덕션 브라우저**에서 263 방식으로 필요.
+- 실기기 스와이프 감각(임계 72px 적정성)은 Human 실사용 확인 대상.
+
+### Next
+1. **Codex** — 2차 검증(★데스크톱 회귀 0 재현 · 모바일 동등성 · **375~430px 실렌더** · 배포 스모크) → 커밋·push.
+2. **Human** — 폰에서 보장분석 실사용(3단 탐색 · 스와이프 해지 · 되돌리기).
+3. **Chat** — 267(고지 결과 모바일) 발번. 종합비교·Y/N 블록 모바일 최적화 포함 여부 결정.
+
 ## 2026-07-31 BOHUMFIT-265 - 모바일 디자인 토큰 + 공통 컴포넌트 + 오프라인 캐시(A안)
 
-Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(반려 3건 해소 재검증·커밋)
-Commit: Codex 재검증 **PASS**, 커밋·push 직전. 직전 HEAD `901cd071e4d5ad3ec8cd7e64f2b0ca667e1d6446`(264). 상세는 tasks/BOHUMFIT-265-mobile-tokens-and-shared.md.
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human**(실기기·문안 확인) / Chat(266 발번)
+Commit: `c24bfa781e84a6f8ef392e0c122b2392e8eb9b36` — `origin/main` push 완료, ahead/behind **0/0**. 이 publish 사후 기록은 다음 하네스 커밋에 편승. 상세는 tasks/BOHUMFIT-265-mobile-tokens-and-shared.md.
+
+### Publish·배포 스모크 (2026-08-01 17:14:27 KST)
+- Vercel production이 정확히 커밋 `c24bfa781e84a6f8ef392e0c122b2392e8eb9b36`으로 **READY**임을 배포 메타데이터에서 확인했다. `https://bohumfit.ai/login` **200**(1,805 B), 로그인 화면 정상 렌더, 콘솔 error **0**.
+- Railway `https://bohumfit.up.railway.app/api/health` **200**·`{"status":"ok"}`. 인증정보·고객 파일 전송 없이 공개 GET만 수행했다.
+- `public/sw.js`는 HEAD와 해시 동일한 무변경 파일이므로 waiting worker는 이번 배포에서 생성되지 않는다. 업데이트 안내 실동작은 사용자 지시대로 다음 SW 변경 배포에 이관한다.
 
 ### Codex 반려 보정 재검증 — PASS (2026-08-01)
 - **반려 1 해소**: `onAuthStateChange` 한 곳의 사용자 id 전이 판정으로 수동·30분 무활동·PhoneVerify·ResetPassword 직접 호출·세션 만료/갱신 실패·다른 탭 로그아웃을 포섭한다. 같은 id 토큰 갱신은 미삭제, 계정 전환은 삭제, 비로그인 초기 진입은 저장소 미접근. 표적 **7/7**과 구조 가드 통과. 카카오는 외부 이탈 직전 flush만 두며 `clear()` 멱등 구조를 확인했다.

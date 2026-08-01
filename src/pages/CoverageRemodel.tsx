@@ -24,6 +24,15 @@ import {
 import { SpecialNotes, StageComparisonTable, YnFlagTable } from "../components/CoverageInsightBlocks";
 import { formatCoverageAmount, formatCoverageDeltaAmount } from "../lib/coverageFormat";
 import { mergeManualRiders, type ManualRider } from "../lib/coverageManualRiders";
+// BOHUMFIT-266: 모바일 3단 점진 공개 + 스와이프 해지. ★데스크톱 경로는 건드리지 않고 분기만 추가한다.
+import { useIsMobile } from "../components/mobile/useIsMobile";
+import {
+  CoverageMobileCoverages,
+  CoverageMobileMatrix,
+  CoverageMobileSummary,
+  type MobileFormatters,
+} from "../components/mobile/CoverageMobileView";
+import CoverageContractCards from "../components/mobile/CoverageContractCards";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
@@ -267,6 +276,15 @@ export default function CoverageRemodel() {
   // BOHUMFIT-240 P2: 236 C 방향 토글 제거 — 회사=열 단일 방향 고정.
   const [manualRiders, setManualRiders] = useState<ManualRider[]>([]);
   const [manualDraft, setManualDraft] = useState({ name: "", group12: "기타", amount: "", contractIdx: "" });
+  // BOHUMFIT-266: 모바일 여부는 JS로 판정한다(CSS 분기면 데스크톱 DOM에 모바일 마크업이 함께 남는다).
+  //   matchMedia가 없는 환경은 데스크톱으로 폴백 — 기존 경로가 항상 기본값이다.
+  const isMobile = useIsMobile();
+  const [fullTableOpen, setFullTableOpen] = useState(false);
+  // 모바일 뷰가 쓰는 표기 함수 — ★데스크톱과 **같은 함수**를 넘겨 값·표기가 갈라지지 않게 한다.
+  const mobileFormatters: MobileFormatters = useMemo(
+    () => ({ formatWon, formatPremium, formatDeltaWon, companyLabel }),
+    [],
+  );
 
   const companies = useMemo(() => result?.before.contract_list || result?.before.companies || [], [result]);
   // BOHUMFIT-236 E: 수동 담보를 비교표에 병합 — 화면 표시와 내보내기 payload가 같은 값을 쓴다.
@@ -793,6 +811,19 @@ export default function CoverageRemodel() {
               </div>
             </div>
 
+            {/* BOHUMFIT-266: 모바일은 스와이프 카드로 대체한다 — 해지 진입점(updateContractDecision)과
+                payload 흐름은 데스크톱과 완전히 동일하고 조작 방식만 바뀐다. */}
+            {isMobile && (
+              <CoverageContractCards
+                companies={companies}
+                dispositionOf={(idx) => (decisions[keyOf(idx)]?.disposition === "cancel" ? "cancel" : "keep")}
+                onChange={(idx, disposition) => updateContractDecision(idx, { disposition })}
+                formatPeriod={formatPeriod}
+                fmt={mobileFormatters}
+              />
+            )}
+
+            {!isMobile && (
             <div className="mt-5 grid gap-4 lg:grid-cols-2">
               {companies.map((company) => {
                 const decision = decisions[keyOf(company.idx)] || {
@@ -862,6 +893,7 @@ export default function CoverageRemodel() {
                 );
               })}
             </div>
+            )}
 
           </section>
 
@@ -1118,6 +1150,35 @@ export default function CoverageRemodel() {
                 </div>
               </div>
 
+              {/* BOHUMFIT-266 모바일 1·2단 — 요약(고객이 먼저 묻는 숫자) → 주요 담보 8행 → 전체 표 진입.
+                  ★같은 payload·같은 포맷터를 쓰므로 데스크톱 표와 값이 어긋날 수 없다. */}
+              {isMobile && (
+                <div className="mt-4">
+                  <CoverageMobileSummary
+                    premium={afterResult.comparison.premium}
+                    rows={displayComparison?.coverages || []}
+                    fmt={mobileFormatters}
+                  />
+                  <CoverageMobileCoverages
+                    rows={displayComparison?.coverages || []}
+                    companies={afterResult.after.before.companies}
+                    beforeCoverages={result.before.coverages}
+                    afterCoverages={afterResult.after.before.coverages}
+                    fmt={mobileFormatters}
+                    onOpenFullTable={() => setFullTableOpen(true)}
+                  />
+                  <CoverageMobileMatrix
+                    open={fullTableOpen}
+                    onClose={() => setFullTableOpen(false)}
+                    companies={afterResult.after.before.companies}
+                    coverages={afterResult.after.before.coverages}
+                    fmt={mobileFormatters}
+                  />
+                </div>
+              )}
+
+              {!isMobile && (
+              <>
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <MetricCard label="전 월납" value={formatWon(afterResult.comparison.premium.before_monthly)} />
                 <MetricCard label="후 월납" value={formatWon(afterResult.comparison.premium.after_monthly)} />
@@ -1133,6 +1194,8 @@ export default function CoverageRemodel() {
                 월납 차액 {formatDeltaWon(afterResult.comparison.premium.delta_monthly)} · 총납입 차액{" "}
                 {formatDeltaWon(afterResult.comparison.premium.delta_paid_total)} (후−전 · 절감 시 −)
               </div>
+              </>
+              )}
 
               {/* BOHUMFIT-247 C: 특이사항 — [전] 분석 경고 + 246 overview 해지 불가 경고 등. */}
               {specialNotes.length > 0 && (
@@ -1159,7 +1222,9 @@ export default function CoverageRemodel() {
                 </div>
               )}
 
-              {comparisonValueGroups.length > 0 && (
+              {/* BOHUMFIT-266: 680px 고정폭 표라 모바일에서는 숨긴다 — 같은 내용을 2단(주요 담보)과
+                  3단(전체 표)이 대신한다. 데스크톱은 무변경. */}
+              {!isMobile && comparisonValueGroups.length > 0 && (
                 <div className="mt-5">
                   <h3 className="ko-heading mb-2 text-sm font-bold text-ink-900">대분류별 보장 변화 요약</h3>
                   <div className="overflow-x-auto">
@@ -1299,6 +1364,7 @@ export default function CoverageRemodel() {
                 </p>
               )}
 
+              {!isMobile && (
               <div className="mt-5 space-y-5">
                 {comparisonGroups.map(({ group, rows }) => {
                   // BOHUMFIT-247 F: 기타 그룹 접이식 — 신 체계 미포섭 담보 정보 보존 가시화.
@@ -1364,8 +1430,11 @@ export default function CoverageRemodel() {
                   );
                 })}
               </div>
+              )}
             </section>
 
+            {/* BOHUMFIT-266: ⑤ 매트릭스(40행×N열 ≈1,680px)는 모바일에서 3단 "전체 표 보기"가 대신한다. */}
+            {!isMobile && (
             <section className="mt-6 rounded-card border border-line bg-white p-6">
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
@@ -1489,6 +1558,7 @@ export default function CoverageRemodel() {
                 </p>
               )}
             </section>
+            )}
             </>
           )}
 
