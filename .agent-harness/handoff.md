@@ -1,7 +1,7 @@
 ## 2026-08-02 BOHUMFIT-268a - 모바일 업로드 UX + 분석 진행 신호 실태 조사
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human**(폰·Railway 실측) / **Chat**(268b 발번)
-Commit: **Codex 검증 완료·커밋 직전**. 기준 HEAD `5751ef2`(267). 최종 해시는 push 직후 이 줄에 사후 기록한다.
+Commit: `a6a2bd525dce6214dfff7b92a3019ca3de968d7a` — 지정 메시지로 커밋 완료. 기준 HEAD `5751ef2`(267).
 
 ### Step 1 실측 — 업로드 UI는 **공용이 아니라 화면별 중복 구현**
 `type="file"` 전수 5곳. 고지(`Disclosure.tsx:2064`)는 `.pdf`·multiple·드래그앤드롭·**자체 인라인 동의 2종**
