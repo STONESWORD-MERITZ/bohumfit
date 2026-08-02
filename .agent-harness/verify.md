@@ -16,7 +16,7 @@ For UI changes, also run the app locally and do a browser smoke test:
 npm run dev
 ```
 
-## 검증 기준선 (BOHUMFIT-242 실측 · 2026-07-23 갱신)
+## 검증 기준선 (BOHUMFIT-268a 실측 · 2026-08-02 갱신)
 
 백엔드 pytest — `cd backend && python -m pytest -q`:
 
@@ -29,10 +29,10 @@ npm run dev
 프런트 테스트 — `npm test`(라우트 스모크 18건 포함):
 
 ```text
-99 passed
+217 passed / 27 files
 ```
 
-(BOHUMFIT-262 실측·2026-07-31 갱신 — 255 시점 95에서 260 동등성 테스트 반영.)
+(BOHUMFIT-268a 실측·2026-08-02 갱신 — 267 시점 203/26에 모바일 업로드 회귀 14건 반영.)
 
 타입체크 — 양쪽 모두 통과해야 한다:
 

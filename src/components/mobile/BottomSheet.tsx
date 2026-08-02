@@ -27,6 +27,30 @@ export default function BottomSheet({
 }: BottomSheetProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // 모바일 시트가 열린 동안 배경 문서의 위치를 고정하고, 닫힐 때 원래 위치·스타일을 복원한다.
+  useEffect(() => {
+    if (!open) return;
+    const lockedScrollY = window.scrollY;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousBodyPosition = document.body.style.position;
+    const previousBodyTop = document.body.style.top;
+    const previousBodyWidth = document.body.style.width;
+    const previousRootOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${lockedScrollY}px`;
+    document.body.style.width = "100%";
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.body.style.position = previousBodyPosition;
+      document.body.style.top = previousBodyTop;
+      document.body.style.width = previousBodyWidth;
+      document.documentElement.style.overflow = previousRootOverflow;
+      if (lockedScrollY) window.scrollTo(0, lockedScrollY);
+    };
+  }, [open]);
+
   // Esc로 닫기 — 열려 있을 때만 리스너를 붙인다.
   useEffect(() => {
     if (!open) return;

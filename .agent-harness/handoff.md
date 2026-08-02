@@ -1,8 +1,96 @@
+## 2026-08-02 BOHUMFIT-268a - 모바일 업로드 UX + 분석 진행 신호 실태 조사
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human**(폰·Railway 실측) / **Chat**(268b 발번)
+Commit: **Codex 검증 완료·커밋 직전**. 기준 HEAD `5751ef2`(267). 최종 해시는 push 직후 이 줄에 사후 기록한다.
+
+### Step 1 실측 — 업로드 UI는 **공용이 아니라 화면별 중복 구현**
+`type="file"` 전수 5곳. 고지(`Disclosure.tsx:2064`)는 `.pdf`·multiple·드래그앤드롭·**자체 인라인 동의 2종**
+(`consent`+agent 모드 `subjectConsent`)이고 **선택 후 버튼**을 눌러야 분석한다.
+보장분석(`CoverageRemodel.tsx:651`)은 `application/pdf`·**단일**·`ConsentGate`이며 **선택 즉시 업로드+분석**이다.
+제한값은 최대 10개·개별 15MB·총 40MB(`Disclosure.tsx:27~29`, 백엔드도 같은 상수로 413).
+→ 공용 컴포넌트가 없으므로 **각 화면의 기존 게이트 조건식을 그대로 재사용**했다(조건 신설 0·문구 변경 0).
+
+### ★이미지(카메라 촬영)는 백엔드가 받지 않는다 — "준비 중"으로 둔 근거
+`/coverage/analyze`(`main.py:1910`)는 `.pdf`가 아니면 **400**, 고지 `/api/analyze`는 확장자 검사가 없지만
+파서가 `pdfplumber`라 이미지를 파싱하지 못한다. 백엔드 변경은 범위 밖이라 **비활성 + "준비 중"**으로 두고
+화면에도 사유("PDF 원본만 읽을 수 있어 사진 파일은 처리하지 못합니다")를 밝혔다.
+
+### 구현
+- `MobileUploadSheet`(265 `BottomSheet`·`PrimaryAction` 재사용) — 파일 선택 3종 + 선택 결과(파일명·개수·총 용량) +
+  **호출부 동의 슬롯** + 진행 표시. ★새 input을 만들지 않고 **호출부의 기존 `fileRef`를 눌러** 기존 분석 경로를 살렸다.
+- `uploadWithProgress`(XHR) — ★**실측 바이트만**. `lengthComputable`이 아니면 **퍼센트를 만들지 않고**
+  전송량만 표시한다. 헤더·엔드포인트·402 전환 처리·`detail` 오류 규약은 기존 fetch와 **동일**.
+- `Disclosure.tsx` — **모바일에서만** XHR 경로(데스크톱은 기존 fetch 그대로), 동의 블록은 `consentBlock` 변수로
+  추출해 **위치만** 바꿔 재사용(문구·마크업·조건식 diff 0), 진입 버튼 56px.
+- **보장분석 업로드는 이번에 손대지 않았다** — 선택 즉시 분석 구조라 시트로 감쌀 중간 단계가 없고 파일도 1개뿐이라
+  이득 대비 데스크톱 회귀 위험만 커진다(268b 이후 별도 판단으로 기록).
+
+### 조사 문서 `docs/mobile-analysis-progress-survey.md`
+①분석은 **단일 POST 동기** — 작업ID·폴링 엔드포인트 **없음**(현재 사용자는 최대 5분 무신호 대기)
+②**중간 산출물은 이미 있다** — `analyzer.py` 파일 루프에서 파일별 파싱 완료·레코드 누적이 확정되지만 `logger`로만 나간다
+③SSE/폴링 도입 시 `main.py` + `analyzer.py` 콜백만 건드리면 되고 **`pipeline/`은 무접촉 가능**
+④**Railway 프록시 타임아웃·워커 수는 확인 불가** — `railway.json`에 설정 없고 `start.sh`가 레포에 없다.
+  ★268b 착수 전 대시보드 실측 필요(워커 2개 이상이면 메모리 기반 폴링 저장소가 깨진다)
+⑤`share_target` 미존재 — 도입 시 manifest + SW POST 분기 필요, **Android 설치 PWA 한정·iOS 미지원**
+⑥SW에 `push`·`notificationclick` **없음** — 서버 푸시는 범위가 크고, 탭 생존 시 `showNotification` 대안이 가볍다
+⑦권장안 **A(SSE)·B(폴링)** 트레이드오프 제시 — ★채택은 Human 결정이라 확정하지 않았다.
+
+### 검증(1차 · Windows 로컬 · 전 게이트 실제 실행)
+- tsc app/node **PASS** · lint **PASS** · `npm test` **217 passed / 27 files**(203 + 14) ·
+  backend `pytest -q` **792 passed, 8 skipped**(불변·★`backend/` diff 0) · `smoke:coverage` **PASS** ·
+  `build:verify` **343,225 B 예상 FAIL**(264~267 동일 수치) · `vite.config.*` diff **0** · ConsentGate diff **0**.
+- ★**데스크톱 4화면 HEAD 대비 실렌더 동일**: Disclosure **업로드 단계**·Disclosure **결과 화면**·
+  CoverageRemodel 결과 화면·StageComparison/YnFlag 표 — 전부 `innerHTML`·노드 수 **완전 일치**
+  (빈 화면 오통과 방지 마커 병행, 사본·스크립트 **삭제**).
+- 자체 정정 2건: ①동의 블록 교체를 잘못 편집해 JSX가 깨져 즉시 되돌리고 변수 추출 방식으로 재작성
+  ②렌더 중 `fileRef` 접근이 `react-hooks/refs`에 걸려(정당) 기존 상태만 쓰도록 인터페이스 변경.
+
+### ※패킷의 "샌드박스 실행 불가" 문구
+"tsc/build/pytest 실행 불가 · 마운트에서 git 실행 금지"는 **퇴역한 Cowork 환경** 전제다(`CLAUDE.md` [퇴역] 절).
+현행 Claude Code는 Windows 로컬 직접 실행이라 **전 게이트를 실제로 돌렸고** 위에 결과를 기록했다. git은 읽기만 썼다.
+
+### Codex 2차 검증 — PASS (2026-08-02 · Windows 권위)
+- **전체 게이트**: app/node tsc·lint·frontend **217 passed / 27 files**·backend **792 passed, 8 skipped**·
+  `smoke:coverage` 정본 2건 PASS. `npm run build`는 **343,225 B**, `build:verify`는 248 계약대로 exit 1로
+  거부해 **예상 FAIL**로 분류했다. `verify.md`·`CLAUDE.md` 프런트 기준선을 217/27로 동기화했다.
+- **실브라우저 375/390/430px**: 세 폭 모두 `scrollWidth == clientWidth`(넘침 0)·시트 폭=뷰포트·
+  소스 행 74px 이상·핸들 `::before` 히트영역 44px·주 액션 56px. 카메라는 disabled+"준비 중"+PDF 전용
+  사유, 카카오는 기존 multiple 피커+저장 후 선택 안내를 보였고 합성 PDF 선택 후 파일명·75B를 표시했다.
+  시트 열기·닫기와 브라우저 콘솔 오류 0을 확인했고 임시 하네스·합성 파일은 삭제했다.
+- **Codex 최소 보정 3건**: ①첫 실측에서 열린 시트 뒤 문서가 **520px 스크롤**되는 결함을 발견해
+  body/root 고정+원래 위치 복원을 추가(보정 후 `scrollY` 0→0). React 검토에 따라 스크롤 락과 Esc 리스너
+  effect를 분리해 진행 이벤트 렌더 때 락 재설정도 막았다. ②XHR에 데스크톱과 같은 **350초 timeout**을 추가해
+  무한 대기를 차단했다. ③업로드 직전 시트를 닫아 진행률이 보이지 않던 경로를 `open={uploadSheetOpen || loading}`으로
+  바로잡았다. 모두 268a 전송·시트 범위이며 backend·판정 로직 변경은 없다.
+- **동의·오류 동등성**: HEAD 별도 사본과 동의 2종 문자열이 문자 단위 동일하고 파일 선택 상태의 0/1/2 동의
+  버튼 상태도 양쪽 `[비활성, 비활성, 활성]`. 모바일 XHR/데스크톱 fetch의 정상·402·422·503·네트워크 단절을
+  실제 `Disclosure` 호출부로 재현해 엔드포인트·Bearer·`detail`·402 전환이 같고 스피너가 종료됨을 확인했다.
+  `lengthComputable=false`는 가짜 퍼센트 없이 실제 전송량만 보였다.
+- **데스크톱 HEAD 회귀 0**: 업로드 `b195a518…`/51 nodes, 결과 `ae3ee525…`/99,
+  Coverage `e07920c9…`/442, 종합비교+Y/N `055e6e1a…`/82로 `innerHTML` SHA-256·노드 수가 HEAD와
+  완전 동일(빈 화면 방지 마커 포함). matchMedia 부재는 데스크톱 폴백.
+- **보호·위생**: backend·coverage core·pipeline·vite config·CoverageRemodel 업로드·265 캐시·supabase diff 0.
+  제한 10개/15MB/40MB, Q1~Q5·기간 라벨 불변. PII·실 PDF·엑셀·시안 HTML·렌더 산출물 stage 0.
+
+### Next
+1. **Human** — 폰 실기기 업로드 동선 검수 + Railway 프록시 타임아웃·워커 수 대시보드 실측.
+2. **Chat** — 268b(추출 티커·백그라운드 알림) 발번.
+
 ## 2026-08-01 BOHUMFIT-267 - 고지 결과 모바일 + 266 잔여 표 가독성
 
-Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(2차 검증·커밋)
-Commit: **미커밋·미푸시**(git 쓰기 0). 기준 HEAD `9eef3cf3e67c2064181fc329bcab4573d79b5545`(266).
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human**(폰 실사용) / Chat(268 발번)
+Commit: `5751ef2bee558c46807fbe5fd925d5cb048c3608` — `origin/main` push 완료, ahead/behind **0/0**. 이 publish 사후 기록은 다음 하네스 커밋에 편승.
 상세는 tasks/BOHUMFIT-267-disclosure-mobile.md.
+
+### Publish·배포 스모크 (2026-08-01 21:22 KST)
+- 지정 메시지로 267 범위 8파일만 커밋·push했고 local/remote가 `5751ef2bee558c46807fbe5fd925d5cb048c3608`로 일치한다.
+- Vercel `https://bohumfit.ai/login` **200**. 배포 전 번들 `817,610 B`에는 없던 신규 문구
+  `카카오톡 문안 보기`가 배포 후 `index-BECwhc8a.js` **825,113 B**에서 확인돼 267 반영을 직접 증명했다.
+- 프로덕션 비로그인 `/disclosure`는 정상적으로 `/login`으로 이동했다. 공개 화면을 **375/390/430px**로
+  실측해 각각 `scrollWidth == clientWidth`(**375/390/430**)·가로 넘침 0, 프로덕션 콘솔 error 0을 확인했다.
+  인증된 고지 결과는 고객 분석 상태가 필요하므로 267 화면 자체의 세 폭 측정은 위 로컬 실제 CSS 실렌더가 정본이며,
+  실제 폰 조작감은 Human 검수로 남긴다.
+- Railway `https://bohumfit.up.railway.app/api/health` **200**·`{"status":"ok"}`.
 
 ### STEP 0 실측 — ★전제 반전 2건
 1. **배지 4단 매핑은 오표기를 만든다.** 실제 판정은 **Q1~Q5 5종**(Q1 3개월 / Q2 1년·간편 10년 / Q3 5년 /
@@ -62,9 +150,8 @@ Commit: **미커밋·미푸시**(git 쓰기 0). 기준 HEAD `9eef3cf3e67c2064181
 - 바텀시트 조작감·하단 고정 액션이 실제 고객 데이터의 마지막 카드를 가리지 않는지.
 
 ### Next
-1. **Codex** — 2차 검증(★데스크톱 회귀 0 재현 · 문안 동등성 · **375~430px 실렌더** · 배포 스모크) → 커밋·push.
-2. **Human** — 폰에서 고지 결과 실사용(카드 탐색·카톡 문안 복사) + 위 결정 2건.
-3. **Chat** — 268(업로드·분석 진행) → 269(홈·네비) 발번.
+1. **Human** — 폰에서 고지 결과 실사용(카드 탐색·카톡 문안 복사) + 위 결정 2건.
+2. **Chat** — 268(업로드·분석 진행) → 269(홈·네비) → DiseaseCard 폰트(B안 예정).
 
 ## 2026-08-01 BOHUMFIT-266 - 보장분석 모바일: 3단 점진 공개 + 스와이프 해지
 

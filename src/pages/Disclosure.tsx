@@ -8,6 +8,9 @@ import Badge, { type BadgeVariant } from "../components/ui/Badge"; // BOHUMFIT-1
 // BOHUMFIT-267: 고지 결과 모바일 껍데기(헤더 요약·문안 시트·하단 액션). ★질병 카드는 기존 것을 그대로 쓴다.
 import { useIsMobile } from "../components/mobile/useIsMobile";
 import DisclosureMobileShell from "../components/mobile/DisclosureMobileShell";
+// BOHUMFIT-268a: 모바일 업로드 하단 시트 + 업로드 진행률 실측(XHR).
+import MobileUploadSheet, { type SelectedFilesInfo } from "../components/mobile/MobileUploadSheet";
+import { uploadWithProgress, UploadError, type UploadProgress } from "../lib/uploadWithProgress";
 import { Upload, FileText, CheckCircle2 } from "lucide-react"; // BOHUMFIT-136b
 import { useAuth } from "../lib/auth-context";
 import {
@@ -1808,6 +1811,50 @@ export default function Disclosure({
   // BOHUMFIT-171a: 파일 목록 압축용 상태 — 3개 이상 접기/펼치기 + 총 용량 표시.
   const [filesOpen, setFilesOpen] = useState(false);
   const [selectedSize, setSelectedSize] = useState(0);
+  // BOHUMFIT-268a: 모바일 업로드 시트. ★266·267과 같은 방식(JS 판정·미지원 시 데스크톱 폴백).
+  const isMobile = useIsMobile();
+  const [uploadSheetOpen, setUploadSheetOpen] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
+  /** 시트 표시용 — ★기존 상태를 그대로 쓴다(렌더 중 ref 접근 금지 규칙 준수). */
+  const selectedFiles: SelectedFilesInfo = { names: selectedNames, totalBytes: selectedSize };
+  /**
+   * BOHUMFIT-268a: 동의 블록 — ★문구·조건·마크업을 그대로 두고 **위치만** 바꿔 쓴다.
+   *   데스크톱은 원래 자리에, 모바일은 업로드 시트 안에 렌더한다(문구 diff 0).
+   */
+  const consentBlock = (
+    <>
+      <label className="mt-4 flex items-start gap-2.5 rounded-[8px] bg-ink-50 px-4 py-3 text-xs leading-5 text-ink-soft">
+        <input
+          type="checkbox"
+          checked={consent}
+          onChange={(e) => setConsent(e.target.checked)}
+          className="mt-0.5 h-4 w-4 shrink-0 accent-accent-600"
+        />
+        <span className="break-keep">
+          {/* BOHUMFIT-171b: 최근 분석 자동 기록 도입에 맞춰 문구 정합(기존 "DB 미저장" 단정과 충돌 해소) */}
+          업로드하는 진료자료에는 <b className="font-bold text-ink">민감정보(건강에 관한 정보)</b>가 포함됩니다.
+          고지 리스크 점검 목적의 처리에 동의합니다. 원본 PDF는 분석 직후 보험핏 서버에서 폐기됩니다.
+          분석 결과 요약은 편의를 위해 최근 10건 자동 기록(7일 보관)되며, 히스토리에서 직접 삭제할 수 있습니다.
+          <Link to="/privacy-policy" className="ml-1 underline hover:text-ink">개인정보처리방침</Link>
+        </span>
+      </label>
+
+      {mode === "agent" && (
+        <label className="mt-3 flex items-start gap-2.5 rounded-[8px] bg-ink-50 px-4 py-3 text-xs leading-5 text-ink-soft">
+          <input
+            type="checkbox"
+            checked={subjectConsent}
+            onChange={(e) => setSubjectConsent(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-accent-600"
+          />
+          <span className="break-keep">
+            고객 등 제3자의 진료자료를 업로드하는 경우, 정보주체에게 보험핏 분석 목적·민감정보 처리·AI 위탁 처리 내용을 안내했고
+            업로드 및 분석에 필요한 동의를 확보했습니다.
+          </span>
+        </label>
+      )}
+    </>
+  );
   // BOHUMFIT-171a: 개별 파일 제거 — 분석이 읽는 fileRef 원본과 표시 상태를 함께 재구성.
   const removeFileAt = (idx: number) => {
     const cur = fileRef.current?.files ? Array.from(fileRef.current.files) : [];
@@ -1933,6 +1980,40 @@ export default function Disclosure({
     if (birthdate) form.append("birthdate_pw", birthdate);
 
     try {
+      // BOHUMFIT-268a: ★모바일에서만 XHR로 보낸다 — `fetch`로는 요청 본문 전송 진행률을 알 수 없기 때문이다.
+      //   엔드포인트·헤더·402 처리·오류 메시지 규약은 아래 데스크톱 경로와 **동일하게** 유지한다.
+      //   ★데스크톱은 기존 fetch 경로를 그대로 탄다(동작 변경 0).
+      if (isMobile) {
+        setUploadSheetOpen(false);
+        setUploadProgress({ loaded: 0, total: null, percent: null });
+        try {
+          const data = await uploadWithProgress<AnalyzeResult>({
+            url: `${API_BASE}/api/analyze`,
+            body: form,
+            headers: { Authorization: `Bearer ${token}` },
+            onProgress: setUploadProgress,
+          });
+          // ★여기까지가 "업로드(전송) 완료" — 이후 분석 대기 신호는 268b 범위다.
+          setResult(data);
+          try { sessionStorage.setItem("bohumfit_result", JSON.stringify({ result: data, ts: currentTimeMs() })); } catch { /* 무시 */ }
+          setRestoredAt(null);
+          setRestoredAgeMinutes(1);
+          showToast("분석이 완료되었습니다", "success");
+          if (!postTourShown) window.setTimeout(showPostTour, 0);
+          return;
+        } catch (uploadError) {
+          // 402(무료 분석 소진)는 오류가 아니라 전환 접점 — 데스크톱과 같은 규약.
+          if (uploadError instanceof UploadError && uploadError.status === 402) {
+            const m = uploadError.message.match(/(\d+)\s*회/);
+            setUpsell({ count: m ? m[1] : "5" });
+            return;
+          }
+          throw uploadError;
+        } finally {
+          setUploadProgress(null);
+        }
+      }
+
       const res = await fetch(`${API_BASE}/api/analyze`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
@@ -2119,37 +2200,42 @@ export default function Disclosure({
           </div>
         )}
 
-        <label className="mt-4 flex items-start gap-2.5 rounded-[8px] bg-ink-50 px-4 py-3 text-xs leading-5 text-ink-soft">
-          <input
-            type="checkbox"
-            checked={consent}
-            onChange={(e) => setConsent(e.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 accent-accent-600"
-          />
-          <span className="break-keep">
-            {/* BOHUMFIT-171b: 최근 분석 자동 기록 도입에 맞춰 문구 정합(기존 "DB 미저장" 단정과 충돌 해소) */}
-            업로드하는 진료자료에는 <b className="font-bold text-ink">민감정보(건강에 관한 정보)</b>가 포함됩니다.
-            고지 리스크 점검 목적의 처리에 동의합니다. 원본 PDF는 분석 직후 보험핏 서버에서 폐기됩니다.
-            분석 결과 요약은 편의를 위해 최근 10건 자동 기록(7일 보관)되며, 히스토리에서 직접 삭제할 수 있습니다.
-            <Link to="/privacy-policy" className="ml-1 underline hover:text-ink">개인정보처리방침</Link>
-          </span>
-        </label>
+        {/* BOHUMFIT-268a: 모바일에서는 이 동의 블록을 업로드 시트 안에 그대로 넣는다(★문구·조건식 동일).
+            데스크톱은 지금 위치·마크업 그대로 — Fragment는 DOM 노드를 만들지 않아 렌더 결과가 같다. */}
+        {!isMobile && consentBlock}
 
-        {mode === "agent" && (
-          <label className="mt-3 flex items-start gap-2.5 rounded-[8px] bg-ink-50 px-4 py-3 text-xs leading-5 text-ink-soft">
-            <input
-              type="checkbox"
-              checked={subjectConsent}
-              onChange={(e) => setSubjectConsent(e.target.checked)}
-              className="mt-0.5 h-4 w-4 shrink-0 accent-accent-600"
-            />
-            <span className="break-keep">
-              고객 등 제3자의 진료자료를 업로드하는 경우, 정보주체에게 보험핏 분석 목적·민감정보 처리·AI 위탁 처리 내용을 안내했고
-              업로드 및 분석에 필요한 동의를 확보했습니다.
-            </span>
-          </label>
+        {isMobile && (
+          <MobileUploadSheet
+            open={uploadSheetOpen || loading}
+            onClose={() => setUploadSheetOpen(false)}
+            title="진료자료 올리기"
+            description={`심평원·공단 PDF를 최대 ${MAX_FILE_COUNT}개까지 올릴 수 있어요.`}
+            openPicker={() => fileRef.current?.click()}
+            selected={selectedFiles}
+            maxFileCount={MAX_FILE_COUNT}
+            consentSlot={consentBlock}
+            // ★기존 게이트 조건식을 그대로 쓴다(조건 신설 0).
+            canSubmit={!loading && consent && (mode !== "agent" || subjectConsent) && selectedFiles.names.length > 0}
+            onSubmit={() => void analyze()}
+            submitLabel={copy.button}
+            pending={loading}
+            progress={uploadProgress}
+          />
         )}
 
+        {/* BOHUMFIT-268a: 모바일은 이 버튼 대신 업로드 시트를 연다(파일 선택 3종 + 동의 + 업로드를 한 곳에서). */}
+        {isMobile ? (
+          <button
+            type="button"
+            data-testid="open-upload-sheet"
+            onClick={() => setUploadSheetOpen(true)}
+            disabled={loading}
+            className="mt-5 w-full rounded-btn bg-accent-600 text-[16px] font-bold text-white disabled:opacity-50"
+            style={{ minHeight: 56 }}
+          >
+            {loading ? "분석 중..." : "진료자료 올리기"}
+          </button>
+        ) : (
         <button
           onClick={analyze}
           disabled={loading || !consent || (mode === "agent" && !subjectConsent)}
@@ -2157,6 +2243,7 @@ export default function Disclosure({
         >
           {loading ? "분석 중..." : copy.button}
         </button>
+        )}
       </section>
 
       {/* BOHUMFIT-136b: 모바일(md 미만) 하단 고정 분석 CTA — 스크롤 후 표시, 분석 전까지만. PC는 기존 버튼 유지. */}
