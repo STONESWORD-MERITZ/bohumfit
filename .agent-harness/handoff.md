@@ -1,3 +1,161 @@
+## 2026-08-03 Codex BOHUMFIT-269a·269b 2차 검증 — PASS / 2건 분리 커밋
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human**(iOS 실기기 검수) / **Chat**(DiseaseCard 폰트 B안)
+
+### 커밋
+- BOHUMFIT-269a: `d6059b0cc1a1b18393eb531f0bed7b2bed10e9c2`
+- BOHUMFIT-269b: **본 최종 커밋**(자기 자신을 포함하는 문서라 SHA는 커밋 후 `git log`와 Codex 최종 결과에 기록)
+
+### Windows 권위 게이트
+- 루트 게이트(pwd·remote·219 리트머스) 통과. app/node tsc · lint **PASS**, frontend **278 passed / 32 files**,
+  backend **818 passed, 8 skipped**, `npm run smoke:coverage` 정본 2건 **PASS**.
+- `npm run build` JS **343,702 B**. `build:verify`는 600 kB 하한과 앱 핵심 문자열 3종을 거부해
+  241/248 계약의 **예상 FAIL**로 분류했다(기준 343,225 B 대비 +477 B, 동일 껍데기 증상).
+- 브라우저에서 발견한 Footer 가림 보정 후 269 테스트 **32/32**, app/node tsc·lint 재통과.
+
+### 269a — 모바일 홈
+- 실제 로그인 라우팅: 모바일 `/login` → `/dashboard`, 데스크톱 → `/disclosure?mode=agent`.
+  `matchMedia` 미지원 390px에서도 데스크톱 목적지로 폴백했다.
+- 모바일·데스크톱 모두 최근 분석 2건과 사용량 `2/5회 사용·3회 남음`이 동일했다. `MobileHome`은
+  `fetch`·`useEffect` 0으로 기존 Dashboard의 세 API 결과만 props로 받으며, 최근 목록에 원본 파일명 필드가 없다.
+
+### 269b — 하단 네비·겹침 회피
+- 실제 브라우저 **375·390·430px × 4경로**(`/dashboard`·`/disclosure`·`/coverage-compare`·
+  `/insurance-links`) 전수: 가로 넘침 0, 탭 높이 56px, 라벨 15px·nowrap, 활성 탭 정확히 1개,
+  활성색 `rgb(8,71,52)`(`#084734`), 최하단 콘텐츠 가림 0.
+- ★Codex 보정 1건: 기존 `<main>` 하단 여백으로는 Footer 마지막 줄이 네비 뒤로 약 16px 들어갔다.
+  여백을 `Layout` 페이지 셸의 Footer 뒤로 옮기고 회귀 단언을 추가해 4경로 모두 가림 0을 재현했다.
+- 실제 268a 업로드 시트: 열림 → 네비 0·body scroll lock, 닫힘 → 즉시 복귀. 빠른 3회 여닫기 모두
+  숨김/복귀 정상. 실제 `AnalysisProgress` 마커도 분석 중 0 → 완료 후 1, 분석 중 이탈 후 타 화면·복귀 1.
+  viewport 812→500px 리사이즈에서도 포커스 유지·네비가 축소 viewport 하단에 고정·가로 넘침 0.
+- Observer는 모바일→데스크톱 전환 언마운트에서 `disconnect` 1회가 실측됐고, 코드 cleanup도 동일하다.
+  데스크톱 5경로는 하단 네비 0·가로 NAV 6항목·비빈 화면 마커 유지, 비로그인 모바일도 하단 네비 0.
+  기존 모바일 햄버거는 6항목(+고지 하위 2)과 ESC 닫힘이 정상이다.
+- iOS 홈 인디케이터의 비영(0이 아닌) safe-area와 실제 소프트 키보드 오버레이는 브라우저 에뮬레이션 한계로
+  직접 재현하지 못했다. `viewport-fit=cover`·`env(...,0px)`·public manifest/SW diff 0을 확인했고 Human 이관.
+
+### 범위·동시 작업 보호
+- 269 범위 밖 `backend/`·`vite.config.*`·265 캐시·268a 업로드·268b 폴링·요금제/결제/인증·Supabase diff 0.
+  실 PDF·PII·엑셀·시안 HTML·렌더 산출물 stage 0, 브라우저 임시 하네스 삭제 완료.
+- 검증 도중 별도 BOHUMFIT-271 변경이 워킹트리에 유입됐다. 해당 4개 제품/테스트 파일과 271 문서 hunk는
+  수정·stage·commit하지 않고 그대로 보존했다.
+
+### Next
+1. **Human** — iOS 실기기 검수(세이프에어리어·키보드·백그라운드).
+2. **Chat** — DiseaseCard 폰트 B안 → 모바일 로드맵 완결.
+
+## 2026-08-03 Human 실기기 검수 — 264~269a 누적 7건 전수 PASS
+
+- **범위**: 264·265·266·267·268a·268b·269a **7건 누적 · 전수 45항목** 검수 완료.
+- **기기**: Android · **전 항목 정상**.
+- **특기**: **#32 백그라운드 복귀 시 결과가 이미 표시됨** — 268b 폴링 재개가 의도대로 동작함을 실기기에서 확인.
+- ★**미확인(iOS 전 항목)**: **#32 백그라운드 복귀** · **#5 오프라인**(265 캐시 A안) ·
+  **#45 세이프에어리어**(홈 인디케이터). iOS는 Safari 정책(백그라운드 탭 회수·PWA 제약)이 Android와 달라
+  **269b 하단 네비 세이프에어리어까지 포함해 iOS 실기기 확인이 남아 있다**.
+
+## 2026-08-03 BOHUMFIT-269b - 모바일 하단 네비게이션
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(2차 검증·커밋)
+Commit: **미커밋·미푸시**(git 쓰기 0). 기준 HEAD `04bef53`(268b).
+★워킹트리에 **269a·269b가 공존** — Codex는 **269a → 269b 순서로 분리 커밋**할 것.
+상세는 tasks/BOHUMFIT-269b-bottom-nav.md.
+
+### Step 1 실측
+- `Layout.tsx:26` `NAV` 6항목을 **데스크톱 가로 메뉴와 모바일 햄버거 드롭다운이 공유**한다.
+  269b는 그 구조를 **건드리지 않고** 하단 탭을 **추가**했다(데스크톱 diff 0).
+- `index.html`에 **`viewport-fit=cover`가 없었다** → 추가(264 manifest·theme-color meta는 그대로).
+- 탭 후보 실측(고정폭 표 / 15px 미만 폰트): `/insurance-links` 0/29 · `/subscription` 0/6 ·
+  `/insurance` 0/8 · `/history` 0/17.
+
+### ★탭 4종 = 홈 / 고지의무 / 보장분석 / 보험사 링크
+앞 3개는 **모바일 개편이 끝난 화면**(263~269a)이고, 4번째는 고정폭 표가 0이라 넘침 위험이 낮으면서
+설계사가 현장에서 자주 여는 도구다.
+**제외 사유**: **실손 계산은 계산 입력 폼이 미개편**이라 넣으면 덜 다듬어진 화면으로 유도하게 된다 ·
+요금제는 빈도가 낮고 업셀(159)이 이미 안내한다 · 히스토리는 269a 홈의 "전체 보기"로 이미 닿는다 ·
+자료 받기는 최초 1회 성격이다. **5탭이 아니라 4탭** — 375px에서 탭당 약 93px이라 한글 라벨이 뭉개지지 않는다.
+
+### 구현
+- `MobileBottomNav.tsx` + `bottomNavTabs.ts`(상수 분리) 신설 · `Layout.tsx`에 모바일·로그인 조건으로만 렌더 ·
+  `<main>`에 **네비 높이 + safe-area 하단 여백**(마지막 요소 가림 방지).
+- ★**겹침 회피를 Disclosure 수정 없이** 했다 — 네비가 `MutationObserver`로 268a 시트(`role=dialog`)·
+  분석 진행(`data-analysis-busy`)을 관찰해 **그 동안 렌더하지 않는다**. `AnalysisProgress`에는 **속성 1개**만
+  붙었고 렌더 요소 수는 그대로다. z-index: 시트 9998 > 네비 40 > 콘텐츠.
+- 269a "네비 마크업 0" 가드는 **삭제하지 않고 갱신** — "홈이 자기 네비를 만들지 않는다(소유는 Layout)"로
+  의미를 바꿔 **네비 이중 생성**을 계속 막는다.
+
+### 검증(1차 · Windows 로컬)
+- `npm test` **278 / 32 files**(260 + 18) · backend **818/8 불변**(★`backend/` diff 0) · tsc app/node · lint ·
+  `smoke:coverage` PASS · `build:verify` 343,225 B 예상 FAIL
+- ★**데스크톱 회귀 0 — 5경로**(`/dashboard`·`/disclosure`·`/coverage-compare`·`/insurance-links`·`/history`)에서
+  Layout `innerHTML`·노드 수 **완전 일치**. `AnalysisProgress`도 요소 수 동일. 사본·스크립트 삭제.
+- ★데스크톱·비로그인 **미표시** · 세이프에어리어 적용 · 본문 하단 여백 · 겹침 회피(시트/분석 중 숨김·복귀) ·
+  활성 탭(쿼리스트링 탭도 경로 판정) · 탭 균등 분할·고정폭 0 · 터치 44px · 라벨 **15px**(265 하한 준수) ·
+  라우트 신설 0(4탭 경로가 `App.tsx`에 실재함을 확인)
+- `vite.config.*`·265 캐시·268a 시트·268b 티커 **파일 diff 0**
+- 자체 정정 2건: ①상수를 컴포넌트 파일에서 내보내 `react-refresh` lint 위반 → `bottomNavTabs.ts`로 분리
+  ②jsdom이 `env()`를 파싱하지 못해 인라인 style 단언 실패 → 소스 검사로 전환(사유 주석 기록)
+- 판단 기록: 라벨을 처음 11px로 썼다가 **265 하한 가드에 걸려**, 우회하지 않고 **15px로 올려** 규격을 지켰다
+  (375px÷4탭 ≈ 93px로 한글 4글자가 들어간다).
+
+### 로컬에서 못 한 것 (Codex·Human 몫)
+- 375/390/430px 실렌더 넘침·탭 라벨 뭉개짐
+- ★**세이프에어리어 실동작(iOS 홈 인디케이터)** — 위 실기기 검수에서도 **iOS #45가 미확인**으로 남아 있다.
+- ★**키보드 올라올 때 네비 거동**(Android 리사이즈 / iOS 오버레이). `position: fixed`라 iOS에서 키보드 위에
+  뜰 수 있다. 다만 **시트가 열리면 네비가 사라지므로 업로드 폼 입력 중에는 문제가 없다**(가장 흔한 입력 경로).
+
+### Next
+1. **Codex** — ★**269a → 269b 순서로 분리 커밋**. 2차 검증(데스크톱 5경로 회귀 0 · **375~430px 실렌더** ·
+   시트 겹침 · 배포 스모크) → push.
+2. **Human** — ★**iOS 실기기 검수**(#32 백그라운드 · #5 오프라인 · #45 세이프에어리어 + 269b 네비·키보드).
+3. **Chat** — 모바일 PWA 로드맵(263~269b) 마감 판정 또는 잔여 항목 발번.
+
+## 2026-08-03 BOHUMFIT-269a - 모바일 홈 대시보드
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(2차 검증·커밋)
+Commit: **미커밋·미푸시**(git 쓰기 0). 기준 HEAD `04bef53`(268b). 상세는 tasks/BOHUMFIT-269a-mobile-home.md.
+
+### Step 1 실측 — ★163 대시보드가 이미 대부분을 갖고 있었다
+`src/pages/Dashboard.tsx`(260줄·라우트 `/dashboard`)에 **최근 분석**(`GET /history?track=recent&limit=5`) ·
+**분석 사용량**(`GET /billing/status` → `usageLeft` 계산) · 저장 리포트 · 바로가기 · 업셀(159)이 **이미 있다**.
+→ ★**판정: "기존 홈을 모바일 레이아웃으로 재배치"**. 데이터 계층은 한 줄도 새로 만들지 않았다(백엔드 신설 0).
+- **"최근 분석" 출처는 서버 히스토리**(156a/156b)다. 265 IndexedDB 캐시는 **기기 로컬 24시간**이라 성격이 다르고,
+  홈 목록은 기기를 바꿔도 보여야 한다. 기존 Dashboard가 이미 히스토리를 쓰고 있어 **바꾸지 않았다**.
+- ★**보장분석 진입이 원래 없었다** — 바로가기 3종은 `분석 시작`·`보험사 링크`·`요금제`뿐이고
+  `/coverage-compare`가 빠져 있다. 269a가 채운 실질이 이것이다.
+- **로그인 후 도달 지점은 `/disclosure?mode=agent`**(`App.tsx:64` — 163이 의도적으로 둔 A안).
+  모바일만 `/dashboard`로 바꿨고 **데스크톱은 무변경**이다.
+- PII: 최근 분석 항목은 `label`(사용자 입력 **별칭**)·`mode`·`created_at`뿐이라 환자명·파일명이 없다
+  (268b가 파일명을 "서류 N"으로 익명화한 것과 같은 기조) — 기존 표기를 **그대로** 따랐다.
+
+### 구현
+- `src/components/mobile/MobileHome.tsx` 신설 — 진입 카드 2종(고지의무/보장분석) + 남은 횟수 + 최근 분석.
+  ★**데이터를 스스로 부르지 않는다**(`fetch`·`useEffect` 0) — `Dashboard`가 이미 가져온 값을 props로 받는다.
+- `Dashboard.tsx` — `useIsMobile` 분기 1곳. **사용량 계산식을 그대로 재사용**해 값이 갈라질 수 없다.
+- `App.tsx` — `RedirectIfAuthed` 목적지만 모바일 분기(matchMedia 부재 시 데스크톱 폴백).
+
+### 검증(1차 · Windows 로컬)
+- `npm test` **260 / 31 files**(246 + 14) · backend **818 passed, 8 skipped**(불변·★`backend/` diff 0) ·
+  tsc app/node · lint · `smoke:coverage` PASS · `build:verify` 343,225 B 예상 FAIL
+- ★**데스크톱 회귀 0**: HEAD 사본 대비 대시보드 `innerHTML`·노드 수 **완전 일치**(빈 화면 마커 포함, 사본 삭제)
+- ★**도달 지점**: 데스크톱 `/disclosure?mode=agent` 유지 / 모바일만 `/dashboard` — 분기식이 소스와 일치함도 고정
+- ★**최근 분석에 환자명·원본 파일명 0** · 빈 상태·로딩·실패 전부 처리 · 카드 56px·행 44px·15px 하한
+- ★**하단 네비 자리 0**(`BottomNav`/`TabBar`/`fixed bottom-0` 없음·`<nav>` 0개) — 269b 범위 침범 방지를 테스트로 고정
+- `vite.config.*`·265 캐시·268a·268b 파일 **diff 0** · 요금제/결제/인증 무접촉 · Supabase 무변경
+
+### 판단 기록 2건
+1. **저장된 리포트 위젯은 모바일 홈에 넣지 않았다** — 패킷이 지정한 구성은 "진입 카드 2종 + 최근 분석 +
+   남은 횟수"이고, 저장 리포트는 "전체 보기 → /history"로 이어진다. 데스크톱에는 그대로 있다.
+2. **업셀 카드도 모바일 홈에 넣지 않았다** — 159 로직은 데스크톱에 그대로 두고, 모바일은 남은 횟수가 적을 때
+   `warn` 색으로만 알린다. 모바일 업셀 노출 정책을 새로 정하는 것은 범위 밖이라 **Human 판단 대상**이다.
+
+### 로컬에서 못 한 것 (Codex 몫)
+- 375/390/430px 실렌더 넘침 · 실기기에서 로그인 → 홈 도달 흐름(모바일 판정이 실제 기기 폭에서 걸리는지)
+
+### Next
+1. **Codex** — 2차 검증(데스크톱 회귀 0·도달 지점·**375~430px 실렌더**·배포 스모크) → 커밋·push.
+2. **Human** — 폰에서 로그인 후 홈 체감 + 위 판단 2건(저장 리포트·업셀의 모바일 노출 여부) 결정.
+3. **Chat** — 269b(하단 네비) 발번.
+
 ## 2026-08-03 Codex BOHUMFIT-182·183·268b 2차 검증 — PASS / 3건 분리 커밋
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human**(폰 실기기 검수) / **Chat**(268c 발번)

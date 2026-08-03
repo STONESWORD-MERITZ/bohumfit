@@ -13,7 +13,7 @@ export default function AnalysisProgress({ progress }: { progress?: AnalysisProg
   const showTicker = isMobile && !!progress && progress.done_files > 0;
 
   return (
-    <div className="rounded-2xl border border-accent-100 bg-accent-50/40 px-5 py-6">
+    <div data-analysis-busy className="rounded-2xl border border-accent-100 bg-accent-50/40 px-5 py-6">
       {/* BOHUMFIT-131: 브랜드 그린 원형 스피너 */}
       <div className="flex justify-center">
         <Spinner size={48} label="분석 중입니다..." />

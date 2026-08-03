@@ -1,7 +1,7 @@
 /// <reference types="node" />
 // BOHUMFIT-269a — 모바일 홈 대시보드.
 //   ★핵심 계약: ①진입 카드 2종이 **기존 라우트**로만 간다 ②최근 분석에 환자명·원본 파일명이 없다
-//   ③빈 상태·로딩·실패를 방치하지 않는다 ④터치 44px·주 액션 56px ⑤하단 네비 자리를 만들지 않는다(269b 범위).
+//   ③빈 상태·로딩·실패를 방치하지 않는다 ④터치 44px·주 액션 56px ⑤하단 네비 자리를 만들지 않는다(269b).
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { cleanup, render, screen, within } from "@testing-library/react";
@@ -119,8 +119,10 @@ describe("최근 분석", () => {
 });
 
 describe("★범위 계약", () => {
-  // BOHUMFIT-269a: 하단 네비는 269b 범위이므로 홈 컴포넌트가 먼저 만들지 않는다.
-  it("하단 네비를 만들지 않는다(269b 범위)", () => {
+  // BOHUMFIT-269b로 갱신: 하단 네비는 **Layout**이 소유한다.
+  //   269a 당시엔 "아직 만들지 않는다"는 뜻이었고, 지금은 "홈 화면이 자기 네비를 따로 만들지 않는다"는
+  //   소유권 계약이다(네비가 두 벌 생기는 것을 막는다).
+  it("홈 화면은 하단 네비를 직접 만들지 않는다(소유는 Layout)", () => {
     const src = readFileSync(resolve(ROOT, "src/components/mobile/MobileHome.tsx"), "utf8");
     expect(src).not.toMatch(/BottomNav|TabBar|fixed inset-x-0 bottom-0/);
     const { container } = renderHome();

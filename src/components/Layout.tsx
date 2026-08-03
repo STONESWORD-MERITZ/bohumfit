@@ -6,6 +6,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { ChevronDown, Menu, X } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
+// BOHUMFIT-269b: 모바일 하단 네비 — ★데스크톱 렌더 경로는 건드리지 않고 모바일에서만 덧붙인다.
+import { useIsMobile } from "./mobile/useIsMobile";
+import MobileBottomNav from "./mobile/MobileBottomNav";
+import { BOTTOM_NAV_HEIGHT } from "./mobile/bottomNavTabs";
 import Footer from "./Footer";
 import Logo from "./Logo";
 
@@ -184,6 +188,10 @@ function UserArea({ stacked = false }: { stacked?: boolean }) {
 }
 
 export default function Layout() {
+  // BOHUMFIT-269b: 로그인한 모바일 사용자에게만 하단 탭을 준다(로그인·비로그인 화면에는 표시하지 않는다).
+  const isMobile = useIsMobile();
+  const { user: navUser } = useAuth();
+  const showBottomNav = isMobile && !!navUser;
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -215,7 +223,16 @@ export default function Layout() {
 
   return (
     // BOHUMFIT-173: 100vh→100dvh — 모바일 주소창 수축 반영(짧은 페이지 footer 가림 방지). min-height라 긴 페이지 무영향.
-    <div className="min-h-dvh bg-canvas">
+    <div
+      className="min-h-dvh bg-canvas"
+      // BOHUMFIT-269b Codex 보정: 여백은 main이 아니라 Footer 뒤 페이지 끝에 둔다.
+      //   그래야 최하단까지 스크롤했을 때 푸터 마지막 문장도 고정 네비에 가리지 않는다.
+      style={
+        showBottomNav
+          ? { paddingBottom: `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom, 0px) + 2rem)` }
+          : undefined
+      }
+    >
       <header className="sticky top-0 z-40 border-b border-line bg-canvas/90 backdrop-blur">
         <div ref={panelRef} className="mx-auto max-w-6xl px-5">
           {/* BOHUMFIT-174: h-14(3.5rem)는 Home 히어로 min-h-[calc(100svh-3.5rem)]와 연동 — 변경 시 함께 수정 */}
@@ -310,6 +327,7 @@ export default function Layout() {
         <Outlet />
       </main>
       <Footer />
+      {showBottomNav && <MobileBottomNav />}
     </div>
   );
 }

@@ -29,7 +29,7 @@ npm run dev
 프런트 테스트 — `npm test`(라우트 스모크 18건 포함):
 
 ```text
-246 passed / 30 files
+278 passed / 32 files
 ```
 
 (BOHUMFIT-268a 실측·2026-08-02 갱신 — 267 시점 203/26에 모바일 업로드 회귀 14건 반영.)
