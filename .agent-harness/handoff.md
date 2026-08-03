@@ -4,7 +4,7 @@ Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Huma
 
 ### 커밋
 - BOHUMFIT-269a: `d6059b0cc1a1b18393eb531f0bed7b2bed10e9c2`
-- BOHUMFIT-269b: **본 최종 커밋**(자기 자신을 포함하는 문서라 SHA는 커밋 후 `git log`와 Codex 최종 결과에 기록)
+- BOHUMFIT-269b: `63331192de311ec59c100de245fbb716bb9b2ce2`
 
 ### Windows 권위 게이트
 - 루트 게이트(pwd·remote·219 리트머스) 통과. app/node tsc · lint **PASS**, frontend **278 passed / 32 files**,
@@ -43,6 +43,61 @@ Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Huma
 ### Next
 1. **Human** — iOS 실기기 검수(세이프에어리어·키보드·백그라운드).
 2. **Chat** — DiseaseCard 폰트 B안 → 모바일 로드맵 완결.
+
+## 2026-08-03 BOHUMFIT-271 - 오류 문구 표준화 (262 D-13 ①) · ★야간 무인 세션
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(2차 검증·커밋)
+Commit: **미커밋·미푸시**(★git 읽기만 사용). 기준 HEAD `04bef53`(268b).
+★워킹트리에 **269a·269b·271이 공존** — Codex는 **269a → 269b → 271 순서로 분리 커밋**할 것.
+상세는 tasks/BOHUMFIT-271-error-messages.md.
+
+### Step 1 실측 — ★명세 전제 부분 정정
+명세는 "백엔드 `detail`이 그대로 노출된다"를 문제로 봤으나, 실측하니 `main.py`의 `detail` 60여 개가
+**이미 한국어 존댓말 사용자 문구**였다("PDF 파일만 업로드할 수 있어요." 등). 재설계가 필요한 수준은 아니라
+목적(행동 지침형)은 유지하고 **실제 결함 3가지**를 표적으로 삼았다:
+1. ★**클라이언트 검증 문구에 파일명(PII)이 들어갔다** — `Disclosure.tsx` 2곳(`(${nonPdf.name})`·`(${tooLarge.name})`).
+   268b가 서버 저장 파일명을 "서류 N"으로 익명화한 기조와 어긋난다.
+2. ★**미매핑 오류가 원문 그대로 샜다** — `Disclosure`·`CoverageRemodel` 3곳이 `e.message`를 뿌려,
+   서버가 예상 못 한 응답(500 본문·프록시 HTML)을 내면 기술 문구가 노출됐다.
+3. 원인만 있고 **다음 행동이 없는 문구**가 있었다.
+
+### 구현
+- `src/lib/errorMessages.ts` 신설 — 부분 일치 사전(백엔드가 숫자를 채워 보내므로 완전 일치로는 안 잡힌다) +
+  폴백. ★**원문은 화면에 내보내지 않고 `console.warn`으로만** 남긴다(개발 진단은 유지).
+- `Disclosure.tsx` — 검증 7건 + 분석 실패. ★**파일명 삽입 2건 제거**. 화면 문구와 토스트를 **같은 값**으로 통일.
+  네트워크 단절만은 기존 `connectionErrorMessage`(API 주소 안내 포함)가 더 유용해 **그대로 뒀다**.
+- `CoverageRemodel.tsx` — 업로드·내보내기 2건. **고지와 같은 사전**을 쓴다.
+- ★**268b 폴링 실패는 손대지 않았다** — 조용한 폴백이 정답이다(분석은 계속 진행 중).
+- ★**268a `uploadWithProgress` 구조 무변경** — 사전은 **표시 직전 호출부에서만** 쓴다.
+  `payload.detail`·`UploadError.status`가 그대로라 402 판정과 159 업셀 동선이 유지된다.
+
+### 검증(1차 · Windows 로컬)
+- `npm test` **304 / 33 files**(278 + 26) · backend **818/8 불변**(★`backend/` diff 0) · tsc app/node · lint ·
+  `smoke:coverage` PASS
+- ★**정상 경로 데스크톱 회귀 0** — HEAD 사본 대비 `CoverageRemodel` 결과 화면 완전 일치(271은 오류 경로만 변경)
+- ★**PII·기술 용어 0**(사전 전 문구 전수 검사 · 파일명을 섞어도 문구에 반영되지 않음) ·
+  ★**미매핑 → 폴백**(HTML·빈 값·null 포함) · ★**XHR·fetch 문구 동일** · ★**268b 폴링 조용함 유지**
+- `build:verify` **예상 FAIL** — 수치가 **343,225 → 343,702 B**(사전 모듈 +477 B). 껍데기 상태는 그대로다.
+- `vite.config.*` diff 0 · 라우트 0 · 265 캐시·배지·판정·요금제/결제/인증 무접촉
+- ★**269a·269b 미커밋분 무접촉** — 271이 손댄 파일은 **4개뿐**
+  (`errorMessages.ts`·`errorMessages.test.ts` 신규, `Disclosure.tsx`·`CoverageRemodel.tsx` 수정)
+- 자체 정정 1건: "전체 PDF 합계"가 "개별 PDF 크기" 규칙에 먼저 걸려(문구가 "크기는 … 넘을 수 없습니다"를 공유)
+  **전체 합계 규칙을 앞으로** 옮기고 사유를 주석에 남겼다.
+
+### ★워킹트리 이상 신호 — 건드리지 않고 기록만 (Codex 확인 필요)
+271 작업 중(20:16~20:19, 내 `npm test` 20:18과 **동시간대**) 워킹트리에 **내가 만들지 않은 파일 4개**가 나타났다:
+`.codex-269-browser.html` · `.codex-269-vite.config.mjs` · `src/__codex269Browser.tsx` · `src/__codex269Supabase.ts`
+이름으로 보아 **Codex의 269 브라우저 검증용 임시 파일**로 보인다. 야간 규칙(남의 변경분을 건드리지 않는다)에 따라
+**삭제·수정하지 않았다**. → ★**Codex가 커밋 시 stage에서 제외하거나 정리**해야 한다.
+
+### 로컬에서 못 한 것 (Codex 몫)
+- 375/390/430px **문구 잘림·넘침** 실측 · 실제 서버 오류를 유발한 엔드투엔드 확인(형식·크기·402·타임아웃)
+
+### Next
+1. **Codex** — ★**269a → 269b → 271 순서로 분리 커밋**(위 `codex269` 임시 파일 정리 포함).
+   2차 검증(정상 경로 회귀 0 · 문구 매핑 · **375~430px 문구 넘침** · 배포 스모크) → push.
+2. **Human** — iOS 실기기 검수(#32 백그라운드 · #5 오프라인 · #45 세이프에어리어 + 269b 네비·키보드).
+3. **Chat** — 262 결정지 잔여 항목 또는 모바일 로드맵 마감 판정.
 
 ## 2026-08-03 Human 실기기 검수 — 264~269a 누적 7건 전수 PASS
 

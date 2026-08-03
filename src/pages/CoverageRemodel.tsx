@@ -25,6 +25,8 @@ import {
 import { SpecialNotes, StageComparisonTable, YnFlagTable } from "../components/CoverageInsightBlocks";
 import { formatCoverageAmount, formatCoverageDeltaAmount } from "../lib/coverageFormat";
 import { mergeManualRiders, type ManualRider } from "../lib/coverageManualRiders";
+// BOHUMFIT-271: 오류 문구 사전(고지 화면과 같은 것을 쓴다).
+import { toUserErrorMessage } from "../lib/errorMessages";
 // BOHUMFIT-266: 모바일 3단 점진 공개 + 스와이프 해지. ★데스크톱 경로는 건드리지 않고 분기만 추가한다.
 import { useIsMobile } from "../components/mobile/useIsMobile";
 import {
@@ -398,7 +400,8 @@ export default function CoverageRemodel() {
       }
       setResult((await response.json()) as AnalyzeResult);
     } catch (uploadError) {
-      setError(uploadError instanceof Error ? uploadError.message : "알 수 없는 오류가 발생했습니다.");
+      // BOHUMFIT-271: 원문 대신 행동 지침형 문구(미매핑은 폴백 — 원문은 콘솔에만 남는다).
+      setError(toUserErrorMessage(uploadError));
     } finally {
       setBusy(false);
       event.target.value = "";
@@ -441,7 +444,8 @@ export default function CoverageRemodel() {
       anchor.remove();
       URL.revokeObjectURL(url);
     } catch (exportError) {
-      setError(exportError instanceof Error ? exportError.message : "파일 생성 중 오류가 발생했습니다.");
+      // BOHUMFIT-271: 동일 사전 적용 — 고지·보장분석 문구가 갈라지지 않게 한다.
+      setError(toUserErrorMessage(exportError));
     } finally {
       setExporting("");
     }

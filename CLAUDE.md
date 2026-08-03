@@ -297,7 +297,7 @@ src/                        React 19 · TypeScript · Vite (Vercel 배포)
 
 - 백엔드: `cd backend && python -m pytest -q`
   - 현재 기준선(BOHUMFIT-268b 실측 · 2026-08-02 갱신): `818 passed, 8 skipped`
-- 프런트 테스트: `npm test` — 현재 기준선 `278 passed / 32 files`(BOHUMFIT-269b 실측·2026-08-03, 라우트 스모크 18건 포함)
+- 프런트 테스트: `npm test` — 현재 기준선 `304 passed / 33 files`(BOHUMFIT-271 실측·2026-08-04, 라우트 스모크 18건 포함)
 - 프런트 타입체크: `npx tsc -p tsconfig.app.json --noEmit` 및 `tsconfig.node.json`
 - 빌드: `npm run build && npm run build:verify` — ★기준선 정정(BOHUMFIT-248 · 2026-07-26):
   과거 "343 kB대 정상"은 **폐기**. 로컬 Windows 번들 343 kB대는 앱 코드가 빠진 껍데기였고
@@ -308,6 +308,8 @@ src/                        React 19 · TypeScript · Vite (Vercel 배포)
   바이너리를 차단해(248 P1 실측: rolldown·tailwind oxide) 정상 번들 생성 불가 — 로컬은
   build:verify가 FAIL을 정직 보고하는 상태가 정상이며, 기능 판정은 소스 게이트(tsc·lint·vitest)
   + Codex의 프로덕션 번들 대체 검증으로 한다(Human 결정 2026-07-26).
+  ★껍데기 크기는 **약 343 kB로 코드 증가에 따라 변동**한다(271에서 +477 B 실측) — 특정 바이트
+  수치와의 일치·불일치를 판정 근거로 쓰지 말 것(판정은 build:verify 스크립트가 한다).
   - 기준선 수치 변경 시 `.agent-harness/verify.md`·`AGENTS.md`를 함께 갱신한다.
 - 배포: `main` 브랜치 푸시 시 Vercel(프런트)·Railway(백엔드) 자동 배포.
 - git 반영: Claude Code는 로컬에서 직접 실행·1차 검증하되 git 쓰기(add/commit/push)는 기본 금지, **권위 커밋은 Codex가 담당**한다. Codex(또는 저위험 + "Code 커밋 허용" 명시 시 Claude Code)가 태스크 범위 파일만 `git add` 후 한국어 커밋 메시지(`{태스크ID}: {변경 요지}`)로 `git push origin main` 한다.

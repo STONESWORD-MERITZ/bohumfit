@@ -11,6 +11,8 @@ import DisclosureMobileShell from "../components/mobile/DisclosureMobileShell";
 // BOHUMFIT-268a: 모바일 업로드 하단 시트 + 업로드 진행률 실측(XHR).
 import MobileUploadSheet, { type SelectedFilesInfo } from "../components/mobile/MobileUploadSheet";
 import { uploadWithProgress, UploadError, type UploadProgress } from "../lib/uploadWithProgress";
+// BOHUMFIT-271: 오류 문구 사전(행동 지침형 · PII·기술 용어 미노출).
+import { toUserErrorMessage } from "../lib/errorMessages";
 // BOHUMFIT-268b: 분석 진행 폴링 + 추출 티커(분석과 분리된 부가 기능).
 import {
   createJobId,
@@ -1981,36 +1983,38 @@ export default function Disclosure({
   };
 
   const analyze = async () => {
+    // BOHUMFIT-271: 검증 문구를 행동 지침형 사전으로 통일한다.
+    //   ★파일명을 문구에 넣지 않는다(268b 익명화 기조 — 화면·로그 어디에도 PII를 남기지 않는다).
     const files = fileRef.current?.files;
     if (!files?.length) {
-      setError("PDF 파일을 업로드해 주세요.");
+      setError(toUserErrorMessage("PDF 파일을 1개 이상 업로드해 주세요."));
       return;
     }
     if (files.length > MAX_FILE_COUNT) {
-      setError(`PDF는 최대 ${MAX_FILE_COUNT}개까지 업로드할 수 있습니다.`);
+      setError(toUserErrorMessage(`PDF는 최대 ${MAX_FILE_COUNT}개까지 업로드할 수 있습니다.`));
       return;
     }
     const nonPdf = Array.from(files).find((f) => !f.name.toLowerCase().endsWith(".pdf"));
     if (nonPdf) {
-      setError(`PDF 파일만 업로드할 수 있어요. (${nonPdf.name})`);
+      setError(toUserErrorMessage("PDF 파일만 업로드할 수 있어요."));
       return;
     }
     const tooLarge = Array.from(files).find((f) => f.size > MAX_FILE_SIZE);
     if (tooLarge) {
-      setError(`개별 PDF 크기는 ${MAX_FILE_SIZE / 1024 / 1024}MB를 넘을 수 없습니다. (${tooLarge.name})`);
+      setError(toUserErrorMessage("개별 PDF 크기는 제한을 넘을 수 없습니다."));
       return;
     }
     const totalSize = Array.from(files).reduce((sum, f) => sum + f.size, 0);
     if (totalSize > MAX_TOTAL_SIZE) {
-      setError(`전체 PDF 합계 크기는 ${MAX_TOTAL_SIZE / 1024 / 1024}MB를 넘을 수 없습니다.`);
+      setError(toUserErrorMessage("전체 PDF 합계 크기는 제한을 넘을 수 없습니다."));
       return;
     }
     if (!consent) {
-      setError("민감정보(건강정보) 처리 동의가 필요합니다. 동의 항목을 확인해 주세요.");
+      setError(toUserErrorMessage("민감정보(건강정보) 처리 동의가 필요합니다."));
       return;
     }
     if (mode === "agent" && !subjectConsent) {
-      setError("고객 진료자료 업로드 권한과 정보주체 동의 확보 여부를 확인해 주세요.");
+      setError(toUserErrorMessage("정보주체 동의 확보 여부를 확인해 주세요."));
       return;
     }
     const token = session?.access_token;
@@ -2102,13 +2106,15 @@ export default function Disclosure({
         window.setTimeout(showPostTour, 0);
       }
     } catch (e: unknown) {
-      if (e instanceof TypeError && e.message.includes("fetch")) {
-        setError(connectionErrorMessage(API_BASE));
-      } else {
-        setError(e instanceof Error ? e.message : "알 수 없는 오류가 발생했습니다.");
-      }
-      // BOHUMFIT-137b: 토스트 오류 메시지를 구체화(서버 detail/네트워크 안내 그대로 노출).
-      showToast(e instanceof Error ? e.message : "분석 중 문제가 발생했어요. 잠시 후 다시 시도해 주세요.", "error");
+      // BOHUMFIT-271: 원문을 그대로 뿌리지 않는다 — 사전에 있는 문구 아니면 폴백만 나간다.
+      //   ★연결 자체가 끊긴 경우는 기존 안내(API 주소 확인 포함)가 더 유용해 그대로 둔다.
+      const userMessage =
+        e instanceof TypeError && e.message.includes("fetch")
+          ? connectionErrorMessage(API_BASE)
+          : toUserErrorMessage(e);
+      setError(userMessage);
+      // BOHUMFIT-137b: 토스트도 같은 문구를 쓴다(화면·토스트가 어긋나지 않게).
+      showToast(userMessage, "error");
     } finally {
       // BOHUMFIT-268b: 어떤 경로로 끝나든 폴링을 멈춘다(effect가 정리 함수를 호출한다).
       setPollJobId(null);
