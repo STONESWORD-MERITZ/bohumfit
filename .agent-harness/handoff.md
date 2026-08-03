@@ -1,3 +1,217 @@
+## 2026-08-03 Codex BOHUMFIT-182·183·268b 2차 검증 — PASS / 3건 분리 커밋
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human**(폰 실기기 검수) / **Chat**(268c 발번)
+
+### 커밋
+- BOHUMFIT-182: `0230a5d5c9d3cf279f20e6a3b2ef5a64d16d9d29`
+- BOHUMFIT-183: `d30f580159a2e06286c97355a30a806197e889e0`
+- BOHUMFIT-268b: **본 최종 커밋**(자기 자신을 포함하는 문서라 SHA는 커밋 후 `git log`와 Codex 최종 결과에 기록)
+
+### Windows 권위 게이트
+- app/node tsc · lint **PASS**, frontend **246 passed / 30 files**, backend **818 passed, 8 skipped**,
+  `npm run smoke:coverage` 정본 2건 **PASS**.
+- `npm run build` = **343,225 B**. `build:verify`는 241/248 계약대로 필수 문자열 3종과 600 kB 하한을
+  거부해 **예상 FAIL**로 분류(264~268b 동일 수치).
+- 첫 app tsc에서 268b 신규 테스트의 Vitest mock tuple/nullable resolver 타입 오류 2건을 발견해 테스트 타입만
+  최소 보정했고, 이어진 lint unused 1건도 typed mock으로 정리했다. 제품 동작 변경 0.
+
+### 182 — 결과 동일성·모바일
+- 신규 10종 통과: 해지 체크 즉시 결과 == 기존 버튼 경유 결과(`innerHTML`·payload 동일), 연속 토글 결정성,
+  표준형 배너 0, 미귀속 overview+해지에서만 확정 배너 1건.
+- 실브라우저 375/390/430px: 합계형 배너와 월납·총납입·20년 차액 블록 모두
+  `scrollWidth == clientWidth`, 문서 가로 넘침 **0**.
+
+### 183 — 산식·문구·실데이터
+- `backend/filters.py` diff **0**. `_sum_daily_max_presc` 본문 900자 SHA-256 앞 16자리
+  **`f92601d87b934c77`**로 착수값과 동일. 30일 임계 색·`투약 {N}일` 라벨 무변경.
+- 비식별 정본 실 PDF 3종 실제 분석: **I10 1,002일 · G45 344일 · E78 210일** 재현.
+- 화면·PDF·카카오 문구 교차 테스트 11종 통과. 실브라우저 산식 토글은 모바일·데스크톱 모두
+  `aria-expanded false→true→false`, 확정 문구 문자열 동일. 375/390/430px 설명 줄 넘침 0.
+
+### 268b — 실 PDF 병렬 티커·보안
+- 비식별 정본 실 PDF 3종을 워커 1과 `BOHUMFIT_PARSE_WORKERS=2`로 각각 완전 분석했다.
+  워커 1 이벤트 = **6.456s(1/3) → 42.749s(2/3) → 67.596s(3/3)**,
+  워커 2 = **8.009s(1/3) → 30.324s(2/3) → 38.574s(3/3)**로 중간 이벤트가 실시간 분리됐다.
+  병렬 완료 레코드 순서는 `247→803→1698`로 입력 순차 `247→1698→803`과 달랐지만 최종 결과는
+  완전 동일(SHA-256 `b761045c34db8d05270000fd9d2182f2fd91e49f2d61baa7339ac8f5513e76a9`).
+- 같은 프로세스·같은 입력·강제 워커 2에서 `job_id` 있음/없음 전체 결과 dict도 **완전 동일**(`equal=True`,
+  record counts basic 247/detail 1698/pharma 803)하여 진행 표시 유무의 결과 무영향을 직접 재현했다.
+- ★Codex 보안 보정: 원본 파일명에 고객명이 포함될 수 있는데 저장소가 그대로 보관하던 결함을 발견했다.
+  저장값을 완료순서 기반 익명 라벨 `서류 N`으로 최소 변경하고 회귀 테스트를 보강했다. 실 저장소 덤프는
+  `filename/records/ftypes/errors` 화이트리스트와 익명 라벨만 포함하며 원본명·환자명·상병코드·병명 **0**.
+- 타인 소유 job TestClient 조회 **404**(동일 detail로 존재 비노출), TTL·등록 후 상한·job_id 미전송 no-op,
+  완료/오류/언마운트/이탈 정리, 폴링 404·네트워크 폴백, 퍼센트 미생성 테스트 통과.
+- 실브라우저 티커 375/390/430px 가로 넘침 0·본문 16px·퍼센트 0. 데스크톱 HEAD(`96f2b54`) 별도 worktree
+  렌더 대조: Disclosure 업로드·Coverage 결과·분석 대기(진행 데이터 주입) `innerHTML`/노드 수 완전 동일,
+  Disclosure 결과만 183 의도 토글 **+1 node**, 그 외 차이 0. 임시 worktree·하네스·실데이터 산출물 삭제.
+
+### 보호·스코프
+- `backend/coverage/` · `backend/filters.py` · `vite.config.*` · Supabase · 265 IndexedDB/SW 캐시 로직 diff 0.
+  `backend/pipeline/` 변경은 183의 PDF 문구/컨텍스트뿐이며 268b diff 0. Q1~Q5 판정·기간 라벨 무변경.
+- 실 PDF·PII·엑셀·시안 HTML·렌더 산출물 stage 0. 공용 파일 `main.py`·`Disclosure.tsx`는 hunk 단위로
+  183/268b를 분리했고, 각 커밋 전 cached diff에서 다른 태스크 표식 0을 확인했다.
+
+### Next
+1. **Human** — 폰 실기기 검수(264~268b 누적).
+2. **Chat** — BOHUMFIT-268c(백그라운드 알림) 발번.
+
+## 2026-08-02 BOHUMFIT-268b - 분석 진행 상태 폴링 + 추출 티커
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(2차 검증·커밋)
+Commit: **미커밋·미푸시**(git 쓰기 0). 기준 HEAD `96f2b54`(268a).
+★워킹트리에 **182·183·268b 3건이 공존** — Codex는 **182 → 183 → 268b 순서로 분리 커밋**할 것.
+상세는 tasks/BOHUMFIT-268b-analysis-ticker.md.
+
+### Step 1 실측 — ★병렬 경로는 그대로면 진행이 "한꺼번에" 나온다
+- 완료 시점에 확정되는 값은 **파일명·레코드 수·유형별 건수(basic/detail/pharma)·오류 수**뿐이다
+  (`analyzer._log_parsed`). 환자명은 그 자리에 있지만 **저장하지 않는다**.
+- ★**상병코드·병명은 티커에 쓰지 않기로 했다.** 패킷은 허용했지만 같은 패킷의 PII 원칙("화면에 흘릴 값에
+  한정·환자 식별정보 저장 금지")과 265~268a 기조를 함께 보면 **건강정보를 서버 메모리에 얹는 것**이라
+  노출면만 커진다. 파일명·건수만으로 "무엇이 얼마나 처리됐는지"는 충분히 전달된다(필요 시 Human 결정 후 별도 태스크).
+- ★**병렬 경로 제약**: `_run_pool()`이 끝난 **뒤** `zip`으로 `_log_parsed`를 부르므로 그대로 두면 진행이 일괄로 찍힌다.
+  → `as_completed` 루프 안에서 기록하도록 접합했다(그 루프는 `asyncio.to_thread`로 도는 **메인 프로세스 스레드**라
+  저장소에 바로 쓸 수 있다). 완료 순서는 파일 순서와 무관하므로 티커도 그 전제로 그린다.
+
+### 구현
+- `backend/progress.py`(신설·순수 모듈): `job_id → {owner, files[], ...}` · **TTL 15분** · `MAX_JOBS` 상한 ·
+  스레드 락 · **소유자 불일치면 None**. 저장 키는 `filename/records/ftypes/errors` 화이트리스트뿐.
+- `analyzer.py`: `run_analysis`/`_parse_all_pdfs`/`_log_parsed`에 **선택 인자 `job_id`** 추가 —
+  없으면 기존과 100% 동일. 순차 경로는 파일마다, 병렬 경로는 `as_completed`에서 기록.
+- `main.py`: `/api/analyze`에 **`job_id` Form 필드 추가**(기존 필드 무변경) + 성공·실패 4경로에 `finish()` +
+  `GET /api/analyze/progress/{job_id}`(verify_jwt·소유자 검증·`120/minute`).
+- `src/lib/analysisProgress.ts`(신설): 폴링 1.5초 · `finished` 시 자체 중단 · **404/네트워크 오류 무시** ·
+  정리 후 도착 응답 무시 · `tickerLine`은 **퍼센트를 만들지 않는다**.
+- `AnalysisProgress.tsx`: ★**모바일에서만** 티커(데스크톱은 기존 화면 그대로). 진행 정보가 없으면 모바일도 동일.
+- `Disclosure.tsx`: 268a 접합점에서 job_id 생성·전송 → **effect 기반 폴링**(시작·중단·언마운트 정리 일원화).
+
+### Step 5 — 보장분석은 **적용하지 않았다**
+`/coverage/analyze`는 **단일 파일**이라 "N개 중 M개" 재료가 없고, 진행을 만들려면 `backend/coverage/` 내부를
+쪼개야 해서 **무접촉 계약 위반**이다. 2.7~5.8s로 짧아 이득도 작다(패킷 Step 5가 허용한 판정).
+
+### 검증(1차 · Windows 로컬)
+- `npm test` **246 / 30 files**(235 + 11) · backend **818 passed, 8 skipped**(803 + 15 · **기존 회귀 0**) ·
+  tsc app/node · lint · `smoke:coverage` PASS · `build:verify` 343,225 B 예상 FAIL
+- ★**하위 호환**(job_id 미전송 시 무동작·저장소 0) · ★**분석 결과 값 불변**(기록은 로깅 지점에서만·데이터 흐름 무개입) ·
+  ★**타인 조회 차단**(404, 존재 여부도 비노출) · ★**TTL·상한·누수 0** · ★**폴링 정리 4경로** ·
+  ★**폴링 실패 시 폴백**(분석 계속) · ★**퍼센트 미생성** · ★**완료 순서 무관** · ★**PII 화이트리스트 고정**
+- ★**데스크톱 회귀 0**: 진행 정보가 있어도 데스크톱 대기 화면은 HEAD와 `innerHTML`·노드 수 **완전 동일**.
+- 보호 영역: `backend/pipeline/` 268b diff **0**(변경분 `report_pdf.py`는 183 문구) · `filters.py` **0** ·
+  `coverage/` **0** · `vite.config.*` **0** · Supabase 무변경 · 268a 업로드 구조 무변경.
+- 구현 정정 2건: ①상한 정리를 등록 **전**에만 해 1개씩 초과 → **등록 후 정리**로 수정
+  ②ref 직접 조작이 `react-hooks/immutability`에 걸려 **effect 기반 폴링**으로 전환(누수 가능성이 더 낮은 관용 패턴).
+- 기준선 문서 갱신: `CLAUDE.md`·`verify.md` → backend **818/8** · frontend **246/30**.
+
+### 로컬에서 못 한 것 (Codex 몫)
+- 375/390/430px 실렌더 넘침 · **실제 다중 파일 분석에서 티커가 실시간으로 채워지는지**
+  (특히 `BOHUMFIT_PARSE_WORKERS=2` 병렬 경로) — 순수 모듈·접합 지점까지만 로컬에서 고정했다.
+
+### Next
+1. **Codex** — ★**182 → 183 → 268b 순서로 분리 커밋**. 2차 검증(하위 호환·결과 불변·타인 조회 차단·
+   TTL·폴링 정리·**실제 다중 파일 티커**·375~430px) → push.
+2. **Human** — 폰에서 분석 대기 중 티커 체감(무신호 300초 문제가 실제로 해소되는지).
+3. **Chat** — 269(홈·네비) 발번.
+
+## 2026-08-02 BOHUMFIT-183 - 205 투약 배지 표기 보강 (A안 · 표시 계층 전용)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(2차 검증·커밋)
+Commit: **미커밋·미푸시**(git 쓰기 0). 기준 HEAD `96f2b54`(268a).
+★**워킹트리에 182 미커밋분이 공존** — Codex는 **182 → 183 순서로 분리 커밋**할 것.
+상세는 tasks/BOHUMFIT-183-med-badge-label.md.
+
+### ★산식은 손대지 않았다 (핵심 계약)
+`backend/filters.py` **diff 완전 0**, `_sum_daily_max_presc` 본문 해시 **`f92601d87b934c77`**로 착수 시점과 동일.
+현행 "날짜별 최대 처방일수 누적 합"은 030→031/032에서 **의도적으로 채택**된 설계이고, 이번엔 그 사실을
+**사용자에게 밝히는 표기만** 추가했다.
+
+### ★실데이터 회귀 통과
+비식별 정본 실 PDF(기본/세부/처방조제)로 실제 분석해 **I10 1,002일 · G45 344일 · E78 210일** — 패킷 기대값과
+**정확히 일치**했다. 값 변동 0.
+
+### Step 1 실측 — PDF·카카오에는 "투약 배지"가 없다
+화면만 `투약 {N}일` Chip(색: ≥30 amber / >0 emerald)이고, **PDF·카카오는 판정라인(`detail`) 파생 문장 조각**이다.
+그래서 각주는 배지 옆이 아니라 **PDF 섹션 각주 1회 / 카카오 말미 1줄**로 넣는 것이 맞다.
+`main.py`가 이미 `from pipeline.report_pdf import (...)`를 쓰고 있어 **백엔드 두 곳은 상수 1벌을 실제로 공유**한다.
+
+### 구현
+- **화면**: 투약 배지 옆 "산식 ⓘ" 토글 → 펼치면 확정 문구 1줄. ★배지 라벨·값·색 **무변경**.
+  ★**툴팁을 쓰지 않았다** — native `title`은 모바일에 hover가 없어 뜨지 않는다. 패킷이 허용한 접이식으로
+  통일했고, 그 결과 데스크톱·모바일 동작이 같아 **`useIsMobile` 분기가 불필요**해졌다.
+- **PDF**: `total_med_sum`이 있을 때만 각주 1회(템플릿 조건 + 컨텍스트 주입). 폰트·레이아웃(261) 무변경.
+- **카카오**: 투약 항목이 있을 때만 말미에 축약형 1줄. 머리·구조·순서 불변.
+- ★**문구 "단일 상수"의 물리적 한계** — TS/Python은 한 곳에 둘 수 없어, 251 선례대로 **각 언어 1개씩 +
+  문자열 동일성 테스트**로 계약을 고정했다.
+
+### 검증(1차 · Windows 로컬)
+- ★`backend/filters.py` diff **0**·해시 동일 · ★실데이터 3종 **일치** · ★30일 임계 색 규칙 **무변경** ·
+  ★배지 라벨 **무교체** · ★세 곳 문구 **동일 출처 교차 검증**
+- `npm test` **235 / 29 files**(227 + 8) · backend `pytest -q` **803 passed, 8 skipped**(792 + 신규 11 ·
+  **기존 회귀 0**) · tsc app/node · lint · `smoke:coverage` PASS · `build:verify` 343,225 B 예상 FAIL
+- ★**HEAD 대비 화면 영향 = 토글 1개뿐**(결과 화면 요소 수 차이 **정확히 +1** · 설명 기본 접힘 ·
+  **투약 배지 마크업 완전 동일**). 사본·일회성 스크립트 삭제.
+- `backend/pipeline/` diff = `report_pdf.py` 문구 상수·컨텍스트뿐(패킷 허용 범위) · `coverage/` 0 · `vite.config.*` 0
+- 자체 정정 3건(전부 테스트 쪽 · 제품 코드 영향 0): 산식 픽스처 구조(리스트→**날짜→dict|스칼라**) ·
+  기준 인자 타입(`date`→`datetime`) · `AnimatedNumber` 카운트업과 `metric.med`가 **med_days가 아닌 질문별
+  규칙**이라는 실측 반영.
+
+### 로컬에서 못 한 것 (Codex 몫)
+- 375/390/430px 실렌더 넘침 · **PDF 실물에서 각주가 페이지 경계에 걸리지 않는지**(로컬 렌더 제한).
+
+### Next
+1. **Codex** — ★**182 → 183 순서로 분리 커밋**. 2차 검증(filters.py diff 0·실데이터 3종·문구 동일 출처·
+   PDF 각주 페이지 경계·375~430px) → push.
+2. **Human** — 화면에서 "산식 ⓘ" 발견성 확인(접이식이 충분한지).
+3. **Chat** — 268b(분석 진행 신호) 발번.
+
+## 2026-08-02 BOHUMFIT-182 - 보장분석 UX 2건 (해지 즉시 미리보기 · 합계형 문서 배너)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(2차 검증·커밋)
+Commit: **미커밋·미푸시**(git 쓰기 0). 기준 HEAD `96f2b54`(268a 검증 기록).
+상세는 tasks/BOHUMFIT-182-coverage-ux.md. 262 결정지 **D-11 ①·D-12 ①** 확정분 구현.
+
+### Step 1 실측 — ★D-11 중단 조건 미해당(진행 가능)
+패킷은 "재계산에 서버 왕복이 있으면 중단"을 걸었다. `src/lib/coverageAfterDisplayCache.ts`를 전수 확인한 결과
+`fetch`·`axios`·`XMLHttpRequest`·`await` **0건** — `buildAfterResult`는 **순수 클라이언트 계산**이다.
+매 체크마다 요청을 유발하지 않으므로 그대로 진행했다.
+현행 흐름은 `체크 → updateContractDecision → setAfterResult(null)`(결과를 지움) → 사용자가 **버튼**을 눌러야
+`recalculateAfter()`가 도는 구조였다. overview 경고는 `coverageAfterDisplayCache.ts:647~656`에서
+**259 정밀화 조건 2항**(해지 요청 있음 && **미귀속** overview 행 존재)으로 `cautions`에 push되고,
+화면에서는 warnings·improvements와 합쳐져 `SpecialNotes` 목록에 섞여 있었다.
+
+### 구현
+- **D-11** — `updateContractDecision`이 다음 `decisions`를 만들어 **그 자리에서 `buildAfterResult`를 호출**한다.
+  ★**"전후 비교 계산" 버튼은 그대로 남겼다**(데스크톱 동선 변경 금지) — 같은 함수·같은 인자를 부르므로
+  결과가 갈라질 수 없다. 제안서 편집은 기존대로 버튼 경유(범위 밖).
+- **D-12** — 경고 문구를 `OVERVIEW_CANCEL_CAUTION` **상수로 뽑아** push 지점과 화면이 같은 값을 참조하게 했다.
+  화면은 그 항목을 찾아 **전용 배너**로 올리고 `specialNotes` 나열에서는 제외한다.
+  ★**조건식·문구 문자열 자체는 변경 0**이고, 식별을 위한 신설 조건도 0이다.
+
+### 검증(1차 · Windows 로컬)
+- tsc app/node · lint · `npm test` **227 passed / 28 files**(217 + 10) ·
+  backend `pytest -q` **792 passed, 8 skipped**(불변 · ★`backend/` diff 0) ·
+  `npm run smoke:coverage` **PASS**(정본 2건 기준값·불변식 그대로 — ★이번 태스크 핵심 가드) ·
+  `build:verify` **343,225 B 예상 FAIL**(264~268a 동일 수치) · `vite.config.*` diff **0**.
+- ★**데스크톱 회귀 0**(HEAD 사본 대비 실렌더): ①해지 미체크 초기 상태 ②**버튼 경유 결과 화면** —
+  둘 다 `innerHTML`·노드 수 **완전 일치**. ②가 통과했다는 것은 **산식·표시가 바뀌지 않았다**는 증명이다.
+  빈 화면 오통과 방지 마커 포함. 사본·일회성 스크립트는 **삭제**(잔재 0).
+- ★**즉시 반영 == 버튼 경유**: 같은 조작 후 두 경로의 `innerHTML` 전체를 대조해 동일함을 고정했고,
+  payload 레벨 동일성과 "유지 상태와는 실제로 다름"도 함께 단언해 무의미 통과를 막았다.
+- D-12 조건 전수: 표준형 미표시 · ★**귀속된 overview 행은 대상 아님**(259) · 해지 없으면 미표시 ·
+  배너에 폭 고정·표 없음.
+
+### 판단 기록
+- **디바운스를 넣지 않았다** — 체크박스 토글은 클릭당 1회이고 순수 계산이라 입력 폭주 경로가 아니다.
+  대신 **연속 토글(해지→복원→해지) 후 첫 해지 상태와 마크업이 같음**을 테스트로 고정했다.
+- 모바일 전용 레이아웃은 신설하지 않았다(패킷 Step 4 지시대로 — 이번은 기능 추가지 모바일 개편이 아니다).
+
+### 로컬에서 못 한 것 (Codex 몫)
+- 375/390/430px 실렌더 넘침 측정(jsdom 레이아웃 미계산) · 해지 토글 반응 체감.
+
+### Next
+1. **Codex** — 2차 검증(★즉시 반영==버튼 경유 · 데스크톱 초기 렌더 회귀 0 · `smoke:coverage` 불변 ·
+   **375~430px 실렌더** · 배포 스모크) → 커밋·push.
+2. **Human** — 실사용에서 해지 즉시 반영 체감 + 합계형 배너 인지 여부 확인.
+3. **Chat** — 268b(분석 진행 신호) — ★268a 조사 문서 4번(Railway 프록시 타임아웃·워커 수) 실측이 선행되어야 한다.
+
 ## 2026-08-02 BOHUMFIT-268a - 모바일 업로드 UX + 분석 진행 신호 실태 조사
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human**(폰·Railway 실측) / **Chat**(268b 발번)

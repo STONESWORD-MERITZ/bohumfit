@@ -11,6 +11,13 @@ import DisclosureMobileShell from "../components/mobile/DisclosureMobileShell";
 // BOHUMFIT-268a: 모바일 업로드 하단 시트 + 업로드 진행률 실측(XHR).
 import MobileUploadSheet, { type SelectedFilesInfo } from "../components/mobile/MobileUploadSheet";
 import { uploadWithProgress, UploadError, type UploadProgress } from "../lib/uploadWithProgress";
+// BOHUMFIT-268b: 분석 진행 폴링 + 추출 티커(분석과 분리된 부가 기능).
+import {
+  createJobId,
+  pollAnalysisProgress,
+  // ★타입 이름이 컴포넌트(`AnalysisProgress`)와 겹쳐 별칭으로 가져온다.
+  type AnalysisProgress as AnalysisProgressData,
+} from "../lib/analysisProgress";
 import { Upload, FileText, CheckCircle2 } from "lucide-react"; // BOHUMFIT-136b
 import { useAuth } from "../lib/auth-context";
 import {
@@ -1832,6 +1839,8 @@ export default function Disclosure({
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+  // BOHUMFIT-268b: 화면을 떠나면 폴링을 멈춘다(분석은 서버에서 그대로 진행된다).
+
   // BOHUMFIT-171a: 파일 목록 압축용 상태 — 3개 이상 접기/펼치기 + 총 용량 표시.
   const [filesOpen, setFilesOpen] = useState(false);
   const [selectedSize, setSelectedSize] = useState(0);
@@ -1839,6 +1848,23 @@ export default function Disclosure({
   const isMobile = useIsMobile();
   const [uploadSheetOpen, setUploadSheetOpen] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
+  // BOHUMFIT-268b: 분석(서버 파싱) 진행 — 업로드 진행과 **다른 계층**이라 상태를 분리한다.
+  const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgressData | null>(null);
+  // BOHUMFIT-268b: 폴링 대상 작업 ID. ★생명주기(시작·중단·언마운트 정리)는 아래 effect가 전담한다
+  //   — 이벤트 핸들러에서 타이머를 직접 붙였다 뗐다 하는 것보다 누수 가능성이 낮다.
+  const [pollJobId, setPollJobId] = useState<string | null>(null);
+  // BOHUMFIT-268b: 분석 진행 폴링 — jobId가 생기면 시작하고, 사라지거나 화면을 떠나면 정리된다.
+  //   ★폴링이 실패해도(404·네트워크) 분석은 그대로 진행된다. 티커만 갱신되지 않을 뿐이다.
+  const pollToken = session?.access_token;
+  useEffect(() => {
+    if (!pollJobId || !pollToken) return;
+    return pollAnalysisProgress({
+      apiBase: API_BASE,
+      jobId: pollJobId,
+      token: pollToken,
+      onUpdate: setAnalysisProgress,
+    });
+  }, [pollJobId, pollToken]);
   /** 시트 표시용 — ★기존 상태를 그대로 쓴다(렌더 중 ref 접근 금지 규칙 준수). */
   const selectedFiles: SelectedFilesInfo = { names: selectedNames, totalBytes: selectedSize };
   /**
@@ -2003,6 +2029,13 @@ export default function Disclosure({
     form.append("reference_date", refDate);
     if (birthdate) form.append("birthdate_pw", birthdate);
 
+    // BOHUMFIT-268b: 진행 표시용 작업 ID — ★서버는 이 필드가 없어도 기존과 똑같이 동작한다.
+    //   업로드(전송) 진행은 268a가 다루고, 여기서부터는 **서버 파싱 진행**이다.
+    const jobId = createJobId();
+    form.append("job_id", jobId);
+    setAnalysisProgress(null);
+    setPollJobId(jobId); // effect가 폴링을 시작한다.
+
     try {
       // BOHUMFIT-268a: ★모바일에서만 XHR로 보낸다 — `fetch`로는 요청 본문 전송 진행률을 알 수 없기 때문이다.
       //   엔드포인트·헤더·402 처리·오류 메시지 규약은 아래 데스크톱 경로와 **동일하게** 유지한다.
@@ -2077,6 +2110,8 @@ export default function Disclosure({
       // BOHUMFIT-137b: 토스트 오류 메시지를 구체화(서버 detail/네트워크 안내 그대로 노출).
       showToast(e instanceof Error ? e.message : "분석 중 문제가 발생했어요. 잠시 후 다시 시도해 주세요.", "error");
     } finally {
+      // BOHUMFIT-268b: 어떤 경로로 끝나든 폴링을 멈춘다(effect가 정리 함수를 호출한다).
+      setPollJobId(null);
       setLoading(false);
     }
   };
@@ -2317,7 +2352,7 @@ export default function Disclosure({
 
       {loading && (
         <div aria-live="polite" className="mb-5">
-          <AnalysisProgress />
+          <AnalysisProgress progress={analysisProgress} />
         </div>
       )}
 

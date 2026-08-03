@@ -10,6 +10,8 @@ import os
 import re
 import time
 from collections import Counter
+
+import progress  # BOHUMFIT-268b: 진행 표시 저장소(선택 — job_id 없으면 무동작)
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
@@ -238,15 +240,20 @@ def _parse_workers(n_files: int, total_bytes: int = 0) -> int:
     return max(1, min(w, cpu, max(1, n_files)))
 
 
-def _log_parsed(fn: str, pr: dict) -> None:
+def _log_parsed(fn: str, pr: dict, job_id: str = "") -> None:
     _ft = Counter(str(r.get("_ftype", "unknown")) for r in pr["records"])
     logger.info(
         "BOHUMFIT-047 parsed: file=%s records=%d ftype=%s errors=%d",
         fn, len(pr["records"]), dict(_ft), len(pr["parse_errors"]),
     )
+    # BOHUMFIT-268b: 같은 값을 진행 저장소에도 남긴다(화면 티커용).
+    #   ★job_id가 없으면 아무 일도 하지 않는다 — 기존 동작과 완전히 같다.
+    #   ★환자명·상병코드·병명은 넘기지 않는다(건강정보 미저장).
+    if job_id:
+        progress.record_file(job_id, fn, len(pr["records"]), dict(_ft), len(pr["parse_errors"]))
 
 
-async def _parse_all_pdfs(active_files: list, birthdate_pw: str) -> tuple[list, list, str]:
+async def _parse_all_pdfs(active_files: list, birthdate_pw: str, job_id: str = "") -> tuple[list, list, str]:
     """PDF들을 파싱해 (레코드, 파싱오류) 반환. 레코드 0건이면 AnalysisError.
 
     기본 순차(메모리 피크 1파일분 — BOHUMFIT-047 OOM 핫픽스). 메모리 헤드룸이 있으면
@@ -279,7 +286,7 @@ async def _parse_all_pdfs(active_files: list, birthdate_pw: str) -> tuple[list, 
             parse_errors.extend(pr["parse_errors"])
             if not customer_name:
                 customer_name = pr.get("patient_name") or ""
-            _log_parsed(fn, pr)
+            _log_parsed(fn, pr, job_id)
     else:
         # ── BOHUMFIT-055: 파일 단위 프로세스 병렬(순서 보존·fail-loud) ──
         logger.info("BOHUMFIT-055 parallel parse: files=%d workers=%d", len(active_files), workers)
@@ -295,6 +302,16 @@ async def _parse_all_pdfs(active_files: list, birthdate_pw: str) -> tuple[list, 
                     i = fut_idx[fut]
                     try:
                         out[i] = fut.result()
+                        # BOHUMFIT-268b: ★여기서 기록해야 진행이 **실시간**으로 나간다.
+                        #   (아래 zip 병합은 pool이 전부 끝난 뒤라 일괄로 찍힌다.)
+                        #   ★완료 순서는 파일 순서와 무관하다 — 티커도 그 전제로 그린다.
+                        if job_id:
+                            _pr = out[i] or {}
+                            _ft = Counter(str(r.get("_ftype", "unknown")) for r in (_pr.get("records") or []))
+                            progress.record_file(
+                                job_id, names[i], len(_pr.get("records") or []),
+                                dict(_ft), len(_pr.get("parse_errors") or []),
+                            )
                     except Exception as e:   # 워커 예외 → fail-loud(해당 파일만 빈 결과)
                         logger.error("BOHUMFIT-055 parse failed(parallel): file=%s error=%s",
                                      names[i], str(e)[:200])
@@ -308,6 +325,8 @@ async def _parse_all_pdfs(active_files: list, birthdate_pw: str) -> tuple[list, 
             parse_errors.extend(pr["parse_errors"])
             if not customer_name:
                 customer_name = pr.get("patient_name") or ""
+            # BOHUMFIT-268b: 진행 기록은 위 as_completed 루프에서 이미 남겼다 —
+            #   여기서 job_id를 넘기면 같은 파일이 두 번 쌓인다(로깅만 수행).
             _log_parsed(fn, pr)
 
     if not all_records:
@@ -909,7 +928,7 @@ def _apply_medical_judgment(
 # ==========================================
 # 분석 엔진
 # ==========================================
-async def run_analysis(active_files, product_type, reference_date, birthdate_pw, api_key) -> dict:
+async def run_analysis(active_files, product_type, reference_date, birthdate_pw, api_key, job_id: str = "") -> dict:
     """
     PDF 파일들을 분석하여 알릴의무 항목을 추출합니다.
 
@@ -931,7 +950,7 @@ async def run_analysis(active_files, product_type, reference_date, birthdate_pw,
     _d10y_dt = _subtract_years(today, 10)   # BOHUMFIT-004: 달력 기준 10년
     retry_warnings = []
 
-    all_records, parse_errors, customer_name = await _parse_all_pdfs(active_files, birthdate_pw)
+    all_records, parse_errors, customer_name = await _parse_all_pdfs(active_files, birthdate_pw, job_id)
     # BOHUMFIT-047: ftype별 총 파싱 레코드 수 — 결과 dict 노출(프런트가 파싱 불완전 표면화) + 로깅.
     record_counts = dict(Counter(str(r.get("_ftype", "unknown")) for r in all_records))
     # BOHUMFIT-054 STEP2: 파싱 불완전(ftype 미인식 과다) 사용자 경고 — 분석은 막지 않음(경고만).

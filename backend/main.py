@@ -55,6 +55,7 @@ from pipeline.report_pdf import (
     ReportUnavailableError,
     generate_report_pdf,
 )
+import progress  # BOHUMFIT-268b: 분석 진행 표시 저장소
 from sms_nhn import SMSNotConfigured, SMSSendError, send_sms
 
 # ── 서비스 환경 ──────────────────────────────────────────────────────────────
@@ -2092,6 +2093,23 @@ async def coverage_consulting_after(
         raise HTTPException(status_code=500, detail="후 설계 재계산에 실패했습니다.")
 
 
+@app.get("/api/analyze/progress/{job_id}")
+@limiter.limit("120/minute")
+async def analyze_progress(request: Request, job_id: str, user_id: str = Depends(verify_jwt)):
+    """BOHUMFIT-268b: 분석 진행 상황 조회(폴링).
+
+    ★본인 작업만 볼 수 있다 — 소유자가 다르면 `snapshot()`이 None을 주고 404가 된다
+      (남의 작업이 "있다"는 사실조차 알려주지 않는다).
+    ★여기 담기는 값은 익명 서류 라벨·레코드 수·유형별 건수·오류 수뿐이다(건강정보 미포함).
+    ★분석 자체와 무관한 부가 기능이라, 이 엔드포인트가 실패해도 분석은 계속된다.
+    폴링이라 한도를 넉넉히 둔다(1.5초 간격 · 최대 300초 → 200회 안팎).
+    """
+    snap = progress.snapshot(job_id, user_id)
+    if snap is None:
+        raise HTTPException(status_code=404, detail="진행 정보를 찾을 수 없습니다.")
+    return snap
+
+
 @app.post("/api/analyze")
 @limiter.limit("5/minute,30/hour")
 @limiter.limit(ANALYZE_IP_RATE_LIMIT, key_func=get_remote_address)
@@ -2100,6 +2118,8 @@ async def analyze(
     files: list[UploadFile] = File(..., description="심평원 진료 PDF"),
     reference_date: str = Form(..., description="YYYY-MM-DD"),
     birthdate_pw: str = Form(default="", description="PDF 비밀번호용 생년월일"),
+    # BOHUMFIT-268b: 진행 표시용 작업 ID(선택). ★미전송이면 기존과 100% 동일하게 동작한다.
+    job_id: str = Form(default="", description="진행 표시용 클라이언트 생성 ID(선택)"),
     user_id: str = Depends(verify_jwt),
 ):
     try:
@@ -2163,6 +2183,10 @@ async def analyze(
     # 표준 컨텍스트로 AI 분석 (Q1-Q4 전체 수집) — 간편 결과는 파생
     product_type_kr = PRODUCT_TYPE_MAP["standard"]
 
+    # BOHUMFIT-268b: 진행 표시 등록 — job_id가 없으면 no-op이라 기존 경로에 영향이 없다.
+    _job_id = (job_id or "").strip()[:64]
+    progress.start(_job_id, user_id, len(active_files))
+
     try:
         result = await asyncio.wait_for(
             run_analysis(
@@ -2171,25 +2195,31 @@ async def analyze(
                 reference_date=ref_date,
                 birthdate_pw=birthdate_pw,
                 api_key=api_key,
+                job_id=_job_id,
             ),
             timeout=ANALYZE_TIMEOUT_SECONDS,
         )
     except asyncio.TimeoutError:
+        progress.finish(_job_id, failed=True)
         logger.warning("analyze 시간 초과 (%ss)", ANALYZE_TIMEOUT_SECONDS)
         raise HTTPException(
             status_code=504,
             detail="분석이 시간 내에 끝나지 않았어요. PDF 페이지 수를 줄이거나 잠시 후 다시 시도해 주세요.",
         )
     except AnalysisError as e:
+        progress.finish(_job_id, failed=True)
         # 사용자 친화 메시지 그대로 전달 (parse_single_pdf 에서 이미 정제됨)
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        progress.finish(_job_id, failed=True)
         # 내부 오류는 사용자에게 디테일 노출 금지. 서버 로그·Sentry 에는 남김.
         logger.exception("analyze endpoint failed: %s", e)
         raise HTTPException(
             status_code=500,
             detail="서버에서 분석을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.",
         )
+
+    progress.finish(_job_id)  # BOHUMFIT-268b: 성공 종료 — 클라이언트가 폴링을 멈춘다.
 
     # BOHUMFIT-069/212: 분석 성공 → 사용량 1건 기록(admin·비활성은 skip, 실패는 응답 막지 않음).
     await _log_usage(user_id, _sub_ctx)

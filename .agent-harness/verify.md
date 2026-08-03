@@ -21,7 +21,7 @@ npm run dev
 백엔드 pytest — `cd backend && python -m pytest -q`:
 
 ```text
-792 passed, 8 skipped
+818 passed, 8 skipped
 ```
 
 (BOHUMFIT-262 실측·2026-07-31 갱신 — 255 시점 750/8에서 256~261 신규분 반영.)
@@ -29,7 +29,7 @@ npm run dev
 프런트 테스트 — `npm test`(라우트 스모크 18건 포함):
 
 ```text
-217 passed / 27 files
+246 passed / 30 files
 ```
 
 (BOHUMFIT-268a 실측·2026-08-02 갱신 — 267 시점 203/26에 모바일 업로드 회귀 14건 반영.)
