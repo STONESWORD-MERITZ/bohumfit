@@ -23,6 +23,7 @@ import {
   displayJudgmentDetail,
   filterDisclosureItemEvidenceByWindow,
   inpatientSummary,
+  MED_SUM_FORMULA_NOTE, // BOHUMFIT-183: 투약 산식 설명(표시 전용)
   subYearsIso,
 } from "../lib/disclosureWindow";
 
@@ -403,6 +404,8 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
   const metric = getMetricVisibility(item, qNum, isEasy);
   // BOHUMFIT-213: 원본 근거(언제·어디서) 상세 — 기본 접힘(과밀 방지). 입원 근거는 위 "입원기간" 줄에 상시 표시.
   const [evidenceOpen, setEvidenceOpen] = useState(false);
+  // BOHUMFIT-183: 투약 산식 설명 접이식 — 기본 접힘(기존 화면 밀도 유지).
+  const [medFormulaOpen, setMedFormulaOpen] = useState(false);
   const evVisit = metric.visit ? (item.visit_records ?? []) : [];
   const evMed = metric.med ? (item.med_records ?? []) : [];
   const evSurg = metric.surgery ? (item.surgery_events ?? []) : [];
@@ -500,7 +503,28 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
               tone={(item.med_days ?? 0) >= 30 ? "amber" : (item.med_days ?? 0) > 0 ? "emerald" : "gray"}
             />
           )}
+          {/* BOHUMFIT-183: 투약 일수가 어떤 산식인지 밝힌다 — ★배지 라벨·값·색은 그대로다.
+              브라우저 native `title`은 모바일에 hover가 없어 뜨지 않으므로 **접이식으로 통일**했다
+              (213 "근거 상세" 패턴과 같은 방식 · 데스크톱·모바일 동작이 같아 분기가 필요 없다). */}
+          {metric.med && (
+            <button
+              type="button"
+              data-testid="med-formula-toggle"
+              aria-expanded={medFormulaOpen}
+              onClick={() => setMedFormulaOpen((open) => !open)}
+              className="m-tap rounded-full border border-line bg-white px-2 py-0.5 text-[11px] font-semibold text-ink-soft hover:text-ink"
+            >
+              산식 {medFormulaOpen ? "▲" : "ⓘ"}
+            </button>
+          )}
         </div>
+      )}
+
+      {/* 펼침 시 한 줄로만 노출 — 폭을 고정하지 않아 모바일에서도 잘리지 않는다. */}
+      {metric.med && medFormulaOpen && (
+        <p data-testid="med-formula-note" className="mb-2 break-keep rounded-[8px] bg-ink-50 px-3 py-2 text-[12px] leading-5 text-ink-soft">
+          {MED_SUM_FORMULA_NOTE}
+        </p>
       )}
 
       {/* BOHUMFIT-213: 원본 근거(진료일·병의원) 상세 — 기본 접힘. 판정 수치는 위 칩 그대로(표시 전용). */}

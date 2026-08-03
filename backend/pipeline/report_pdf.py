@@ -124,6 +124,15 @@ NON_COVERED_NOTE = (
     "실제 비급여 보장 범위는 가입 상품 약관에 따라 다를 수 있습니다."
 )
 
+# BOHUMFIT-183: 투약 일수 산식 설명 — ★표시 전용이다. 산식(`filters._sum_daily_max_presc`)은 무변경.
+#   현행 산식은 "날짜별 최대 처방일수의 누적 합"이고, 030 진단 이후 031/032에서 **배지와 헤더 판정을
+#   일치시키기 위해 의도적으로 채택**된 설계다. 숫자의 의미만 밝힌다.
+#   ★프런트 `src/lib/disclosureWindow.ts`의 `MED_SUM_FORMULA_NOTE`와 문자열이 **완전히 같아야 한다**
+#   (언어가 달라 한 곳에 둘 수 없어 동일성을 테스트로 고정한다).
+MED_SUM_FORMULA_NOTE = "동일 날짜에 여러 처방이 있으면 가장 긴 처방일수 1건만 반영한 합계입니다."
+# 카카오 복사문용 축약형(1줄) — 메시지가 길어지지 않게 짧게 쓴다.
+MED_SUM_FORMULA_NOTE_SHORT = "※ 같은 날 복수 처방은 최장 1건만 반영"
+
 # 콘텐츠 수정 5: 건보 본인부담상한제 환급은 급여 본인부담금 기준(비급여 제외).
 NHIS_CAP_NOTE = (
     "본인부담상한제 환급은 급여 본인부담금 기준(비급여 제외)으로 산정·표기합니다. "
@@ -526,6 +535,8 @@ def render_disclosure_html(payload: dict, generated_at: datetime) -> str:
         "total_med_sum": payload.get("total_med_sum"),
         "criteria": NO_DISCLOSURE_CRITERIA,
         "criteria_note": NO_DISCLOSURE_CRITERIA_NOTE,
+        # BOHUMFIT-183: 투약 산식 각주(표시 전용 — 산식 무변경).
+        "med_formula_note": MED_SUM_FORMULA_NOTE,
         "disclaimer": DISCLOSURE_DISCLAIMER,
     }
     return _env.get_template("report_disclosure.html").render(**ctx)

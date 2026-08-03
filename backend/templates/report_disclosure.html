@@ -217,6 +217,10 @@ h1.title small { font-size: 9.5pt; font-weight: 600; color: var(--gold-deep); ma
   <div class="cell"><span class="k">총 투약일</span><span class="v">{{ total_med_sum }}일</span></div>
   {% endif %}
 </div>
+{# BOHUMFIT-183: 투약 일수 산식 각주 — ★투약이 실제로 등장할 때만 1회. 산식은 무변경(표시 전용). #}
+{% if total_med_sum is not none %}
+<p class="note">※ 투약 일수 — {{ med_formula_note }}</p>
+{% endif %}
 
 <div class="criteria">
   <h2>고지 불요 판단 기준</h2>

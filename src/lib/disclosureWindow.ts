@@ -1,5 +1,14 @@
 // BOHUMFIT-215: 화면/복사문 조회기간 필터다. 실제 고지문항별 서버 판정은 바꾸지 않는다.
 // 날짜가 전혀 없으면 누락 표시를 피하기 위해 유지하고, 하나라도 창 안이면 표시한다.
+
+/**
+ * BOHUMFIT-183: 투약 일수 산식 설명 — ★**표시 전용**이다. 산식(`filters._sum_daily_max_presc`)은 바꾸지 않았다.
+ *   현행 산식은 "날짜별 최대 처방일수의 누적 합"이며, 030 진단 이후 031/032에서 **배지와 헤더 판정을 일치시키기
+ *   위해 의도적으로 채택**된 설계다. 사용자가 숫자의 의미를 오해하지 않도록 그 사실만 밝힌다.
+ *   ★백엔드 `pipeline/report_pdf.py`의 `MED_SUM_FORMULA_NOTE`와 **문자열이 완전히 같아야 한다**
+ *   (언어가 달라 한 곳에 둘 수 없어, 동일성을 테스트로 고정한다).
+ */
+export const MED_SUM_FORMULA_NOTE = "동일 날짜에 여러 처방이 있으면 가장 긴 처방일수 1건만 반영한 합계입니다.";
 export type DisclosureWindowItem = {
   first_date?: string;
   latest_date?: string;

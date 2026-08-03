@@ -49,6 +49,7 @@ from tosspayments import (
     TossConfigError,
 )
 from pipeline.report_pdf import (
+    MED_SUM_FORMULA_NOTE_SHORT,  # BOHUMFIT-183: 카카오 축약 각주(표시 전용)
     REPORT_TYPES,
     ReportError,
     ReportUnavailableError,
@@ -557,6 +558,15 @@ def _build_kakao_message(product_type_kr: str, today, summary_reports: dict,
             _parts = [p for p in (_s(r.get("date")), _s(r.get("surgery_name")), _s(r.get("hospital"))) if p.strip()]
             msg += " / ".join(_parts) + "\n"
         msg += "\n"
+
+    # BOHUMFIT-183: 투약 산식 축약 각주 — ★투약 항목이 실제로 있을 때만 1줄 덧붙인다.
+    #   기존 메시지 구조·순서는 그대로이고 말미에만 추가된다(표시 전용 — 산식 무변경).
+    if any(
+        (item.get("med_days") or 0) > 0
+        for items in (summary_reports or {}).values()
+        for item in (items or [])
+    ):
+        msg += MED_SUM_FORMULA_NOTE_SHORT + "\n"
 
     return msg
 
