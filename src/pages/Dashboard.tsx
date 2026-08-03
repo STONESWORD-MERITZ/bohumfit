@@ -10,6 +10,9 @@ import { Link } from "react-router-dom";
 import { ArrowRight, FileSearch, Link2, CreditCard } from "lucide-react";
 import { useAuth } from "../lib/auth-context";
 import AdminTierSection from "../components/AdminTierSection"; // BOHUMFIT-233: admin 전용 직원 관리
+// BOHUMFIT-269a: 모바일 홈 — ★데이터는 아래 기존 fetch 결과를 그대로 넘긴다(중복 fetch 0).
+import { useIsMobile } from "../components/mobile/useIsMobile";
+import MobileHome from "../components/mobile/MobileHome";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
@@ -107,6 +110,36 @@ export default function Dashboard() {
   const usageWarn = billing && usageLimit != null && usageLeft != null && usageLeft <= Math.max(1, Math.ceil(usageLimit * 0.1));
   // Pro 업셀: 무료 유저 한정(비구독·비admin·비internal) + 소진 근접(잔여 ≤1) 또는 소진
   const showUpsell = !!(billing && !isAdmin && !isInternal && !isActive && usageLeft != null && usageLeft <= 1);
+
+  // BOHUMFIT-269a: 모바일은 홈 대시보드로 재배치한다.
+  //   ★데스크톱 렌더 경로는 아래 그대로다(제1원칙). 데이터·계산은 위 로직을 그대로 재사용한다.
+  const isMobile = useIsMobile();
+  if (isMobile) {
+    return (
+      <MobileHome
+        email={user?.email}
+        recent={recent === null || recent === false ? recent : recent.items}
+        usage={
+          billing === null || billing === false
+            ? billing
+            : {
+                unlimited: isAdmin,
+                used: usageUsed,
+                limit: usageLimit,
+                left: usageLeft,
+                warn: !!usageWarn,
+                planLabel: isAdmin
+                  ? "관리자 계정 · 분석 횟수 제한 없음"
+                  : isInternal
+                    ? "내부 계정 · 월 100회"
+                    : isActive
+                      ? `${billing.plan === "pro" ? "프로" : "베이직"} 플랜`
+                      : "최초 무료 분석",
+              }
+        }
+      />
+    );
+  }
 
   return (
     <div className="mx-auto max-w-5xl">

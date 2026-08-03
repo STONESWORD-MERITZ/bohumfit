@@ -29,6 +29,7 @@ import History from "./pages/History"; // BOHUMFIT-156b
 import Dashboard from "./pages/Dashboard"; // BOHUMFIT-163
 import NotFound from "./pages/NotFound"; // BOHUMFIT-165
 import { ToastProvider } from "./components/ToastContext"; // BOHUMFIT-131
+import { useIsMobile } from "./components/mobile/useIsMobile"; // BOHUMFIT-269a
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -56,12 +57,16 @@ function FallbackUI() {
 //   이메일 미확인 계정은 세션이 없어(user=null) 가드에 걸리지 않으므로 로그인 시도가 가능하다(버그3 무충돌).
 function RedirectIfAuthed({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
+  const isMobile = useIsMobile(); // BOHUMFIT-269a
   if (loading) {
     return (
       <div className="flex min-h-dvh items-center justify-center text-sm text-ink-400">로딩 중...</div>
     );
   }
-  if (user) return <Navigate to="/disclosure?mode=agent" replace />;
+  // BOHUMFIT-269a: 모바일은 로그인 후 홈 대시보드로 보낸다.
+  //   ★데스크톱 도달 지점(`/disclosure?mode=agent`)은 163 A안 그대로 무변경이다.
+  //   ★matchMedia가 없는 환경은 `useIsMobile`이 데스크톱으로 폴백하므로 기존 동작이 기본값이다.
+  if (user) return <Navigate to={isMobile ? "/dashboard" : "/disclosure?mode=agent"} replace />;
   return <>{children}</>;
 }
 
