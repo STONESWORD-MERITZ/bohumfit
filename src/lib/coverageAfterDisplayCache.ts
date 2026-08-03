@@ -473,6 +473,14 @@ function buildConsultingPlan(
   };
 }
 
+/**
+ * BOHUMFIT-182(D-12): 합계형(overview) 문서 해지 경고 문구 — ★246/247에서 확정된 원문 그대로다.
+ *   화면이 이 항목만 골라 전용 배너로 올릴 수 있도록 **상수로 뽑았을 뿐, 문구·조건은 바뀌지 않았다**.
+ *   (backend `compare.py`가 내는 문구와도 같아야 한다 — 수정 시 양쪽을 함께 고칠 것.)
+ */
+export const OVERVIEW_CANCEL_CAUTION =
+  "전체 보장현황(합계형) 문서는 계약별 보장 귀속이 없어 해지를 보장 합계에 반영할 수 없습니다 — 해당 보장행은 [전] 합계 수준으로 유지됩니다.";
+
 // BOHUMFIT-260: 서버 `aggregator.carry_coverage_row`(249 정본 · 259 확장)와 동일 판정 —
 //   by_company에 실제 값이 하나라도 있으면 "계약 귀속된" 행이다(overview 여부와 무관).
 function isAttributedRow(coverage: { by_company?: Record<string, number | null> }): boolean {
@@ -648,11 +656,7 @@ export function buildAfterResult(
     plan.existing.some((entry) => entry.disposition === "cancel") &&
     analysis.before.coverages.some((coverage) => coverage.overview && !isAttributedRow(coverage))
   ) {
-    comparison.cautions.push({
-      level: "warning",
-      message:
-        "전체 보장현황(합계형) 문서는 계약별 보장 귀속이 없어 해지를 보장 합계에 반영할 수 없습니다 — 해당 보장행은 [전] 합계 수준으로 유지됩니다.",
-    });
+    comparison.cautions.push({ level: "warning", message: OVERVIEW_CANCEL_CAUTION });
   }
 
   return {

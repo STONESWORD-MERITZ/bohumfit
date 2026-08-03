@@ -13,6 +13,7 @@ import {
   toNumberOrNull,
   GROUP_ORDER,
   NEW_COVERAGE_PLACEHOLDERS,
+  OVERVIEW_CANCEL_CAUTION,
   type AnalyzeResult,
   type Company,
   type ComparisonRow,
@@ -314,10 +315,19 @@ export default function CoverageRemodel() {
   );
   // BOHUMFIT-247 C: 특이사항 = 분석 경고([전] — E overview 합계형 안내 등) + 비교 주의(246
   //   overview 해지 불가 경고 포함) + 개선 요약. 중복 제거해 한 영역에 노출.
+  // BOHUMFIT-182(D-12): 합계형(overview) 문서 해지 경고는 나열에서 빼고 **전용 배너**로 승격한다.
+  //   ★조건·문구는 246/247·259에서 확정된 것 그대로다 — 여기서는 `OVERVIEW_CANCEL_CAUTION` 상수로
+  //   해당 항목을 **식별만** 한다(신설 조건 0·문구 변경 0).
+  const overviewCancelCaution = useMemo(
+    () => (displayComparison?.cautions || []).some((caution) => caution.message === OVERVIEW_CANCEL_CAUTION),
+    [displayComparison],
+  );
   const specialNotes = useMemo(() => {
     const notes = [
       ...(result?.warnings || []),
-      ...((displayComparison?.cautions || []).map((caution) => caution.message)),
+      ...((displayComparison?.cautions || [])
+        .filter((caution) => caution.message !== OVERVIEW_CANCEL_CAUTION)
+        .map((caution) => caution.message)),
       ...((displayComparison?.improvements || []).map((improvement) => improvement.message)),
     ];
     return Array.from(new Set(notes));
@@ -439,13 +449,14 @@ export default function CoverageRemodel() {
 
   function updateContractDecision(idx: number | string, patch: Partial<ContractDecision>) {
     const key = keyOf(idx);
-    setDecisions((current) => {
-      const previous: ContractDecision = current[key] || {
-        disposition: "keep",
-      };
-      return { ...current, [key]: { ...previous, ...patch } };
-    });
-    setAfterResult(null);
+    const previous: ContractDecision = decisions[key] || { disposition: "keep" };
+    const next: Record<string, ContractDecision> = { ...decisions, [key]: { ...previous, ...patch } };
+    setDecisions(next);
+    // BOHUMFIT-182(D-11): ★해지 체크 즉시 미리보기.
+    //   `buildAfterResult`는 순수 클라이언트 계산이라(네트워크 호출 0 — S0 실측) 버튼을 거칠 이유가 없다.
+    //   ★"전후 비교 계산" 버튼은 그대로 두고, **같은 함수·같은 인자**를 부르므로 결과도 완전히 같다.
+    //   ★제안서(proposals) 편집은 기존대로 버튼 경유 — 매 키 입력 재계산은 D-11 범위가 아니다.
+    setAfterResult(result ? buildAfterResult(result, next, proposals) : null);
   }
 
   function updateReportCover(patch: Partial<ReportCoverDraft>) {
@@ -1195,6 +1206,24 @@ export default function CoverageRemodel() {
                 {formatDeltaWon(afterResult.comparison.premium.delta_paid_total)} (후−전 · 절감 시 −)
               </div>
               </>
+              )}
+
+              {/* BOHUMFIT-182(D-12): 합계형(overview) 문서 전용 배너 — 여러 경고 사이에 묻히면
+                  "해지가 합계에 반영되지 않는다"는 사실을 놓치기 쉬워 별도로 승격했다.
+                  ★폭을 고정하지 않아 데스크톱·모바일 어느 쪽에서도 가로로 넘치지 않는다. */}
+              {overviewCancelCaution && (
+                <div
+                  data-testid="overview-cancel-banner"
+                  role="status"
+                  className="mt-4 rounded-card border border-amber-300 bg-amber-50 px-4 py-3"
+                >
+                  <p className="text-[15px] font-bold leading-[1.5] text-amber-800">
+                    합계형 문서 — 해지가 보장 합계에 반영되지 않습니다
+                  </p>
+                  <p className="ko-text mt-1 break-keep text-[14px] leading-6 text-amber-800">
+                    {OVERVIEW_CANCEL_CAUTION}
+                  </p>
+                </div>
               )}
 
               {/* BOHUMFIT-247 C: 특이사항 — [전] 분석 경고 + 246 overview 해지 불가 경고 등. */}
