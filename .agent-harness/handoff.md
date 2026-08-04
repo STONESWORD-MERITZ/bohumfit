@@ -1,3 +1,51 @@
+## 2026-08-04 BOHUMFIT-271 2차 검증 — PASS / 단독 커밋 `e8f358c` push 완료
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human**(iOS 실기기) / **Chat**(270 발번)
+Commit: **`e8f358c`** `feat(BOHUMFIT-271): 오류 문구 표준화(행동 지침형 사전·파일명 PII 제거·미매핑 폴백)`
+— `origin/main` push 완료(`6333119..e8f358c`), ahead/behind **0/0**. 이 검증 기록은 docs 커밋으로 뒤따른다.
+
+### ★상황 정정 (착수 시 실측)
+패킷은 "271 단독 커밋"을 지시했으나, 착수 시점에 **`e8f358c`가 이미 로컬에 존재**하고 워킹트리가 깨끗했다
+(ahead 1 — push만 미완). 커밋 스테이지 내역을 전수 대조한 결과 **패킷 Stage 목록과 정확히 일치**했다:
+소스 4(errorMessages.ts/test·Disclosure·CoverageRemodel) + harness 5(task·verify·CLAUDE·handoff·locks),
+★codex269 임시 파일 4개 **미포함**. 따라서 재커밋 없이 **검증 → push**로 진행했다.
+
+### ★★워킹트리 정리 — 이미 완료 상태 확인
+`.codex-269-browser.html`·`.codex-269-vite.config.mjs`·`src/__codex269Browser.tsx`·`src/__codex269Supabase.ts`
+4개 모두 **디스크에 없고**(삭제 완료), `e8f358c`에도 **미포함**임을 `git show --stat`으로 확인했다.
+※메모: 향후 검증 임시 파일은 **레포 밖(%TEMP%)에 생성**할 것 — `src/` 하위 임시 파일은 빌드·테스트 스캔에
+걸릴 수 있어 특히 위험하다.
+
+### verify 전체 — PASS
+- frontend `npm test` **304 passed / 33 files**(기준선 그대로) · tsc app/node · lint 클린
+- backend `pytest -q` **818 passed, 8 skipped**(불변)
+- `npm run smoke:coverage` **PASS**(정본 2건 기준값·불변식 일치)
+- `npm run build` 성공 · `build:verify` **343,702 B 예상 FAIL**(약 343 kB 껍데기 — 248 이슈, 변동 표기로 정정됨)
+
+### 중점 검증
+- **A(실 오류)**: 실서버 유발은 이 환경에서 불가 → 패킷 허용대로 **코드 레벨 확인**.
+  `errorMessages.test.ts` 26건이 매핑 12종·미매핑 폴백(HTML·빈 값·null)·PII 차단·console.warn 격리를 고정.
+  ★개별/전체 용량 규칙 순서(1차 자체 정정 지점)는 "전체 합계 우선" 순서로 두 문구가 정확히 갈린다(테스트 재확인).
+- **B(양 경로 동일)**: XHR(모바일)·fetch(데스크톱) 모두 같은 `toUserErrorMessage`를 표시 직전에 통과 —
+  소스 대조로 확인. 375~430px 문구 넘침은 jsdom 한계로 **미실측**(아래 잔여).
+- **C(268 무변경)**: `git diff 04bef53..e8f358c -- uploadWithProgress.ts·analysisProgress.ts·backend/·vite.config.ts`
+  **완전 비어 있음**. ★**402 업셀 경로 보존 실측**: XHR 경로는 `UploadError.status === 402`가 **사전보다 먼저**
+  판정돼 `setUpsell`로 빠지고, fetch 경로도 `res.status === 402` 선판정 — **159 동선 양쪽 무손상**.
+- **D(PII)**: 사전 전 문구 전수 검사 + 파일명("김OO 진료내역.pdf")을 섞어도 문구 미반영(테스트 고정).
+  console.warn은 화면 렌더 경로와 무관하다.
+- **E(제1원칙)**: 1차에서 HEAD 사본 대비 정상 경로 완전 일치 증명 완료(271은 오류 경로만 변경).
+- **F(불변)**: 커밋 파일 전수 = 선언 9개뿐. backend·vite.config·265 캐시·배지·판정·요금제/결제/인증·라우트 diff 0.
+
+### 기준선·문구 정정 — `e8f358c`에 기포함 확인
+verify.md·CLAUDE.md 프런트 기준선 **304 passed / 33 files** · backend **818/8** ·
+★build:verify 고정값(343,225 B) 표기 → **"약 343 kB로 코드 증가에 따라 변동"**으로 정정돼 있다(양 문서 확인).
+
+### Next
+1. **Human** — iOS 실기기 검수(#45 세이프에어리어 · 269b 네비 키보드 거동 · #32 백그라운드 · #5 오프라인)
+   + 375~430px에서 긴 오류 문구 잘림 확인(A의 실기기 몫).
+2. **Chat** — **BOHUMFIT-270(DiseaseCard 폰트 B안)** 발번 → 모바일 로드맵(263~271) 완결.
+3. (기록) 검증 임시 파일은 레포 밖 생성 권장 — 위 메모 참조.
+
 ## 2026-08-03 Codex BOHUMFIT-269a·269b 2차 검증 — PASS / 2건 분리 커밋
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human**(iOS 실기기 검수) / **Chat**(DiseaseCard 폰트 B안)

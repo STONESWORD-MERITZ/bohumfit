@@ -4,7 +4,7 @@ Use this file to record active Codex file ownership during a task.
 
 ## Active
 
-(없음 — 271 잠금 해제. Codex 2차 검증·커밋 대기)
+(없음 — 271 검증·커밋·push 완료(`e8f358c`). 다음 태스크는 270 발번 대기)
 
 
 ### Released
