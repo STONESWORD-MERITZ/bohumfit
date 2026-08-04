@@ -12,7 +12,7 @@ import DisclosureMobileShell from "../components/mobile/DisclosureMobileShell";
 import MobileUploadSheet, { type SelectedFilesInfo } from "../components/mobile/MobileUploadSheet";
 import { uploadWithProgress, UploadError, type UploadProgress } from "../lib/uploadWithProgress";
 // BOHUMFIT-271: 오류 문구 사전(행동 지침형 · PII·기술 용어 미노출).
-import { toUserErrorMessage } from "../lib/errorMessages";
+import { sanitizeParseErrors, toUserErrorMessage } from "../lib/errorMessages";
 // BOHUMFIT-268b: 분석 진행 폴링 + 추출 티커(분석과 분리된 부가 기능).
 import {
   createJobId,
@@ -1419,7 +1419,10 @@ export function ResultView({
 
   return (
     <div>
-      {(result.parse_errors || []).map((e, i) => (
+      {/* BOHUMFIT-271(보정): 서버 parse_errors에는 **환자 실명이 든 파일명**이 섞여 있다
+          (`🔒 정홍규 최근 3개월.pdf: …` 실측). 화면에 올리기 전에 파일명을 "서류 N"으로 바꾸고
+          사유는 행동 지침형으로 통일한다 — 어느 서류인지는 알아야 다시 받을 수 있으므로 번호는 남긴다. */}
+      {sanitizeParseErrors(result.parse_errors || []).map((e, i) => (
         <div key={`parse-${i}`} className="mb-3 rounded-[8px] bg-amber-50 p-3 text-sm font-semibold text-amber-700">
           {e}
         </div>

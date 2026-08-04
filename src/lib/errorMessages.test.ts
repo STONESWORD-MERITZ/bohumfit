@@ -11,6 +11,7 @@ import {
   FALLBACK_ERROR_MESSAGE,
   looksTechnical,
   NETWORK_ERROR_MESSAGE,
+  sanitizeParseErrors,
   toUserErrorMessage,
 } from "./errorMessages";
 
@@ -98,6 +99,55 @@ describe("★문구 위생 — PII·기술 용어 0", () => {
   it("네트워크 문구는 다음 행동을 준다", () => {
     expect(toUserErrorMessage(new TypeError("Failed to fetch"))).toBe(NETWORK_ERROR_MESSAGE);
     expect(NETWORK_ERROR_MESSAGE).toContain("연결을 확인");
+  });
+});
+
+describe("★parse_errors 살균 — 파일명(환자명)이 화면에 오르지 않는다", () => {
+  // ★실측 문구: 실 PDF(비밀번호 걸린 파일)로 `parse_single_pdf`를 돌려 그대로 얻은 값이다.
+  const REAL = "🔒 정홍규 최근 3개월.pdf: PDF 비밀번호 해제 실패 — 생년월일을 확인해 주세요.";
+
+  it("환자명이 든 파일명이 제거되고 서류 번호로 대체된다", () => {
+    const [line] = sanitizeParseErrors([REAL]);
+    expect(line).not.toContain("정홍규");
+    expect(line).not.toContain(".pdf");
+    expect(line).toContain("서류 1");
+    // 사유는 행동 지침형으로 바뀐다.
+    expect(line).toContain("생년월일 8자리를 입력한 뒤");
+  });
+
+  it("여러 서류가 같은 사유면 번호를 합쳐 한 줄로 만든다", () => {
+    const lines = sanitizeParseErrors([REAL, "🔒 김OO 진료.pdf: PDF 비밀번호 해제 실패 — 생년월일을 확인해 주세요."]);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("서류 1·2");
+    expect(lines[0]).not.toMatch(/정홍규|김OO/);
+  });
+
+  it("다른 사유는 줄을 나눈다", () => {
+    const lines = sanitizeParseErrors([
+      REAL,
+      "⚠️ 환자명 포함.pdf: PDF에서 진료 데이터를 추출하지 못했습니다.",
+    ]);
+    expect(lines).toHaveLength(2);
+    expect(lines.join(" ")).not.toMatch(/정홍규|환자명 포함|\.pdf/);
+  });
+
+  it("빈 배열·빈 문자열을 안전하게 처리한다", () => {
+    expect(sanitizeParseErrors([])).toEqual([]);
+    expect(sanitizeParseErrors(["", "   "])).toEqual([]);
+  });
+
+  it("파일명 패턴이 아닌 문구도 사전을 통과해 원문이 새지 않는다", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const [line] = sanitizeParseErrors(["Traceback (most recent call last): KeyError 'x'"]);
+    expect(line).toContain(FALLBACK_ERROR_MESSAGE);
+    expect(line).not.toContain("Traceback");
+  });
+
+  it("화면이 원본 배열이 아니라 살균 결과를 렌더한다", () => {
+    const disclosure = readFileSync(resolve(ROOT, "src/pages/Disclosure.tsx"), "utf8");
+    expect(disclosure).toContain("sanitizeParseErrors(result.parse_errors || [])");
+    // 원본을 그대로 map 하던 자리가 남아 있지 않다.
+    expect(disclosure).not.toContain("{(result.parse_errors || []).map(");
   });
 });
 

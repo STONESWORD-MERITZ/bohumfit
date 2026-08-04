@@ -133,6 +133,36 @@ export function toUserErrorMessage(error: unknown): string {
   return FALLBACK_ERROR_MESSAGE;
 }
 
+/**
+ * BOHUMFIT-271(보정): 서버 `parse_errors`를 화면에 올리기 전에 **파일명을 지운다**.
+ *
+ *   실측 결과 `pdf_parser`가 만드는 문구는 `🔒 {파일명}: {사유}` 꼴이고, 그 파일명에는
+ *   **환자 실명이 들어간다**(예: "정홍규 최근 3개월.pdf"). 이 배열은 결과 화면에서 그대로 렌더되므로
+ *   `setError` 경로만 막아서는 PII가 계속 샌다.
+ *
+ *   ★파일명은 지우되 **몇 번째 서류인지는 남긴다** — 어느 파일을 다시 받아야 하는지 알아야
+ *   사용자가 행동할 수 있다(268b가 진행 티커에서 "서류 N"으로 익명화한 것과 같은 방식).
+ *   사유 문구는 사전을 통과시켜 행동 지침형으로 바꾸고, 같은 사유가 여러 파일에서 나면 합친다.
+ */
+export function sanitizeParseErrors(errors: readonly string[]): string[] {
+  const seen = new Map<string, number[]>();
+
+  errors.forEach((raw, index) => {
+    const text = String(raw || "").trim();
+    if (!text) return;
+    // `🔒 파일명.pdf: 사유` / `⚠️ 파일명.pdf: 사유` — 앞의 파일명 구간만 떼어낸다.
+    const reason = text.replace(/^\s*\S*\s*[^:]*\.pdf\s*:\s*/i, "").trim() || text;
+    const message = toUserErrorMessage(reason);
+    const slots = seen.get(message) ?? [];
+    slots.push(index + 1); // 1-based "서류 N"
+    seen.set(message, slots);
+  });
+
+  return [...seen.entries()].map(([message, slots]) =>
+    slots.length === 1 ? `서류 ${slots[0]}: ${message}` : `서류 ${slots.join("·")}: ${message}`,
+  );
+}
+
 /** 문구에 기술 흔적이 섞이지 않았는지 확인(테스트·개발 점검용). */
 export function looksTechnical(message: string): boolean {
   return TECHNICAL_HINTS.some((hint) => message.includes(hint));
