@@ -1,7 +1,7 @@
 ## 2026-08-04 BOHUMFIT-271 보정 — ★parse_errors 파일명 PII 유출 차단(실 PDF 실측으로 발견)
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human**(iOS 실기기) / **Chat**(270 발번)
-Commit: **`cd77635`** `fix(BOHUMFIT-271): parse_errors 파일명 PII 차단(서류 N 익명화·사유 사전 통과)` — 기준 HEAD `ae477ce`.
+Commit: **`f40c9b3`** `fix(BOHUMFIT-271): parse_errors 파일명 PII 차단(서류 N 익명화·사유 사전 통과)` — 기준 HEAD `ae477ce`.
 
 ### ★실 PDF 엔드투엔드로 271의 사각지대를 찾았다
 직전 검증에서 "A. 실 오류 엔드투엔드"는 코드 레벨로만 확인했는데, 이번에 **실 PDF로 직접 실행**해
