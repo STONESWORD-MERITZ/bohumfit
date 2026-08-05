@@ -272,7 +272,7 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
 <h2>⑤ 최종 전 VS 후 — 회사별 보장 세부</h2>
 <div class="cards">
   <div class="card"><div class="k">후 월납 보험료</div><div class="v">{_won(after_prem.get('monthly_total'))}</div></div>
-  <div class="card"><div class="k">후 총납입</div><div class="v">{_won(after_prem.get('paid_total'))}</div></div>
+  <div class="card"><div class="k">후 총납입보험료(계약별 납입기간 반영)</div><div class="v">{_won(after_prem.get('paid_total'))}</div></div>
 </div>
 <table class="contract-list"><thead><tr><th>번호</th><th>구분</th><th>회사명</th><th>상품명</th><th>납입기간</th><th>만기</th><th class="num">월보험료</th></tr></thead>
 <tbody>{''.join(after_contract_rows)}</tbody></table>
@@ -357,7 +357,7 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
 <h3>컨설팅 전 VS 후 요약</h3>
 <div class="cards">
   <div class="card highlight"><div class="k">월납입보험료</div><div class="v">{_won(cp.get('before_monthly'))} → {_won(cp.get('after_monthly'))}</div><div class="delta {'good' if isinstance(delta_monthly, (int, float)) and delta_monthly < 0 else 'warn' if delta_monthly else ''}">{_delta_won(delta_monthly)}</div></div>
-  <div class="card"><div class="k">총납입보험료</div><div class="v">{_won(cp.get('before_paid_total'))} → {_won(cp.get('after_paid_total'))}</div><div class="delta {'good' if isinstance(delta_paid, (int, float)) and delta_paid < 0 else 'warn' if delta_paid else ''}">{_delta_won(delta_paid)}</div></div>
+  <div class="card"><div class="k">총납입보험료(계약별 납입기간 반영)</div><div class="v">{_won(cp.get('before_paid_total'))} → {_won(cp.get('after_paid_total'))}</div><div class="delta {'good' if isinstance(delta_paid, (int, float)) and delta_paid < 0 else 'warn' if delta_paid else ''}">{_delta_won(delta_paid)}</div></div>
 </div>
 <h3>대분류별 보장 변화</h3>
 <table><thead><tr><th>대분류</th><th class="num">전 보장금액</th><th class="num">후 보장금액</th><th class="num">증감</th></tr></thead>

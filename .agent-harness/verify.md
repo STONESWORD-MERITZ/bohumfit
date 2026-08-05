@@ -16,15 +16,15 @@ For UI changes, also run the app locally and do a browser smoke test:
 npm run dev
 ```
 
-## 검증 기준선 (BOHUMFIT-268a 실측 · 2026-08-02 갱신)
+## 검증 기준선 (BOHUMFIT-272 실측 · 2026-08-05 갱신)
 
 백엔드 pytest — `cd backend && python -m pytest -q`:
 
 ```text
-818 passed, 8 skipped
+826 passed, 8 skipped
 ```
 
-(BOHUMFIT-262 실측·2026-07-31 갱신 — 255 시점 750/8에서 256~261 신규분 반영.)
+(BOHUMFIT-272 실측·2026-08-05 갱신 — 271 시점 818/8에 산출물 회귀 8건 반영.)
 
 프런트 테스트 — `npm test`(라우트 스모크 18건 포함):
 

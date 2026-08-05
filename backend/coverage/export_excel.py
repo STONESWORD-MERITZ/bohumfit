@@ -157,11 +157,22 @@ def _yn_company_map(before_like: dict) -> dict:
 
 
 def _stage_map(before_like: dict) -> dict:
-    stages = (before_like or {}).get("stage_totals")
-    if stages:
-        return stages
+    """종합비교 단계 합계 — ★담보 행(coverages)에서 항상 재파생한다(payload 값 신뢰 금지).
+
+    BOHUMFIT-272(결함 A): 254가 바로 위 `_yn_flags`에 같은 처방을 했는데 **여기만 빠져 있었다**.
+    실사용 동선의 [후] payload는 클라이언트 `buildAfterResult`가 `{...analysis.before}` 스프레드로
+    만들기 때문에 `stage_totals`가 **[전] 값 그대로 남는다**(해지가 반영되는 것은 coverages뿐).
+    그 값을 쓰면 엑셀 종합비교의 '후' 열에 '전' 값이 찍혀 **전=후로 보인다**
+    (실 고객 건: 암 8210→8210 · 뇌초기 2110→2110 …). 같은 분석의 PDF는
+    `compute_stage_totals(coverages)`로 재계산해 정상이었다 — 두 산출물이 서로 다른 소스를 봤다.
+
+    ★파생 규칙은 246 이래 단일 소스(`compute_stage_totals`)이고, 서버 생성 payload에서는
+    `stage_totals`와 재계산 결과가 **완전히 동일**함을 정본 2건으로 실측했다(값 변화 0).
+    """
     coverages = (before_like or {}).get("coverages", [])
-    return compute_stage_totals(coverages) if coverages else {}
+    if coverages:
+        return compute_stage_totals(coverages)
+    return (before_like or {}).get("stage_totals") or {}
 
 
 def _company_columns_available(before_like: dict) -> bool:
