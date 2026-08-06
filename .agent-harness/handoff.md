@@ -1,3 +1,37 @@
+## 2026-08-06 Codex BOHUMFIT-273 2차 검증 — PASS / 커밋 완료
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Chat**(274·275 조사 리뷰) / **Human**(iOS 실기기)
+Implementation commit: **`bce4cd5bbafb42eff10b218d1d46da56cc22135b`**.
+
+### Windows 권위 게이트·범위
+- 루트 게이트(pwd=`C:\Users\18_rk\BOHUMFIT`·remote·219 리트머스) 통과.
+- app/node tsc·lint 클린, frontend **342 passed / 35 files**, backend **838 passed, 8 skipped**,
+  `smoke:coverage` PASS. `npm run build` JS **343,702 B**, `build:verify`는 248 계약의 **예상 FAIL**.
+- 신규 `bottomFixedCollision273` **13/13** 통과. 기준선은 `verify.md`·`CLAUDE.md`·`AGENTS.md`
+  세 문서 모두 342/35·838/8로 동기화했다.
+- 273 커밋 범위는 PrimaryAction·신규 회귀·273 하네스·기준선 문서뿐이다. 검증 도중 별도로 쌓인
+  274 조사 문서와 진행 중 276a backend 변경은 인덱스에서 제외해 보존했다.
+
+### ★실 Chromium 독립 재현
+- 375px 실제 좌표 클릭: 수정 전 safe 34에서 버튼 아래쪽은 `bottom-nav-홈`이 잡혀
+  action click **0**·route `/dashboard`; 수정 후 같은 좌표는 주 액션이 잡혀 click **1**·route 유지.
+  네비 탭 중심은 수정 후에도 네비가 잡혀 기존 이동성을 보존했다.
+- 겹침 safe 0/34 **57/91px -> 0/0**, 두 바 사이 틈 **0px**. 액션 바는 safe 34에서
+  **115 -> 81px**, 네비 높이 **57 -> 91px** 변화에 bottom **57 -> 91px**로 추종했다.
+- 분석 중·시트 열림에는 네비가 사라지고 액션 바가 viewport bottom으로 즉시 복귀해 빈 틈 **0**;
+  시트 여닫기 3회 모두 `nav false/true`와 gap 0으로 정상 복귀했다. 언마운트 정리 회귀가
+  MutationObserver·ResizeObserver·resize·orientationchange 해제를 고정한다.
+- 375/390/430px 가로 넘침 **0**, 액션 56px·네비 탭 56px. 270 장문 카드 5개 + 실제
+  Layout(60+safe+2rem)·Disclosure 셸(80px) 여백 구조에서 마지막 콘텐츠와 바 사이 **34.47px**,
+  하단 고정 점유 safe 0/34 **138/172px**로 가림 0을 확인했다.
+- 데스크톱 4경로(Disclosure 결과·History·Dashboard·CoverageRemodel)와 Layout/셸/네비/index.css는
+  HEAD blob과 바이트 동일. PrimaryAction 진입은 모바일 분기 두 곳뿐이며 네비 부재 시 새 bottom·paddingBottom
+  인라인 값이 0임을 브라우저와 회귀로 확인했다.
+
+### Next
+1. **Chat** — 야간 조사 2건(BOHUMFIT-274·275) 결과 리뷰.
+2. **Human** — iOS 실기기 검수(세이프에어리어·키보드·백그라운드 + 하단 점유 138~172px 체감 확인).
+
 ## 2026-08-06 BOHUMFIT-273 - 모바일 하단 고정 요소 충돌 해소(완료)
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(2차 검증·커밋)
