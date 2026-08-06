@@ -328,7 +328,58 @@ def parse_contract_list(lines: list[str]) -> list[dict]:
                 "monthly_premium": parse_won(m.group("won")),
             }
         )
-    return sorted(contracts, key=lambda c: c["idx"])
+    contracts = sorted(contracts, key=lambda c: c["idx"])
+    # BOHUMFIT-272b: 회사명이 두 줄로 쪼개진 문서에서 조각이 앞 상품명에 흡수되는 것을 되돌린다.
+    _strip_trailing_insurer_fragment(contracts)
+    return contracts
+
+
+def _strip_trailing_insurer_fragment(contracts: list[dict]) -> None:
+    """BOHUMFIT-272b: 상품명 **끝**에 붙은 회사명 조각을 제거한다(계약리스트 후처리).
+
+    ★현상(실측 — 6계약 실 PDF p5): 회사명이 길어 두 줄로 쪼개지는 기관에서, 조각 줄이
+    `_is_product_continuation`을 통과해 앞 상품명 끝에 흡수된다.
+        4 DB손보 100세청춘보험0901 …
+        새마을금            ← 계약5 회사명 앞조각 → 계약4 상품명 끝에 붙음
+        5 無MG BlueBird저축공제_22A …   ← 이 행에는 회사명이 아예 없다
+        고중앙회            ← 계약5 회사명 뒷조각 → 잔여 "중앙회"가 상품명에 남음
+    회사명이 한 줄에 들어가는 문서(정본 2건)에서는 조각 줄 자체가 생기지 않아 발생하지 않는다.
+
+    ★파싱 루프가 아니라 **후처리**로 두는 이유: 리스트가 완성된 뒤에는 자기·다음 계약의 insurer를
+    모두 알 수 있어 근거가 확실하고, 234·243이 만든 기존 경로를 건드리지 않아 회귀 위험이 없다.
+
+    ★절삭 조건 — 아래를 **모두** 만족할 때만(251에서 코드 절삭으로 3회 반려된 이력 때문에 좁게 잡는다):
+      ①상품명이 2토큰 이상이고 대상은 **끝 토큰뿐**(중간·앞은 절대 건드리지 않는다)
+      ②끝 토큰이 자기·다음 계약 insurer 또는 KNOWN_INSURERS 중 하나의 **접두 또는 접미**와 일치
+      ③★끝 토큰이 회사명 **전체와 일치하면 절삭하지 않는다** — 상품명이 정당하게 회사명으로 끝나는 경우 보호
+      ④제거 후 상품명이 비지 않는다
+    하나라도 불확실하면 그대로 둔다(오염이 남는 편이 상품명을 깎는 것보다 안전하다).
+    실측: 정본 2건 30개 상품명에서 후보 **0건**, 실 케이스 6계약에서 오염 **3건만** 적중.
+    """
+    for index, contract in enumerate(contracts):
+        product = contract.get("product")
+        if not product:
+            continue
+        tokens = product.split()
+        if len(tokens) < 2:  # ①단일 토큰 상품명은 손대지 않는다
+            continue
+        tail = _despace(tokens[-1])
+        if not tail:
+            continue
+
+        next_insurer = contracts[index + 1].get("insurer") if index + 1 < len(contracts) else None
+        candidates = [c for c in (contract.get("insurer"), next_insurer) if c]
+        candidates.extend(KNOWN_INSURERS)
+
+        for candidate in candidates:
+            compact = _despace(candidate)
+            if not compact or tail == compact:
+                continue  # ③회사명 전체와 같으면 정당한 표기로 보고 남긴다
+            if compact.startswith(tail) or compact.endswith(tail):  # ②접두·접미 조각
+                remainder = " ".join(tokens[:-1]).strip()
+                if remainder:  # ④빈 상품명을 만들지 않는다
+                    contract["product"] = remainder
+                break
 
 
 def _page_contract_indices(lines: list[str]) -> list[int]:
