@@ -1,3 +1,91 @@
+## 2026-08-06 BOHUMFIT-270 3차 독립 재검증 — PASS / 기준선 문서 보정
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Chat**(273 발번) / **Human**(실기기)
+대상 HEAD: `233d90c`(문서) / 구현 커밋 **`2e55cf7`** — 둘 다 `origin/main` push 완료.
+★**이 세션에서 새로 커밋한 것은 아래 기준선 보정(AGENTS.md)과 본 기록뿐**이다.
+270 구현·2차 검증은 이미 커밋·push된 상태였고(워킹트리 clean·`main...origin/main` 동기),
+본 항목은 그 결과를 **독립적으로 다시 확인**한 3차 기록이다.
+
+### 게이트 재현(현행 HEAD)
+- 루트 게이트(pwd·remote·219 리트머스) 통과. app/node tsc · lint 클린 ·
+  frontend **329 passed / 34 files** · backend **838 passed, 8 skipped** · `smoke:coverage` **PASS**.
+- `npm run build` JS **343,702 B** → `build:verify` **예상 FAIL**(600 kB 하한 + 앱 문자열 3종 누락 —
+  248 껍데기 계약 그대로).
+- `1884f57..HEAD` diff는 **8파일**(`Disclosure.tsx`·모바일 폰트 맵·270 테스트·태스크 문서·
+  verify/CLAUDE/handoff/locks)뿐. ★보호 영역 **diff 0** 실측: `backend/`·`vite.config.*`·
+  265 `tokens.ts`/`mobileTokens.test.ts`·268a `MobileUploadSheet`·268b `AnalysisProgress`·
+  269a `MobileHome`·269b `MobileBottomNav`·271 `errorMessages.ts`·`App.tsx`.
+
+### A·B — ★프로덕션 CSS를 물린 실제 Chromium computed font-size
+배포된 `bohumfit.ai`의 CSS(`/assets/index-aiPQOr5O.css`, 70,129 B)를 그대로 물려 카드를 렌더하고
+`getComputedStyle`로 쟀다(추정 아님·Pretendard 실제 로드 확인).
+
+| 요소 | 데스크톱 | 모바일 |
+|---|---|---|
+| 병명 | **15** | **16** |
+| 상병코드 | **11** | ★**15** |
+| 판정 상세 | **13** | **16** |
+| 메타(진료·입원·최초진단) | **12** | 15 |
+| Chip | **12** | 15 |
+| 실손 안내 / 산식 토글 / 근거 토글·내용 / 수술의심 | **11** | 15 |
+| 산식 문구 / 하단 블록 | **12** | 15 |
+| 근거 각주 | **10** | 15 |
+| Q 배지 | **12.5** | **12.5**(의도적 제외) |
+
+★**데스크톱 13개 요소가 전부 270 이전 원문 값(10~13·15px)** — 모바일 맵이 데스크톱에 **새지 않았다**.
+★**상병코드 11→15px**(이 태스크의 주 목적) 확인. Q 배지는 양쪽 12.5px 유지.
+
+- 넘침: 375/390/430px × 데스크톱/모바일 **전부 0**(요소 단위·카드 `scrollWidth`·뷰포트 대비 모두).
+  ★**대조군 589px 검출** — 측정 실패가 아님을 재확인. `truncate`도 정상 말줄임(132/172 < 250).
+- 카드 높이 375px: 접힘 기준 325→412(**1.27배**), **근거·산식·수술의심까지 전부 펼친 최대 구성**에서는
+  717→1001(**1.40배**). 트레이드오프는 구성에 따라 1.3~1.4배로 보는 것이 정확하다.
+- ※프로브 페이지의 `documentElement` 가로 스크롤 플래그는 브라우저 창 폭이 0으로 보고되는
+  헤드리스 특성 탓이며, 실제 카드 우측 끝은 355/370/410px로 각 뷰포트 안이다(앱 넘침 아님).
+
+### C — ★임의값 클래스 생성: **프로덕션 번들에서 직접 확인**(위험 종결)
+- 프로덕션 CSS에 `.text-\[15px\]{font-size:15px}`·`.text-\[16px\]{font-size:16px}` **실재**
+  (10·11·12·13·20px도 각 1건). → 오버라이드가 조용히 무효가 될 위험은 **실측으로 종결**.
+- ★배포본이 270을 포함함도 확인: 프로덕션 JS(793,637 B·앱 문자열 정상)에 **두 폰트 맵이 그대로** 있다 —
+  모바일 `{name:"text-[16px]",code:"text-[15px]",…}` / 데스크톱 `{name:"text-[15px]",code:"text-[11px]",
+  meta:"text-xs",detail:"text-[13px]",…}` 13키 전부. 즉 **정상 리눅스 빌드에서 생성·배포가 검증**됐다
+  (로컬 껍데기 빌드로는 확인 불가한 지점을 프로덕션으로 대체 검증).
+
+### D — 265 가드 무우회
+- `tokens.ts`·`mobileTokens.test.ts` **diff 0**. 모바일 정본은 `src/components/mobile/`에 있어
+  가드 스캔 대상이고, 데스크톱 원문(10~13px)은 `Disclosure.tsx`에 있어 스캔 밖이다.
+- ★**일부러 어긋뜨려 확인**: 모바일 맵에서 `bottom` 키 1개를 제거하자 `tsc`가
+  **TS2741 'bottom' is missing**로 실패(exit 2). 두 맵이 갈라지면 컴파일에서 막힌다.
+  실험 후 파일을 바이트 단위로 복원하고 워킹트리 clean 확인.
+
+### E — 불변
+`backend/` diff 0·pytest **838/8 불변** · Q1~Q5 판정·기간 라벨·배지 색 규칙 무변경 ·
+183 투약 산식 문구·색 규칙 무변경 · 268a/268b/269a/269b/271 diff 0 · `vite.config.*` diff 0 ·
+라우트·데이터 흐름 무변경(표시 계층만).
+
+### F — ★범위 밖(BOHUMFIT-273 예정) 재현 조건 확정 · **수정 0**
+겹침은 **정확히 한 지점**에서만 난다.
+- 조건: **모바일(≤767px) + 로그인 + `/disclosure` 결과 화면 + 카톡 문안 존재 + 시트 닫힘**.
+- 주체: `DisclosureMobileShell.tsx:154`의 `PrimaryAction`(기본 `fixed=true`) ↔
+  `Layout.tsx:330` `MobileBottomNav`(조건 `isMobile && !!navUser`). 둘 다 `fixed inset-x-0 bottom-0 z-40`.
+- ★**269b 회피 장치가 이 경우를 못 잡는 이유**: 네비는 `[role="dialog"][aria-modal="true"]`와
+  `[data-analysis-busy]`가 있을 때만 스스로 빠지는데(`MobileBottomNav.tsx:26~27`),
+  결과 화면의 액션 바는 **둘 중 어느 것도 아니다**.
+- 같은 z-index에서 DOM 뒤쪽(`<main>` 다음에 렌더되는 네비)이 위에 그려져 액션 버튼 하단을 덮는다.
+- ★**겹치지 않는 경우**: `DisclosureMobileShell.tsx:133`(시트 footer)과
+  `MobileUploadSheet.tsx:114`는 **`fixed={false}`**라 무관하고, 업로드 시트가 열려 있는 동안은
+  `role=dialog` 규칙으로 네비가 사라진다. → 273의 표적은 **결과 화면 액션 바 1건**이다.
+
+### 이번 세션 변경(보정 1건)
+- ★**기준선 문서 누락 보정**: `verify.md`·`CLAUDE.md`는 329/34·838/8로 갱신돼 있었으나
+  **`AGENTS.md`만 `99 passed`·`792 passed, 8 skipped`로 남아 있었다**(262 시점 값).
+  CLAUDE.md/AGENTS.md 자신의 규칙이 "기준선 변경 시 세 문서 동시 갱신"이라 같은 범위로 보고 맞췄다.
+  제품 코드 변경 0.
+
+### Next
+1. **Chat** — **BOHUMFIT-273**(하단 고정 요소 z-index 충돌) 발번. 표적·재현 조건은 위 F 그대로.
+2. **Human** — iOS 실기기 검수(세이프에어리어·키보드·백그라운드) / 가입제안서 샘플 제공 /
+   270 트레이드오프 확인(정보 계층 15~16px 2단 압축 · 카드 높이 1.3~1.4배).
+
 ## 2026-08-06 Codex BOHUMFIT-270 2차 검증 — PASS / 커밋·push 완료
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Chat**(273 발번) / **Human**(실기기)
