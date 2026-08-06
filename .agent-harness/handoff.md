@@ -2,7 +2,8 @@
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Chat**(273 발번) / **Human**(실기기)
 대상 HEAD: `233d90c`(문서) / 구현 커밋 **`2e55cf7`** — 둘 다 `origin/main` push 완료.
-★**이 세션에서 새로 커밋한 것은 아래 기준선 보정(AGENTS.md)과 본 기록뿐**이다.
+이 기록·기준선 보정 커밋: **`04d7729`** — `origin/main` push 완료.
+★**이 세션에서 새로 커밋한 것은 기준선 보정(AGENTS.md)과 본 기록뿐**이다.
 270 구현·2차 검증은 이미 커밋·push된 상태였고(워킹트리 clean·`main...origin/main` 동기),
 본 항목은 그 결과를 **독립적으로 다시 확인**한 3차 기록이다.
 
