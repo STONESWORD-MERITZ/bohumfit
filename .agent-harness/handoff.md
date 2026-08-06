@@ -1,3 +1,81 @@
+## 2026-08-06 BOHUMFIT-273 - 모바일 하단 고정 요소 충돌 해소(완료)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(2차 검증·커밋)
+Commit: **미커밋·미푸시**(git 쓰기 0). 기준 HEAD `5e0eb75`(270).
+상세는 tasks/BOHUMFIT-273-bottom-fixed-collision.md.
+
+### ★★Step 1에서 패킷 전제가 뒤집혔다(실측)
+패킷은 "액션 바가 네비를 덮어 **다른 탭으로 이동할 수 없다**"로 봤으나 **방향이 반대**였다.
+두 요소의 `z-index`가 **똑같이 40**이라 승부는 DOM 순서로 갈리는데, `Layout`은
+`<main>`(액션 바) → `Footer` → **네비** 순서라 **네비가 나중에 그려져 위에 온다**.
+- 실제 증상(390px·프로덕션 CSS·실 Chromium 히트 테스트): **탭 이동은 지금도 정상**이고,
+  대신 **주 액션 버튼 56px 중 45px(80%)이 네비에 덮여** 버튼 아래쪽을 누르면 **탭이 눌린다**.
+  → ①결과 화면의 유일한 주 액션(`카카오톡 문안 보기`)이 사실상 안 눌리고 ②**의도치 않은 화면 이탈**.
+- ★이 정정이 해법 선택을 바꿨다 — 아래 참조.
+
+### Step 1 나머지 실측
+- 액션 바 `PrimaryAction.tsx:50`(호출 `DisclosureMobileShell.tsx:154`) 81/115px(safe 0/34) ·
+  네비 `MobileBottomNav.tsx:48` 57/91px. ★**둘 다 세이프에어리어를 각자 적용**해 겹친 상태에서 이중 노출.
+- 액션 바 기능은 **버튼 1개**(문안 시트 진입). PDF 저장·히스토리 저장은 본문 안에 있다.
+- ★**266 보장분석 결과 화면엔 같은 충돌이 없다** — `CoverageMobileView`/`ContractCards`/`InsightMobile`/
+  `CoverageRemodel` 전수 grep에서 `PrimaryAction`·`fixed bottom-0` **0건**. 범위 제외.
+- 나머지 `PrimaryAction` 2곳(시트 footer·268a 업로드)은 **`fixed={false}`**라 무관.
+
+### Step 2 — **B안(세로로 쌓기)** 채택
+- **A안(네비 숨김) 기각**: 탭 이동이 **이미 되고 있으므로** A안은 실제 결함은 고치되 **되던 기능을
+  없애는 후퇴**다.
+- **C안(흐름 안 배치) 기각**: 유일한 주 액션인데 270으로 카드가 1.3~1.4배 길어져 스크롤 끝까지 가야 닿는다.
+- **B안**: 주 액션·탭 이동을 **둘 다 온전히** 남기는 유일한 안이고 모바일 관례와도 일치.
+
+### Step 3 — 구현 (★변경 파일 1개)
+`src/components/mobile/PrimaryAction.tsx`만 고쳤다. `useBottomNavHeight()`가
+`[data-testid="mobile-bottom-nav"]`를 `MutationObserver`로 관찰해 **실제 `offsetHeight`**만큼 바를 올린다
+(`ResizeObserver`+`resize`/`orientationchange`로 높이 변화 추종, 미지원 시 `BOTTOM_NAV_HEIGHT` 폴백).
+★**상수 오프셋을 쓰지 않은 이유 2가지**: ①상수 60 vs 실측 57 → **3px 틈**으로 본문이 비친다
+②네비는 시트·분석 중 **스스로 사라져** 상수면 빈 틈이 남는다. `offsetHeight`엔 네비의 세이프에어리어가
+**이미 포함**돼 이중 적용도 자동 해소된다. 네비가 없으면 **인라인 스타일이 하나도 안 붙어 현행과 동일**.
+★`MobileBottomNav`·`Layout`·`DisclosureMobileShell`·`index.css` **무접촉**.
+
+### 검증 — 재현 → 소거 (실제 Chromium)
+| 항목 | 수정 전 | 수정 후 |
+|---|---|---|
+| 바↔네비 겹침(safe 0/34) | **57 / 91px** | **0 / 0** |
+| 주 액션 버튼 가림 | ★**45/56px = 80%** | **0** |
+| 버튼 아래쪽 탭 대상 | ★**탭**(오조작 이탈) | **버튼** |
+| 네비 탭 이동 | 가능 | **가능**(유지) |
+| 두 바 사이 틈 | — | **0px** |
+| 액션 바 높이(safe 0/34) | 81 / **115px** | **81 / 81px**(★이중 여백 소거) |
+
+- 콘텐츠 가림 **0**(최하단에서 마지막 줄과 바 사이 여유 **43px**) → ★**여백 상수 미수정**(이미 충분).
+- 375/390/430px 가로 넘침 **0**(요소·`scrollWidth`·탭 라벨 잘림 전부 0).
+- [x] `npm test` **342 passed / 35 files**(329/34 + 신규 13·기존 회귀 0) · tsc app/node · lint
+- [x] backend **838 passed, 8 skipped 불변**(★`backend/` diff 0) · `smoke:coverage` **PASS**
+- [x] `build:verify` **343,702 B 예상 FAIL**(270과 동일 수치)
+- [x] ★268a 시트 열림 시 복귀 · **여닫기 3회 반복** 정상 · 네비 높이 57→91 추종
+- [x] ★**관찰자 누수 0**(언마운트 시 MutationObserver·ResizeObserver·resize·orientationchange 전부 해제)
+- [x] ★**데스크톱 영향 구조적 불가** — `PrimaryAction` 도달 경로는 `Disclosure.tsx` 하나뿐이고
+      두 진입 모두 `useIsMobile` 분기 안. `/dashboard`·`/coverage-compare`는 모듈 그래프상 도달 불가(테스트 고정).
+- [x] ★보호 영역 **diff 0**: `MobileBottomNav`·`bottomNavTabs`·265 `tokens`/가드·268a 시트·
+      268b `AnalysisProgress`·**270 폰트 맵**·`Layout`·`Disclosure.tsx`·`index.css`·`vite.config.*`·`App.tsx`
+
+### 판단 기록
+- **`:has()` CSS 한 줄 해법 미채택** — iOS 15.4 미만에서 **조용히 무효**가 되고 jsdom에서 검증할 수 없다.
+  269b가 세운 DOM 관찰 선례를 따르는 편이 테스트로 고정된다.
+- 하단 고정 점유가 138~172px로 커지는 것은 B안의 구조적 비용이다(콘텐츠 가림은 0).
+
+### 남은 것
+- **실기기 미확인**: iOS 홈 인디케이터 실제 세이프에어리어(로컬은 34px 흉내) · 키보드 표시 중 거동.
+  269b부터 이어진 iOS 검수 항목과 함께 확인 필요.
+- 점유가 과하다는 판단이 나오면 "스크롤 시 액션 바 자동 숨김"이 후속 태스크 후보다.
+
+### Next
+1. **Codex** — 2차 검증(★수정 전 재현 → 수정 후 겹침 0 · 268a/268b 전이 · 누수 0 · 데스크톱 무영향)
+   → 커밋·push. Stage: `src/components/mobile/PrimaryAction.tsx`·
+   `src/components/mobile/bottomFixedCollision273.test.tsx`·
+   `tasks/BOHUMFIT-273-bottom-fixed-collision.md`·`handoff.md`·`locks.md`.
+   ★기준선 변동(frontend **342 passed / 35 files**) → `verify.md`·`CLAUDE.md`·**`AGENTS.md` 3문서 모두** 갱신.
+2. **Human** — iOS 실기기 검수(세이프에어리어·키보드·백그라운드) / 가입제안서 샘플.
+
 ## 2026-08-06 BOHUMFIT-270 3차 독립 재검증 — PASS / 기준선 문서 보정
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Chat**(273 발번) / **Human**(실기기)

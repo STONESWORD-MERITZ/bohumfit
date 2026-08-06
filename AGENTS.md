@@ -100,7 +100,7 @@ For UI changes, also run the app locally and perform a browser smoke check when 
   로컬 번들 343 kB대는 앱 코드 없는 껍데기였음(247 실측). 정상 참조치 = 프로덕션 786 kB대(786,541 B).
   현 로컬 Windows는 Application Control의 신규 네이티브 차단으로 정상 번들 생성 불가 — build:verify
   FAIL이 정직 상태이며, 기능 판정은 소스 게이트 + Codex 프로덕션 번들 대체 검증(Human 결정 2026-07-26)
-- `npm test` — 기준선 `329 passed / 34 files`(BOHUMFIT-270 실측·2026-08-06, 라우트 스모크 18건 포함)
+- `npm test` — 기준선 `342 passed / 35 files`(BOHUMFIT-273 실측·2026-08-06, 라우트 스모크 18건 포함)
 - `cd backend && python -m pytest -q` — 기준선 `838 passed, 8 skipped` (BOHUMFIT-272b 실측·2026-08-06.
   기준선 변경 시 `verify.md`·`CLAUDE.md` 동시 갱신)
 - 도메인 계약 grep: `SURIT` 0건, 구브랜드 색상(`#15663D` 등 구 그린) 0건 — 기존 계약 유지
