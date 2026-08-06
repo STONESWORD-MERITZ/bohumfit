@@ -8,6 +8,11 @@ import Badge, { type BadgeVariant } from "../components/ui/Badge"; // BOHUMFIT-1
 // BOHUMFIT-267: 고지 결과 모바일 껍데기(헤더 요약·문안 시트·하단 액션). ★질병 카드는 기존 것을 그대로 쓴다.
 import { useIsMobile } from "../components/mobile/useIsMobile";
 import DisclosureMobileShell from "../components/mobile/DisclosureMobileShell";
+// BOHUMFIT-270: DiseaseCard 모바일 폰트 오버라이드(B안) — 모바일 값 정본은 mobile 폴더(265 하한 가드 대상).
+import {
+  DISEASE_CARD_MOBILE_TYPO,
+  type DiseaseCardTypoKey,
+} from "../components/mobile/diseaseCardTypography";
 // BOHUMFIT-268a: 모바일 업로드 하단 시트 + 업로드 진행률 실측(XHR).
 import MobileUploadSheet, { type SelectedFilesInfo } from "../components/mobile/MobileUploadSheet";
 import { uploadWithProgress, UploadError, type UploadProgress } from "../lib/uploadWithProgress";
@@ -226,7 +231,8 @@ const RISK: Record<Risk, { border: string }> = {
   green: { border: "border-emerald-400" },
 };
 
-function Chip({ label, tone = "gray", title }: { label: ReactNode; tone?: string; title?: string }) {
+// BOHUMFIT-270: `sizeCls` 기본값이 현행 `text-xs`라 데스크톱 출력은 그대로다(호출처는 전부 DiseaseCard).
+function Chip({ label, tone = "gray", title, sizeCls = "text-xs" }: { label: ReactNode; tone?: string; title?: string; sizeCls?: string }) {
   const tones: Record<string, string> = {
     gray: "bg-ink-100 text-ink-soft",
     "gray-light": "border border-line bg-ink-50 text-ink-soft",
@@ -239,7 +245,7 @@ function Chip({ label, tone = "gray", title }: { label: ReactNode; tone?: string
     rose: "bg-rose-100 text-rose-600",
   };
   return (
-    <span title={title} className={`rounded-full px-3 py-1 text-xs font-semibold ${tones[tone] ?? tones.gray}`}>
+    <span title={title} className={`rounded-full px-3 py-1 ${sizeCls} font-semibold ${tones[tone] ?? tones.gray}`}>
       {label}
     </span>
   );
@@ -405,7 +411,34 @@ function AllDiseaseSection({ diseases }: { diseases: DiseaseSummary[] }) {
   );
 }
 
-function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: string; isEasy?: boolean }) {
+/**
+ * BOHUMFIT-270: 데스크톱 폰트 크기 — **현행 클래스 문자열 그대로**다(값 변경 0).
+ *  ★모바일 맵과 같은 `DiseaseCardTypoKey`를 쓰므로 한쪽에 키가 빠지면 tsc가 잡는다.
+ *  ★모바일 값(15/16px)만 `src/components/mobile/`에 두는 이유: 265 하한 가드가 그 폴더를 스캔한다.
+ *    데스크톱 원문(10~13px)을 거기 두면 가드가 정당하게 실패하므로 분리했다.
+ */
+const DISEASE_CARD_DESKTOP_TYPO: Record<DiseaseCardTypoKey, string> = {
+  name: "text-[15px]",
+  code: "text-[11px]",
+  insuranceOnly: "text-[11px]",
+  meta: "text-xs",
+  detail: "text-[13px]",
+  chip: "text-xs",
+  medToggle: "text-[11px]",
+  medNote: "text-[12px]",
+  evidenceToggle: "text-[11px]",
+  evidenceBody: "text-[11px]",
+  evidenceNote: "text-[10px]",
+  suspectNote: "text-[11px]",
+  bottom: "text-xs",
+};
+
+// BOHUMFIT-270: 테스트가 카드만 떼어 두 뷰포트에서 대조할 수 있도록 export한다(렌더 결과 변화 0).
+export function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: string; isEasy?: boolean }) {
+  // BOHUMFIT-270: 모바일에서만 폰트를 올린다(B안). 266~269b와 같은 방식 —
+  //   CSS 숨김·미디어쿼리가 아니라 JS 판정이고, matchMedia가 없으면 데스크톱으로 폴백한다.
+  const isMobile = useIsMobile();
+  const fz = isMobile ? DISEASE_CARD_MOBILE_TYPO : DISEASE_CARD_DESKTOP_TYPO;
   const risk = riskOf(item);
   const surgN = currentSurgeryCount(item);
   const procN = item.procedures?.length ?? 0;
@@ -440,9 +473,9 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
     <article className={`border-l-4 px-5 py-4 transition-colors duration-200 hover:bg-accent-50/40 ${RISK[risk].border}`}>
       <div className="mb-1 flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span className="text-[15px] font-bold text-ink-900">{item.name || "질병명 없음"}</span>
+          <span className={`${fz.name} font-bold text-ink-900`}>{item.name || "질병명 없음"}</span>
           {item.code && (
-            <span className="shrink-0 rounded bg-ink-100 px-2 py-0.5 font-mono text-[11px] text-ink-soft">
+            <span className={`shrink-0 rounded bg-ink-100 px-2 py-0.5 font-mono ${fz.code} text-ink-soft`}>
               {item.display_code || item.code}
             </span>
           )}
@@ -451,12 +484,12 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
       </div>
 
       {item.insurance_only && (
-        <div className="mb-2 rounded-[8px] bg-sky-50 px-3 py-1.5 text-[11px] leading-relaxed text-sky-700">
+        <div className={`mb-2 rounded-[8px] bg-sky-50 px-3 py-1.5 ${fz.insuranceOnly} leading-relaxed text-sky-700`}>
           실손의료비보험 가입 시에만 고지가 필요한 항목입니다(직장·항문 질환). 일반 사망·질병 보험 고지 대상은 아닙니다.
         </div>
       )}
 
-      <div className="mb-2.5 space-y-0.5 text-xs text-ink-soft">
+      <div className={`mb-2.5 space-y-0.5 ${fz.meta} text-ink-soft`}>
         {period && (
           <div className="flex items-center gap-2">
             <span className="shrink-0 text-ink-soft">진료기간</span>
@@ -494,22 +527,23 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
       </div>
 
       {displayDetail && (
-        <div className="mb-3 text-[13px] font-medium leading-relaxed text-ink">
+        <div className={`mb-3 ${fz.detail} font-medium leading-relaxed text-ink`}>
           {displayDetail}
         </div>
       )}
 
       {hasMetricChips && (
         <div className="mb-2 flex flex-wrap gap-2">
-          {inpatient.show && inpatient.count > 0 && <Chip label={<>입원 총 <AnimatedNumber value={inpatient.count} />회</>} title={windowTip} tone="red-light" />}
-          {inpatient.show && inpatient.days > 0 && <Chip label={<>합산 <AnimatedNumber value={inpatient.days} />일</>} title={windowTip} tone="red" />}
-          {metric.visit && <Chip label={<>통원 <AnimatedNumber value={item.visit ?? 0} />회</>} title={windowTip} tone={(item.visit ?? 0) >= 7 ? "amber" : "gray"} />}
-          {metric.surgery && <Chip label={<>수술 <AnimatedNumber value={surgN} />건</>} title={windowTip} tone="red" />}
+          {inpatient.show && inpatient.count > 0 && <Chip label={<>입원 총 <AnimatedNumber value={inpatient.count} />회</>} title={windowTip} tone="red-light" sizeCls={fz.chip} />}
+          {inpatient.show && inpatient.days > 0 && <Chip label={<>합산 <AnimatedNumber value={inpatient.days} />일</>} title={windowTip} tone="red" sizeCls={fz.chip} />}
+          {metric.visit && <Chip label={<>통원 <AnimatedNumber value={item.visit ?? 0} />회</>} title={windowTip} tone={(item.visit ?? 0) >= 7 ? "amber" : "gray"} sizeCls={fz.chip} />}
+          {metric.surgery && <Chip label={<>수술 <AnimatedNumber value={surgN} />건</>} title={windowTip} tone="red" sizeCls={fz.chip} />}
           {metric.med && (
             <Chip
               label={<>투약 <AnimatedNumber value={item.med_days ?? 0} />일</>}
               title={windowTip}
               tone={(item.med_days ?? 0) >= 30 ? "amber" : (item.med_days ?? 0) > 0 ? "emerald" : "gray"}
+              sizeCls={fz.chip}
             />
           )}
           {/* BOHUMFIT-183: 투약 일수가 어떤 산식인지 밝힌다 — ★배지 라벨·값·색은 그대로다.
@@ -521,7 +555,7 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
               data-testid="med-formula-toggle"
               aria-expanded={medFormulaOpen}
               onClick={() => setMedFormulaOpen((open) => !open)}
-              className="m-tap rounded-full border border-line bg-white px-2 py-0.5 text-[11px] font-semibold text-ink-soft hover:text-ink"
+              className={`m-tap rounded-full border border-line bg-white px-2 py-0.5 ${fz.medToggle} font-semibold text-ink-soft hover:text-ink`}
             >
               산식 {medFormulaOpen ? "▲" : "ⓘ"}
             </button>
@@ -531,7 +565,7 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
 
       {/* 펼침 시 한 줄로만 노출 — 폭을 고정하지 않아 모바일에서도 잘리지 않는다. */}
       {metric.med && medFormulaOpen && (
-        <p data-testid="med-formula-note" className="mb-2 break-keep rounded-[8px] bg-ink-50 px-3 py-2 text-[12px] leading-5 text-ink-soft">
+        <p data-testid="med-formula-note" className={`mb-2 break-keep rounded-[8px] bg-ink-50 px-3 py-2 ${fz.medNote} leading-5 text-ink-soft`}>
           {MED_SUM_FORMULA_NOTE}
         </p>
       )}
@@ -543,12 +577,12 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
             type="button"
             onClick={() => setEvidenceOpen(!evidenceOpen)}
             aria-expanded={evidenceOpen}
-            className="text-[11px] font-semibold text-accent-700 hover:underline"
+            className={`${fz.evidenceToggle} font-semibold text-accent-700 hover:underline`}
           >
             {evidenceOpen ? "근거 상세 접기 ▲" : `근거 상세 보기 (${evidenceCount}건) ▼`}
           </button>
           {evidenceOpen && (
-            <div className="mt-1.5 space-y-2 rounded-[8px] bg-ink-50 px-3 py-2.5 text-[11px] leading-relaxed text-ink-soft">
+            <div className={`mt-1.5 space-y-2 rounded-[8px] bg-ink-50 px-3 py-2.5 ${fz.evidenceBody} leading-relaxed text-ink-soft`}>
               {evSurg.length > 0 && (
                 <div>
                   <p className="font-bold text-ink">수술 근거</p>
@@ -583,7 +617,7 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
                   </div>
                 </div>
               )}
-              <p className="text-[10px] text-ink-400">
+              <p className={`${fz.evidenceNote} text-ink-400`}>
                 근거는 업로드한 진료 자료의 원본 기록(진료일·병의원) 표시이며, 위 판정 수치·기준은 그대로입니다.
               </p>
             </div>
@@ -597,9 +631,10 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
             <Chip
               label={`수술 의심—확인 필요 (${item.surgery_suspected_grade})`}
               tone={item.surgery_suspected_grade === "강" ? "red-light" : "amber"}
+              sizeCls={fz.chip}
             />
           </div>
-          <p className="mt-1 text-[11px] leading-relaxed text-amber-700">
+          <p className={`mt-1 ${fz.suspectNote} leading-relaxed text-amber-700`}>
             건보(공단) 자료엔 수술이 명시되지 않아, 진료비 합산(공단부담금+본인부담금)과 수술 관련 행위를 근거로 추정한 의심 항목입니다. 입원 진료비 50만원 이상, 또는 수술 관련 행위가 동반된 진료비 10만원 이상을 수술 가능성으로 추정합니다(강=가능성 높음, 약=가능성 낮음, 금액은 모두 ‘이상’ 기준). 실제 수술 여부는 고객님 확인이 필요합니다.
           </p>
         </div>
@@ -607,15 +642,15 @@ function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem; qNum: 
 
       {hasClinicalChips && (
         <div className="flex flex-wrap gap-2">
-          {procN > 0 && <Chip label={`시술 ${procN}건`} tone="orange" />}
-          {suspN > 0 && <Chip label={`수술 의심 ${suspN}건`} tone="gray-light" />}
-          {item.treatment_ongoing === true && <Chip label="치료 중" tone="rose" />}
-          {item.treatment_ongoing === false && <Chip label="종결" tone="emerald" />}
+          {procN > 0 && <Chip label={`시술 ${procN}건`} tone="orange" sizeCls={fz.chip} />}
+          {suspN > 0 && <Chip label={`수술 의심 ${suspN}건`} tone="gray-light" sizeCls={fz.chip} />}
+          {item.treatment_ongoing === true && <Chip label="치료 중" tone="rose" sizeCls={fz.chip} />}
+          {item.treatment_ongoing === false && <Chip label="종결" tone="emerald" sizeCls={fz.chip} />}
         </div>
       )}
 
       {hasBottom && (
-        <div className="mt-3 space-y-1 border-t border-line pt-2.5 text-xs leading-relaxed">
+        <div className={`mt-3 space-y-1 border-t border-line pt-2.5 ${fz.bottom} leading-relaxed`}>
           {suspN > 0 && (
             <p className="text-ink-soft">
               <span className="mr-1.5 text-ink-soft">의심 행위</span>
