@@ -1,7 +1,127 @@
+## 2026-08-06 Codex BOHUMFIT-270 2차 검증 — PASS / 커밋·push 완료
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Chat**(273 발번) / **Human**(실기기)
+Implementation commit: **`2e55cf7e917b7e580ab149ec51b25ea0a9b2790f`** — `origin/main` push 완료.
+이 검증 기록 자체는 바로 뒤 문서 기록 커밋에 포함했다.
+
+### Windows 권위 게이트·범위
+- 루트 게이트(pwd=`C:\Users\18_rk\BOHUMFIT`·remote·219 리트머스)와 셸 정상, 기준 HEAD
+  `1884f57` 확인. app/node tsc·lint·frontend **329 passed / 34 files**·backend
+  **838 passed, 8 skipped**·`smoke:coverage` PASS. 로컬 빌드 JS **343,702 B**,
+  `build:verify`는 600 kB 하한·앱 문자열 3종을 잡은 241/248 계약의 **예상 FAIL**이다.
+- 변경은 `Disclosure.tsx`·모바일 폰트 맵·270 테스트·harness 기준선 문서뿐이다.
+  `backend/`·`vite.config.*`·265 가드/토큰·268a/268b/269a/269b/271·Q1~Q5·183 문구/색 diff 0.
+
+### 데스크톱·모바일 실렌더
+- HEAD 사본 대비 데스크톱 **4경로** 회귀 0. `/disclosure` 결과·`/history` 공유 카드의 실제
+  Chromium `innerHTML`·63노드·13개 computed font-size가 완전 동일했다. `/dashboard`는
+  51노드·SHA-256 `6f587a29…`, `/coverage-compare` 결과는 442노드·`577920ab…`로 HEAD와 동일했고,
+  각 경로의 비어 있지 않은 결과 마커를 함께 단언했다.
+- 실제 Chromium 375/390/430px에서 긴 병명+긴 기관명 문서·카드·개별 요소 넘침 **0**.
+  폭 900px 대조군은 **593px** 넘침을 검출했다. 병명·판정 상세 **16px**, 상병코드 포함 나머지
+  **15px**, Q 배지 **12.5px**를 computed style로 확인했다.
+- Vercel 프로덕션 CSS(`/assets/index-HfCk4C_m.css`, 70,072 B)에서 `text-[15px]`·`text-[16px]`
+  선택자와 선언을 직접 확인했다. 고의로 데스크톱 맵 `bottom` 키를 누락한 임시 타입 검사는
+  TS2741로 실패해 두 맵의 키 불일치를 tsc가 차단함도 실증했다.
+
+### 범위 밖 재현(수정 0)
+- 모바일 고지 결과에서 `PrimaryAction`과 `MobileBottomNav`가 함께 렌더되면 둘 다
+  `fixed bottom-0 z-40`이다. Chromium 390px에서 액션 바 81px·네비 57px가 **57px 겹쳤고**,
+  DOM 뒤쪽 네비가 액션 버튼 하단을 덮었다. BOHUMFIT-270에서는 수정하지 않았다.
+
+### Next
+1. **Chat** — BOHUMFIT-273(하단 고정 요소 z-index 충돌) 발번.
+2. **Human** — iOS 실기기 검수 / 가입제안서 샘플 제공.
+
+## 2026-08-06 BOHUMFIT-270 - DiseaseCard 모바일 폰트(B안·완료)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(2차 검증·커밋)
+Commit: **미커밋·미푸시**(git 쓰기 0). 기준 HEAD `1884f57`(272b).
+상세는 tasks/BOHUMFIT-270-diseasecard-font.md.
+
+### Step 1 실측
+`DiseaseCard`는 별도 파일이 아니라 `src/pages/Disclosure.tsx:408~641` **지역 컴포넌트**다.
+★**267과 중복 0**을 구조로 확인 — 267은 껍데기만 만들고 카드는 `children`으로 통과시켜서,
+**카드 내부는 지금 모바일·데스크톱이 완전히 같은 마크업**이고 `useIsMobile` 호출이 0건이었다.
+요소별 현재 크기를 전수로 쟀다(Tailwind 4.2.4 기준 `text-xs`=12px·`text-caption`=12.5px 실측):
+병명 15 / 상병코드 **11** / Q배지 12.5 / 실손안내 11 / 메타(진료·입원·최초진단) 12 / **판정 상세 13** /
+Chip 12 / 산식 토글 11 · 문구 12 / 근거 토글·내용 11 · **각주 10** / 수술의심 설명 11 / 하단 12
+→ **13개 요소 중 12개가 265 하한(15px) 미만**.
+읽기 어려운 순위 판단 근거도 기록: ①가장 작은 것=각주 10px(단 기본 접힘) ②**오독 비용 최대=상병코드**
+(`I10`·`M51.9`처럼 영숫자 혼합이고 **청약서에 그대로 옮겨 적는 값**) ③정보 밀도 최대=12px 메타 날짜
+④**가장 중요한데 작은 것=판정 상세 13px**(카드 결론인데 병명보다 작다) ⑤`mode=customer`면 40~50대
+고객이 직접 본다.
+
+### Step 2 구현 — 265 토큰 안에서만
+병명 **16**(body) · 판정 상세 **16** · 나머지 전부 **15**(sub). ★**title(20)은 미사용** — 카드 병명이
+모바일 화면 요약 헤더(20px)와 동급이 되면 그게 계층 역전이다. 역전 0(병명 16 ≥ 상세 16 ≥ 나머지 15).
+★**Q 배지(12.5px)는 제외** — 공용 `Badge`라 범위 밖 화면에 번지고, `text-caption`+임의값 병존은
+Tailwind 출력 순서에 결과가 의존해 결정론적이지 않다(267 동결분 인접·`Q1` 두 글자라 위험 낮음).
+★배치: **모바일 정본을 `src/components/mobile/diseaseCardTypography.ts`에 둬 265 하한 가드 스캔에
+자동 편입**시키고(269b처럼 우회하지 않음), 데스크톱 원문(10~13px)은 같은 폴더에 두면 가드가 정당하게
+실패하므로 `Disclosure.tsx`에 `Record<DiseaseCardTypoKey, string>`으로 분리 — **키가 갈라지면 tsc가
+잡는다**. 데스크톱 맵 값이 현재 문자열 그대로라 데스크톱 innerHTML 동일이 구조로 보장된다.
+`Chip`은 카드 전용(사용처 10곳 전부 카드 안)이라 `sizeCls` 선택 인자를 추가하고 **기본값을 현행
+`text-xs`**로 뒀다. 분기는 `useIsMobile` JS 판정·matchMedia 부재 시 데스크톱 폴백.
+
+### Step 3 — ★실제 Chromium 실측(레포 밖 임시 서버)
+375/390/430px × 데스크톱/모바일, 긴 병명(26자)+긴 기관명 최악 조합에서 **가로 넘침 전부 0**.
+★**오통과 방지**: 폭 900px `nowrap` 대조군을 넣자 **593px 넘침을 검출** — 0이 측정 실패가 아니다.
+★**착수 시 의심을 실측으로 반증**: "`truncate` flex 아이템에 `min-w-0`이 없어 넘칠 것"으로 봤으나
+`overflow:hidden`이 flex 자동 최소 크기를 0으로 만들어 정상 말줄임(132/167 < 296)
+→ **불필요한 레이아웃 보정을 넣지 않았다**. 카드 높이는 375px에서 **325→412px(1.268배)**.
+269b 네비·하단 액션 여백은 `Layout.tsx:231`·`DisclosureMobileShell:197`이 **폰트와 무관하게** 잡아
+가림 0(구조상 불변).
+
+### 검증
+- [x] ★**데스크톱 회귀 0** — HEAD 사본 대비 실렌더 **3경로**(`/disclosure` 업로드·`/disclosure` 결과·
+      **`/history` 재열람**) `innerHTML`·노드 수 **완전 일치**. 접힘 블록(213 근거·183 산식)까지 펼쳐 비교,
+      빈 화면 오통과 방지 마커 포함, 사본·일회성 스크립트 **삭제**.
+      ★`/history`는 착수 시 몰랐던 경로 — `History.tsx:11`이 `ResultView`로 **같은 카드를 렌더**함을
+      의존 그래프 확인 중 발견해 추가했다. 나머지 3화면은 **소스 diff 0 + 변경 파일 미import**(전수 grep)라
+      동일함이 구조로 보장돼 자기 대조를 생략했다.
+- [x] `npm test` **329 passed / 34 files**(310+19·기존 회귀 0) · tsc app/node · lint
+- [x] backend **838 passed, 8 skipped 불변**(★`backend/` diff 0) · `smoke:coverage` **PASS**
+- [x] `build:verify` **343,702 B 예상 FAIL**(248 껍데기·272b와 동일 수치)
+- [x] ★265 가드 **우회 0**(`mobileTokens.test.ts`·`tokens.ts` diff 0) · Q 라벨·배지 무변경 ·
+      183 문구·색 규칙 diff 0 · `vite.config.*`·라우트·268a/268b/269a/269b/271 파일 diff 0
+
+### ★조용한 무효화 위험 1건 — 확인하고 닫았다
+임의값 유틸은 소스 스캔으로만 생성돼, 정본이 `.ts`면 오버라이드가 **소리 없이 무효**가 될 수 있다
+(로컬은 248 껍데기라 CSS로 확인 불가 — `dist` CSS엔 기존 `text-[11px]`조차 없다).
+`text-[15px]`·`text-[16px]`가 **이미 `mobile/*.tsx`에서 쓰이고 있어** 어느 경로로든 생성됨을 확인하고,
+그 사실을 **테스트로 고정**했다.
+
+### 자체 정정 3건(전부 테스트 하네스 · 제품 코드 영향 0)
+①`vi.stubGlobal`은 jsdom `window.matchMedia`를 못 덮는다 → 182·266과 같은 `Object.defineProperty`
+②fetch 목이 `/api/analyze/progress/`까지 삼켜 **268b 폴링이 끝나지 않아 테스트가 멈췄다** →
+진행 엔드포인트를 먼저 가로채 `finished` 반환 ③132 `AnimatedNumber` 카운트업 탓에 innerHTML이 매번
+달라 대조 실패 → `aria-label`의 **확정값**으로 고정 후 비교(숫자 검증 포기 아님).
+※결과 화면을 띄운 뒤 matchMedia를 뒤집는 방식은 268a 시트 재마운트로 `act`가 정착하지 않아
+**카드 단위 렌더**로 바꿨다(그래서 `DiseaseCard`를 export — 렌더 결과 변화 0).
+
+### 남은 것 / Human 결정
+- ★**정보 계층 압축**(10~15px 5단 → 15~16px 2단). 265 하한이 15px인 이상 불가피하고, 되돌리려면
+  **토큰 개정**이 필요하다. 굵기·색은 계층 신호를 유지한다.
+- ★**카드 높이 1.27배 → 한 화면 카드 수 감소.** 밀도 회복은 별도 태스크(카드 접기 등)가 맞다 —
+  패딩·여백 축소는 265 규격 훼손이라 하지 않았다.
+- ★**범위 밖 발견(기록만)**: 모바일 고지 결과에서 `PrimaryAction`과 269b `MobileBottomNav`가
+  **둘 다 `fixed bottom-0 z-40`**이라 겹친다. Codex 실측에서는 같은 z-index·DOM 뒤쪽 네비가
+  액션 버튼 하단을 덮었다. 폰트 태스크라 미수정.
+- 실기기 미확인: 체감 가독성·시스템 글꼴 확대(동적 타입) 조합.
+
+### Next
+1. **Codex** — 2차 검증(★데스크톱 3경로 회귀 0 · 265 가드 우회 0 · 375~430px 실렌더) → 커밋·push.
+   Stage: `src/pages/Disclosure.tsx`·`src/components/mobile/diseaseCardTypography.ts`·
+   `src/pages/DisclosureCardFont270.test.tsx`·`tasks/BOHUMFIT-270-diseasecard-font.md`·
+   `handoff.md`·`locks.md`. 기준선 갱신 시 `verify.md`·`CLAUDE.md`의 프런트 수치를 **329/34**로.
+2. **Human** — iOS 실기기 검수 계속 대기 + 위 계층 압축·카드 높이 트레이드오프 확인.
+3. **Chat** — 하단 액션/네비 겹침(범위 밖 발견) 발번 여부 결정.
+
 ## 2026-08-06 Codex BOHUMFIT-272b 2차 검증 — PASS / 단독 커밋
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human**(iOS 실기기) / **Chat**(270 발번)
-Commit: **본 최종 커밋**(push 후 실제 SHA를 이 줄에 기록).
+Commit: **`1884f57d5f17e2d49dfdc255df1f611c8ef761f3`** — `origin/main` push 완료.
 
 ### Windows 권위 게이트
 - 루트 게이트(pwd=`C:\Users\18_rk\BOHUMFIT`·remote·219 리트머스)와 셸 정상, 기준 HEAD
