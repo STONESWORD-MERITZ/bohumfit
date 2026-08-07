@@ -21,7 +21,7 @@ npm run dev
 백엔드 pytest — `cd backend && python -m pytest -q`:
 
 ```text
-838 passed, 8 skipped
+861 passed, 8 skipped
 ```
 
 (BOHUMFIT-272b 실측·2026-08-06 갱신 — 272 시점 826/8에 상품명 과잉 절삭 방지 회귀 12건 반영.)

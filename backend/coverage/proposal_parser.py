@@ -35,7 +35,13 @@ _MONEY_RE = re.compile(
     r"(?:\d[\d,]*\s*)?만\s*원?"
     r"|(?:\d[\d,]*)\s*억\s*원?"
 )
+# BOHUMFIT-276b(T5): 산출값 105,800 vs 원문 105,802의 2원 차는 반올림이 아니라
+#   **다른 항목을 읽고 있던 것**이었다 — 원문에 `보장보험료 합계 105,802 원`과
+#   `1회차보험료(할인후) 105,800 원`이 **둘 다 실재**하는데 후자를 먼저 잡았다(할인보험료는 0원).
+#   고객·파일명이 인식하는 월납 금액은 **보장보험료 합계**이므로 그 패턴을 앞에 둔다.
+#   ★기존 패턴은 지우지 않고 순서만 바꾼다(합계 표기가 없는 양식의 폴백으로 남긴다).
 _PREMIUM_PATTERNS = (
+    re.compile(r"보장보험료\s*합계\D{0,10}([\d,]{4,})\s*원"),
     re.compile(r"1회차보험료\(할인후\)\D{0,20}([\d,]{4,})\s*원?"),
     re.compile(r"할인후초회보험료\D{0,20}([\d,]{4,})\s*원?"),
     re.compile(r"실납입보험료\D{0,20}([\d,]{4,})\s*원"),
@@ -197,7 +203,31 @@ def _extract_pay_months(text: str) -> int | None:
     match = _FIRST_PAY_TERM_RE.search(text)
     if match:
         return int(match.group(1)) * 12
-    return DEFAULT_PAY_MONTHS
+    # BOHUMFIT-276b(T4): 20년(240개월) 가정 폴백 제거 — 못 읽으면 값 없음으로 두고 총납입을
+    #   계산하지 않는다(276a 원칙 승계 · 272 `총납입보험료(계약별 납입기간 반영)` 라벨과 정합).
+    return None
+
+
+# BOHUMFIT-276b(T3): 프로필 고정 상품명이 실제 상품을 덮어써 **틀린 버전이 고객 안내문서에 나갔다**.
+#   실측: 원문은 `(무) 메리츠 The좋은 알파Plus보장보험2607(2.0) …`인데 산출물은
+#   `(무)메리츠 The좋은알파Plus종합보장보험2604` — **버전(2607→2604)과 상품 종류(보장보험→종합보장보험)**가
+#   둘 다 달랐다. 원문 머리글이 p2~p26 전 페이지에 반복돼 추출 근거가 강하다.
+#   ★272b 선례(과잉 절삭 금지): 괄호 수식어를 임의로 깎지 않고 **줄에 있는 그대로** 쓴다.
+def _extract_product(text: str, profile: ProductProfile | None) -> str | None:
+    """원문에서 상품명 줄을 찾아 **그대로** 돌려준다(없으면 None)."""
+    for raw in (text or "").splitlines():
+        line = _clean(raw)
+        if not line or len(line) > 120:
+            continue
+        if not line.startswith("(무)") and not line.startswith("(유)"):
+            continue
+        if "보험" not in line and "공제" not in line:
+            continue
+        # 프로필이 있으면 그 키워드가 같은 줄에 있는지로 한 번 더 확인한다(오탐 방지).
+        if profile and not any(_compact(keyword) in _compact(line) for keyword in profile.keywords):
+            continue
+        return line
+    return None
 
 
 def _extract_maturity(text: str) -> str | None:
@@ -257,10 +287,28 @@ def _skip_rule(rule: ProposalRule, window: str, profile: ProductProfile | None) 
     return False
 
 
+# BOHUMFIT-276b(T1): 실제 가입담보가 아니라 **예시·대표계약 설명**에 실린 금액을 담보로 채택하던 문제.
+#   274 실측: 오현지 제안서 p3의 실제 `일반상해사망 1백만원`보다 p6 `대표계약 기준 : … 5,000만원`이
+#   커서 채택됐다(`_merge_entries`가 큰 값을 고른다).
+#   ★배제를 **페이지 단위가 아니라 줄(window) 단위**로 좁힌 이유: 가입제안서 샘플이 **1건뿐**이라
+#     페이지 역할 규칙을 일반화할 근거가 부족하다. 반면 아래 문구는 그 줄 안에서 자기 자신이
+#     "이건 예시다"라고 밝히므로, 다른 양식에서도 오탐 위험이 낮고 부작용 범위가 그 줄로 한정된다.
+#   ★값을 낮게 채택하는 식의 우회는 쓰지 않는다 — **예시 줄은 아예 읽지 않는다**.
+EXAMPLE_SECTION_MARKERS = ("대표계약기준", "대표계약 기준", "보험료비교(예시)", "보험료 비교(예시)")
+
+
+def _is_example_window(window: str) -> bool:
+    """예시·비교 설명 줄이면 True — 담보 후보에서 제외한다."""
+    compact = _compact(window)
+    return any(_compact(marker) in compact for marker in EXAMPLE_SECTION_MARKERS)
+
+
 def _extract_rule_entries(lines: Sequence[str], profile: ProductProfile | None) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     seen: set[tuple[str, int, str]] = set()
     for window in _line_windows(lines):
+        if _is_example_window(window):
+            continue
         for rule in PROPOSAL_RULES:
             if _skip_rule(rule, window, profile) or not _matches(rule, window):
                 continue
@@ -436,12 +484,24 @@ def parse_proposal_text(text: str, filename: str = "proposal.pdf") -> dict[str, 
     lines = [_clean(line) for line in normalized.splitlines() if _clean(line)]
     profile = _detect_profile(normalized)
     insurer = _detect_insurer(normalized, profile)
-    product = profile.product if profile else "가입제안서"
+    # BOHUMFIT-276b(T3): 원문 상품명을 최우선으로 쓴다. 못 읽으면 프로필 상품명으로 폴백하되
+    #   ★그때는 **버전이 다를 수 있음을 경고**한다(무의미한 "가입제안서" 기본값보다 정보가 많다).
+    product = _extract_product(normalized, profile)
+    product_from_text = product is not None
+    if product is None:
+        product = profile.product if profile else "가입제안서"
     warnings: list[str] = []
+
+    if not product_from_text and profile:
+        warnings.append(f"{filename}: 상품명을 원문에서 확인하지 못해 대표 상품명으로 표기했습니다. 실제 상품·버전을 확인해 주세요.")
 
     premium = _extract_premium(normalized, profile)
     if premium is None:
         warnings.append(f"{filename}: 월납보험료를 찾지 못해 수기 확인이 필요합니다.")
+
+    pay_months = _extract_pay_months(normalized)
+    if pay_months is None:
+        warnings.append(f"{filename}: 납입기간을 찾지 못해 총납입보험료를 계산하지 않았습니다. 수기로 확인해 주세요.")
 
     entries = _extract_rule_entries(lines, profile) + _extract_car_injury_14(lines) + _extract_tier_surgery_entries(lines)
     if profile and profile.key == "mirae-mcare":
@@ -473,7 +533,7 @@ def parse_proposal_text(text: str, filename: str = "proposal.pdf") -> dict[str, 
         "product": product,
         "monthly_premium": premium,
         "pay_cycle": "월납",
-        "pay_months": _extract_pay_months(normalized),
+        "pay_months": pay_months,
         "maturity": _extract_maturity(normalized),
         "coverages": coverages,
         "filename": filename,
