@@ -1,7 +1,46 @@
+## 2026-08-07 Codex BOHUMFIT-275 263~273 누적 QA 교차 감사 — 완료 / 문서만·git 쓰기 0
+
+Owner flow: Claude Chat -> Codex(조사·문서) -> Human/Chat(후속 결정) | Current owner: **Human/Chat**
+Commit: **없음** — 사용자 지시대로 add/commit/push/checkout/stash를 수행하지 않았다.
+
+### 감사 결과
+- **하단 고정 요소**: 273이 해소한 PrimaryAction↔네비 외에, 고지 업로드 구형 `md:hidden`
+  CTA(`Disclosure.tsx:1876-1881,2352-2364`)가 로그인 모바일에서 네비와 겹치는 **실사용 결함**을
+  확인했다. InstallPrompt·UpdatePrompt·Toast도 네비/액션/서로를 조정하는 단일 계약이 없어 잠재 위험이다.
+- **PII 경계(최우선)**: 원본 파일명이 analyzer 로그와 raw `parse_errors`에 남아 history 저장까지 갈 수 있고,
+  10분 `sessionStorage` 재보기 결과는 로그아웃 삭제·사용자 소유권 검사가 없다. 같은 탭 계정 전환 시 이전
+  분석 복원 가능성이 코드 경로로 성립한다. 미매핑 오류의 raw console/Sentry 문자열도 잠재 위험으로 기록했다.
+- **오프라인 캐시**: 5건/24시간 IndexedDB 구현은 있으나 저장·조회 제품 호출부가 0건이다. 로그아웃 시
+  clear 호출은 단일 auth 구독으로 연결됐지만 실제 오프라인 저장/복원 기능과 PrivacyPolicy·ConsentGate 문구가
+  일치하지 않는다.
+- **모바일 분기·가드**: `useIsMobile`은 7파일·10호출 모두 공용 hook을 사용하며 matchMedia 부재 시
+  데스크톱 폴백이다. 다만 구형 CSS `md:hidden` 기능 분기 1건이 남고, 265 하한 가드는 mobile 폴더의
+  숫자형 px만 검사해 실제 11~14px(named Tailwind·폴더 밖 모바일 DOM)를 놓친다. 270 두 폰트 맵 키는 정합하다.
+- **문서·백로그**: 263~273 구현/보정 해시 누락 0. 기준선 3문서는 현재 frontend 342/35·backend
+  861/8로 일치한다. `verify.md`의 overview "회사 열 미생성" 설명은 259 이후 정본과 불일치한다.
+  D-3·D-6·D-15·272c·268c·모바일 업셀·T2는 모두 현재도 유효하며, 각 선행 조건을 문서에 구분했다.
+
+### 범위·확인 한계
+- 산출: `.agent-harness/tasks/BOHUMFIT-275-qa-audit.md` + 이 handoff + locks 해제만. 제품 코드 변경 0,
+  실 PDF·엑셀·PII·임시 렌더 생성/저장 0.
+- 실 iOS 좌표/히트, 프로덕션 Install/Update 동시 노출, Railway/Sentry·기존 Supabase 저장 PII,
+  사용자 브라우저 저장소 실재 데이터는 접근하지 않아 **확인 불가**로 이유와 함께 기록했다.
+- 감사 착수 당시 276a·276b는 미커밋이었으나 감사 도중 별도 프로세스가 `f254e8c`·`d95e56b`로
+  커밋했다. 275는 해당 변경을 한 줄도 수정하지 않았다. 완료 직전 읽기 전용 확인에서 로컬 HEAD는
+  `d95e56b`, 원격 main은 `3201528`로 로컬 2커밋이 아직 미푸시 상태였다.
+
+### Next
+1. **Human/Chat** — PII 저장·로그 경계 봉인(후보 277)을 최우선 발번: raw parse_errors/history deep scrub,
+   로그 파일명 제거, sessionStorage user-bound·전 로그아웃 삭제, Sentry/console scrub 및 기존 DB 처리 결정.
+2. **Chat** — bottom-surface 단일화(후보 278), 오프라인 캐시 정책/동선 정합(후보 279), 모바일 가드
+   렌더 기반 확장(후보 280), 하네스 문서 정리(후보 281) 순으로 검토.
+3. **Human** — iOS 실기기에서 설치·업데이트·토스트·네비·액션 조합 확인. 276a·276b 원격 반영은
+   해당 작업 주체가 별도로 확인할 것(275는 git 쓰기 금지).
+
 ## 2026-08-06 Codex BOHUMFIT-276a·276b 2차 검증 — PASS / ★2건 분리 커밋
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Chat**(275 발번) / **Human**(결정 3건)
-Commits: **`f254e8c`**(276a) → **`{B}`**(276b) — `origin/main` push 완료. 기준 HEAD `3201528`(273).
+Commits: **`f254e8c`**(276a) → **`d95e56b`**(276b) — `origin/main` push 완료. 기준 HEAD `3201528`(273).
 
 ### ★★분리 커밋 — hunk가 뒤섞여 파일 상태 재구성으로 처리
 `proposal_parser.py` 하나에 276a·276b 변경이 **U3 컨텍스트에서 3개 hunk가 뒤섞여** 있어
@@ -16,7 +55,7 @@ hunk 단위 분리가 불가능했다. 합치지 않고 **276a 단독 파일 상
 | 커밋 | backend | smoke | 비고 |
 |---|---|---|---|
 | `f254e8c`(276a) | **848 passed, 8 skipped** | PASS | 276b 테스트 제외 상태에서 확인 |
-| `{B}`(276b) | **861 passed, 8 skipped** | PASS | 848 + 신규 13 |
+| `d95e56b`(276b) | **861 passed, 8 skipped** | PASS | 848 + 신규 13 |
 frontend **342 passed / 35 files** · tsc app/node · lint 클린 · `build:verify` **343,702 B 예상 FAIL**.
 
 ### A) 276a — 폴백 소거·판정 조작 해소
