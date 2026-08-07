@@ -8,6 +8,15 @@ from .constants import AGG_REP, AGG_SUM
 REGISTRY_VERSION = "BOHUMFIT-193-S4"
 DEFAULT_PAY_MONTHS = 240
 
+# BOHUMFIT-276a: 아래 프로필의 `fallback_premium`·`fallback_coverages`·`bundle_coverages`는
+#   BOHUMFIT-193 당시 **한 표본 제안서를 실측해 고정한 값**이다. 이 값들을 실제 문서에서
+#   읽지 못했을 때 대신 채워 넣던 동작을 **전면 제거**했다(274 조사: 오현지 건에서 상해후유장해
+#   1억원·깁스치료비 50만원 등 4행이 이 경로로 유입 — 실제 가입액은 각 100만원이거나 아예 없음).
+#   ★데이터 자체는 지우지 않는다 — 276b가 "이 상품군에서 흔한 담보" 힌트·수기 확인 목록으로 쓰고,
+#     지금은 `metadata.registry_hints`로만 노출한다. **담보 행으로는 절대 삽입하지 않는다.**
+#   ★단일 기준: 값이 없으면 빈칸. 지어내지 않는다.
+INJECT_REGISTRY_FALLBACKS = False
+
 
 @dataclass(frozen=True)
 class ProposalRule:

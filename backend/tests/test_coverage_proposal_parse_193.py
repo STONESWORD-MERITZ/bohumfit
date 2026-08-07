@@ -177,6 +177,11 @@ def _analysis_for_after() -> dict:
     return {"before": before, "final": final, "warnings": []}
 
 
+def _names(proposal: dict) -> set:
+    """BOHUMFIT-276a: 담보 행으로 실제 실린 kb_name 집합(폴백 주입 여부 판정용)."""
+    return {coverage["kb_name"] for coverage in proposal["coverages"]}
+
+
 def test_parse_real_trace_193_synthetic_five_pdfs() -> None:
     result = _parsed()
 
@@ -191,14 +196,27 @@ def test_parse_real_trace_193_synthetic_five_pdfs() -> None:
     # 값 이관·금액 불변). compare kb_name 결합 정합을 위해 레지스트리도 동일 명칭 사용.
     assert ("표적항암치료", 80_500_000) in bundle
     assert ("항암약물방사선", 20_500_000) in bundle  # 246: EXTRA 라벨과 명칭 통일
-    assert _amount(cancer, "암수술") == 17_500_000  # 246 개명
-    assert _amount(cancer, "표적항암치료") == 80_500_000
+    # ★BOHUMFIT-276a: bundle 고정값은 **담보 행으로 삽입하지 않는다**(메타로만 남는다).
+    #   기존 기대값(`_amount(cancer, "암수술") == 17_500_000`)은 193 표본 고정값이 담보로
+    #   주입되던 상태를 고정한 것이라 **테스트 쪽이 틀렸다**. 274에서 이 경로로 실사용 산출물에
+    #   유령 담보가 실린 것이 확인돼, 주입 없음을 새 기대값으로 삼는다.
+    assert _names(cancer).isdisjoint({"암수술", "표적항암치료", "항암약물방사선"})
 
-    # BOHUMFIT-246: 레지스트리 정식명 개명분(값 불변).
+    # BOHUMFIT-246: 레지스트리 정식명 개명분 — ★아래 3건은 **원문 텍스트에서 추출**되므로 불변이다
+    #   (폴백 제거의 영향이 텍스트로 잡히는 담보에는 미치지 않음을 함께 고정한다).
     assert _amount(_proposal(result, "mirae-mcare"), "유사암진단금") == 20_000_000
     assert _amount(_proposal(result, "kb-hope"), "급성심근경색") == 50_000_000
     assert _amount(_proposal(result, "meritz-driver"), "자동차사고부상") == 300_000
-    assert _amount(_proposal(result, "meritz-alpha"), "뇌혈관수술") == 20_000_000
+    # ★276a 불변식: 어떤 제안서에도 **레지스트리 고정값 유래 담보 행이 없다**(픽스처와 무관한 계약).
+    assert all(
+        "registry" not in str(coverage.get("source"))
+        for proposal in result["proposals"]
+        for coverage in proposal["coverages"]
+    )
+    # ★276a: 이 합성 픽스처의 meritz-alpha는 13행 전부 원문 텍스트로 잡힌다 — 폴백이 필요 없었다.
+    alpha = _proposal(result, "meritz-alpha")
+    assert len(alpha["coverages"]) == 13
+    assert {c["kb_name"] for c in alpha["coverages"] if "registry" in str(c.get("source"))} == set()
 
 
 def test_parsed_proposals_recalculate_after_and_use_two_stage_aggregation() -> None:
@@ -214,11 +232,21 @@ def test_parsed_proposals_recalculate_after_and_use_two_stage_aggregation() -> N
     assert result["comparison"]["premium"]["delta_monthly"] == -87_846
     after = {row["kb_name"]: row for row in result["after"]["final"]["coverages"]}
     # BOHUMFIT-246 정식명 — 합산 값 자체는 불변(개명만).
-    assert after["암진단금"]["value"] == 151_000_000
+    # ★BOHUMFIT-276a: 기존 151,000,000은 meritz-cancer의 `암진단금` 5,000만원 **레지스트리 고정값**이
+    #   합산에 포함된 값이었다. 그 표본 금액은 현재 문서의 실제 가입액이라는 근거가 없어 제거했고,
+    #   텍스트로 실제 추출된 값만 남아 101,000,000이 된다(테스트 기대값을 폴백 없는 상태로 갱신).
+    assert after["암진단금"]["value"] == 101_000_000
     assert after["유사암진단금"]["value"] == 30_100_000
     assert after["뇌혈관질환"]["value"] == 40_000_000
     assert after["급성심근경색"]["value"] == 50_000_000
-    assert after["뇌혈관수술"]["value"] == 20_000_000
-    assert after["심혈관수술"]["value"] == 20_000_000
+    # ★★BOHUMFIT-276a: 기존 20,000,000은 bundle 고정값이었다. 원문 텍스트는 이 담보를 **500만원**으로
+    #   이미 잡고 있었는데, `_merge_entries`가 큰 값을 채택하는 탓에 **고정값이 실측값을 덮어썼다**.
+    #   즉 폴백은 "못 읽은 자리를 채우는" 데 그치지 않고 **읽은 값을 오염**시키고 있었다.
+    assert after["뇌혈관수술"]["value"] == 5_000_000
+    assert after["심혈관수술"]["value"] == 5_000_000
     assert after["자동차사고부상"]["value"] == 300_000
-    assert result["comparison"]["summary"]["missing_to_sufficient"] >= 5
+    # ★★BOHUMFIT-276a: 기존 `>= 5`는 폴백이 만든 수치였다. 뇌혈관수술·심혈관수술은 실제 제안값이
+    #   각 500만원(권장 1,000만원)이라 **부족**인데, 고정값 2,000만원이 덮어써 **"충분"으로 판정**되고
+    #   미가입→충분 건수에 잡혔다. 즉 폴백은 금액뿐 아니라 **보장 충분성 판정 자체를 조작**하고 있었다.
+    #   실제 값 기준의 정상 건수는 4다.
+    assert result["comparison"]["summary"]["missing_to_sufficient"] == 4

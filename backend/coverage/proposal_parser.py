@@ -15,6 +15,7 @@ import pdfplumber
 from .constants import AGG_REP, AGG_SUM, coverage_meta
 from .proposal_registry import (
     DEFAULT_PAY_MONTHS,
+    INJECT_REGISTRY_FALLBACKS,
     PRODUCT_PROFILES,
     PROPOSAL_RULES,
     REGISTRY_VERSION,
@@ -50,6 +51,11 @@ _MAX_MATURITY_RE = re.compile(r"최대\s*(\d{1,3}\s*세)\s*만기")
 
 class ProposalParseError(ValueError):
     """신규 가입제안서 파싱 실패."""
+
+
+# BOHUMFIT-276a: 미확인 담보 표기 **단일 상수**. 엑셀·PDF·화면이 같은 문구를 쓴다.
+#   ★"0원"으로 읽히면 미가입으로 오해되므로 금액이 아니라 **문장**으로 알린다(271 행동 지침형).
+UNRESOLVED_COVERAGE_NOTE = "일부 담보를 제안서에서 확인하지 못했습니다. 해당 담보는 빈칸으로 두었으니 원본 가입담보리스트와 대조해 수기로 입력해 주세요."
 
 
 def _clean(text: str | None) -> str:
@@ -178,7 +184,10 @@ def _extract_premium(text: str, profile: ProductProfile | None) -> int | None:
         match = pattern.search(text)
         if match:
             return int(match.group(1).replace(",", ""))
-    return profile.fallback_premium if profile else None
+    # BOHUMFIT-276a: 프로필 고정 보험료(193 표본값) 폴백 제거 — 못 읽으면 값 없음으로 두고
+    #   호출부가 수기 확인 경고를 띄운다(틀린 금액을 고객 안내문서에 싣지 않는다).
+    _ = profile
+    return None
 
 
 def _extract_pay_months(text: str) -> int | None:
@@ -353,59 +362,49 @@ def _extract_tier_surgery_entries(lines: Sequence[str]) -> list[dict[str, Any]]:
     return entries
 
 
-def _registry_entries(profile: ProductProfile | None, existing_names: set[str]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def _registry_hint(coverage, kind: str) -> dict[str, Any]:
+    """BOHUMFIT-276a: 표본 고정값을 **담보 행이 아니라 힌트 메타**로만 남긴다."""
+    return {
+        "kb_name": coverage.kb_name,
+        "amount": coverage.amount,
+        "group12": coverage.group12,
+        "agg": coverage.agg,
+        "source": "registry-hint",
+        "note": coverage.note,
+        "kind": kind,
+    }
+
+
+def _registry_entries(
+    profile: ProductProfile | None, existing_names: set[str]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[str]]:
+    """레지스트리 고정값을 **주입하지 않고** 힌트·미확인 목록만 돌려준다.
+
+    BOHUMFIT-276a: 예전에는 텍스트 룰이 못 잡은 `kb_name`에 193 표본 금액을 담보 행으로 채워 넣었고
+    (`fallback_coverages`), `bundle_coverages`는 **존재 확인조차 없이 무조건** 넣었다.
+    274 조사에서 그 경로로 상해후유장해 1억원(실제 100만원)·깁스치료비 50만원(원문에 문자열 0건)이
+    산출물에 실렸다. 설계사가 이 표로 고객에게 안내하므로 **틀린 숫자보다 빈칸이 안전하다**.
+
+    ★"미가입이라 없는 것"과 "못 읽어서 없는 것"을 현행 구조가 구분하지 못하므로, 어느 쪽이든
+      값을 지어내지 않고 **미확인 목록**으로 올려 사용자가 수기로 확인하게 한다.
+    """
     if not profile:
-        return [], []
-    entries: list[dict[str, Any]] = []
-    bundle_meta: list[dict[str, Any]] = []
-    for coverage in profile.fallback_coverages:
-        item = {
-            "kb_name": coverage.kb_name,
-            "amount": coverage.amount,
-            "group12": coverage.group12,
-            "agg": coverage.agg,
-            "source": "registry",
-            "note": coverage.note,
-            "include_in_coverages": coverage.include_in_coverages,
-        }
-        if not coverage.include_in_coverages or coverage.kb_name in existing_names:
-            continue
-        entries.append(
-            _entry(
-                coverage.kb_name,
-                coverage.amount,
-                coverage.group12,
-                coverage.agg,
-                "registry",
-                coverage.note,
-                coverage.merge_rule,
-            )
-        )
-    for coverage in profile.bundle_coverages:
-        item = {
-            "kb_name": coverage.kb_name,
-            "amount": coverage.amount,
-            "group12": coverage.group12,
-            "agg": coverage.agg,
-            "source": "registry",
-            "note": coverage.note,
-            "include_in_coverages": coverage.include_in_coverages,
-        }
-        bundle_meta.append(item)
-        if not coverage.include_in_coverages:
-            continue
-        entries.append(
-            _entry(
-                coverage.kb_name,
-                coverage.amount,
-                coverage.group12,
-                coverage.agg,
-                "registry",
-                coverage.note,
-                coverage.merge_rule,
-            )
-        )
-    return entries, bundle_meta
+        return [], [], []
+    hints = [_registry_hint(c, "fallback") for c in profile.fallback_coverages]
+    hints += [_registry_hint(c, "bundle") for c in profile.bundle_coverages]
+    if INJECT_REGISTRY_FALLBACKS:  # pragma: no cover - 276a 이후 항상 False
+        raise RuntimeError("BOHUMFIT-276a: 레지스트리 고정값의 담보 행 주입은 제거됐다.")
+    # 텍스트에서 못 잡은 항목만 미확인으로 본다(잡힌 담보는 실제 값이 이미 있다).
+    unresolved = [
+        hint["kb_name"]
+        for hint in hints
+        if hint["kind"] == "fallback" and hint["kb_name"] not in existing_names
+    ]
+    # bundle은 부모 담보 확인 없이 주입되던 항목이라 전부 미확인으로 올린다.
+    unresolved += [hint["kb_name"] for hint in hints if hint["kind"] == "bundle"]
+    seen: set[str] = set()
+    ordered = [name for name in unresolved if not (name in seen or seen.add(name))]
+    return [], hints, ordered
 
 
 def _merge_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -448,8 +447,11 @@ def parse_proposal_text(text: str, filename: str = "proposal.pdf") -> dict[str, 
     if profile and profile.key == "mirae-mcare":
         entries.extend(_extract_mirae_table_entries(lines))
     existing_names = {str(entry.get("kb_name")) for entry in entries}
-    registry_entries, bundle_meta = _registry_entries(profile, existing_names)
-    entries.extend(registry_entries)
+    # BOHUMFIT-276a: 레지스트리 고정값은 **담보 행으로 넣지 않는다** — 힌트·미확인 목록만 받는다.
+    registry_entries, registry_hints, unresolved = _registry_entries(profile, existing_names)
+    entries.extend(registry_entries)  # 항상 빈 리스트(구조 유지 — 276b가 실제 추출로 채운다)
+    if unresolved:
+        warnings.append(f"{filename}: {UNRESOLVED_COVERAGE_NOTE} ({', '.join(unresolved)})")
 
     coverages = [
         {
@@ -479,7 +481,10 @@ def parse_proposal_text(text: str, filename: str = "proposal.pdf") -> dict[str, 
         "metadata": {
             "profile": profile.key if profile else None,
             "registry_version": REGISTRY_VERSION,
-            "bundle_subbenefits": bundle_meta,
+            "bundle_subbenefits": [h for h in registry_hints if h.get("kind") == "bundle"],
+            # BOHUMFIT-276a: 193 표본 고정값은 담보 행이 아니라 힌트로만 남긴다(276b 수기 확인용).
+            "registry_hints": registry_hints,
+            "unresolved_coverages": unresolved,
         },
     }
 
