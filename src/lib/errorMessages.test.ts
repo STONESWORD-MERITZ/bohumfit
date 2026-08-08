@@ -69,11 +69,19 @@ describe("★미매핑 — 폴백만 나가고 원문은 화면에 없다", () =
     expect(toUserErrorMessage(undefined)).toBe(FALLBACK_ERROR_MESSAGE);
   });
 
-  it("★원문은 콘솔에만 남는다(개발 진단용)", () => {
+  // ★BOHUMFIT-277b(R1)로 기대값을 갱신했다. 271은 "원문을 콘솔에 남긴다"를 고정했으나,
+  //   콘솔은 Sentry breadcrumb로 자동 수집되고 **병명은 사전이 없어 scrub으로 지울 수 없다**.
+  //   그래서 운영에서는 원문 대신 **안전한 구조화 요약**(kind·length)만 남긴다.
+  //   개발 환경에서는 scrub한 preview가 함께 남아 진단 가능성은 유지된다(277b 테스트가 고정).
+  it("★운영에서는 원문 대신 안전 요약만 콘솔에 남는다(277b)", () => {
+    vi.stubEnv("DEV", false);
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     toUserErrorMessage("알 수 없는 서버 응답 XYZ-500");
     expect(warn).toHaveBeenCalled();
-    expect(String(warn.mock.calls[0].join(" "))).toContain("XYZ-500");
+    const logged = JSON.stringify(warn.mock.calls);
+    expect(logged).not.toContain("XYZ-500");   // 원문 비전송
+    expect(logged).toContain("kind");           // 진단 정보는 유지
+    vi.unstubAllEnvs();
   });
 });
 
@@ -104,11 +112,11 @@ describe("★문구 위생 — PII·기술 용어 0", () => {
 
 describe("★parse_errors 살균 — 파일명(환자명)이 화면에 오르지 않는다", () => {
   // ★실측 문구: 실 PDF(비밀번호 걸린 파일)로 `parse_single_pdf`를 돌려 그대로 얻은 값이다.
-  const REAL = "🔒 정홍규 최근 3개월.pdf: PDF 비밀번호 해제 실패 — 생년월일을 확인해 주세요.";
+  const REAL = "🔒 가상고객A 최근 3개월.pdf: PDF 비밀번호 해제 실패 — 생년월일을 확인해 주세요.";
 
   it("환자명이 든 파일명이 제거되고 서류 번호로 대체된다", () => {
     const [line] = sanitizeParseErrors([REAL]);
-    expect(line).not.toContain("정홍규");
+    expect(line).not.toContain("가상고객A");
     expect(line).not.toContain(".pdf");
     expect(line).toContain("서류 1");
     // 사유는 행동 지침형으로 바뀐다.
@@ -119,7 +127,7 @@ describe("★parse_errors 살균 — 파일명(환자명)이 화면에 오르지
     const lines = sanitizeParseErrors([REAL, "🔒 김OO 진료.pdf: PDF 비밀번호 해제 실패 — 생년월일을 확인해 주세요."]);
     expect(lines).toHaveLength(1);
     expect(lines[0]).toContain("서류 1·2");
-    expect(lines[0]).not.toMatch(/정홍규|김OO/);
+    expect(lines[0]).not.toMatch(/가상고객A|김OO/);
   });
 
   it("다른 사유는 줄을 나눈다", () => {
@@ -128,7 +136,7 @@ describe("★parse_errors 살균 — 파일명(환자명)이 화면에 오르지
       "⚠️ 환자명 포함.pdf: PDF에서 진료 데이터를 추출하지 못했습니다.",
     ]);
     expect(lines).toHaveLength(2);
-    expect(lines.join(" ")).not.toMatch(/정홍규|환자명 포함|\.pdf/);
+    expect(lines.join(" ")).not.toMatch(/가상고객A|환자명 포함|\.pdf/);
   });
 
   it("빈 배열·빈 문자열을 안전하게 처리한다", () => {

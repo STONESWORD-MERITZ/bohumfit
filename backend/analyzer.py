@@ -11,6 +11,8 @@ import re
 import time
 from collections import Counter
 
+from pii import anonymize_parse_errors, document_slot, mask_filenames
+
 import progress  # BOHUMFIT-268b: 진행 표시 저장소(선택 — job_id 없으면 무동작)
 from datetime import datetime, timedelta
 
@@ -240,11 +242,12 @@ def _parse_workers(n_files: int, total_bytes: int = 0) -> int:
     return max(1, min(w, cpu, max(1, n_files)))
 
 
-def _log_parsed(fn: str, pr: dict, job_id: str = "") -> None:
+def _log_parsed(fn: str, pr: dict, job_id: str = "", index: int = 0) -> None:
     _ft = Counter(str(r.get("_ftype", "unknown")) for r in pr["records"])
+    # BOHUMFIT-277(B-F2): 원본 파일명 대신 익명 slot을 남긴다 — 파일명에 환자 실명이 들어간다(271 실측).
     logger.info(
         "BOHUMFIT-047 parsed: file=%s records=%d ftype=%s errors=%d",
-        fn, len(pr["records"]), dict(_ft), len(pr["parse_errors"]),
+        document_slot(index), len(pr["records"]), dict(_ft), len(pr["parse_errors"]),
     )
     # BOHUMFIT-268b: 같은 값을 진행 저장소에도 남긴다(화면 티커용).
     #   ★job_id가 없으면 아무 일도 하지 않는다 — 기존 동작과 완전히 같다.
@@ -275,18 +278,24 @@ async def _parse_all_pdfs(active_files: list, birthdate_pw: str, job_id: str = "
 
     if workers <= 1 or len(active_files) <= 1:
         # ── 순차 처리(메모리 피크 억제) — 기존 경로 ──
-        for uf, fn in zip(active_files, names):
+        for _idx, (uf, fn) in enumerate(zip(active_files, names)):
             try:
                 pr = await asyncio.to_thread(parse_single_pdf, uf, birthdate_pw)
             except Exception as e:
-                logger.error("BOHUMFIT-047 parse failed: file=%s error=%s", fn, str(e)[:200])
-                parse_errors.append(f"⚠️ {fn}: PDF 파싱 중 예외 — {str(e)[:120]}")
+                # BOHUMFIT-277(B-F2·B-F5): 로그·사용자 문구 어디에도 원본 파일명을 남기지 않는다.
+                #   예외 문자열 자체에도 파일명이 섞일 수 있어 함께 마스킹한다.
+                logger.error("BOHUMFIT-047 parse failed: file=%s error=%s",
+                             document_slot(_idx), mask_filenames(str(e)[:200], names))
+                parse_errors.append(
+                    f"⚠️ {document_slot(_idx)}: PDF 파싱 중 예외 — {mask_filenames(str(e)[:120], names)}"
+                )
                 continue
             all_records.extend(pr["records"])
-            parse_errors.extend(pr["parse_errors"])
+            # BOHUMFIT-277(B-F1): 파서가 만든 `🔒 {파일명}: …`를 **응답에 나가기 전에** slot으로 정규화한다.
+            parse_errors.extend(anonymize_parse_errors(pr["parse_errors"], names))
             if not customer_name:
                 customer_name = pr.get("patient_name") or ""
-            _log_parsed(fn, pr, job_id)
+            _log_parsed(fn, pr, job_id, _idx)
     else:
         # ── BOHUMFIT-055: 파일 단위 프로세스 병렬(순서 보존·fail-loud) ──
         logger.info("BOHUMFIT-055 parallel parse: files=%d workers=%d", len(active_files), workers)
@@ -313,21 +322,26 @@ async def _parse_all_pdfs(active_files: list, birthdate_pw: str, job_id: str = "
                                 dict(_ft), len(_pr.get("parse_errors") or []),
                             )
                     except Exception as e:   # 워커 예외 → fail-loud(해당 파일만 빈 결과)
+                        # BOHUMFIT-277(B-F2·B-F5): 파일명·예외 문자열 모두 마스킹.
                         logger.error("BOHUMFIT-055 parse failed(parallel): file=%s error=%s",
-                                     names[i], str(e)[:200])
-                        out[i] = {"filename": names[i], "records": [],
-                                  "parse_errors": [f"⚠️ {names[i]}: PDF 파싱 중 예외 — {str(e)[:120]}"]}
+                                     document_slot(i), mask_filenames(str(e)[:200], names))
+                        out[i] = {"filename": document_slot(i), "records": [],
+                                  "parse_errors": [
+                                      f"⚠️ {document_slot(i)}: PDF 파싱 중 예외 — "
+                                      f"{mask_filenames(str(e)[:120], names)}"
+                                  ]}
             return out
 
         results = await asyncio.to_thread(_run_pool)
-        for fn, pr in zip(names, results):   # 파일 순서대로 병합 → 결정성 유지
+        for _idx, (fn, pr) in enumerate(zip(names, results)):   # 파일 순서대로 병합 → 결정성 유지
             all_records.extend(pr["records"])
-            parse_errors.extend(pr["parse_errors"])
+            # BOHUMFIT-277(B-F1): 병렬 경로도 동일하게 응답 전 정규화한다.
+            parse_errors.extend(anonymize_parse_errors(pr["parse_errors"], names))
             if not customer_name:
                 customer_name = pr.get("patient_name") or ""
             # BOHUMFIT-268b: 진행 기록은 위 as_completed 루프에서 이미 남겼다 —
             #   여기서 job_id를 넘기면 같은 파일이 두 번 쌓인다(로깅만 수행).
-            _log_parsed(fn, pr)
+            _log_parsed(fn, pr, "", _idx)
 
     if not all_records:
         if parse_errors:

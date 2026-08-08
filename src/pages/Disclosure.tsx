@@ -18,6 +18,8 @@ import MobileUploadSheet, { type SelectedFilesInfo } from "../components/mobile/
 import { uploadWithProgress, UploadError, type UploadProgress } from "../lib/uploadWithProgress";
 // BOHUMFIT-271: 오류 문구 사전(행동 지침형 · PII·기술 용어 미노출).
 import { sanitizeParseErrors, toUserErrorMessage } from "../lib/errorMessages";
+// BOHUMFIT-277(B-F3): 세션 임시 결과는 **소유자 바인딩 + 단일 삭제 계약** 모듈을 경유한다.
+import { clearSessionResult, readSessionResult, saveSessionResult } from "../lib/sessionResultQueue";
 // BOHUMFIT-268b: 분석 진행 폴링 + 추출 티커(분석과 분리된 부가 기능).
 import {
   createJobId,
@@ -1857,6 +1859,8 @@ export default function Disclosure({
   const copy = modeCopy[mode];
 
   const { session } = useAuth();
+  // BOHUMFIT-277(B-F3): 세션 임시 결과의 소유자 — 저장·복원 양쪽에서 이 값으로 대조한다.
+  const currentUserId = session?.user?.id ?? null;
   const [refDate, setRefDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [birthdate, setBirthdate] = useState("");
   const [consent, setConsent] = useState(false);
@@ -1960,21 +1964,17 @@ export default function Disclosure({
   const [restoredAgeMinutes, setRestoredAgeMinutes] = useState(1);
   useEffect(() => {
     try {
-      const raw = sessionStorage.getItem("bohumfit_result");
-      if (!raw) return;
-      const saved = JSON.parse(raw) as { result: AnalyzeResult; ts: number };
       const now = currentTimeMs();
-      if (saved?.ts && now - saved.ts < 10 * 60 * 1000) {
-        queueMicrotask(() => {
-          setResult(saved.result);
-          setRestoredAt(saved.ts);
-          setRestoredAgeMinutes(Math.max(1, Math.round((now - saved.ts) / 60000)));
-        });
-      } else {
-        sessionStorage.removeItem("bohumfit_result");
-      }
+      // ★소유자 대조는 모듈이 한다 — 불일치·비로그인·TTL 초과면 읽지 않고 삭제한다(277 B-F3).
+      const saved = readSessionResult<AnalyzeResult>(currentUserId, now);
+      if (!saved) return;
+      queueMicrotask(() => {
+        setResult(saved.result);
+        setRestoredAt(saved.ts);
+        setRestoredAgeMinutes(Math.max(1, Math.round((now - saved.ts) / 60000)));
+      });
     } catch { /* sessionStorage 비활성/파싱 실패 무시 */ }
-  }, []);
+  }, [currentUserId]);
 
   useEffect(() => {
     fetch(`${API_BASE}/api/health`).catch(() => {});
@@ -2094,7 +2094,7 @@ export default function Disclosure({
           });
           // ★여기까지가 "업로드(전송) 완료" — 이후 분석 대기 신호는 268b 범위다.
           setResult(data);
-          try { sessionStorage.setItem("bohumfit_result", JSON.stringify({ result: data, ts: currentTimeMs() })); } catch { /* 무시 */ }
+          saveSessionResult(data, currentUserId, currentTimeMs());
           setRestoredAt(null);
           setRestoredAgeMinutes(1);
           showToast("분석이 완료되었습니다", "success");
@@ -2136,7 +2136,7 @@ export default function Disclosure({
       const data = await res.json();
       setResult(data);
       // BOHUMFIT-138(항목7): 10분 재보기용 저장(분석 직후, 복원 배너 비표시).
-      try { sessionStorage.setItem("bohumfit_result", JSON.stringify({ result: data, ts: currentTimeMs() })); } catch { /* 무시 */ }
+      saveSessionResult(data, currentUserId, currentTimeMs());
       setRestoredAt(null);
       setRestoredAgeMinutes(1);
       showToast("분석이 완료되었습니다", "success"); // BOHUMFIT-131
@@ -2412,7 +2412,7 @@ export default function Disclosure({
               setResult(null);
               setRestoredAt(null);
               setRestoredAgeMinutes(1);
-              try { sessionStorage.removeItem("bohumfit_result"); } catch { /* 무시 */ }
+              clearSessionResult();
             }}
             className="shrink-0 rounded-[6px] bg-amber-600 px-3 py-1.5 text-[12px] font-bold text-white hover:bg-amber-700"
           >

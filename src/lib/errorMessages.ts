@@ -118,6 +118,47 @@ function rawTextOf(error: unknown): string {
  * 오류를 사용자 문구로 바꾼다.
  *   ★어떤 입력이 와도 **사전에 있는 문구 아니면 폴백**만 돌려준다 — 원문이 화면에 새지 않는다.
  */
+/**
+ * BOHUMFIT-277(B-F5) — 로그·Sentry로 나갈 문자열에서 PII를 지운다.
+ *
+ *   ★271은 **화면**만 막았다. 콘솔 원문은 Sentry breadcrumb·exception으로 전송될 수 있어
+ *   같은 규칙을 여기에도 적용한다(서버 `pii.py`의 최후 방어선과 같은 형태).
+ *   ★파일명은 `서류`로 접되 사유 문구는 남긴다 — 개발자가 디버깅할 수 있어야 한다.
+ */
+export const REDACTED = "[제거됨]";
+
+/** 상병코드 — ICD-10 형식(영문 1자 + 숫자 2자 + 선택 소수점). 백엔드 `pii.py`와 같은 규칙. */
+const ICD_RE = /(?<![A-Za-z0-9])[A-Z]\d{2}(?:\.\d{1,2})?(?![A-Za-z0-9])/g;
+/** 의료기관명 — 접미사 기반. 백엔드 `pii.py`와 같은 목록. */
+const ORG_RE = /[가-힣A-Za-z0-9]*(?:병원|의원|한의원|클리닉|보건소|의료원|치과|약국)/g;
+
+export function scrubPii(text: string): string {
+  return String(text ?? "")
+    // `{이모지} {파일명}.pdf: {사유}` 접두 구간 — 한글 파일명은 공백을 포함한다.
+    .replace(/^\s*\S*\s*[^:]*\.pdf\s*:\s*/i, "서류: ")
+    // 문장 중간에 박힌 파일명 토큰.
+    .replace(/[^\s:/\\"']*\.(pdf|xlsx|xls)/gi, "서류")
+    // ★BOHUMFIT-277b(R1): 상병코드·기관명은 **건강정보 그 자체**라 파일명보다 민감하다.
+    .replace(ICD_RE, REDACTED)
+    .replace(ORG_RE, REDACTED);
+}
+
+/**
+ * ★BOHUMFIT-277b(R1) — **raw 본문 비전송 계약**.
+ *
+ *   병명(진단명)은 **사전이 없어 패턴으로 식별할 수 없다**(`keywords.json` 전수 확인: 상병코드 목록과
+ *   수술·검사 키워드만 있고 병명 사전은 없다). 정규식 scrub만으로 "안전하다"고 주장할 수 없으므로,
+ *   운영 환경에서는 **원문을 아예 내보내지 않고** 안전한 구조화 필드만 남긴다.
+ *   ★개발 환경에서는 scrub한 원문을 함께 남겨 디버깅 가능성을 지킨다(Sentry는 프로덕션에서만 켜진다).
+ */
+export function safeErrorSummary(error: unknown): Record<string, unknown> {
+  const raw = rawTextOf(error);
+  const kind = error instanceof Error ? error.name : typeof error;
+  const summary: Record<string, unknown> = { kind, length: raw.length };
+  if (typeof import.meta !== "undefined" && import.meta.env?.DEV) summary.preview = scrubPii(raw);
+  return summary;
+}
+
 export function toUserErrorMessage(error: unknown): string {
   const raw = rawTextOf(error).trim();
   if (!raw) return FALLBACK_ERROR_MESSAGE;
@@ -127,8 +168,11 @@ export function toUserErrorMessage(error: unknown): string {
   }
 
   // 매칭 실패 — 화면에는 폴백만, 원문은 개발자 콘솔에만 남긴다.
+  //   ★BOHUMFIT-277(B-F5): 콘솔 출력도 breadcrumb로 Sentry에 실려 나갈 수 있어 **PII를 지우고** 남긴다.
+  //   ★BOHUMFIT-277b(R1): scrub한 원문도 **병명은 남는다**(사전 부재). 운영에서는 원문을 내보내지 않고
+  //     `kind`·`length`만 남긴다 — 콘솔은 Sentry breadcrumb로 자동 수집되기 때문이다.
   if (typeof console !== "undefined" && typeof console.warn === "function") {
-    console.warn("[BOHUMFIT-271] 매핑되지 않은 오류:", raw);
+    console.warn("[BOHUMFIT-271] 매핑되지 않은 오류:", safeErrorSummary(error));
   }
   return FALLBACK_ERROR_MESSAGE;
 }
@@ -137,7 +181,7 @@ export function toUserErrorMessage(error: unknown): string {
  * BOHUMFIT-271(보정): 서버 `parse_errors`를 화면에 올리기 전에 **파일명을 지운다**.
  *
  *   실측 결과 `pdf_parser`가 만드는 문구는 `🔒 {파일명}: {사유}` 꼴이고, 그 파일명에는
- *   **환자 실명이 들어간다**(예: "정홍규 최근 3개월.pdf"). 이 배열은 결과 화면에서 그대로 렌더되므로
+ *   **환자 실명이 들어갈 수 있다**(합성 예: "가상고객A 최근 3개월.pdf"). 이 배열은 결과 화면에서 그대로 렌더되므로
  *   `setError` 경로만 막아서는 PII가 계속 샌다.
  *
  *   ★파일명은 지우되 **몇 번째 서류인지는 남긴다** — 어느 파일을 다시 받아야 하는지 알아야

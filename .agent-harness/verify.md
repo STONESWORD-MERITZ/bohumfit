@@ -16,23 +16,23 @@ For UI changes, also run the app locally and do a browser smoke test:
 npm run dev
 ```
 
-## 검증 기준선 (BOHUMFIT-272 실측 · 2026-08-05 갱신)
+## 검증 기준선 (BOHUMFIT-277b 실측 · 2026-08-08 갱신)
 
 백엔드 pytest — `cd backend && python -m pytest -q`:
 
 ```text
-861 passed, 8 skipped
+890 passed, 8 skipped
 ```
 
-(BOHUMFIT-272b 실측·2026-08-06 갱신 — 272 시점 826/8에 상품명 과잉 절삭 방지 회귀 12건 반영.)
+(BOHUMFIT-277b 실측·2026-08-08 갱신 — 277 기준선 874/8에 scrub 경계 회귀 16건 반영.)
 
 프런트 테스트 — `npm test`(라우트 스모크 18건 포함):
 
 ```text
-342 passed / 35 files
+373 passed / 38 files
 ```
 
-(BOHUMFIT-273 실측·2026-08-06 갱신 — 270 시점 329/34에 하단 고정 충돌 회귀 13건 반영.)
+(BOHUMFIT-277b 실측·2026-08-08 갱신 — 277 기준선 363/37에 scrub·raw 비전송 회귀 10건 반영.)
 
 타입체크 — 양쪽 모두 통과해야 한다:
 
@@ -59,6 +59,18 @@ npx tsc -p tsconfig.node.json --noEmit
   ★껍데기 크기는 **약 343 kB로 코드 증가에 따라 변동**한다(271 실측 343,702 B — 이전 343,225 B에서
   사전 모듈만큼 증가). 특정 바이트 수치 일치를 "변경 무관"의 근거로 쓰지 말 것.
   근본 해결 후보: 정책 예외 등록(Human·관리자) / WSL·CI 빌드 검증 — 카탈로그 참조.
+- ★248 제약은 **`npm run build` 산출물에 한정**된다. `npm run dev`(Vite dev 서버)는 정상 기동하므로
+  실브라우저 기능 검증은 로컬 dev 서버로 수행할 수 있다(BOHUMFIT-277b 재실측: Vite v8.0.10 정상 기동).
+  과거 기록에서 단순히 "로컬 빌드 불가"를 이유로 브라우저 검증을 생략한 항목은 dev 서버로 재검증 가능한지
+  먼저 다시 판정한다. 인증 환경변수·실계정 등 별도 전제가 없을 때만 그 정확한 사유로 확인 불가를 기록한다.
+
+### PII scrub 검증 한계 (BOHUMFIT-277b)
+
+- `scrub_text`/`scrubPii`는 ICD 형식 상병코드와 기관명 접미사, 알려진 파일 토큰을 제거하지만,
+  **병명**과 **문장 중간의 공백 포함 한글 파일명**을 완전히 식별하지 못한다.
+- 따라서 console/Sentry breadcrumb의 PII 차단 근거는 정규식 자체가 아니라 운영 환경에서
+  `safeErrorSummary`만 내보내는 **raw 본문 비전송 계약**이다. 회귀 검증은 scrub 패턴과 raw 비전송을
+  분리해 단언하며, 정규식 통과만으로 "PII 0"이라고 판정하지 않는다.
 
 기준선 수치가 바뀌면 이 파일과 `CLAUDE.md`·`AGENTS.md`를 함께 갱신한다.
 

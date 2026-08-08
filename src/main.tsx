@@ -8,6 +8,8 @@ import UpdatePrompt from "./components/mobile/UpdatePrompt";
 import { AuthProvider } from "./lib/AuthContext";
 import { registerServiceWorker } from "./lib/pwa";
 
+import { scrubPii } from "./lib/errorMessages";
+
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
 
 if (SENTRY_DSN) {
@@ -22,6 +24,22 @@ if (SENTRY_DSN) {
       // 폼 입력값 등 PII 제거
       if (event.request?.data) delete event.request.data;
       if (event.request?.cookies) delete event.request.cookies;
+      // BOHUMFIT-277(B-F5): request 밖에도 PII가 실린다 — 275 실측상 **console breadcrumb**과
+      //   **exception 문자열**이 미처리였다. 전송 직전 문자열을 한 번 더 훑는다.
+      //   ★서버 `pii.py`와 같은 규칙(파일명 → `서류`)이라 두 쪽 로그가 같은 모양이 된다.
+      if (event.message) event.message = scrubPii(event.message);
+      for (const crumb of event.breadcrumbs ?? []) {
+        if (crumb.message) crumb.message = scrubPii(crumb.message);
+        if (crumb.data) {
+          for (const key of Object.keys(crumb.data)) {
+            const value = crumb.data[key];
+            if (typeof value === "string") crumb.data[key] = scrubPii(value);
+          }
+        }
+      }
+      for (const entry of event.exception?.values ?? []) {
+        if (entry.value) entry.value = scrubPii(entry.value);
+      }
       return event;
     },
   });

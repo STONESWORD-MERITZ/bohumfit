@@ -127,6 +127,10 @@ _SENSITIVE_EVENT_KEYWORDS = (
 )
 
 
+# BOHUMFIT-277: PII 경계 유틸(익명 slot·파일명 마스킹) — 서버 측 정본.
+from pii import scrub_pdf_filenames_deep, scrub_text
+
+
 def _is_sensitive_event_key(key) -> bool:
     key_l = str(key).lower()
     return key_l in _SENSITIVE_EVENT_EXACT_KEYS or any(token in key_l for token in _SENSITIVE_EVENT_KEYWORDS)
@@ -145,6 +149,12 @@ def _scrub_sensitive_event_values(value):
         return [_scrub_sensitive_event_values(item) for item in value]
     if isinstance(value, tuple):
         return tuple(_scrub_sensitive_event_values(item) for item in value)
+    # BOHUMFIT-277(B-F5): 키 기반만으로는 **이미 포맷된 문자열** 안의 파일명이 남는다(275 실측).
+    #   전송 직전 문자열도 한 번 더 훑는다.
+    # ★BOHUMFIT-277b(R1): 파일명만 지우면 `I10`·기관명 같은 **건강정보가 그대로 남는다**(Codex 재현).
+    #   파일명은 간접 식별자지만 상병코드는 건강정보 그 자체라 더 민감하다 → `scrub_text`로 함께 지운다.
+    if isinstance(value, str):
+        return scrub_text(value)
     return value
 
 
@@ -1512,6 +1522,9 @@ async def _history_record_recent(user_id: str, result: dict, reference_date: str
 
         payload = dict(result)
         payload.pop("customer_name", None)
+        # BOHUMFIT-277(B-F1): 최상위 실명만 지우던 것을 **중첩 전체 deep scrub**으로 넓힌다.
+        #   raw `parse_errors` 안의 원본 파일명이 7일 저장되던 경로를 막는다(275 B-F1).
+        payload = scrub_pdf_filenames_deep(payload)
         payload["reference_date"] = reference_date
         if len(json.dumps(payload, ensure_ascii=False, default=str).encode("utf-8")) > HISTORY_MAX_RESULT_BYTES:
             logger.warning("recent 자동 기록 skip: 결과 크기 상한 초과")
@@ -1559,6 +1572,8 @@ async def history_create(
     # ★실명 저장 금지(Human 정책): PDF에서 추출된 고객 실명 필드는 저장하지 않는다.
     result = dict(result)
     result.pop("customer_name", None)
+    # BOHUMFIT-277(B-F1): saved(90일)도 동일하게 중첩 파일명까지 지운다 — recent보다 오래 남는다.
+    result = scrub_pdf_filenames_deep(result)
 
     try:
         result_bytes = len(json.dumps(result, ensure_ascii=False, default=str).encode("utf-8"))

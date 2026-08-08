@@ -5,6 +5,9 @@ import { AuthContext } from "./auth-context";
 import { supabase } from "./supabase";
 // BOHUMFIT-265: 로그아웃·계정 전환 시 오프라인 캐시 삭제(A안).
 import { clearAnalysisCache } from "./analysisCache";
+// BOHUMFIT-277(B-F3): 세션 임시 결과도 **같은 단일 삭제 지점**에 넣는다 —
+//   275 B-2가 확인한 5경로가 자동으로 커버된다(키를 여기 추가하는 것 외 구조 변경 0).
+import { clearSessionResult } from "./sessionResultQueue";
 
 // BOHUMFIT-103: 카카오 로그아웃 시 카카오 브라우저 세션까지 만료(재로그인 자동로그인 방지)용 환경변수.
 //   client_id = 카카오 REST API 키, logout_redirect_uri = 등록된 로그아웃 URI(기본 bohumfit.ai).
@@ -41,7 +44,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       lastUserIdRef.current = nextUserId;
       // 로그인해 있던 사용자가 사라졌거나(로그아웃·만료) 다른 계정으로 바뀌면 기기 캐시를 전량 삭제한다.
       //   토큰 갱신(TOKEN_REFRESHED)처럼 같은 사용자가 유지되는 이벤트에서는 지우지 않는다.
-      if (prevUserId && prevUserId !== nextUserId) void clearAnalysisCache().catch(() => {});
+      if (prevUserId && prevUserId !== nextUserId) {
+        void clearAnalysisCache().catch(() => {});
+        clearSessionResult(); // BOHUMFIT-277: 계정 전환·로그아웃 시 남의 결과가 남지 않도록 함께 폐기
+      }
       setSession(s);
     });
 
@@ -83,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // ★이 경로만 예외: 즉시 외부 페이지로 이동하면 구독이 시작한 비동기 삭제가 중간에 끊길 수 있다.
       //   정책이 아니라 **이탈 직전 flush**이며, 삭제는 멱등이라 두 번 실행돼도 안전하다.
       await clearAnalysisCache().catch(() => {});
+      clearSessionResult(); // BOHUMFIT-277: 카카오 이탈 직전 flush도 동일하게 멱등 삭제
       window.location.href =
         `https://kauth.kakao.com/oauth/logout?client_id=${encodeURIComponent(KAKAO_REST_API_KEY)}` +
         `&logout_redirect_uri=${encodeURIComponent(KAKAO_LOGOUT_REDIRECT_URI)}`;

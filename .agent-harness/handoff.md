@@ -1,3 +1,275 @@
+## 2026-08-08 Codex BOHUMFIT-277+277b 재검증 — PASS / 단독 커밋
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human/Chat**
+Commit: **277+277b 단독 커밋**(최종 해시는 push 직후 `git log` 및 Codex 결과 응답에 기록).
+기준 HEAD/원격: `2db2945` / `2db2945`(착수 시 0/0).
+
+### ★반려 2건 해소 확인
+- **R2** 직접 재현: `anonymize_parse_errors(["🔒 a long.pdf: 오류"], ["a.pdf", "a long.pdf"])`
+  → `"🔒 서류 2: 오류"`. `long.pdf` 조각 0, slot은 원본 두 번째 index 유지. 완전 부분집합·확장자 중복·
+  공백 포함·동일 stem·한 문자열 2파일을 포함한 경계 6종 모두 조각 0.
+- **R1** 직접 재현: `"가상고객A 최근 3개월.pdf I10 고혈압 서울병원 강남한의원"`에서
+  파일 토큰·`I10`·두 기관명은 제거됐다. `safe_error_summary()`는 raw 병명까지 담지 않고
+  `{kind, length, slot: "서류 1"}`만 반환했다.
+- 프런트·백엔드 표적 테스트 **29 + 63건** 통과. ICD 패턴·기관명 접미사 8종·`[제거됨]` 라벨의
+  교차 계약과 slot 원본 index를 각각 독립 단언했다.
+
+### ★raw 비전송·운영 진단
+- 운영 모드 `console.warn`은 `safeErrorSummary`만 전달해 파일명·상병코드·병명·기관명 raw 0.
+  Sentry console breadcrumb 입력도 같은 안전 요약이며, `beforeSend`의 message·breadcrumb·exception
+  scrub 및 request data/cookies 삭제 계약이 유지됐다.
+- Vite production library bundle을 별도 `write:false`로 생성해 `preview` 토큰 **0**, 합성 병명 문자열 0,
+  `safeErrorSummary` 포함을 확인했다. 전체 로컬 앱 빌드는 기존처럼 343,702 B 껍데기라 산출물 판정에는
+  사용하지 않았고 `build:verify` 예상 FAIL로 분류했다.
+- `PDF 비밀번호 해제 실패 — 생년월일을 확인해 주세요` 사유 문구와
+  `file=서류 N records=… ftype=… errors=…` 운영 로그 형식은 유지된다.
+
+### 277 무회귀·실브라우저
+- B-F3 user-bound 저장/복원·삭제 계약, B-F1 응답 전 parse_errors 정규화/history deep scrub,
+  B-F2 analyzer 익명 slot, 271 표시 직전 `sanitizeParseErrors` 방어 2선 모두 유지.
+- `npm run dev`(Vite v8.0.10)로 실제 브라우저 모듈을 실행: 타 사용자·비로그인·TTL 만료 복원은 모두
+  차단되고 같은 사용자만 복원됨(`crossUserBlocked/sameUserRestored/anonymousBlocked/expiredBlocked` 전부 true),
+  console error/warn 0. 임시 검증 HTML·dev 프로세스는 종료·삭제했다.
+- 실제 Supabase 2계정 로그인 E2E와 보호 라우트 4건의 인증 렌더는 로컬 Supabase 환경변수 부재로
+  실행 불가. 대상 페이지 JSX 변경 0, Disclosure 변경은 저장 계층뿐이며 전체 회귀 스위트로 대체 확인했다.
+
+### 전체 게이트·범위
+- backend **890 passed, 8 skipped** · frontend **373 passed / 38 files** · tsc app/node · lint ·
+  `smoke:coverage` PASS(정본 2건 기준값 일치) · build 343,702 B / `build:verify` 예상 FAIL.
+- 279(`PrivacyPolicy`·`TermsOfService`·`ConsentGate`·`analysisCache`)·278(`components/mobile/`·
+  `Layout.tsx`·`index.css`)·`backend/pipeline/`·`filters.py`·`coverage/`·`supabase/`·`vite.config.*` diff 0.
+- 기준선 3문서(`verify.md`·`CLAUDE.md`·`AGENTS.md`)를 **890/8 · 373/38**로 동기화.
+  `verify.md`에 248은 build 한정/dev 서버 정상이라는 사실과 scrub 정규식 한계·raw 비전송 판정 계약 추가.
+- 실사용자명에서 유래한 문자열을 신규 테스트·문서에 재사용하지 않도록 전부 `가상고객A/B`로 치환했다.
+  실 PDF·DB·엑셀·렌더 산출물·PII stage 0.
+
+### 기존 테스트 갱신 판정
+- 271의 “원문은 콘솔에만” 기대는 277b의 **의도된 raw 비전송 변경**에 맞춰 원문 미포함+`kind` 포함으로
+  강화됐다. 271 화면 sanitization 단언은 삭제되지 않았다.
+- backend scrub 합산 카운트는 recent·saved·Sentry 경로별 개별 단언으로 분리돼 한 경로 약화가 다른 경로로
+  가려지지 않는다. assert 삭제·범용 완화 0.
+
+### Next
+1. **Chat** — BOHUMFIT-278(bottom-surface 단일화) 발번.
+2. **Human** — 실계정 2개 E2E 확인 / 기존 saved(90일) raw 파일명 정리·DB 전량 삭제 정책 / iOS 실기기 검수.
+
+## 2026-08-08 BOHUMFIT-277b - 277 반려 2건 보정(완료)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(재검증·커밋)
+Commit: **미커밋**(git 쓰기 0). 기준 HEAD `2db2945`. ★**277 + 277b를 합쳐 커밋**(277 단독은 반려 상태).
+상세는 tasks/BOHUMFIT-277b-scrub-hardening.md.
+
+### 반려 2건 — 둘 다 재현 후 해소
+| 반려 | 수정 전(Codex 재현 그대로 성립) | 수정 후 |
+|---|---|---|
+| **R2** 겹치는 파일명 | `["a.pdf","a long.pdf"]` → `'🔒 서류 1 long.pdf: 오류'` | ★`'🔒 서류 2: 오류'` — 조각 0·**slot 원본 index 유지** |
+| **R1** 건강정보 미제거 | `"…pdf I10 고혈압 서울병원"` → `I10`·기관명 **그대로** | ★`I10`·`서울병원`·`강남한의원` **전부 `[제거됨]`** |
+
+- **R2 원인**: `mask_filenames`가 **파일 단위 순회**라 첫 파일 stem `a`가 먼저 치환돼 두 번째 파일이
+  전체 일치 기회를 잃었다(272b 부분 문자열 함정과 동형) → **전체 후보 전역 길이 내림차순 치환**.
+- **R1 처방**: `scrub_health_terms`(ICD 패턴 + 기관명 접미사 8종), 백엔드 Sentry 최종 문자열을
+  `scrub_pdf_filenames_deep` → **`scrub_text`** 격상, 프런트 `scrubPii`에 **같은 규칙**.
+
+### ★★설계가 갈린 지점 — 병명 사전이 없다
+`keywords.json` 전수 확인 결과 **상병코드 목록과 수술·검사 키워드만 있고 병명 사전이 없다**.
+`고혈압` 같은 임의 한글을 안전하게 식별할 방법이 없어 **정규식만으로는 0을 보장할 수 없다**.
+→ Codex 회송 요구 #2대로 **raw 본문 비전송 계약**을 1선으로 세웠다: `console.warn`이 원문 대신
+**`safeErrorSummary`(kind·length·slot)** 만 내보낸다(콘솔은 Sentry breadcrumb로 자동 수집된다).
+개발 환경에서만 scrub한 `preview`를 남겨 진단 가능성을 지킨다.
+
+### 검증
+- [x] backend **890 passed, 8 skipped**(874+16·회귀 0) · `npm test` **373 / 38 files**(363+10·회귀 0)
+- [x] smoke PASS · tsc app/node · lint · `build:verify` 343,702 B 예상 FAIL
+- [x] ★R2 경계 6종(완전 부분집합·확장자 중복·공백 포함·동일 stem·한 문자열 2파일)
+- [x] ★프런트/백엔드 **교차 테스트 3건**(ICD 패턴·기관명 8종·`[제거됨]` 라벨) — 183·276a 선례
+- [x] ★운영 진단 가능성 유지: 사유 문구·`서류 N`·레코드 수 불변
+- [x] ★277 무회귀(B-F3/B-F1/B-F2) · 범위 diff 0(`pipeline/`·`filters.py`·`coverage/`·**278**·**279**)
+
+### ★기존 테스트 2건 기대값 갱신(사유 기록)
+①`errorMessages.test.ts` "원문은 콘솔에만 남는다" → **277b가 의도적으로 바꾼 동작**(raw 비전송)이라
+원문 미포함 + `kind` 포함으로 갱신. ★271의 **표시 직전 sanitization은 그대로**라 방어 2선 무손상.
+②`test_pii_boundary_277.py` scrub 합산 카운트 → **경로별 개별 단언**으로 분리(묶으면 한쪽이 약해져도 통과).
+
+### ★★남은 한계 — "0 보장"이라고 주장하지 않는다
+`scrub_text`는 ①**병명**(사전 부재) ②**문장 중간의 공백 포함 한글 파일명**을 완전히 지우지 못한다.
+console/Sentry의 보장은 정규식이 아니라 **`safeErrorSummary`(raw 비전송)** 에서 나온다.
+★완전 봉인은 **모든 emit 지점을 구조화 로깅 whitelist로 전환**하는 별도 태스크가 필요하다.
+
+### 확인 불가
+`VITE_SUPABASE_URL`·`ANON_KEY` 부재로 **실계정 2개 E2E 불가**(Codex와 동일) · 운영 Sentry 이벤트 미접근.
+
+### Next
+1. **Codex** — 277+277b 재검증 → **합쳐 커밋·push**. ★기준선 **backend 890/8 · frontend 373/38**을
+   `verify.md`·`CLAUDE.md`·**`AGENTS.md` 3문서 모두** 갱신.
+2. **Human** — ①실계정 2개 E2E 자격증명 ②기존 `saved`(90일) raw 정리 정책
+   ③구조화 로깅 whitelist 전환(완전 봉인) 별도 태스크 발행 여부.
+3. **Chat** — **278**(bottom-surface 단일화) → **279**(오프라인 캐시·방침 문구) → 280 → 281.
+
+## 2026-08-08 Codex BOHUMFIT-277 2차 검증 — ★반려 / 커밋 0
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Claude Code**(보정 후 재회송)
+Commit: **없음** — 2차 검증에서 필수 PII 계약 위반 2건을 재현해 stage·commit·push를 수행하지 않았다.
+기준 HEAD/원격: `2db2945` / `2db2945`(착수 시 0/0). Codex 제품 코드 수정 0.
+
+### 통과한 게이트
+- 루트 게이트(pwd·remote·리트머스)·범위 게이트 통과. 277 선언 파일과 harness만 변경됐고,
+  **278·279 범위 및 보호 영역**(`backend/pipeline/`·`coverage/`·`filters.py`·`supabase/`·
+  `src/components/mobile/`·`Layout.tsx`·`index.css`·`PrivacyPolicy`·`TermsOfService`·`ConsentGate`·
+  `analysisCache`·`vite.config.*`) diff 0.
+- backend `874 passed, 8 skipped` · frontend `363 passed / 37 files` · tsc app/node · lint ·
+  `smoke:coverage` PASS(정본 2건 기준값 일치).
+- `npm run build`는 기존과 같은 **343,702 B 껍데기**를 생성했고, `build:verify`는 필수 문자열 3건
+  누락으로 예상 FAIL — 248 확정 이슈와 동일하게 기능 판정에 사용하지 않았다.
+- B-F3 모듈 계약 테스트(동일 사용자 복원·타 사용자/비로그인/legacy/TTL 폐기·AuthContext 배선)는 통과했다.
+
+### ★반려 1 — B-F5 console/Sentry의 건강정보가 제거되지 않음
+- 직접 재현: backend `_scrub_sensitive_event_values()`에
+  `"가상고객A 최근 3개월.pdf I10 고혈압 서울병원"`을 넣으면 PDF 파일명 부분만 `서류`로 바뀌고
+  **`I10`과 뒤 의료 문자열은 그대로 남았다**.
+- 코드 근거: `backend/main.py:139-155`는 최종 문자열에 `scrub_pdf_filenames_deep()`만 적용하고,
+  `src/lib/errorMessages.ts:128-133`의 `scrubPii()`도 `pdf/xlsx/xls` 파일 토큰만 치환한다.
+  따라서 `src/main.tsx:30-41`의 Sentry message·breadcrumb·exception 경로도 파일명이 아닌
+  상병코드·병명·기관명 raw 문자열을 제거하지 못한다.
+- 기존 테스트는 파일명만 단언하며 **건강정보 0 fixture가 없다**. 이는 이번 패킷 C의
+  “미매핑 오류 console·Sentry fixture에 파일명·건강정보 0” 필수 계약 미충족이다.
+
+### ★반려 2 — 겹치는 파일명에서 원본 조각 잔존
+- 직접 재현: `anonymize_parse_errors(["🔒 a long.pdf: 오류"], ["a.pdf", "a long.pdf"])` 결과가
+  `"🔒 서류 1 long.pdf: 오류"`가 되어 **`long.pdf`가 남는다**.
+- 원인: `backend/pii.py:58-63`가 파일별로 순회하면서 첫 파일의 stem `a`를 먼저 치환한다.
+  `_variants()` 내부만 길이순이고, **전체 파일명 후보를 전역 길이순으로 정렬하지 않아** 다음 파일의
+  전체 일치 기회를 잃는다. 사용자 요구의 raw 파일명 0 및 268b와 같은 익명 slot 규칙을 충족하지 못한다.
+
+### 확인 불가(사유)
+1. **실제 Supabase 2계정 E2E**: `npm run dev` 자체는 정상 기동했지만 현재 로컬 환경에
+   `VITE_SUPABASE_URL`·`VITE_SUPABASE_ANON_KEY`가 없어 앱이 시작 단계에서 중단됐다. 자격증명 없이
+   A 로그인→분석→로그아웃→B 로그인 동선을 실행할 수 없었다. 저장소 모듈·AuthContext 계약 테스트만 통과.
+2. **실제 DB recent/saved 저장분**: 인증·운영 DB 접근 없이 저장 직전 mock 계약만 확인 가능했다.
+   기존 saved(90일) raw 파일명 건수도 기존 결정대로 Human 정책/권한 영역이다.
+3. **데스크톱 보호 라우트 실렌더 4건**: 인증 환경 부재로 `/dashboard`·`/coverage-compare`를 실제 계정으로
+   렌더하지 못했다. 대상 페이지 JSX diff 0과 기존 회귀 스위트 통과만 확인했다.
+
+### Code 회송 요구
+1. `mask_filenames()`를 **전체 파일명·stem 후보 기준 전역 longest-first**로 바꾸고, 중첩 이름/동일 stem/
+   확장자 잔존 0 회귀를 추가한다. slot 번호가 실제 원본 파일 index를 유지해야 한다.
+2. console/Sentry는 임의 raw 문자열을 파일 확장자 정규식만으로 안전하다고 간주하지 말고,
+   **구조화 whitelist 또는 raw 본문 비전송 계약**으로 파일명·상병코드·병명·기관명 0을 보장한다.
+   `서류 N`·레코드 수·오류 유형·안전한 사유 문구 등 운영 진단 정보는 별도 안전 필드로 유지한다.
+3. frontend/backend 양쪽에 합성 건강정보(`I10`·병명·기관명)와 겹치는 파일명 fixture를 넣어
+   Sentry event·console·응답·history 직전 payload 전 경로를 단언한다.
+
+### Next
+1. **Claude Code** — 위 2결함 보정 + 신규 회귀 실행 후 277 재회송.
+2. **Codex** — 재검증 통과 시에만 기준선 3문서(`verify.md`·`CLAUDE.md`·`AGENTS.md`)를
+   backend 874/8 · frontend 363으로 갱신하고 단독 커밋·push.
+3. **Human** — 기존 saved(90일) raw 파일명 정리 정책 / 실계정 2개 E2E 자격증명·환경 제공 여부 결정.
+
+## 2026-08-07 BOHUMFIT-277 2차 검증 보강 — 야간 세션 / ★코드 변경 0
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(커밋)
+Commit: **미커밋**(★야간 규칙대로 git 쓰기 0 — add/commit/push/checkout/stash 전부 미실행).
+기준 HEAD `2db2945`. 277 구현분은 **직전 세션 산출 그대로 워킹트리에 있고 이번에 한 줄도 바꾸지 않았다**.
+
+### 상태
+재발행 패킷을 받았을 때 **277은 이미 구현·검증돼 미커밋 상태**였다(태스크 문서·handoff·locks 기록 완료).
+재구현하지 않고 **재발행 패킷이 새로 추가한 항목**과 1차에서 못 채운 체크리스트만 보강했다.
+게이트 재현: backend **874/8** · `npm test` **363** · smoke PASS · tsc app/node · lint.
+
+### ★신규 요구 — 운영 진단 가능성 유지(실측)
+파일 3건 실패 상황에서 로그가 `file=서류 1/2/3` + `records`·`ftype`·`errors`를 남기고,
+문구는 `🔒 서류 N: PDF 비밀번호 해제 실패 — …`로 **사유를 유지**한다.
+원본 파일명·실명은 **0**. → **PII만 빠지고 "몇 번째 파일이 왜 실패했는지"는 그대로** 남는다.
+
+### ★★B-F3 실브라우저 검증 — 1차 전제를 정정했다
+1차에서 "로컬 빌드 불가(248)"를 이유로 실브라우저를 안 했는데, ★**248은 `npm run build` 한정**이고
+**dev 서버는 정상 기동**한다(`VITE v8.0.10 ready in 745ms` 실측). 그래서 실제 브라우저에서 Vite가 변환한
+**`sessionResultQueue.ts` 모듈 자체**를 불러 11항목을 검증했다(jsdom 아님):
+B가 A 결과 **복원 안 됨** · 불일치 레코드 **폐기** · 같은 사용자 **정상 복원** · 비로그인 복원 0·저장 0 ·
+277 이전 레코드 폐기 · TTL · ★**B 진입 후 저장소에 건강정보 잔존 0**(A 저장 시엔 있었음 — 대조 확인).
+★마지막 항목이 핵심 — "복원만 막고 데이터는 남는" 상태가 아니라 **실제로 지워진다**.
+
+### ★확인 불가(사유 명시)
+1. **실제 2계정 로그인 전환 E2E** — Supabase 자격증명이 없어 로그인 동선을 태울 수 없다.
+   저장소 계약은 실브라우저로 증명했고, `AuthContext` id 전이 호출은 **소스 계약 테스트로만** 고정돼 있다.
+2. **`/dashboard`·`/coverage-compare` 실브라우저 렌더** — 둘 다 `ProtectedRoute` 뒤라 로그인 없이 렌더 불가.
+   두 페이지 소스 **diff 0**이고 `AuthContext` 변경은 콜백·`signOut` 내부라 **렌더 경로가 아니다**(diff 전수 확인).
+3. **운영 DB 기존 저장분** — 접근하지 않았다(조회 자체가 PII 열람).
+
+### 범위 격리 재확인
+**279**(`PrivacyPolicy`·`TermsOfService`·`ConsentGate`·`analysisCache`) **diff 0** ·
+**278**(`components/mobile/`·`Layout.tsx`·`index.css`) **diff 0** ·
+276a/b·272·273·270·269b(`backend/coverage/`·`pipeline/`·`filters.py`·`vite.config.ts`) **diff 0**.
+
+### Next
+1. **Codex** — 277 커밋·push(1차 Stage 목록 그대로). ★기준선 **backend 874/8 · frontend 363**을
+   `verify.md`·`CLAUDE.md`·**`AGENTS.md` 3문서 모두** 갱신.
+2. **Human** — ①기존 `saved`(90일) raw 파일명 정리 정책 ②실계정 2개로 B-F3 최종 확인(자격증명 필요).
+3. **Chat** — **278**(bottom-surface 단일화) → **279**(오프라인 캐시·방침 문구) → 280 → 281.
+
+## 2026-08-07 BOHUMFIT-277 - PII 저장·로그 경계 봉인(완료)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(2차 검증·커밋)
+Commit: **미커밋·미푸시**(git 쓰기 0). 기준 HEAD `2db2945`(275 문서 커밋 반영 확인).
+상세는 tasks/BOHUMFIT-277-pii-boundary.md.
+
+### Step 1 — 파일 식별자 전 경로 추적
+원본 파일명이 ①업로드 → ②`pdf_parser`의 `🔒 {파일명}: {사유}` → ③성공 로그 → ④실패 로그 →
+⑤실패 문구 → ⑥**응답 raw** → ⑦**recent 7일 저장** → ⑧**saved 90일 저장**까지 흐르고,
+**271은 ⑨ 화면 한 곳만** 막고 있었다. ★봉인 지점은 **②~⑤가 만들어지는 서버**다.
+익명 slot 규칙은 268b(`progress.py:79`)·271(`errorMessages.ts:158`)이 이미 **같은 `서류 {1-based}`**를
+쓰고 있어 그대로 따랐다 — 서버가 먼저 정규화하면 프런트 재정규화가 **멱등**이 된다.
+`sessionStorage`는 265 단일 삭제 계약 **밖**이고 레코드에 소유자 id가 없어 B-F3이 성립함을 재확인했다.
+
+### 구현
+- **B-F3**: `sessionResultQueue.ts` 신설(저장·복원·삭제 한 파일). 레코드에 `uid` 추가 →
+  복원 시 소유자 대조, 불일치·비로그인·**277 이전 uid 없는 레코드**·TTL 초과면 **읽지 않고 삭제**.
+  ★비로그인은 **저장도 안 한다**. `AuthContext`의 단일 삭제 지점과 카카오 flush에 키 추가 —
+  ★265 구조 그대로 두고 **키만 추가**해 275 B-2의 5경로가 자동 포섭된다.
+  `Disclosure.tsx`는 `sessionStorage`를 **직접 만지지 않는다**(우회 방지·테스트 고정).
+- **B-F1**: `backend/pii.py` 신설. `analyzer.py`가 `parse_errors`를 **응답 전에** slot 정규화(순차·병렬 양 경로).
+  history **두 경로 모두**(recent·saved) `scrub_pdf_filenames_deep()` 통과. ★`pipeline/pdf_parser.py` 무접촉.
+  ★271 표시 직전 sanitization은 **제거하지 않았다**(방어 2선).
+- **B-F2**: 성공·실패 로그 모두 `document_slot()`. ★**예외 문자열도 마스킹**한다.
+- **B-F5**: `scrubPii()` 신설 → `console.warn` 적용. `beforeSend`에 **message·breadcrumbs(+data)·
+  exception.values** scrub 추가(기존 request data/cookies 삭제 유지). 백엔드 scrubber를
+  **키 기반 → 최종 문자열 검사**까지 확장.
+
+### 검증 — ★★E2E(실명 포함 합성 파일명으로 parse error 유발)
+| 경로 | 결과 |
+|---|---|
+| 서버 응답 raw | `🔒 서류 1: PDF 비밀번호 해제 실패 — …` · **파일명·실명 0** |
+| 운영 로그 | `file=서류 1` · **파일명·실명 0** |
+| history payload | **실명 0** |
+| 화면 | `서류 1: …`(271 방어 2선 동작) |
+
+- [x] backend **874 passed, 8 skipped**(861+13·기존 회귀 0) · `npm test` **363**(342+21·회귀 0)
+- [x] `smoke:coverage` **PASS**(정본 2건 완전 불변) · tsc app/node · lint · `build:verify` 343,702 B 예상 FAIL
+- [x] ★**데스크톱 회귀 0** — HEAD 사본 대비 `/disclosure` 결과·`/history` innerHTML·노드 수 완전 일치.
+      ★`Disclosure.tsx` diff에 **JSX 변경 0**(저장 계층만). 사본·스크립트 삭제.
+- [x] ★B-F3 11건(계정 전환 미복원·레코드 폐기 / 비로그인 삭제·미저장 / 277 이전 레코드 폐기 / TTL /
+      깨진 레코드 / 멱등 / 삭제 계약 배선 3건) · ★slot 규칙 268b와 동일(소스 고정)
+- [x] ★보호 영역 **diff 0**: `pipeline/`·`filters.py`·`coverage/`·`vite.config.ts`·`components/mobile/` ·
+      **`PrivacyPolicy.tsx`·`ConsentGate.tsx`·`analysisCache.ts` diff 0**(279 범위 무접촉)
+
+### ★한계·잔여 (기록)
+1. **최후 방어선의 한계**: `scrub_pdf_filenames_deep()`은 접두 구간과 `*.pdf` 토큰을 지우지만,
+   **문장 중간에 공백 포함 한글 파일명**이 박히면 앞의 실명이 남는다(`"본문에 홍길동 검진.pdf 포함"`).
+   정상 경로는 `analyzer`가 실제 파일명 목록을 알고 정확히 마스킹하므로 걸리지 않는다.
+2. ★**기존 DB 저장분은 범위 밖** — `saved`(90일)는 사용자가 지우기 전까지 남는다. 대상은 parse error가
+   난 분석에 한정. **실제 건수는 확인 불가**(운영 DB 조회 자체가 PII 열람이라 접근하지 않았다). Human 정책 결정.
+3. **B-F4(오프라인 캐시)·방침/동의문은 279 범위**라 손대지 않았다. ★단 277이 `sessionStorage` 10분 보관에
+   소유자 바인딩을 넣었으므로, 279가 문구를 정리할 때 **"세션 10분 임시 보관"이 방침에 없다는 275 지적**을
+   함께 다뤄야 한다.
+
+### Next
+1. **Codex** — 2차 검증(★계정 전환 실브라우저 재현 · E2E 파일명 0 · 271 2선 유지 · 데스크톱 회귀 0) → 커밋·push.
+   Stage: `backend/pii.py`·`analyzer.py`·`main.py`·`src/lib/sessionResultQueue.ts`·`AuthContext.tsx`·
+   `errorMessages.ts`·`src/main.tsx`·`src/pages/Disclosure.tsx` + 277 테스트 4종·태스크 문서·handoff·locks.
+   ★기준선 **backend 874/8 · frontend 363**을 `verify.md`·`CLAUDE.md`·**`AGENTS.md` 3문서 모두** 갱신.
+2. **Human 결정** — 기존 `saved`(90일) 저장분의 raw 파일명 정리 여부·방식.
+3. **Chat** — 275 후속 순서대로 **278**(bottom-surface 단일화) → **279**(오프라인 캐시 정합·방침 문구) →
+   280(모바일 가드 확장) → 281(하네스 문서 정리).
+
 ## 2026-08-07 Codex BOHUMFIT-275 263~273 누적 QA 교차 감사 — 완료 / 문서만·git 쓰기 0
 
 Owner flow: Claude Chat -> Codex(조사·문서) -> Human/Chat(후속 결정) | Current owner: **Human/Chat**
