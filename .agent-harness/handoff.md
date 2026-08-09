@@ -1,3 +1,186 @@
+## 2026-08-08 Codex BOHUMFIT-278·279·276c 2차 검증 — PASS / ★3건 분리 커밋
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human** / **Chat**(오픈 전 목록 마감)
+Commits: **`f9c9b00`**(278) → **`d58d033`**(279) → **`{C}`**(276c) — `origin/main` push 완료.
+기준 HEAD `8cce8ae`(277).
+
+### ★3건 분리 — 파일 겹침 0이라 hunk 분리 불필요
+Code 보고대로 **한 파일도 두 태스크에 걸치지 않았다**(276a/276b 때의 파일 재구성이 필요 없었다).
+경계가 애매했던 `updatePromptWiring.test.tsx`는 diff가 **100% 279**(방침 문구 단언)임을 확인하고 279에 넣었다.
+| 커밋 | 파일 |
+|---|---|
+| 278 | `Disclosure.tsx`·`InstallPrompt`·`Layout`·`PrimaryAction`·`UpdatePrompt`·`bottomSurface.ts`(신규)·278 테스트 |
+| 279 | `PrivacyPolicy`·`ConsentGate`·`analysisCache.ts`·갱신 테스트 3·279 테스트(신규)·`decisions.md` |
+| 276c | `proposal_parser.py`·갱신 테스트 3·276c 테스트(신규) + 기준선 3문서·handoff·locks |
+
+### 게이트 (3건 누적 상태)
+backend **902 passed, 8 skipped** · frontend **393 passed / 40 files** · tsc app/node · lint ·
+`smoke:coverage` **PASS** · `build:verify` **343,702 B 예상 FAIL**(248 껍데기).
+
+### A) 278 하단 표면
+- ★A-F1 소거: 구형 CTA(z-50·`md:hidden`) 제거 확인 — 노출 문구·상태·스크롤 리스너 전부 사라졌다.
+- ★분석 동선은 268a 시트 하나(`open-upload-sheet` → `onSubmit: analyze()`)이고 시트 게이트가
+  `selectedFiles.names.length > 0`까지 요구해 구형 CTA보다 **강하다**.
+- ★데스크톱 분석 버튼(`onClick={analyze}`) 그대로 — `md:hidden`이라 원래 데스크톱 미노출.
+- ★273 네비 높이 추종 **무회귀**(테스트 13건 통과·57↔91 추종).
+- ★`UpdatePrompt`의 `z-[9997]` 제거 확인 — 토큰 `banner`(60)로 내려와 전체표(9990)·모달을 더 이상 덮지 않는다.
+- ★토스트가 시트 위(9999)인 것은 **의도된 예외**이며 사유가 `bottomSurface.ts` 상단 주석에 있다.
+- 3단 동시 출현 시 본문 가림은 `PAGE_BOTTOM_SURFACES` **실측 총합** 여백으로 해소(요소 추가 시 자동 추종).
+
+### B) 279 고지 정합
+- ★노출 문구(주석 제외)에 `최근 5건`·`24시간 임시 보관`·`오프라인 열람` **0건** — 두 파일 모두.
+- ★기재 항목이 실제와 일치: 서버 90일/7일(상수 대조) · 기기 **10분**(`SESSION_RESULT_TTL_MS`와 테스트로 결속).
+- ★`clearSessionResult()`·`clearAnalysisCache()` **둘 다 유지**(277 계약 무회귀).
+- `analysisCache.ts` 보존 + 미사용·재개 조건 4가지 주석 · `decisions.md`에 A안 철회 기록.
+
+### C) 276c 월납 — ★기준 불일치 확인
+- 오현지 월납 **105,800**(합계 105,802 → 버림) · 절삭 호출 **1지점**(소스 카운트 고정)·멱등.
+- ★★`smoke:coverage` PASS이고 **정본 월납 끝자리 `312`·`189`가 그대로**다 —
+  `parse_won`은 절삭하지 않고(`amount.py`에 `truncate` 0건) 기존 계약 경로는 무접촉임을 실측 확인.
+- ★그 결과 **[후] 합계에 두 기준이 섞인다**(제안서만 버림). Code가 임의 통일하지 않고 기록만 한 판단이 옳다 —
+  Human 결정 사안으로 넘긴다.
+- 276b T5 계약 유지: `truncate_premium(105_802) == 105_800` 단언이 추가돼
+  **"1회차보험료를 읽은 게 아니라 합계를 읽고 절삭"** 임을 구분한다.
+
+### D) 기존 테스트 12건 갱신 검토
+전부 **의도된 변경의 직접 귀결**이고 **완화가 아니라 강화**됐다:
+278/279는 A안 문구·상수 참조를 실동작으로 이동(고지 근거를 `analysisCache`→`sessionResultQueue`),
+276c는 절삭 결과값 정정(162,154→162,150 · −87,846→−87,850 · 105,802→105,800)에
+**항목 구분 단언 1건 추가**. `assert` 삭제로 검증이 사라진 곳은 없다.
+
+### E) 무회귀
+277 PII 3건(B-F3·B-F1·B-F2)·276a 폴백 제거·276b 파싱 교정·270 폰트 맵·265 토큰/가드·
+269b 네비 구조 diff 0 · `backend/pipeline/`·`filters.py` diff 0 · 40행 스키마·회사 열 diff 0 ·
+`vite.config.*` diff 0.
+
+### 기준선 갱신(3문서)
+`verify.md`·`CLAUDE.md`·`AGENTS.md` → backend **902/8** · frontend **393/40**.
+
+### ★확인 불가
+- **좌표 히트 테스트**: 브라우저 pane `clientWidth`가 0으로 보고돼 `elementFromPoint`가 `null`을 준다.
+  Code와 같은 제약이며 **기하학적 겹침 0**으로 판정했다. 히트 판정은 실기기 몫이다.
+- **실계정 E2E·실제 설치 이벤트·waiting worker·iOS 34px**: 자격증명·실기기 부재로 합성 조건으로만 재현했다.
+
+### Next
+1. **Human** — ①iOS 실기기 검수(세이프에어리어·키보드·3단 하단 점유 231~265px 체감)
+   ②**기존 계약 월납 절삭 통일 여부** — 현행 유지(A안: 제안서만 버림) 권고, 통일하려면 [전] 열 근거가 바뀐다
+   ③기존 `saved`(90일) raw 파일명 정리 정책(277 이월).
+2. **Chat** — 오픈 전 목록 마감 확인. 275 후속 중 **280**(모바일 가드 확장)·**281**(하네스 문서 정리) 미착수.
+
+## 2026-08-08 BOHUMFIT-276c - 가입제안서 월납 기준 확정(완료)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(2차 검증·커밋)
+Commit: **미커밋**(git 쓰기 0). 기준 HEAD `8cce8ae`. ★순차 세션 3번 — **276c 단독 커밋** 대상.
+상세는 tasks/BOHUMFIT-276c-premium-basis.md.
+
+### Step 1 — 현행에는 **어떤 절삭도 없었다**
+제안서 월납(`_extract_premium`)·합계·기존 계약(`amount.parse_won`) 모두 원문 그대로였다.
+### ★★Step 3 — 기준이 갈린다(임의 통일 안 함)
+KB `parse_won`은 절삭하지 않는다 — 정본 월납 `681,312`(끝자리 2)·`4,675,189`(끝자리 9)가 증거다.
+제안서만 10원 버림이므로 **[후] 합계는 두 기준이 섞인다**. 패킷 지시대로 **기록만** 하고
+통일 여부는 Human 결정으로 남긴다(신정원 원문을 깎는 건 [전] 열 근거를 바꾸는 일이다).
+
+### 구현
+`PREMIUM_TRUNCATE_UNIT = 10` + `truncate_premium()` — ★**절삭은 `_extract_premium` 한 곳에서만**
+(호출 1회를 소스 카운트로 고정), 합계는 **이미 절삭된 값**을 더한다, 함수는 **멱등**(이중 적용 방지),
+반올림이 아니라 **버림**(105,809 → 105,800).
+
+### 검증
+- 오현지 월납 **105,800**(원문 합계 105,802 → 버림) · 상품명·T1·폴백 0 전부 유지
+  ★값은 276b 이전과 같지만 **경로가 다르다**(잘못된 항목 → 맞는 항목 + 절삭)
+- backend **902 passed, 8 skipped**(890+12·회귀 0) · ★★smoke **PASS**(정본 2건 완전 불변)
+- `npm test` **393/40** · tsc · lint · `build:verify` 예상 FAIL
+- `pipeline/`·`filters.py`·`parser.py`·`amount.py`·`vite.config.*` diff 0
+
+### 기존 테스트 4건 기대값 갱신(사유)
+절삭의 직접 귀결: 193 합계 162,154→**162,150** · delta −87,846→**−87,850** · 276a/276b 105,802→**105,800**.
+★276b 테스트에 **"1회차보험료를 읽은 게 아니라 합계를 읽고 절삭한 결과"** 단언을 추가해 T5 계약을 지켰다.
+
+### Next
+**Codex** — 276c 단독 커밋. 기준선 backend **902/8**을 3문서 갱신.
+**Human** — 기존 계약 월납 절삭 통일 여부.
+
+## 2026-08-08 BOHUMFIT-279 - 오프라인 캐시 A안 철회·고지 정합(완료)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(2차 검증·커밋)
+Commit: **미커밋**(git 쓰기 0). 기준 HEAD `8cce8ae`. ★순차 세션 2번 — **279 단독 커밋** 대상.
+상세는 tasks/BOHUMFIT-279-cache-policy-alignment.md · 결정은 decisions.md 최상단.
+
+### Step 1 — 고지와 실동작이 **양방향으로** 어긋나 있었다
+| 저장소 | 실제 | 문구(수정 전) |
+|---|---|---|
+| 서버 saved / recent | 90일 / 10건·7일 | ✔ 일치 |
+| ★**IndexedDB** | ★**저장 안 함**(제품 호출 0건) | ★**있다고 단정** |
+| ★**sessionStorage** | ★**10분**(277: user-bound·로그아웃/계정 전환 즉시 삭제) | ★**문구에 없음** |
+없는 것을 있다고 했고, 있는 것을 빠뜨렸다.
+
+### 구현 — 문구·주석·결정 기록뿐(기능 추가 0)
+- 방침 4항·`ConsentGate`를 **"세션 저장소 10분 · 로그아웃·계정 전환 시 즉시 삭제 · 서버 별도 전송 없음"** 으로 교체.
+- ★서버 90일/7일·업로드 원본 미저장 문구는 **사실이므로 그대로** 뒀다.
+- `analysisCache.ts`는 **삭제하지 않고 미사용·재개 조건 4가지 명시**(재개 시 265 설계를 다시 해야 한다).
+  ★`clearAnalysisCache()` 호출은 **유지** — 277 `clearSessionResult()`와 같은 단일 삭제 지점에 남는다.
+- `decisions.md`에 A안 철회·사유·영향·재개 조건 기록.
+
+### 검증
+- [x] ★사용자 노출 문구에 "최근 5건"·"24시간 임시 보관"·"오프라인 열람" **0건**(주석 제거 후 검사)
+- [x] ★기재 수치가 **구현 상수와 일치**(`SESSION_RESULT_TTL_MS` 10분 · 서버 90/7일 상수 대조)
+- [x] 방침 ↔ 동의문 상호 일치 · ★277 삭제 계약 무변경 · ★278 변경분 무회귀
+- [x] `npm test` **393 / 40 files** · backend 불변 · smoke PASS · tsc · lint · `backend/` diff 0
+
+### 기존 테스트 4건 기대값 갱신(사유)
+`analysisCache.test.ts` 3건·`updatePromptWiring.test.tsx` 1건이 **A안 문구를 정답으로 고정**하고 있었다.
+A안 철회에 맞춰 실동작으로 갱신했고, ★고지가 참조하는 구현 상수도 `analysisCache`(미배선) →
+**`sessionResultQueue`(실동작)** 로 바꿨다. `MAX_ENTRIES`·`TTL_MS`는 재개 대비로 남지만 고지 근거가 아니다.
+
+### Next
+**Codex** — 279 단독 커밋(기준선 변동 없음 — frontend는 278에서 385/39, 279에서 393/40).
+
+## 2026-08-08 BOHUMFIT-278 - 모바일 하단 표면 단일화(완료)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(2차 검증·커밋)
+Commit: **미커밋**(git 쓰기 0). 기준 HEAD `8cce8ae`(277). ★3건 순차 세션의 1번 — **278 단독 커밋** 대상.
+상세는 tasks/BOHUMFIT-278-bottom-surface.md.
+
+### Step 1 — 구형 CTA는 시트의 **부분집합**이었다
+`Disclosure.tsx:2354` `fixed inset-x-0 bottom-0 **z-50** … **md:hidden**`이 네비(z-40) 위를 덮었다(275 A-F1 재현).
+기능 비교 실측: 구형 CTA는 **파일 선택·동의 블록이 없고**(모바일 동의는 시트 안에만 있다) 게이트도 더 약해
+**파일 0개에도 눌렸다**. 268a 시트는 `selectedFiles.names.length > 0`까지 요구한다.
+→ **제거해도 대체 동선이 완전**하고, `md:hidden`이라 **데스크톱은 원래 못 보던 요소**다(데스크톱 영향 0).
+
+### 구현
+- **A-F1**: 구형 CTA 블록 + 죽은 `showSticky` 스크롤 리스너 제거 → 모바일 진입 **시트 하나로 단일화**.
+- **A-F2**: `bottomSurface.ts` 신설(z 토큰 + 공용 오프셋 훅). ★**273의 네비 높이 추종 로직을 깨지 않고
+  공용 훅으로 승격**해 설치·업데이트 안내에도 같은 규칙을 줬다(273 테스트 13건 통과).
+  `UpdatePrompt`의 기존 `z-[9997]`은 **전체표(9990)·모달(1000/50) 위를 덮고 있었다** — 층위 정리로 해소.
+- ★**토스트만 시트보다 위(9999) 유지** — 되돌리기 토스트(265·6초)가 가려지면 되돌릴 기회를 잃는다.
+  패킷 권장 순서에서 이 한 칸만 의도적으로 다르며 사유를 코드 주석에 남겼다.
+
+### ★실브라우저에서 새 결함 1건 발견·수정
+3단(네비+액션 바+배너) 동시 출현 시 하단 점유가 **231px(safe 0)/265px(safe 34)** 까지 커져
+**본문 마지막 줄이 가려졌다**. `Layout`이 `BOTTOM_NAV_HEIGHT` **상수**만 빼두고 있었기 때문이다.
+→ `PAGE_BOTTOM_SURFACES` **실측 총합**으로 바꿨다(요소가 늘어도 배열에만 추가하면 따라온다).
+
+### 검증 — 실브라우저 조합 매트릭스(프로덕션 CSS·390px)
+| 조합 | 겹침 | 점유(safe 0/34) |
+|---|---|---|
+| 네비만 | 단일 | 57 / 91 |
+| 네비+액션 바 | **0** | 138 / 172 |
+| 네비+배너 | **0** | 151 / 184 |
+| 네비+액션 바+배너 | **전 쌍 0** | 231 / 265 |
+| 액션 바만 | 단일 | 81 / 81 |
+
+- [x] `npm test` **385 / 39 files**(373+12·회귀 0) · backend **890/8 불변**(`backend/` diff 0)
+- [x] smoke PASS · tsc · lint · `build:verify` 예상 FAIL
+- [x] ★269b 네비 구조·감지 조건 무변경 · ★279 범위 diff 0 · `vite.config.*` diff 0
+
+### ★확인 불가
+좌표 **히트 테스트**는 브라우저 pane `clientWidth`가 0으로 보고돼 `elementFromPoint`가 `null`을 준다
+(이전 세션 동일). **기하학적 겹침 0**으로 판정했고 히트 판정은 실기기 몫이다.
+실제 설치 이벤트·waiting worker·iOS 34px은 합성 조건으로만 재현했다.
+
+### Next
+**Codex** — 278 단독 커밋. 기준선 frontend **385/39** 갱신 대상(backend 불변).
+
 ## 2026-08-08 Codex BOHUMFIT-277+277b 재검증 — PASS / 단독 커밋
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human/Chat**

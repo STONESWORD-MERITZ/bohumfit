@@ -121,8 +121,9 @@ def test_premium_is_none_when_not_found():
 
 
 def test_premium_is_kept_when_parsed():
+    """★BOHUMFIT-276c: 항목은 `보장보험료 합계`(276b) 그대로이고 **원 단위 절삭**만 추가됐다."""
     result = parse_proposal_text(TEXT_WINS, "text.pdf")
-    assert result["monthly_premium"] == 105_802
+    assert result["monthly_premium"] == 105_800
 
 
 # ── 보호 영역 ─────────────────────────────────────────────────────────────

@@ -185,8 +185,9 @@ def _names(proposal: dict) -> set:
 def test_parse_real_trace_193_synthetic_five_pdfs() -> None:
     result = _parsed()
 
-    assert result["premium"]["monthly_total"] == 162_154
-    assert result["premium_total"] == 162_154
+    # ★BOHUMFIT-276c: 5건 각각에 원 단위 절삭이 적용돼 합계가 162,154 → 162,150이 된다.
+    assert result["premium"]["monthly_total"] == 162_150
+    assert result["premium_total"] == 162_150
     assert result["metadata"]["company_order"] == ["KB손해보험", "메리츠화재", "메리츠화재", "메리츠화재", "미래에셋생명"]
 
     cancer = _proposal(result, "meritz-cancer")
@@ -229,7 +230,8 @@ def test_parsed_proposals_recalculate_after_and_use_two_stage_aggregation() -> N
         },
     )
 
-    assert result["comparison"]["premium"]["delta_monthly"] == -87_846
+    # ★BOHUMFIT-276c: 제안서 월납 절삭분만큼 차액도 4원 줄어든다(-87,846 → -87,850).
+    assert result["comparison"]["premium"]["delta_monthly"] == -87_850
     after = {row["kb_name"]: row for row in result["after"]["final"]["coverages"]}
     # BOHUMFIT-246 정식명 — 합산 값 자체는 불변(개명만).
     # ★BOHUMFIT-276a: 기존 151,000,000은 meritz-cancer의 `암진단금` 5,000만원 **레지스트리 고정값**이

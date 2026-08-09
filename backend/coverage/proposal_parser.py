@@ -185,11 +185,28 @@ def _detect_insurer(text: str, profile: ProductProfile | None) -> str:
     return "알 수 없음"
 
 
+#: BOHUMFIT-276c — 가입제안서 월납은 **원 단위 절삭**(버림, Human 확정 2026-08-08).
+#:   원문 `보장보험료 합계 105,802` → 산출 `105,800`.
+PREMIUM_TRUNCATE_UNIT = 10
+
+
+def truncate_premium(value: int | None) -> int | None:
+    """월납보험료를 원 단위로 **버림**한다(반올림 아님).
+
+    ★절삭은 **여기 한 곳에서만** 한다 — 여러 지점에서 깎으면 이중 적용이 된다.
+      `_extract_premium`이 유일한 호출자이고, 합계(`_finalize_proposals`)는 이미 절삭된 값을 더한다.
+    """
+    if value is None:
+        return None
+    return (value // PREMIUM_TRUNCATE_UNIT) * PREMIUM_TRUNCATE_UNIT
+
+
 def _extract_premium(text: str, profile: ProductProfile | None) -> int | None:
     for pattern in _PREMIUM_PATTERNS:
         match = pattern.search(text)
         if match:
-            return int(match.group(1).replace(",", ""))
+            # BOHUMFIT-276c: 항목은 276b가 `보장보험료 합계`로 교정했고, 여기서 원 단위만 버린다.
+            return truncate_premium(int(match.group(1).replace(",", "")))
     # BOHUMFIT-276a: 프로필 고정 보험료(193 표본값) 폴백 제거 — 못 읽으면 값 없음으로 두고
     #   호출부가 수기 확인 경고를 띄운다(틀린 금액을 고객 안내문서에 싣지 않는다).
     _ = profile

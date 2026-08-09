@@ -100,13 +100,18 @@ def test_premium_uses_document_total_not_first_installment():
     원문에 `보장보험료 합계 105,802 원`과 `1회차보험료(할인후) 105,800 원`이 둘 다 있는데
     후자를 먼저 잡았다(할인보험료는 0원). 고객·파일명이 인식하는 금액은 합계다.
     """
-    assert _extract_premium(REAL_SHAPE, None) == 105_802
-    assert parse_proposal_text(REAL_SHAPE, "real.pdf")["monthly_premium"] == 105_802
+    # ★BOHUMFIT-276c: 읽는 **항목**은 여기서 고정한 대로 `보장보험료 합계`(105,802)이고,
+    #   그 위에 원 단위 절삭이 적용돼 산출은 105,800이 된다. 항목 교정(T5)의 계약은 그대로다.
+    assert _extract_premium(REAL_SHAPE, None) == 105_800
+    assert parse_proposal_text(REAL_SHAPE, "real.pdf")["monthly_premium"] == 105_800
+    # ★1회차보험료(105,800)를 읽은 것이 **아니라** 합계를 읽고 절삭한 결과임을 구분해 고정한다.
+    from coverage.proposal_parser import truncate_premium
+    assert truncate_premium(105_802) == 105_800
 
 
 def test_first_installment_still_used_when_no_total():
     """합계 표기가 없는 양식에서는 기존 패턴이 그대로 폴백으로 동작한다(패턴 삭제 0)."""
-    assert _extract_premium("1회차보험료(할인후) 90,000 원", None) == 90_000
+    assert _extract_premium("1회차보험료(할인후) 90,000 원", None) == 90_000  # 절삭해도 동일
 
 
 # ── 276a 계약 유지 ────────────────────────────────────────────────────────
