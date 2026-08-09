@@ -1,3 +1,19 @@
+## 2026-08-08 — BOHUMFIT-265 오프라인 캐시 A안 **철회** (BOHUMFIT-279)
+
+Decision: 265에서 설계한 **오프라인 열람용 IndexedDB 캐시(A안)를 철회**한다. 배선하지 않고,
+개인정보처리방침·동의문을 **실제 동작**에 맞춘다.
+
+Reason: 275 B-F4·279 실측 — `saveAnalysis`·`listAnalyses`·`getAnalysis`의 **제품 코드 호출이 0건**인데
+방침·동의문은 "최근 5건 24시간 임시 보관"을 단정했다. 반대로 실제로 일어나는 `sessionStorage` 보관은
+문구에 없었다. 고지와 실동작이 **양방향으로 어긋난 상태**였고, 법적 고지이므로 실동작을 기준으로 맞춘다.
+
+Impact:
+- 방침 4항·`ConsentGate` 문구를 **세션 저장소 10분**(277 기준: user-bound·로그아웃/계정 전환 시 즉시 삭제)으로 교체.
+- `src/lib/analysisCache.ts`는 **삭제하지 않고 미사용으로 명시**한다 — 재개 시 265 설계를 다시 해야 하기 때문.
+- ★`clearAnalysisCache()` 호출은 **유지**한다(과거 잔여 레코드 삭제). 277의 `clearSessionResult()`와 함께 남는다.
+- 재개 조건: ①오프라인 열람 수요 확인 ②user-bound 저장·목록·복원 배선 ③기기 저장소 전부를 하나의 삭제 계약에 포함
+  ④방침·동의문 문구 동시 갱신.
+
 ﻿# Decisions
 
 Record durable project decisions here. Keep entries short and dated.

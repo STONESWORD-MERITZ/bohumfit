@@ -126,12 +126,13 @@ describe("★개인정보처리방침 — 오프라인 캐시 고지(1문장 추
         <PrivacyPolicy />
       </MemoryRouter>
     );
-    const added = screen.getByText(/오프라인 열람용 기기 내 임시 보관/);
-    expect(added.textContent).toContain("최근 분석 5건");
-    expect(added.textContent).toContain("24시간");
-    expect(added.textContent).toContain("로그아웃 시 즉시 삭제");
-    // ★서버 전송 0 — A안의 핵심 사실이 고지에 포함돼야 한다.
-    expect(added.textContent).toContain("서비스 서버로 전송되지 않습니다");
+    // ★BOHUMFIT-279: 265 A안 조항이 **철회**되고 실동작(세션 저장소 10분) 조항으로 교체됐다.
+    const added = screen.getByText(/다시 보기용 기기 내 임시 보관/);
+    expect(added.textContent).toContain("10분");
+    // ★279: 삭제 조건이 277 계약에 맞춰 **로그아웃 + 계정 전환**으로 넓어졌다.
+    expect(added.textContent).toContain("로그아웃·다른 계정 로그인 시 즉시 삭제");
+    // ★서버 전송 0 — 기기 임시 보관의 핵심 사실은 그대로 고지한다.
+    expect(added.textContent).toContain("서비스 서버로 별도 전송되지 않습니다");
   });
 
   it("★기존 조항 문구가 그대로 보존된다(삭제·치환 0)", () => {

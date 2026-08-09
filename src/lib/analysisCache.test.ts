@@ -111,12 +111,14 @@ describe("★고지 문구 3층 정합 (동의 화면 ↔ 개인정보처리방�
   const consent = readFileSync(join(ROOT, "src/components/ConsentGate.tsx"), "utf8");
   const policy = readFileSync(join(ROOT, "src/pages/PrivacyPolicy.tsx"), "utf8");
 
-  it("동의 화면이 90일·7일·24시간 세 층을 모두 고지한다", () => {
+  // ★BOHUMFIT-279로 기대값을 갱신했다. 265 A안(기기 캐시 5건·24h)은 **배선되지 않은 채 고지만 있었고**
+  //   Human이 A안 자체를 철회했다. 기기 층은 실제 동작인 **세션 저장소 10분**(277 기준)으로 바뀐다.
+  it("동의 화면이 90일·7일·기기 10분 세 층을 모두 고지한다", () => {
     expect(consent).toContain("자료 원본은 분석 후 저장하지 않습니다");
     expect(consent).toContain("90일간"); // 히스토리 저장 요청분(서버)
     expect(consent).toContain("7일간"); // 요약 자동 기록(서버)
-    expect(consent).toContain("24시간 임시 보관"); // 기기 캐시(A안)
-    expect(consent).toContain("로그아웃 시 즉시 삭제");
+    expect(consent).toContain("10분간 임시 보관"); // 기기(세션 저장소 · 279)
+    expect(consent).toContain("계정 전환 시 즉시 삭제");
   });
 
   it("★동의 화면이 방침과 모순되는 단언을 하지 않는다(Codex 반려 2)", () => {
@@ -135,14 +137,20 @@ describe("★고지 문구 3층 정합 (동의 화면 ↔ 개인정보처리방�
   it("방침 쪽 근거 조항이 실제로 존재한다(동의 화면 수치의 출처)", () => {
     expect(policy).toContain("저장일부터 90일간 보관하며"); // 40·50행 계열
     expect(policy).toContain("최근 10건 범위에서 자동 기록되며, 7일이 지나면 자동 파기"); // 41·51행 계열
-    expect(policy).toContain("최근 분석 5건이 이용자 기기(브라우저 저장소)에 24시간 동안 임시 보관");
-    expect(policy).toContain("로그아웃 시 즉시 삭제됩니다");
+    // ★279: A안 조항 → 실동작(세션 저장소 10분) 조항으로 교체됐다.
+    expect(policy).toContain("브라우저 세션 저장소에 10분 동안 임시 보관");
+    expect(policy).toContain("로그아웃·다른 계정 로그인 시 즉시 삭제");
   });
 
-  it("기기 캐시 수치가 구현 상수와 일치한다(문구만 바뀌는 것을 막는다)", () => {
+  // ★279: 고지가 참조하는 구현 상수가 `analysisCache`(미배선)에서 **`sessionResultQueue`(실동작)**로 바뀌었다.
+  //   `MAX_ENTRIES`·`TTL_MS`는 A안 정의로 파일에 남지만(재개 대비) **고지의 근거는 아니다**.
+  it("기기 임시 보관 수치가 **실제** 구현 상수와 일치한다(문구만 바뀌는 것을 막는다)", async () => {
+    const { SESSION_RESULT_TTL_MS } = await import("./sessionResultQueue");
+    expect(SESSION_RESULT_TTL_MS / (60 * 1000)).toBe(10);
+    expect(consent).toContain("10분간");
+    expect(policy).toContain("10분 동안");
+    // A안 상수는 정의만 남아 있고 고지와 무관하다.
     expect(MAX_ENTRIES).toBe(5);
     expect(TTL_MS / (60 * 60 * 1000)).toBe(24);
-    expect(consent).toContain("최근 5건");
-    expect(policy).toContain("최근 분석 5건");
   });
 });
