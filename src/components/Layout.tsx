@@ -10,6 +10,8 @@ import { useAuth } from "../lib/auth-context";
 import { useIsMobile } from "./mobile/useIsMobile";
 import MobileBottomNav from "./mobile/MobileBottomNav";
 import { BOTTOM_NAV_HEIGHT } from "./mobile/bottomNavTabs";
+// BOHUMFIT-278: 하단 여백을 상수가 아니라 **실제 점유 총합**으로 잡는다(배너까지 포함).
+import { PAGE_BOTTOM_SURFACES, useBottomSurfaceOffset } from "./mobile/bottomSurface";
 import Footer from "./Footer";
 import Logo from "./Logo";
 
@@ -192,6 +194,10 @@ export default function Layout() {
   const isMobile = useIsMobile();
   const { user: navUser } = useAuth();
   const showBottomNav = isMobile && !!navUser;
+  // BOHUMFIT-278: 네비·액션 바·안내 배너가 실제로 차지한 높이(모바일에서만 관찰).
+  //   ★상수(`BOTTOM_NAV_HEIGHT`)만 빼두면 3단이 겹칠 때 본문 마지막 줄이 가려진다(실측).
+  //   ★`offsetHeight`에 각 요소의 세이프에어리어가 포함돼 있어 이중 적용이 생기지 않는다.
+  const bottomSurfaceHeight = useBottomSurfaceOffset(PAGE_BOTTOM_SURFACES, isMobile);
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -229,7 +235,12 @@ export default function Layout() {
       //   그래야 최하단까지 스크롤했을 때 푸터 마지막 문장도 고정 네비에 가리지 않는다.
       style={
         showBottomNav
-          ? { paddingBottom: `calc(${BOTTOM_NAV_HEIGHT}px + env(safe-area-inset-bottom, 0px) + 2rem)` }
+          ? {
+              paddingBottom: `calc(${Math.max(
+                bottomSurfaceHeight,
+                BOTTOM_NAV_HEIGHT,
+              )}px + env(safe-area-inset-bottom, 0px) + 2rem)`,
+            }
           : undefined
       }
     >

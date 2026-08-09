@@ -6,64 +6,10 @@
 //   z-index가 같으면 DOM 뒤쪽이 위에 오는데 `Layout`은 `<main>` 다음에 네비를 렌더하므로
 //   **네비가 주 액션 버튼의 아래쪽 80%를 덮었다**(실측: 56px 중 45px). 버튼을 누르려다 탭이 눌려
 //   의도치 않게 화면이 이탈했다. → 액션 바를 **네비 위로 쌓아** 둘 다 온전히 쓰게 한다.
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { MOBILE_LAYOUT, MOBILE_TOUCH } from "./tokens";
-import { BOTTOM_NAV_HEIGHT } from "./bottomNavTabs";
-
-/**
- * BOHUMFIT-273 — 하단 네비가 **실제로 화면에 있으면** 그 높이(px)를, 없으면 0을 준다.
- *
- *   ★상수(`BOTTOM_NAV_HEIGHT`)로 고정하지 않고 실제 높이를 재는 이유 두 가지(실측 근거):
- *     ①실측 네비 높이는 57px이라 상수 60px으로 올리면 두 바 사이에 **3px 틈**이 생겨 본문이 비친다.
- *     ②네비는 시트(`role=dialog`)·분석 중(`data-analysis-busy`)에 **스스로 사라진다**(269b).
- *       상수 오프셋이면 네비가 없는데도 떠 있는 빈 틈이 생긴다.
- *   ★`offsetHeight`에는 네비가 적용한 `env(safe-area-inset-bottom)`가 **이미 포함**되어 있어
- *     세이프에어리어 이중 적용이 구조적으로 생기지 않는다.
- *   ★관찰만 한다 — `MobileBottomNav`는 한 줄도 고치지 않는다(269b가 시트를 관찰한 방식과 같다).
- */
-function useBottomNavHeight(enabled: boolean): number {
-  const [height, setHeight] = useState(0);
-
-  useEffect(() => {
-    if (!enabled) return;
-    if (typeof document === "undefined" || typeof MutationObserver === "undefined") return;
-
-    let resizeObserver: ResizeObserver | null = null;
-    let watched: Element | null = null;
-
-    const measure = (nav: Element | null) => {
-      // 상수는 ResizeObserver가 없는 환경의 폴백으로만 쓴다(겹침을 남기는 것보다 낫다).
-      setHeight(nav ? (nav as HTMLElement).offsetHeight || BOTTOM_NAV_HEIGHT : 0);
-    };
-
-    const check = () => {
-      const nav = document.querySelector('[data-testid="mobile-bottom-nav"]');
-      if (nav !== watched) {
-        resizeObserver?.disconnect();
-        watched = nav;
-        if (nav && typeof ResizeObserver !== "undefined") {
-          resizeObserver = new ResizeObserver(() => measure(nav));
-          resizeObserver.observe(nav);
-        }
-      }
-      measure(nav);
-    };
-
-    check();
-    const observer = new MutationObserver(check);
-    observer.observe(document.body, { childList: true, subtree: true });
-    window.addEventListener("resize", check);
-    window.addEventListener("orientationchange", check);
-    return () => {
-      observer.disconnect();
-      resizeObserver?.disconnect();
-      window.removeEventListener("resize", check);
-      window.removeEventListener("orientationchange", check);
-    };
-  }, [enabled]);
-
-  return height;
-}
+// BOHUMFIT-278: 273이 만든 네비 높이 추종 로직을 **공용 계약으로 승격**했다(동작 동일).
+import { ACTION_BAR_BELOW, BOTTOM_SURFACE_Z, useBottomSurfaceOffset } from "./bottomSurface";
 
 export interface PrimaryActionProps {
   label: string;
@@ -88,7 +34,7 @@ export default function PrimaryAction({
   hint,
 }: PrimaryActionProps) {
   // BOHUMFIT-273: 고정 배치일 때만 관찰한다(흐름 안 배치는 겹칠 일이 없다 — 268a 시트가 그 경우다).
-  const navHeight = useBottomNavHeight(fixed);
+  const navHeight = useBottomSurfaceOffset(ACTION_BAR_BELOW, fixed);
   const button = (
     <button
       type="button"
@@ -110,11 +56,12 @@ export default function PrimaryAction({
 
   return (
     <div
-      className="m-action-bar fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white"
+      className="m-action-bar fixed inset-x-0 bottom-0 border-t border-line bg-white"
       style={{
         paddingLeft: MOBILE_LAYOUT.gutter,
         paddingRight: MOBILE_LAYOUT.gutter,
         paddingTop: 12,
+        zIndex: BOTTOM_SURFACE_Z.action,   // BOHUMFIT-278: 층위 토큰(네비 위·배너 아래)
         // BOHUMFIT-273: 네비가 있으면 그 위로 올라가고, 인디케이터 여백은 아래 네비가 책임지므로
         //   `.m-action-bar`의 세이프에어리어 패딩을 평상시 값(12px)으로 덮는다(이중 여백 0).
         //   ★네비가 없으면 아무것도 덮지 않아 **현행과 완전히 같은 마크업**이 나온다.

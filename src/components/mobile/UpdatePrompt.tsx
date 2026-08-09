@@ -5,6 +5,9 @@
 //   대기 중인 새 버전이 없으면 아무것도 렌더하지 않으므로 기존 화면 레이아웃에 영향이 없다.
 import { useEffect, useState } from "react";
 import { applyServiceWorkerUpdate, watchServiceWorkerUpdate } from "../../lib/pwa";
+// BOHUMFIT-278: 하단 표면 단일 계약 — 시트/모달보다 아래, 네비·액션 바보다 위(275 A-F2:
+//   기존 z-[9997]은 전체표(9990)·모달(1000/50) **위를 덮었다**).
+import { BANNER_BELOW, BOTTOM_SURFACE_Z, useBottomSurfaceOffset } from "./bottomSurface";
 import { MOBILE_LAYOUT, MOBILE_TOUCH } from "./tokens";
 
 export default function UpdatePrompt() {
@@ -13,18 +16,24 @@ export default function UpdatePrompt() {
 
   useEffect(() => watchServiceWorkerUpdate(() => setWaiting(true)), []);
 
+  // BOHUMFIT-278: 네비·액션 바 위로 쌓는다.
+  const bottomOffset = useBottomSurfaceOffset(BANNER_BELOW, waiting);
+
   if (!waiting) return null;
 
   return (
     <div
       role="status"
       data-testid="sw-update-prompt"
-      className="fixed inset-x-0 bottom-0 z-[9997] border-t border-line bg-white"
+      className="fixed inset-x-0 border-t border-line bg-white"
       style={{
+        zIndex: BOTTOM_SURFACE_Z.banner,
+        bottom: bottomOffset,
         paddingLeft: MOBILE_LAYOUT.gutter,
         paddingRight: MOBILE_LAYOUT.gutter,
         paddingTop: 12,
-        paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + 12px)`,
+        // ★아래에 네비·액션 바가 있으면 그쪽이 인디케이터 여백을 책임진다(이중 적용 방지).
+        paddingBottom: bottomOffset > 0 ? 12 : `calc(env(safe-area-inset-bottom, 0px) + 12px)`,
       }}
     >
       <div className="flex items-center gap-3">

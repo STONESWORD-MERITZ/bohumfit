@@ -1877,12 +1877,7 @@ export default function Disclosure({
   // BOHUMFIT-136b: 드래그앤드롭 시각 상태 + 선택 파일 표시 + 모바일 하단 CTA 노출(분석 로직 무관).
   const [isDragging, setIsDragging] = useState(false);
   const [selectedNames, setSelectedNames] = useState<string[]>([]);
-  const [showSticky, setShowSticky] = useState(false);
-  useEffect(() => {
-    const onScroll = () => setShowSticky(window.scrollY > 240);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  // BOHUMFIT-278: 구형 CTA 제거로 스크롤 감지(`showSticky`)도 함께 사라졌다 — 다른 사용처가 없다.
   // BOHUMFIT-268b: 화면을 떠나면 폴링을 멈춘다(분석은 서버에서 그대로 진행된다).
 
   // BOHUMFIT-171a: 파일 목록 압축용 상태 — 3개 이상 접기/펼치기 + 총 용량 표시.
@@ -2349,19 +2344,12 @@ export default function Disclosure({
         )}
       </section>
 
-      {/* BOHUMFIT-136b: 모바일(md 미만) 하단 고정 분석 CTA — 스크롤 후 표시, 분석 전까지만. PC는 기존 버튼 유지. */}
-      {showSticky && !result && (
-        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-white px-4 py-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] md:hidden">
-          <button
-            type="button"
-            onClick={analyze}
-            disabled={loading || !consent || (mode === "agent" && !subjectConsent)}
-            className="w-full rounded-[8px] bg-accent-600 py-3 text-sm font-bold text-white disabled:opacity-50"
-          >
-            {loading ? "분석 중..." : copy.button}
-          </button>
-        </div>
-      )}
+      {/* BOHUMFIT-278(A-F1): 구형 모바일 하단 고정 CTA를 **제거**했다.
+          ★275 실측 — `z-50`으로 하단 네비(`z-40`)를 덮었고, `useIsMobile` 분기 밖에서 `md:hidden`만 써
+            266 제1원칙을 어겼으며, 세이프에어리어 처리도 없었다.
+          ★기능은 268a 업로드 시트의 **부분집합**이었다(파일 선택·동의 없음, 게이트는 오히려 더 약해
+            파일 0개에도 눌렸다). 모바일 진입은 `open-upload-sheet` 버튼 → 시트 하나로 단일화한다.
+          ★`md:hidden`이라 데스크톱은 원래 이 CTA를 보지 못했다 → 데스크톱 동선 영향 0. */}
 
       {mode === "customer" && !result && (
         <section className="mb-5 rounded-[8px] border border-emerald-100 bg-emerald-50 p-5">
