@@ -1,7 +1,7 @@
 ## 2026-08-08 Codex BOHUMFIT-278·279·276c 2차 검증 — PASS / ★3건 분리 커밋
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human** / **Chat**(오픈 전 목록 마감)
-Commits: **`f9c9b00`**(278) → **`d58d033`**(279) → **`{C}`**(276c) — `origin/main` push 완료.
+Commits: **`f9c9b00`**(278) → **`d58d033`**(279) → **`133d9ec`**(276c) — `origin/main` push 완료.
 기준 HEAD `8cce8ae`(277).
 
 ### ★3건 분리 — 파일 겹침 0이라 hunk 분리 불필요
