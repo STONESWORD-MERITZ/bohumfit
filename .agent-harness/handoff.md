@@ -1,3 +1,319 @@
+## 2026-08-11 BOHUMFIT-284 · BOHUMFIT-286 — Codex 2차 검증 · 분리 커밋 · push 완료
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human**(286 Q1~Q9 결정) / **Chat**(층위 2 분할 발번)
+
+### 결과
+- ★전제 정정 확인: 기준 HEAD와 origin/main은 모두 `329a630`이었고, `e644261`은 `git cat-file` 기준 **존재하지 않는 객체**다. 284는 미커밋 상태가 맞았다.
+- 284 커밋: `da952154aed52d63e59fdb347ae4286e5d33186e`
+  - `proposal_parser.py`는 `git add -p`로 286 hunk 3개를 제외하고 `RESPONSE_STRIPPED_METADATA_KEYS` hunk만 stage했다.
+  - staged 범위에서 backend 전체 **937 passed, 8 skipped**(★워킹트리에 286 신규 테스트 5건이 미추적 상태로 존재해 전체 수치에는 그 5건도 포함), tsc app/node·lint PASS.
+  - 284 전용 **30 passed**. 실제 HTTP 4종은 각각 한도 다음 요청에서 429 + `요청이 너무 잦습니다. 잠시 후 다시 시도해 주세요.`를 반환했다. `registry_hints` 응답 부재·내부 반환 유지·형제 metadata 유지도 통과했다.
+  - 정본 PDF 2건을 `check_pdf_limits()`로 직접 통과시켰다(2/2). `보장분석/`은 `.gitignore:31` 적용이며 Git 상태·stage에 0건이었다.
+- 286 커밋: `94c18a8ef93d132bb404cf8ff0a5b1ab17084d0f`
+  - 전체 게이트 실측: backend **937 passed, 8 skipped**, frontend **402 passed / 41 files**, tsc app/node·lint PASS, `smoke:coverage` PASS.
+  - `build:verify`는 **343,702 B**, 필수 문자열 3종 부재로 예상 FAIL(248 Windows Application Control 확정 이슈) — 기능 실패로 분류하지 않았다.
+  - 오현지 제안서 3건 실재 파싱: 수정 전 알파Plus가 `상해 5종=1,000만·질병 5종=1,000만`으로 붕괴함을 Step-1 worktree에서 재현했고, 수정 후 상해 1~5종 `20/30/100/500/1,000만`, 질병 1~5종 `20/30/50/100/400만`으로 분리됐다. 원문 p10~11 시각 확인과 테스트 5건도 통과했다.
+  - 수기표 `리모델링!N11:O15` 재판독값은 `[[20,20],[30,30],[50,100],[100,500],[400,1000]]`으로 파서와 완전 일치했다.
+  - 월납 제안 3건은 `22,150 + 45,760 + 77,470 = 145,380`, 유지 계약분 `39,688`, 수기표 `F6=185,068`(`=SUM(H6:AE6)`)로 대사됐다. ★286 분석 문서는 `185,068 = 0 + 39,688 + 45,760 + 77,470 + 22,150`로 구성값은 명시하지만 **`제안 3건 소계 145,380 + 유지 39,688`이라는 소계 표현은 직접 쓰지 않았다** — 문서 표현 누락으로 기록하며 값 차이는 없다.
+  - Step-1(`da95215`) 대 현재 payload SHA-256 비교: 정본 표준 15계약·월납 681,312, overview 15계약·월납 4,675,189, 우상균 6계약·월납 488,294가 세 건 모두 **완전 동일**했다. `smoke:coverage` 총액도 604,560,000 / 1,542,990,000 불변.
+  - `_merge_entries` 함수 본문은 Step-1과 현재 SHA-256 `f4c0bfdd6d187a07ef6e0d79dbc1fd6de2751fe833de75403a3ea00f4091d559`로 동일하다. 40행 스키마·회사 열·집계 산식·`pipeline/`·`filters.py`·`vite.config.*` diff 0.
+- 기준선 3문서(`verify.md`·`CLAUDE.md`·`AGENTS.md`)는 Step 2 실측값 **937/8 · 402/41**로 동기화했다.
+- `보장분석/` 실 PDF·수기 xlsx·프로토타입 xlsx·검증용 렌더는 stage 0. 기존 미추적 `.agent-harness/tasks/BOHUMFIT-283-preopen-audit.md`는 이번 두 태스크 범위 밖이라 보존·미stage했다.
+
+### Git 원문 — 284 커밋 직전
+```text
+da95215 생성 전 git log --oneline -5:
+329a630 docs(BOHUMFIT-276c): 2차 검증 기록 커밋 해시 133d9ec 기입
+133d9ec fix(BOHUMFIT-276c): 가입제안서 월납 기준 확정(보장보험료 합계·원 단위 절삭)
+d58d033 fix(BOHUMFIT-279): 오프라인 캐시 A안 철회 — 개인정보 고지 문구를 실동작에 정합
+f9c9b00 fix(BOHUMFIT-278): 모바일 하단 표면 단일화 — 구형 CTA 제거·z층위 계약
+8cce8ae fix(BOHUMFIT-277): PII 저장·로그 경계 봉인 + scrub 대상 확장(상병코드·기관명·중복 파일명·raw 비전송)
+
+git status --short:
+ M .agent-harness/decisions.md
+ M .agent-harness/handoff.md
+ M .agent-harness/locks.md
+A  .agent-harness/tasks/BOHUMFIT-284-open-gate-closure.md
+ M .agent-harness/verify.md
+ M AGENTS.md
+ M CLAUDE.md
+MM backend/coverage/proposal_parser.py
+M  backend/main.py
+A  backend/pdf_guard.py
+M  backend/tests/test_admin_tier_233.py
+A  backend/tests/test_open_gate_284.py
+M  backend/tests/test_usage_middleware.py
+M  src/lib/errorMessages.ts
+A  src/lib/openGate284.test.ts
+?? .agent-harness/tasks/BOHUMFIT-283-preopen-audit.md
+?? .agent-harness/tasks/BOHUMFIT-286-ohj-proposal-track.md
+?? .agent-harness/tasks/BOHUMFIT-286-schema-design.md
+?? backend/tests/test_proposal_tier_surgery_286.py
+?? scripts/prototype_286_ohj.py
+```
+
+### Git 원문 — 286 커밋 직전
+```text
+git log --oneline -5:
+da95215 fix(BOHUMFIT-284): 오픈 게이트 마감 — rate limit 4종·응답 표면 축소·업로드 상한
+329a630 docs(BOHUMFIT-276c): 2차 검증 기록 커밋 해시 133d9ec 기입
+133d9ec fix(BOHUMFIT-276c): 가입제안서 월납 기준 확정(보장보험료 합계·원 단위 절삭)
+d58d033 fix(BOHUMFIT-279): 오프라인 캐시 A안 철회 — 개인정보 고지 문구를 실동작에 정합
+f9c9b00 fix(BOHUMFIT-278): 모바일 하단 표면 단일화 — 구형 CTA 제거·z층위 계약
+
+git status --short:
+M  .agent-harness/decisions.md
+ M .agent-harness/handoff.md
+ M .agent-harness/locks.md
+A  .agent-harness/tasks/BOHUMFIT-286-ohj-proposal-track.md
+A  .agent-harness/tasks/BOHUMFIT-286-schema-design.md
+ M .agent-harness/verify.md
+ M AGENTS.md
+ M CLAUDE.md
+M  backend/coverage/proposal_parser.py
+A  backend/tests/test_proposal_tier_surgery_286.py
+A  scripts/prototype_286_ohj.py
+?? .agent-harness/tasks/BOHUMFIT-283-preopen-audit.md
+```
+
+### Git 원문 — 두 커밋 push 직후
+```text
+git rev-list --left-right --count origin/main...HEAD:
+0	0
+
+git log --oneline -5:
+94c18a8 fix(BOHUMFIT-286): 1~5종 수술비 tier 오검출 수정(범위 표기 오인·종별 미구분)
+da95215 fix(BOHUMFIT-284): 오픈 게이트 마감 — rate limit 4종·응답 표면 축소·업로드 상한
+329a630 docs(BOHUMFIT-276c): 2차 검증 기록 커밋 해시 133d9ec 기입
+133d9ec fix(BOHUMFIT-276c): 가입제안서 월납 기준 확정(보장보험료 합계·원 단위 절삭)
+d58d033 fix(BOHUMFIT-279): 오프라인 캐시 A안 철회 — 개인정보 고지 문구를 실동작에 정합
+
+git status --short:
+ M .agent-harness/handoff.md
+ M .agent-harness/locks.md
+?? .agent-harness/tasks/BOHUMFIT-283-preopen-audit.md
+```
+
+### Next
+1. **Chat** — `BOHUMFIT-286-schema-design.md`의 Human 결정 9문항 리뷰 후 층위 2를 S1~S4로 분할 발번.
+2. **다음 야간** — `[전]` 트랙 전수 대조(`20260805` 보장분석 PDF ↔ 수기표 `기존` 55열).
+3. **대기** — BOHUMFIT-285 수술 판정 조사.
+
+## 2026-08-11 BOHUMFIT-286 오현지 3제안서 트랙 — Phase A~D 완료 / 커밋 대기
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(검증·분리 커밋) / **Human**(해석 차이 9문항)
+기준 HEAD `329a630`. git 쓰기 0. 상세는 tasks/BOHUMFIT-286-ohj-proposal-track.md · BOHUMFIT-286-schema-design.md.
+
+### ★패킷 전제 정정 (먼저)
+- 패킷은 "handoff 최신 항목(284 **e644261**)"이라 했으나 **284는 아직 미커밋**이다(HEAD `329a630`).
+  284 변경분이 워킹트리에 그대로 있고, 286이 **같은 파일(`proposal_parser.py`)을 추가로 건드렸다**.
+  ★hunk는 완전히 분리돼 있다 — 284=`RESPONSE_STRIPPED_METADATA_KEYS`+`_finalize_proposals` /
+  286=`_TIER_RANGE_RE`+`_extract_tier_surgery_entries`. 겹치는 줄 0, `git add -p`로 분리 가능.
+- 패킷 게이트 수치(backend 916/8·frontend 393/40)도 낡았다 — 실제 기준선 **932/8**·**402/41**로 판정했다.
+
+### Phase A — 실측·대조
+- ★**제안서 3건 전부 메리츠화재·동일 양식**(가계약번호 앞 9자리 공통·페이지 구조 동일)
+  → **D-7 일반화 가능성 높음**. 상품만 3종(운전자상해·The건강한5.10.5·알파Plus).
+- ★★**월납 3건이 수기표와 정확히 일치**(22,150·45,760·77,470, 합계 185,068).
+  원문이 `보장보험료 합계 22,157원` 옆에 `1회차보험료(할인후) 22,150원`을 싣는다 —
+  **276c의 "제안서만 원 단위 버림" 결정이 설계사 실무와 같다**는 강력한 증거.
+- ★**두 수기표(오현지·우상균)의 행 체계가 완전 일치** — **42행 + 비고**, 대분류 11개, 4시트.
+  차이는 리모델링 r24 표기 흔들림 1건뿐 → **고객별 가변 아님. 목표 스키마 확정 가능.**
+- **3층 대조**(수기표=정답 / 현행 코드 신규 산출물=피검체): 값 있는 25행 중 **13 일치·12 차이**.
+  · 1층 버그: **1~5종 수술비 tier 오검출**(아래 Phase B에서 수정)
+  · 2층 갭: ★**1~5종 수술비 5행이 현행 40행에 자리가 없다** — `GROUP12`에 `종수술` 그룹은
+    있는데 `KB_COVERAGES` 행이 **0개**다. 값을 정확히 읽어도 실을 자리가 없다.
+  · 3층 누락 7건(암 계열 5·상해입원·골절수술비). 이 중 **중입자 5,000만·상해입원 2만은
+    원문 금액이 수기표와 정확히 일치**해 매칭 추가만으로 해결 가능한 후보.
+  · **해석 차이 3건**(뇌혈관/심장 수술비 300만 vs 1,000만, 기본계약 상해사망) —
+    ★파서가 **원문을 정확히 읽었다**. 유령·오독이 아니라 설계사가 다른 담보를 택한 것 → Human.
+
+### ★F-5 재현 — **성공** (283이 "확인 불가"로 남긴 항목)
+`_merge_entries` 큰 값 채택이 **실측값끼리 실제로 발동한다**. 알파Plus에서 `N종수술비(질병 5종)`
+한 이름에 10개 라인 금액이 모여 최댓값 1,000만원이 채택됐다.
+★기전: `_entry(...)`의 **`merge_rule` 기본값이 `AGG_REP`** — 4번째 인자로 `AGG_SUM`을 넘겨도
+그것은 `agg` 필드이고 `_merge_entries`가 보는 건 별개 인자다.
+★★단 이 REP는 **의도된 방어**이기도 하다(같은 담보가 리스트·상세 페이지에 중복 등장 → SUM이면 이중 계상).
+→ **정책 변경 없이는 r10 질병수술비·r41 골절진단비를 고칠 수 없다**(Phase B 금지 영역과도 일치).
+
+### Phase B — B-1만 실시
+- **1~5종 수술비 tier 오검출 수정**(`proposal_parser.py`). 상세면 서술이 `1-5종 수술분류표Ⅱ`로
+  시작해 정규식이 **범위 표기의 5**를 tier로 잡았고, 종별을 못 가려 상해·질병 양쪽에 같은 값을
+  넣은 뒤 REP(큰 값)로 뭉개졌다 → ★**질병 5종이 400만원 대신 1,000만원**으로 고객 안내표에 나갔다.
+  수정: ①범위 표기 제거 ②종별 한쪽만 적힌 줄은 그쪽만 ③대괄호 표기(`[상해3종]`) 인정.
+  → ★**수정 후 10종별이 수기표 r11~15와 완전 일치.**
+- **B-2~B-4 미실시(사유 기록)**: r10·r41은 `_merge_entries` 정책 변경이 필요(패킷 금지 + 이중 계상 위험).
+  r20~r23 암 계열은 **원문 금액과 수기표 금액이 안 맞아** "매칭 추가로 해결되는 누락"에 해당하지 않는다.
+  r24·r31은 매칭만으로 가능하나 **대응 행이 없어**(2층) 층위2와 함께 넣는 것이 맞다.
+
+### 게이트
+- backend **937/8**(932 + 신규 5, 회귀 0) · `npm test` **402/41**(회귀 0·프런트 무변경)
+- ★`smoke:coverage` **정본 2건 기준값 완전 일치**(681,312 · 4,675,189 불변)
+- tsc app · lint 무경고 · build:verify 예상 FAIL · ★보호 영역 **diff 0**(`pipeline/`·`filters.py`·`vite.config.ts`)
+- ★불변 결정 무충돌 전수 확인(상해사망 합산값·243 80%이상 제외·월납 기준·276a 폴백 0·hints 노출 0)
+
+### Phase C — 프로토타입
+`보장분석\비교분석표\BOHUMFIT_프로토타입_오현지_260811.xlsx` 생성(★gitignore 폴더·미stage 확인).
+생성기 `scripts/prototype_286_ohj.py` — ★**제품 export 경로 무접촉 독립 스크립트**.
+수기표 42행·2열 병기·서식 재현. ★**빈칸은 빈칸으로 뒀다**(수기표 값 베끼기 금지) — **18/42행만 값**이
+있는 것이 현재 파싱 실력의 정직한 모습이다. 연분홍=2층 갭 행, 연노랑=실제 읽은 값.
+
+### Phase D — 설계 명세
+`tasks/BOHUMFIT-286-schema-design.md`: 42행 전문 · 40→42 매핑(유지 21·신설 11·병합 3·이동 4·폐기 2) ·
+영향 파일 목록 · ★**Human 결정 9문항**(Q1 40행 폐기 여부 / Q2 80%이상 행과 243 충돌 /
+Q6 정본 smoke 기준값 갱신 승인 / Q8 뇌혈관·심장 수술비 근거 담보 등) · **구현 4단계 분할안(S1~S4)**.
+★S1 착수 전 Q1·Q2·Q6이 답해져야 한다.
+
+### ★확인 불가
+1. **[전] 트랙 전수 대조** — `20260805_오현지님_보장분석.pdf` ↔ 수기표 '기존' 시트(55열) 미실시.
+   제안서 3층 대조에 세션을 썼다. **다음 세션 최우선.**
+2. **r16·r17·r20~r23의 수기표 근거 담보 특정** — 원문에 후보는 있으나 설계사만 안다(추측 금지·Q8).
+3. **우상균 6계약 산출물 재생성 대조** — 우상균은 KB 경로라 `proposal_parser` 영향 없음(구조적 판정)까지만.
+4. 비밀번호 걸린 PDF: 해당 없음(3건 모두 열림).
+
+### Next
+1. **Codex** — ★**284와 286 분리 커밋**(hunk 분리 안내는 286 태스크 문서 상단). 검증 항목:
+   ①backend 937/8 ②smoke 정본 2건 불변 ③보호 영역 diff 0 ④`보장분석/` 하위 미stage
+   ⑤`proposal_parser.py` hunk가 284/286으로 정확히 갈렸는지.
+2. **Human** — 286-schema-design.md의 **Q1~Q9 결정**(특히 Q1·Q2·Q6).
+3. **Chat** — Q 답변 후 층위2를 S1~S4로 발행. 그 전에 [전] 트랙 대조 태스크를 먼저 넣는 것도 가능.
+
+## 2026-08-10 BOHUMFIT-284 오픈 게이트 마감 — 완료 / 커밋 대기
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(2차 검증·커밋·push)
+Risk tier: 중~고위험(보안 경계·업로드 입구). 기준 HEAD `329a630`. git 쓰기 0 — 커밋은 Codex.
+상세는 tasks/BOHUMFIT-284-open-gate-closure.md.
+★283 문서(미커밋)도 워킹트리에 함께 있다 — 284와 **분리 커밋**할지는 Codex 판단.
+
+### 변경
+- `backend/main.py` — limiter 4종 추가(283 F-6) + `_guard_pdf()` 헬퍼 + 업로드 4곳 배선
+- `backend/pdf_guard.py` **신설** — 쪽수·압축 해제 크기·이미지 원시 바이트 상한(283 F-7)
+- `backend/coverage/proposal_parser.py` — `_finalize_proposals`에서 `registry_hints` 응답 제거(283 F-3)
+- `src/lib/errorMessages.ts` — 상한 문구 2건 + ★**429 규칙**(기존에 없어 폴백으로 뭉개지던 것)
+- 신규 테스트 `backend/tests/test_open_gate_284.py`(30) · `src/lib/openGate284.test.ts`(9)
+- `.agent-harness/decisions.md` — 월납 기준·265 A안 철회 재확인·283 판정 마감
+- 기준선 3문서(`verify.md`·`CLAUDE.md`·`AGENTS.md`) 동시 갱신
+
+### T1 — rate limit 4종 (★오픈 조건)
+| 엔드포인트 | 한도 | 실제 요청 결과 |
+|---|---|---|
+| `/billing/webhook` | 60/minute | **61번째 429** |
+| `/billing/status` | 60/minute | **61번째 429** |
+| `/admin/tier/list` | 20/minute | **21번째 429** |
+| `/admin/tier/set` | 20/minute | **21번째 429** |
+detail은 4종 모두 `요청이 너무 잦습니다. 잠시 후 다시 시도해 주세요.` — 271 사전과 정합.
+★한도는 **기존 계층 그대로**(조회 60·관리 20). 새 정책 만들지 않음. 기존 적용분 무변경(테스트로 고정).
+★정상 사용 무영향: `/billing/status` 연속 20회 429 **0건**(폴링 아님 — 화면 진입당 1회).
+★slowapi 요구로 3종에 `request: Request` 인자 추가.
+
+### ★T1 부수 발견 — `default_limits`는 무효 (기록만)
+`Limiter(default_limits=["60/minute"])`가 있으나 **`SlowAPIMiddleware`가 없어 아무 일도 하지 않는다.**
+283 F-6의 "4종은 정말 무제한"이 그대로 성립. "전역 기본 한도가 있다"는 오해를 막으려 decisions에 기록.
+미들웨어 추가는 전 라우트 정책 변경이라 범위 밖.
+
+### T2 — `registry_hints` 응답 제거
+응답 경계(`_finalize_proposals`) 한 곳에서만 벗긴다. `parse_proposal_text()` 반환값은 **그대로**라
+서버 내부·276b 수기 확인은 유지 — ★276a의 `test_registry_hints_remain_as_metadata_only`가
+**그대로 통과**하는 것이 증거다. `bundle_subbenefits`·`unresolved_coverages`는 함께 지우지 않았다.
+
+### T3 — 업로드 상한 (283 F-7 최소 방어)
+쪽수 **1,000** · 콘텐츠 압축 해제 **200MB** · 이미지 원시 **4GB**.
+★근거는 실측: 실사용 확인 최대 **318쪽**(BUG-006 사고 기록)의 3.1배 / 실측 최대 콘텐츠 2,665,001 B의
+75배 / 실측 최대 이미지 174,628,166 B의 23배. **정본 6건 전부 통과**(가드 0.01~0.05초 = 전체 파싱의 0.2~3.3%).
+★설계 3원칙: **조기 중단**(폭탄을 끝까지 펼치지 않음) · **이미지는 압축을 풀지 않음**(dict의
+Width·Height·BPC만 읽음) · **열기 실패는 fail-open**(비밀번호·손상 안내는 기존 파서 몫).
+★`backend/pipeline/`을 건드리지 않으려 **새 모듈로 분리**했다(보호 영역 diff 0).
+
+### 게이트
+- backend **932/8**(902 + 신규 30, 회귀 0) · `npm test` **402/41**(393 + 신규 9, 회귀 0)
+- tsc app/node · lint 무경고 · ★`smoke:coverage` **정본 2건 기준값 완전 일치**
+- `build:verify` 343,702 B **예상 FAIL**(248 Application Control — 로컬 정직 상태)
+- ★보호 영역 **diff 0**: `backend/pipeline/` · `filters.py` · `vite.config.ts`
+- ★277 PII·278 표면·279 문구 무회귀 — 해당 테스트 직접 재실행 통과
+
+### ★기존 테스트 12건 호출 규약 갱신 (기대값 완화 아님)
+`test_admin_tier_233.py`(9)·`test_usage_middleware.py`(3)이 핸들러를 HTTP 없이 직접 호출한다.
+limiter가 붙으며 `request` 인자가 생겨 **가짜 Request를 넘기도록 인자만 맞췄다**(060·063 기존 방식).
+★**단언은 한 줄도 바꾸지 않았다.** autouse fixture로 limiter를 끈 이유는 직접 호출 반복이
+20/minute에 걸려 테스트가 실행 순서에 의존하게 되기 때문이다.
+
+### ★확인 불가
+- **심평원 진료내역 실 PDF** — 로컬 표본 0. 쪽수 상한 근거는 `main.py:619` 주석의 실사용 318쪽
+  기록이며 **실제 파일로 통과를 확인하지는 못했다**(상한은 그 3.1배).
+- **운영 429 체감** — Railway 프록시 뒤 IP 집계는 로컬 재현 불가.
+- **이미지 폭탄 실물** — 악성 표본 미생성(범위 밖). 픽셀 예산은 정본 실측값으로만 검증.
+
+### ★남은 한계 (정직 기록)
+가드는 페이지 콘텐츠 스트림과 이미지 dict만 본다. **단일 스트림이 한 번에 수 GB로 펼쳐지는 경우**는
+누적을 재기 전에 이미 펼쳐지므로 막지 못한다(pdfminer `get_data()`가 one-shot). 폰트·객체 그래프
+폭탄도 범위 밖. 이번 변경은 "크기 상한만 있던 상태"보다 나아진 **최소 방어**이지 완전 방어가 아니다.
+
+### Next
+1. **Codex** — 2차 검증 후 커밋·push. Stage 목록은 284 태스크 문서 참조(283 문서 포함 여부는 Codex 판단).
+2. **Human** — 배포 후 오픈 판단. ★283 조건 3개는 이로써 전부 해소.
+3. 오픈 후 백로그: F-1(구조화 로깅·280 통합) → F-7 정밀 방어 → 280 → 272c → F-5(표본 선행) → F-2·F-3 정리.
+
+## 2026-08-09 BOHUMFIT-283 오픈 전 전수검사 — 완료 / ★코드 변경 0 · git 쓰기 0
+
+Owner flow: Claude Chat -> Claude Code(조사) -> Human/Chat(결정) | Current owner: **Human** / **Chat**
+Commit: **없음**(야간 규칙대로 add/commit/push/checkout/stash 미실행). 기준 HEAD `329a630`.
+상세는 tasks/BOHUMFIT-283-preopen-audit.md.
+
+### ★오픈 게이트 판정 — **조건부 오픈 가능**
+275가 지목한 실사용 결함 7건 중 **5건 완전 해소 · 2건 부분 해소**이고, 부분 해소 2건 모두
+**실질 보장이 다른 계층에 있다**(raw 비전송 / z 값 일치). 게이트 7항목 중 **5통과 · 2조건부**.
+**차단 사유 없음.**
+
+### Part 1 — 275 발견 해소 확인
+| 발견 | 판정 | 근거 |
+|---|---|---|
+| B-F1 raw 파일명 | ★해소 | 순차·병렬 **양 경로** 응답 전 정규화 + history **두 경로** deep scrub |
+| B-F2 로그 | ★해소 | `document_slot` 7회 — 성공·실패 전 경로, 예외 문자열도 마스킹 |
+| B-F3 계정 전환 | ★해소 | 단일 삭제 지점 2곳 + 복원 시 소유자 대조 |
+| B-F5 콘솔/Sentry | ★**부분** | 병명은 정규식으로 못 지움(사전 부재) → 보장은 **raw 비전송**에서 |
+| A-F1 구형 CTA | ★해소 | `showSticky` 0건, `md:hidden` 잔존 2건은 **전부 주석** |
+| A-F2 z 층위 | ★**부분** | 토큰 도입·9997 제거 완료. 네비·토스트는 **리터럴 z**(값은 토큰과 동일) |
+| B-F4 캐시 문구 | ★해소 | 노출 문구 0건 + 수치가 구현 상수와 테스트로 결속 |
+
+### Part 2 — 신규 표면
+- **2A**: 275 B-0 경로표를 현재 코드로 갱신. `sessionResultQueue` 우회 접근 **0건**,
+  `safeErrorSummary` 운영 PII **0**, 구형 CTA 잔재 **0**. ★신규 노출면 1건 발견(F-3).
+- **2B**: 배너가 오버레이 아래로 내려와 **모달 덮음 해소**. 조합 전 쌍 겹침 0.
+  ★새 하단 요소 등록을 강제하는 장치 없음(F-4).
+- **2C**: 276a/b/c는 **직렬 단계**라 서로 간섭 0(실측 3건 동시 성립).
+  ★`_merge_entries` 큰 값 채택은 **실측값끼리도** 적용된다(F-5) — 고정값 경로는 276a가 막았다.
+  `registry_hints`는 승격 경로가 코드에 없어 **구조적으로 hint에 머문다**.
+- **2D**: 수집 910 = 902 + skip 8(**6건 009 폐기 룰 + 2건 실 PDF 조건부**) — 은폐된 실패 0.
+  ★갱신된 기대값 12건 전수 확인 — **약화 0, 강화 3건**. 기준선 3문서 일치.
+
+### Part 3 — 오픈 게이트
+인증·권한 ✔(26개 엔드포인트 전수 — 데이터 경로 **전부 `verify_jwt`**, progress는 소유자 불일치 시 **404**,
+admin은 `_require_tier_admin` 별도) · 법적 고지 ✔ · 산출물 정확성 ✔ · 모바일 ✔ · 에러 처리 ✔(전 경로 타임아웃) ·
+PII ★조건부(F-1) · rate limit ★부분(F-6: 4종 미적용).
+**사고 시나리오 3종** 전부 방어 존재 — 악성 PDF(크기 상한·예외 격리·타임아웃, ★PDF 폭탄만 미방어=F-7) /
+대량 요청(limiter+사용량) / 타인 `job_id`(소유자 불일치 404·화이트리스트 저장·TTL).
+
+### 발견 7건
+F-1 병명 scrub 한계(오픈 후) · F-2 z 토큰 미사용 잔존(정리) · F-3 `registry_hints` 소비처 0인데 응답 노출(정리) ·
+F-4 하단 요소 등록 강제 장치 없음(정리) · F-5 `_merge_entries` 실측값 경합(오픈 후·표본 필요) ·
+F-6 rate limit 4종(오픈 조건) · F-7 PDF 폭탄(오픈 후).
+
+### ★오픈 조건 3가지(전부 소규모)
+1. **F-6 rate limit 4종 추가**(30분 내)
+2. **Human 실기기 검수 1회** — iOS 세이프에어리어·3단 하단 점유(231~265px).
+   ★좌표 히트 테스트는 로컬 **확인 불가**(pane clientWidth=0)라 실기기가 유일한 수단
+3. **기존 `saved`(90일) raw 파일명 정리 여부 결정**(277 이월·신규분은 이미 봉인)
+
+### 확인 불가 7건(사유 명시)
+좌표 히트 테스트 · 실계정 E2E(자격증명 부재) · 운영 DB 저장분(조회가 곧 PII 열람) ·
+운영 Sentry/Railway 로그 · **F-5 재현(제안서 표본 1건뿐)** · F-7 재현(악성 PDF 미생성) ·
+실제 설치 이벤트·waiting worker·iOS 34px.
+
+### Next
+1. **Human** — 오픈 조건 3가지 결정·실기기 검수.
+2. **Chat** — F-6 발번(오픈 조건) 후 오픈 판단. 이어서 F-1(280과 통합) → F-7 순.
+3. 백로그 우선순위 갱신안은 283 문서 말미 표 참조(280·281·282·272c·268c·D-3/D-6/D-15·층위2·D-7 포함).
+
 ## 2026-08-08 Codex BOHUMFIT-278·279·276c 2차 검증 — PASS / ★3건 분리 커밋
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human** / **Chat**(오픈 전 목록 마감)
