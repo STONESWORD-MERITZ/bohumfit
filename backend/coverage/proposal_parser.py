@@ -598,8 +598,25 @@ def _sort_key(item: dict[str, Any]) -> tuple[str, str, str]:
     )
 
 
+# BOHUMFIT-284(283 F-3): 소비처가 0인데 응답으로 나가던 키.
+#   ★데이터 자체는 지우지 않는다 — `parse_proposal_text()`·`parse_proposal_pdf()`의 반환값에는
+#     그대로 남아 서버 내부·276b 수기 확인이 계속 쓴다. **응답 직전에만** 벗긴다.
+#   ※`bundle_subbenefits`(276b가 쓰는 파생값)·`unresolved_coverages`(276a가 "지어내지 않고
+#     알린다"를 지키는 근거)는 대상이 아니다.
+RESPONSE_STRIPPED_METADATA_KEYS = ("registry_hints",)
+
+
 def _finalize_proposals(proposals: list[dict[str, Any]], warnings: list[str]) -> dict[str, Any]:
     proposals.sort(key=_sort_key)
+    for proposal in proposals:
+        metadata = proposal.get("metadata")
+        if isinstance(metadata, dict):
+            # 원본 dict를 공유하지 않도록 사본을 만든 뒤 벗긴다(호출자 반환값 보존).
+            proposal["metadata"] = {
+                key: value
+                for key, value in metadata.items()
+                if key not in RESPONSE_STRIPPED_METADATA_KEYS
+            }
     for index, proposal in enumerate(proposals, start=1):
         proposal["proposal_id"] = _proposal_id(index)
 

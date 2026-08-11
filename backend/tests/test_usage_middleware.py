@@ -24,6 +24,27 @@ pytest.importorskip("supabase")
 
 
 # ── 가짜 Supabase 빌더(.eq 필터 반영) ─────────────────────────────────────────
+# BOHUMFIT-284: 이 파일은 라우트 핸들러를 **HTTP 없이 직접 호출**한다. 284가 limiter를 붙이면서
+#   시그니처에 `request`가 생겼으므로 가짜 Request를 넘긴다(기존 060·063 테스트와 같은 방식).
+#   ★limiter는 끈다 — 직접 호출이 반복되면 한도(20/minute)에 걸려 테스트가 순서에 의존하게 된다.
+def _req(path: str = "/x", method: str = "GET"):
+    from starlette.requests import Request
+
+    return Request(
+        {"type": "http", "method": method, "path": path, "headers": [], "client": ("test", 1)}
+    )
+
+
+@pytest.fixture(autouse=True)
+def _disable_limiter_284():
+    import main as _main
+
+    previous = _main.limiter.enabled
+    _main.limiter.enabled = False
+    yield
+    _main.limiter.enabled = previous
+
+
 class _Resp:
     def __init__(self, data=None, count=None):
         self.data = data
@@ -133,7 +154,7 @@ def test_admin_billing_status_reports_unlimited(monkeypatch):
         "profiles": _Resp({"bohumfit_tier": "admin"}),
         "usage_logs": _Resp([], count=999),
     }))
-    status = asyncio.run(main.billing_status("admin-2"))
+    status = asyncio.run(main.billing_status(_req("/billing/status"), "admin-2"))
     assert status["is_admin"] is True
     assert status["role"] == "admin"
     assert status["quota_scope"] == "unlimited"
@@ -236,7 +257,7 @@ def test_customer_billing_status_uses_lifetime_trial_count(monkeypatch):
         "profiles": _Resp({"bohumfit_tier": "customer"}),
         "subscriptions": _Resp(None),
     }, usage_rows=rows))
-    status = asyncio.run(main.billing_status("u3s"))
+    status = asyncio.run(main.billing_status(_req("/billing/status"), "u3s"))
     assert status["quota_scope"] == "lifetime"
     assert status["trial_used"] == 2
     assert status["trial_limit"] == 5
@@ -409,7 +430,7 @@ def test_advisor_role_with_internal_tier_billing_status(monkeypatch):
         "profiles": _Resp({"role": "advisor", "bohumfit_tier": "internal"}),
         "usage_logs": _Resp([], count=3),
     }))
-    status = asyncio.run(main.billing_status("staff-2"))
+    status = asyncio.run(main.billing_status(_req("/billing/status"), "staff-2"))
     assert status["is_internal"] is True
     assert status["quota_scope"] == "monthly"
     assert status["limit"] == 100

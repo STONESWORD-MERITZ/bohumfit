@@ -31,6 +31,8 @@ import httpx
 
 from analyzer import run_analysis, AnalysisError, SERVER_ANALYZE_DEADLINE_SECONDS
 from pipeline.coverage_parser import parse_coverage_pdf  # BOHUMFIT-114
+from pipeline.pdf_parser import _pw_candidates  # BOHUMFIT-284: 가드도 같은 비밀번호 후보를 쓴다
+from pdf_guard import PdfGuardError, check_pdf_limits  # BOHUMFIT-284 (283 F-7)
 from coverage.service import (  # BOHUMFIT-179/193 (KB [전] 파서·신규제안 파서 격리 모듈)
     KBFormatError,
     ProposalParseError,
@@ -622,6 +624,16 @@ MAX_TOTAL_SIZE = 40 * 1024 * 1024   # 총합 40MB (10개×소형 PDF 충분)
 #   analyzer 의 동적 AI 예산이 이 상한을 기준으로 남은 시간을 계산하므로 두 곳이 어긋나면 안 된다.
 ANALYZE_TIMEOUT_SECONDS = SERVER_ANALYZE_DEADLINE_SECONDS   # 서버측 분석 상한 (318p 대용량 PDF 대응)
 
+
+# BOHUMFIT-284(283 F-7): 크기 상한만으로는 압축폭탄을 막지 못한다 — 쪽수·압축 해제 크기도 본다.
+#   ★상한값 근거와 가드 비용 실측은 `pdf_guard.py` 주석과 284 태스크 문서에 있다.
+#   ★413(Payload Too Large)로 통일 — 기존 크기 초과 응답과 같은 코드다.
+def _guard_pdf(data: bytes, birthdate_pw: str = "") -> None:
+    try:
+        check_pdf_limits(data, _pw_candidates(birthdate_pw))
+    except PdfGuardError as e:
+        raise HTTPException(status_code=413, detail=str(e))
+
 # ── 인증 (Supabase 토큰 검증) ────────────────────────────────────────────────
 # JWT 비밀키/서명 알고리즘에 의존하지 않고 Supabase Auth 서버에 토큰을 직접
 # 확인한다. Legacy·신형(비대칭 키) 프로젝트 모두에서 동작한다.
@@ -910,6 +922,10 @@ async def billing_issue_key(
 
 
 @app.post("/billing/webhook")
+# BOHUMFIT-284(283 F-6): 외부 콜백이라 인증이 없어 무제한이었다. 토스 재시도를 막지 않도록
+#   조회 계열과 같은 넉넉한 값으로 둔다. ★서명 검증보다 앞에 걸리므로 위조 요청도 함께 눌린다.
+#   ※key_func 는 기본값(_ratelimit_key) — Authorization 헤더가 없으면 IP fallback 이다.
+@limiter.limit("60/minute")
 async def billing_webhook(request: Request):
     """토스 웹훅 — HMAC 서명 검증 후 결제상태 반영(DONE→active / CANCELED·FAIL→inactive)."""
     raw = await request.body()
@@ -956,7 +972,9 @@ async def billing_webhook(request: Request):
 
 
 @app.get("/billing/status")
-async def billing_status(user_id: str = Depends(verify_jwt)):
+# BOHUMFIT-284(283 F-6): 조회 성격 — 기존 히스토리 조회 계열과 같은 60/minute.
+@limiter.limit("60/minute")
+async def billing_status(request: Request, user_id: str = Depends(verify_jwt)):
     """구독 상태·등급별 사용량 조회 — BOHUMFIT-212 role/quota_scope 필드 포함.
     BOHUMFIT-231: 등급 원천은 profiles.bohumfit_tier. 응답 `role` 필드는 하위호환 키로
     유지하되 값은 보험핏 등급(tier)이다(프런트는 is_admin/is_internal/quota_scope만 소비 — 실측)."""
@@ -1129,7 +1147,9 @@ def _find_auth_user_by_email(admin, email: str):
 
 
 @app.get("/admin/tier/list")
-async def admin_tier_list(user_id: str = Depends(verify_jwt)):
+# BOHUMFIT-284(283 F-6): 관리 성격 — 기존 일반 쓰기 계열과 같은 20/minute.
+@limiter.limit("20/minute")
+async def admin_tier_list(request: Request, user_id: str = Depends(verify_jwt)):
     """admin/internal 계정 목록 — PII 최소화: 이메일·tier만 반환(이름·전화 등 미반환)."""
     def _q() -> dict:
         admin = _require_tier_admin(user_id)
@@ -1156,7 +1176,11 @@ async def admin_tier_list(user_id: str = Depends(verify_jwt)):
 
 
 @app.post("/admin/tier/set")
-async def admin_tier_set(payload: dict = Body(...), user_id: str = Depends(verify_jwt)):
+# BOHUMFIT-284(283 F-6): 관리 성격 — `/admin/tier/list`와 같은 20/minute.
+@limiter.limit("20/minute")
+async def admin_tier_set(
+    request: Request, payload: dict = Body(...), user_id: str = Depends(verify_jwt)
+):
     """이메일로 대상 지정 → bohumfit_tier 'internal'(지정)/'customer'(해제)."""
     def _q() -> dict:
         admin = _require_tier_admin(user_id)
@@ -1907,6 +1931,7 @@ async def coverage_parse(
             status_code=400,
             detail=f"개별 PDF 크기는 {MAX_FILE_SIZE // (1024 * 1024)}MB를 넘을 수 없습니다.",
         )
+    await asyncio.to_thread(_guard_pdf, data)  # BOHUMFIT-284
     try:
         result = await asyncio.to_thread(parse_coverage_pdf, data, dt)
     except ValueError as e:  # PDF 열기 실패(손상·암호 등)
@@ -1945,6 +1970,7 @@ async def coverage_analyze(
         )
     if b"%PDF-" not in data[:1024]:
         raise HTTPException(status_code=400, detail="올바른 PDF 파일이 아니에요.")
+    await asyncio.to_thread(_guard_pdf, data)  # BOHUMFIT-284
     _sub_ctx = await _enforce_subscription(user_id)
     try:
         jong_table = await asyncio.to_thread(_get_jong_conversion_table)
@@ -1996,6 +2022,7 @@ async def coverage_proposals_parse(
                 )
             if b"%PDF-" not in data[:1024]:
                 raise HTTPException(status_code=400, detail="올바른 PDF 파일이 아니에요.")
+            await asyncio.to_thread(_guard_pdf, data)  # BOHUMFIT-284
             total_size += len(data)
             payload.append((fname, data))
         if total_size > MAX_TOTAL_SIZE:
@@ -2194,6 +2221,13 @@ async def analyze(
             status_code=413,
             detail=f"전체 PDF 합계 크기는 {MAX_TOTAL_SIZE // (1024 * 1024)}MB를 넘을 수 없습니다.",
         )
+
+    # BOHUMFIT-284(283 F-7): 분석 시작 전 상한 검사. ★진료내역은 비밀번호가 걸려 있어
+    #   파서와 **같은 후보**(`_pw_candidates`)로 연다. 못 열면 통과시키고 기존 파서가
+    #   "비밀번호 해제 실패"를 정확히 안내한다(fail-open — `pdf_guard.py` 주석 3번).
+    #   ★파일명은 문구에 넣지 않는다(277 PII 기조).
+    for af in active_files:
+        await asyncio.to_thread(_guard_pdf, af.read(), birthdate_pw)
 
     # 표준 컨텍스트로 AI 분석 (Q1-Q4 전체 수집) — 간편 결과는 파생
     product_type_kr = PRODUCT_TYPE_MAP["standard"]

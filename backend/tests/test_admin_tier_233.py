@@ -19,6 +19,27 @@ pytest.importorskip("supabase")
 from fastapi import HTTPException  # noqa: E402
 
 
+# BOHUMFIT-284: 이 파일은 라우트 핸들러를 **HTTP 없이 직접 호출**한다. 284가 limiter를 붙이면서
+#   시그니처에 `request`가 생겼으므로 가짜 Request를 넘긴다(기존 060·063 테스트와 같은 방식).
+#   ★limiter는 끈다 — 직접 호출이 반복되면 한도(20/minute)에 걸려 테스트가 순서에 의존하게 된다.
+def _req(path: str = "/x", method: str = "GET"):
+    from starlette.requests import Request
+
+    return Request(
+        {"type": "http", "method": method, "path": path, "headers": [], "client": ("test", 1)}
+    )
+
+
+@pytest.fixture(autouse=True)
+def _disable_limiter_284():
+    import main as _main
+
+    previous = _main.limiter.enabled
+    _main.limiter.enabled = False
+    yield
+    _main.limiter.enabled = previous
+
+
 class _Resp:
     def __init__(self, data=None):
         self.data = data
@@ -132,7 +153,7 @@ def _setup(monkeypatch):
 # ── list ──────────────────────────────────────────────────────────────────────
 def test_list_admin_returns_members_email_and_tier_only(monkeypatch):
     main, _ = _setup(monkeypatch)
-    res = asyncio.run(main.admin_tier_list("admin-1"))
+    res = asyncio.run(main.admin_tier_list(_req("/admin/tier/list"), "admin-1"))
     members = res["members"]
     assert {m["email"] for m in members} == {"boss@bohumfit.ai", "boss2@bohumfit.ai", "staff1@bohumfit.ai"}
     # admin 우선 정렬 + 필드는 email/tier 뿐(PII 최소화)
@@ -144,7 +165,7 @@ def test_list_internal_and_customer_403(monkeypatch):
     main, _ = _setup(monkeypatch)
     for uid in ("staff-1", "cust-1"):
         with pytest.raises(HTTPException) as ei:
-            asyncio.run(main.admin_tier_list(uid))
+            asyncio.run(main.admin_tier_list(_req("/admin/tier/list"), uid))
         assert ei.value.status_code == 403
 
 
@@ -152,14 +173,14 @@ def test_list_internal_and_customer_403(monkeypatch):
 def test_set_unknown_email_404_with_signup_guidance(monkeypatch):
     main, _ = _setup(monkeypatch)
     with pytest.raises(HTTPException) as ei:
-        asyncio.run(main.admin_tier_set({"email": "nobody@example.com", "tier": "internal"}, "admin-1"))
+        asyncio.run(main.admin_tier_set(_req("/admin/tier/set", "POST"), {"email": "nobody@example.com", "tier": "internal"}, "admin-1"))
     assert ei.value.status_code == 404 and "가입" in ei.value.detail
 
 
 def test_set_admin_tier_rejected_422(monkeypatch):
     main, _ = _setup(monkeypatch)
     with pytest.raises(HTTPException) as ei:
-        asyncio.run(main.admin_tier_set({"email": "cust1@example.com", "tier": "admin"}, "admin-1"))
+        asyncio.run(main.admin_tier_set(_req("/admin/tier/set", "POST"), {"email": "cust1@example.com", "tier": "admin"}, "admin-1"))
     assert ei.value.status_code == 422
 
 
@@ -167,14 +188,14 @@ def test_set_bad_email_or_tier_422(monkeypatch):
     main, _ = _setup(monkeypatch)
     for payload in ({"email": "notanemail", "tier": "internal"}, {"email": "cust1@example.com", "tier": "vip"}):
         with pytest.raises(HTTPException) as ei:
-            asyncio.run(main.admin_tier_set(payload, "admin-1"))
+            asyncio.run(main.admin_tier_set(_req("/admin/tier/set", "POST"), payload, "admin-1"))
         assert ei.value.status_code == 422
 
 
 def test_set_self_rejected_400(monkeypatch):
     main, _ = _setup(monkeypatch)
     with pytest.raises(HTTPException) as ei:
-        asyncio.run(main.admin_tier_set({"email": "boss@bohumfit.ai", "tier": "customer"}, "admin-1"))
+        asyncio.run(main.admin_tier_set(_req("/admin/tier/set", "POST"), {"email": "boss@bohumfit.ai", "tier": "customer"}, "admin-1"))
     assert ei.value.status_code == 400
 
 
@@ -182,25 +203,25 @@ def test_set_target_admin_rejected_400(monkeypatch):
     """다른 admin 강등도 API 불가 — 상호 강등·마지막 admin 잠금 사고 방지."""
     main, _ = _setup(monkeypatch)
     with pytest.raises(HTTPException) as ei:
-        asyncio.run(main.admin_tier_set({"email": "boss2@bohumfit.ai", "tier": "customer"}, "admin-1"))
+        asyncio.run(main.admin_tier_set(_req("/admin/tier/set", "POST"), {"email": "boss2@bohumfit.ai", "tier": "customer"}, "admin-1"))
     assert ei.value.status_code == 400
 
 
 def test_set_non_admin_requester_403(monkeypatch):
     main, _ = _setup(monkeypatch)
     with pytest.raises(HTTPException) as ei:
-        asyncio.run(main.admin_tier_set({"email": "cust1@example.com", "tier": "internal"}, "staff-1"))
+        asyncio.run(main.admin_tier_set(_req("/admin/tier/set", "POST"), {"email": "cust1@example.com", "tier": "internal"}, "staff-1"))
     assert ei.value.status_code == 403
 
 
 def test_set_promote_then_demote_roundtrip(monkeypatch):
     main, admin = _setup(monkeypatch)
-    res1 = asyncio.run(main.admin_tier_set({"email": "cust1@example.com", "tier": "internal"}, "admin-1"))
+    res1 = asyncio.run(main.admin_tier_set(_req("/admin/tier/set", "POST"), {"email": "cust1@example.com", "tier": "internal"}, "admin-1"))
     assert res1["ok"] is True and res1["tier"] == "internal"
     assert admin.upserted[-1] == {"id": "cust-1", "bohumfit_tier": "internal"}
     # 지정 직후 목록에 나타나고, 해제하면 원복된다.
-    listed = asyncio.run(main.admin_tier_list("admin-1"))
+    listed = asyncio.run(main.admin_tier_list(_req("/admin/tier/list"), "admin-1"))
     assert any(m["email"] == "cust1@example.com" and m["tier"] == "internal" for m in listed["members"])
-    res2 = asyncio.run(main.admin_tier_set({"email": "CUST1@EXAMPLE.COM", "tier": "customer"}, "admin-1"))
+    res2 = asyncio.run(main.admin_tier_set(_req("/admin/tier/set", "POST"), {"email": "CUST1@EXAMPLE.COM", "tier": "customer"}, "admin-1"))
     assert res2["ok"] is True and res2["tier"] == "customer"
     assert admin.upserted[-1] == {"id": "cust-1", "bohumfit_tier": "customer"}
