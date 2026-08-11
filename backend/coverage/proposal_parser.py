@@ -393,6 +393,10 @@ def _extract_mirae_table_entries(lines: Sequence[str]) -> list[dict[str, Any]]:
     return entries
 
 
+# BOHUMFIT-286(B1): 종별 범위 표기(`1-5종`·`1~5종`) — tier 숫자로 오인하면 안 되는 구간.
+_TIER_RANGE_RE = re.compile(r"[1-5]\s*[-~]\s*[1-5]\s*종")
+
+
 def _extract_tier_surgery_entries(lines: Sequence[str]) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     seen: set[tuple[str, int]] = set()
@@ -404,7 +408,16 @@ def _extract_tier_surgery_entries(lines: Sequence[str]) -> list[dict[str, Any]]:
         if amount is None:
             continue
 
-        typed_match = re.search(r"(상해|질병)\s*([1-5])\s*종\s*수술", compact)
+        # BOHUMFIT-286(B1): ★"1-5종 수술분류표"의 **범위 표기**를 tier로 읽던 결함을 막는다.
+        #   실측(오현지 알파Plus 제안서 p10~11): 1~5종 10개 행이 전부 `5종`으로 붕괴했고,
+        #   `merge_rule` 기본값이 AGG_REP(큰 값 채택)라 상해·질병 양쪽 모두 최댓값 1,000만원이
+        #   됐다. 원문은 상해 20/30/100/500/1,000만 · 질병 20/30/50/100/400만이다.
+        scan = _TIER_RANGE_RE.sub("", compact)
+
+        # 가입담보리스트의 대괄호 표기(`수술비Ⅱ(1-5종)[상해3종]`)와 상세면 서술형을 함께 본다.
+        typed_match = re.search(r"\[(상해|질병)\s*([1-5])\s*종\]", scan) or re.search(
+            r"(상해|질병)\s*([1-5])\s*종\s*수술", scan
+        )
         if typed_match:
             kind, tier = typed_match.groups()
             name = f"N종수술비({kind} {tier}종)"
@@ -414,10 +427,19 @@ def _extract_tier_surgery_entries(lines: Sequence[str]) -> list[dict[str, Any]]:
                 entries.append(_entry(name, amount, "수술", AGG_SUM, "제안서 종수술", window))
             continue
 
-        tier_match = re.search(r"([1-5])\s*종\s*수술", compact)
+        tier_match = re.search(r"([1-5])\s*종\s*수술", scan)
         if tier_match:
             tier = tier_match.group(1)
-            for kind in ("상해", "질병"):
+            # ★상해/질병이 한쪽만 적힌 줄은 그쪽으로만 넣는다("상해로 … 3종 수술을 받은 경우").
+            #   기존에는 무조건 양쪽에 넣어 상해 금액이 질병 행까지 오염시켰다.
+            has_injury, has_disease = "상해" in scan, "질병" in scan
+            if has_injury and not has_disease:
+                kinds: tuple[str, ...] = ("상해",)
+            elif has_disease and not has_injury:
+                kinds = ("질병",)
+            else:
+                kinds = ("상해", "질병")
+            for kind in kinds:
                 name = f"N종수술비({kind} {tier}종)"
                 key = (name, amount)
                 if key in seen:
