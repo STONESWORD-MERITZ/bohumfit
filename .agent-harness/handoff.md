@@ -1,9 +1,10 @@
-## 2026-08-14 BOHUMFIT-283 · BOHUMFIT-287 — Codex 2차 검증 완료 / 커밋·push 진행
+## 2026-08-14 BOHUMFIT-283 · BOHUMFIT-287 — Codex 2차 검증 · 분리 커밋 · push 완료
 
-Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(커밋·push) / **Human**(미결 3건)
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human**(미결 3건) / **Chat**(288·S2 발번)
 
 ### 결과
 - 283 문서 선행 분리 커밋: `5a02005` — 제품 코드·다른 태스크 파일 stage 0.
+- 287 본 커밋: `13e9b0a82f31bd93d5ebba30b99fb5e758aadca4`.
 - 287 구조 증명: 기준 HEAD(`5a02005`)의 `constants.py`에서 `NamedTuple` import 1줄을 제외한
   기존 본문이 현재 파일의 정확한 접두이며, 말미 **162줄 추가**뿐이다. AST 대조 결과 기존 이름
   재정의 `[]`.
@@ -54,6 +55,22 @@ git status --short -uall:
 
 git rev-list --left-right --count origin/main...HEAD:
 0\t1
+```
+
+### Git 원문 — 283·287 본 커밋 push 직후
+```text
+git log --oneline -5:
+13e9b0a feat(BOHUMFIT-287): 42행 스키마 V2 정의(구 40행과 병존·무배선)
+5a02005 docs(BOHUMFIT-283): 오픈 전 전수검사 결과(조건부 판정·284로 마감)
+4657224 docs(BOHUMFIT-286): Codex 검증·push 결과 기록
+94c18a8 fix(BOHUMFIT-286): 1~5종 수술비 tier 오검출 수정(범위 표기 오인·종별 미구분)
+da95215 fix(BOHUMFIT-284): 오픈 게이트 마감 — rate limit 4종·응답 표면 축소·업로드 상한
+
+git status --short -uall:
+(출력 없음)
+
+git rev-list --left-right --count origin/main...HEAD:
+0\t0
 ```
 
 ### Next

@@ -4,7 +4,7 @@ Use this file to record active Codex file ownership during a task.
 
 ## Active
 
-(없음 — 287 잠금 해제. Codex 검증·커밋 / Human 미결 3건 대기)
+(없음 — 287 검증·push 완료. Human 미결 3건 대기)
 
 ### Released
 - 2026-08-12 `BOHUMFIT-287-schema-v2-s1` - Claude Code - Released(정의만·병존·무배선·git 쓰기 0). `constants.py` **말미 추가만**(+162줄)으로 42행 V2 정의(`CoverageRowV2`·`KB_COVERAGES_V2`·`GROUP12_V2`·`SUM_EXCLUDED_NOTE_V2`·`APPENDIX_ITEMS_V2`·`PENDING_DISPOSITION_V2`·`LEGACY_TO_V2`·`NEW_ROWS_V2`) + 테스트 18건. ★★**제품 동작 무변경 3중 증명**: ①HEAD 본문이 현재 파일의 정확한 접두(기존 줄 무변경) ②AST 대조로 기존 이름 재정의 0 ③**산출물 JSON sha256 완전 일치**(`74d7fce0…` — 제안서 3건·6계약 문서·정본 2건·0805 분석서). Step 1 재검증: 수기표 **4개 시트** 전수 대조로 42행·대분류 11 확정(41행 일치·r24 표기 1건만 차이), ★**286-D 오류 2건 발견**(`암 주요치료비` 매핑 누락 → 보류 처리 / 신설 행 11→**13** 정정). 설계 해석: Q2+243은 "보이되 더해지지 않는다"(`sum_excluded`+`합계 미포함`), Q5 `yn_source`는 판정 원천 표시이고 행 자체는 금액행, `row_id`는 표시명과 분리된 ASCII 안정 키. 게이트: backend **955/8**(+18·회귀 0)·`npm test` 402/41·★**smoke 정본 2건 완전 불변**·tsc·lint·build:verify 예상 FAIL·**보호 영역 diff 0**·구 상수 sha256 3종 불변·**무배선 증명 테스트**·수기표 원본과 행명 42개 문자열 일치. ★Human 미결 3건(장기요양간병비·경증치매진단·**암 주요치료비**)은 임의 배치하지 않고 `PENDING_DISPOSITION_V2`로 보류.
