@@ -1,3 +1,124 @@
+## 2026-08-14 BOHUMFIT-283 · BOHUMFIT-287 — Codex 2차 검증 완료 / 커밋·push 진행
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(커밋·push) / **Human**(미결 3건)
+
+### 결과
+- 283 문서 선행 분리 커밋: `5a02005` — 제품 코드·다른 태스크 파일 stage 0.
+- 287 구조 증명: 기준 HEAD(`5a02005`)의 `constants.py`에서 `NamedTuple` import 1줄을 제외한
+  기존 본문이 현재 파일의 정확한 접두이며, 말미 **162줄 추가**뿐이다. AST 대조 결과 기존 이름
+  재정의 `[]`.
+- ★실입력 산출 비교: 기준 HEAD 별도 worktree와 현재 코드에 같은 7파일(제안서 3건 묶음 +
+  6계약·정본 2건·0805 분석서)을 넣어 `raw/before/final` 파싱 JSON을 독립 직렬화했다.
+  양쪽 모두 **162,319 bytes**, SHA-256
+  `b0a31bf5778007e3e3ac85b85fcdb7147f3c49639fafee8e5f2d6ef1b67a1527`로 완전 동일했다.
+  Claude Code 기록의 `74d7fce0…`와는 스냅샷 직렬화 구성이 달라 해시 문자열 자체는 다르지만,
+  같은 직렬화에서 HEAD=현재 바이트 동일성을 독립 재현했다.
+- 첫 비교 시도는 6계약 원본 대신 생성 산출물을 선택했고 하위 프로세스 실패를 공집합 동일로
+  오판할 수 있어 **결과를 폐기**했다. 원본을 바로잡고 양쪽 프로세스 exit를 강제 검사한 재실행만
+  위 최종 증거로 채택했다.
+- 수기표 2권의 `기존`·`리모델링` **4개 시트** 7~48행을 재판독: 각 42행·대분류 11,
+  Q3 표기 정규화 후 전부 동일. 원문 차이는 r24의 `중 입 자 치료` / `중입자 / 정위 방사선` 1종뿐.
+- V2 계약: 42행·11그룹·`sum_excluded`=`disability_80` 1행·2열 종수술 5행·`yn_source` 7행·
+  ASCII `row_id` 42개 중복 0·`NEW_ROWS_V2` 13행·`PENDING_DISPOSITION_V2` 3건을 확인했다.
+  제품 코드의 V2 참조는 정의 파일 밖 0건이다.
+
+### 실측 게이트
+- backend `955 passed, 8 skipped`(79.95s) · 287 전용 `18 passed`.
+- frontend `402 passed / 41 files` · tsc app/node PASS · lint PASS.
+- `smoke:coverage` PASS: 표준 `604,560,000 / 681,312`, overview `1,542,990,000 / 4,675,189`,
+  회사합=합계 0·전=후 0.
+- `npm run build`는 2,054 modules·JS **343,702 B**로 완료. `build:verify`는 크기 하한과 필수
+  문자열 3종 부재로 exit 1 — 248 Windows 껍데기 확정 이슈와 동일한 **예상 FAIL**.
+- 보호 영역 `aggregator.py`·export 2종·`pipeline/`·`filters.py`·`src/`·`vite.config.*` diff 0.
+  `SURIT` 제품 코드 0·구브랜드 색상 제품 코드 0. `보장분석/` Git 상태·stage 0.
+- 기준선 3문서 `955/8 · 402/41` 동기화. `.agent-harness/verify.md`의 갱신 출처도 287로 정정.
+
+### Git 원문 — 287 커밋 직전
+```text
+git log --oneline -5:
+5a02005 docs(BOHUMFIT-283): 오픈 전 전수검사 결과(조건부 판정·284로 마감)
+4657224 docs(BOHUMFIT-286): Codex 검증·push 결과 기록
+94c18a8 fix(BOHUMFIT-286): 1~5종 수술비 tier 오검출 수정(범위 표기 오인·종별 미구분)
+da95215 fix(BOHUMFIT-284): 오픈 게이트 마감 — rate limit 4종·응답 표면 축소·업로드 상한
+329a630 docs(BOHUMFIT-276c): 2차 검증 기록 커밋 해시 133d9ec 기입
+
+git status --short -uall:
+ M .agent-harness/handoff.md
+ M .agent-harness/locks.md
+ M .agent-harness/verify.md
+ M AGENTS.md
+ M CLAUDE.md
+ M backend/coverage/constants.py
+?? .agent-harness/tasks/BOHUMFIT-287-schema-v2-s1.md
+?? backend/tests/test_schema_v2_287.py
+
+git rev-list --left-right --count origin/main...HEAD:
+0\t1
+```
+
+### Next
+1. **야간 288** — `[전]` 트랙 전수 대조(`20260805` 분석서 ↔ 수기표 `기존` 55열).
+2. **Human** — `장기요양간병비`·`경증치매진단`·`암 주요치료비` 처리 확정.
+3. **Chat** — 미결 3건 확정 후 S2(집계 배선) 발번.
+
+## 2026-08-12 BOHUMFIT-287 42행 스키마 S1 — 완료 / 커밋 대기
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(검증·커밋) / **Human**(미결 3건)
+기준 HEAD `4657224`. git 쓰기 0. 상세는 tasks/BOHUMFIT-287-schema-v2-s1.md.
+
+### 변경
+`backend/coverage/constants.py` **말미 추가만**(+162줄) — `CoverageRowV2`·`KB_COVERAGES_V2`(42행)·
+`GROUP12_V2`(11)·`SUM_EXCLUDED_NOTE_V2`·`APPENDIX_ITEMS_V2`·`PENDING_DISPOSITION_V2`·
+`LEGACY_TO_V2`·`NEW_ROWS_V2`. 신규 테스트 `backend/tests/test_schema_v2_287.py` 18건.
+
+### ★★제품 동작 무변경 — 3중 증명 (S1의 합격선)
+1. **구조**: HEAD의 `constants.py` 본문이 현재 파일의 **정확한 접두**다(`import` 한 줄 제외).
+   기존 줄은 한 글자도 안 바뀌었다.
+2. **이름**: AST 대조로 새 블록이 **기존 이름을 하나도 재정의하지 않음**을 확인.
+3. ★**산출물 바이트**: HEAD 상수를 넣은 backend 사본 vs 현재 backend로 같은 입력을 돌려
+   결과 JSON sha256 **완전 일치**(`74d7fce0…`). 대상 = 제안서 3건·6계약 문서·**정본 2건**·0805 분석서.
+
+### Step 1 재검증 결과
+- 수기표 **4개 시트**(정본 A/B × 기존·리모델링) 7~48행 전수 대조 → **42행·대분류 11 확정**,
+  **41행 완전 일치**, 차이는 r24 표기 1건뿐(Q3대로 신형 채택·구형은 별칭). 고객별 가변 **없음**.
+- ★**286-D 설계 문서 오류 2건 발견**
+  ① **`암 주요치료비` 누락** — 유지·병합·이동·폐기 어디에도 없었다. 임의 배치하지 않고 **보류**로.
+  ② **신설 행 11 → 실제 13** — 종수술 5행 별칭은 파서·238 환산 라벨이지 구 40행 이름이 아니고,
+     `항암약물방사선`·`중입자방사선`도 구 40행에 없다. `NEW_ROWS_V2` 판정 기준을 바로잡았다.
+
+### 설계 해석 (Human 확정 반영)
+- **Q2+243**: 80% 행은 **보이되 더해지지 않는다** — `sum_excluded` + `"합계 미포함"` 표기.
+  두 결정을 동시에 지키는 유일한 형태.
+- **Q5**: `yn_source`는 "이 행이 Y/N **판정 원천**"이라는 뜻이고 행 자체는 금액행이다.
+  구 `YN_ITEMS`의 원천 담보가 하나도 빠짐없이 7개 yn_source 행으로 흘러가는지 테스트로 고정.
+- **row_id**: 표시명과 분리된 **ASCII 안정 키**. r24처럼 표기가 흔들려도 코드가 안 흔들린다.
+
+### 게이트
+- backend **955/8**(937 + 신규 18, 회귀 0) · `npm test` **402/41**(회귀 0·`src/` 무변경)
+- ★★`smoke:coverage` **정본 2건 기준값 완전 불변**(604,560,000/681,312 · 1,542,990,000/4,675,189)
+- tsc app·node · lint 무경고 · build:verify 343,702 B 예상 FAIL(248)
+- ★보호 영역 **diff 0**: `aggregator.py`·`export_excel.py`·`export_pdf.py`·`pipeline/`·`filters.py`·`src/`·`vite.config.ts`
+- ★구 상수 스냅샷(sha256) 3종 불변 · ★**무배선 증명 테스트**(집계·export에 `_V2` 참조 0) ·
+  ★수기표 원본과 V2 행명 42개 **문자열 단위 일치**
+
+### ★Human 미결 3건 (S2 착수 전 결정)
+① `장기요양간병비` ② `경증치매진단`(둘 다 구 `제외` 그룹 — Q1~Q9 미언급)
+③ ★**`암 주요치료비`**(286-D 누락분 — `고액항암치료` 병합 / 부록 / 폐기)
+→ 셋 다 `PENDING_DISPOSITION_V2`로 **보류 표시**. Q4가 4항목만 명시했으므로 5번째를 임의로
+   부록에 끼워 넣지 않았다.
+
+### 확인 불가
+- **엑셀·PDF 실제 바이트 비교** — S1이 export를 안 건드려 생성 경로가 동일하다. 대신 **파싱 결과
+  JSON 해시**로 비교했다(입력·상수가 같으면 산출물도 같다).
+- **[전] 트랙 전수 대조**(286 이월) — 범위 밖. ★S2 착수 전 별도 태스크 권고.
+
+### Next
+1. **Codex** — 2차 검증·커밋. 검증 항목: ①backend 955/8 ②smoke 정본 2건 **완전 불변**
+   ③보호 영역 diff 0 ④구 상수 스냅샷 테스트 통과 ⑤`constants.py`가 **추가만**인지(접두 검사)
+   ⑥`보장분석/` 하위 미stage.
+2. **Human** — 미결 3건 결정(특히 ③ `암 주요치료비`).
+3. **Chat** — 미결 해소 후 **S2(집계 배선)** 발행. ★그 전에 [전] 트랙 대조 태스크를 넣는 것을 권고.
+
 ## 2026-08-11 BOHUMFIT-284 · BOHUMFIT-286 — Codex 2차 검증 · 분리 커밋 · push 완료
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human**(286 Q1~Q9 결정) / **Chat**(층위 2 분할 발번)

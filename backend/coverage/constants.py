@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+from typing import NamedTuple
 
 AGG_SUM = "sum"
 AGG_REP = "rep"
@@ -406,3 +407,165 @@ def classify_extra(text: str):
         if pattern.search(target):
             return label, agg
     return None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# BOHUMFIT-287 — 42행 스키마 V2 (S1: **정의만**. 구 40행과 병존하며 아무 데도 배선되지 않는다)
+# ═══════════════════════════════════════════════════════════════════════════
+#
+#   ★근거: 수기표 정본 A/B 2건의
+#     '기존'·'리모델링' 4개 시트 7~48행을 전수 대조한 결과 **41행이 완전 일치**하고
+#     r24 표기만 흔들렸다(286 Phase A 실측). 고객별 가변 지점은 없다.
+#
+#   ★S1 원칙: 위쪽 `KB_COVERAGES`·`GROUP12`·`KB_NAME_ALIASES`는 **한 글자도 바꾸지 않는다.**
+#     배선은 S2(집계)·S3(산출물)·S4(매칭)에서 한다. 지금 손대면 제품 동작이 달라진다.
+#
+#   ★Human 확정(286-D Q1~Q9, 재검토 금지)
+#     Q1 40행 → 42행 전면 교체        Q2 80% 행은 신설하되 **합계 제외 + 미포함 표기**(243 유지)
+#     Q3 r24 = `중입자 / 정위 방사선`  Q4 자리 없는 4항목은 **비고행(부록)**
+#     Q5 `yn_flags`는 내부 유지, 표시만 운전자/배상/실비 행으로 분산
+#     Q7 종수술 2열은 엑셀 2열·PDF 한 칸(S3)  Q8 r16·r17 출처는 통합치료비류의 "수술" 항목(S4)
+#     Q9 기본계약 상해사망은 [후]에 표시(제외 규칙을 만들지 않는다)
+
+GROUP12_V2: tuple[str, ...] = (
+    "실 비", "수 술", "암", "뇌", "심 장", "입 원", "사 망", "후유장해", "골 절", "배상책임", "운전자",
+)
+
+#: Q2 — 합계에서 뺀 행 옆에 붙일 표기. ★문구를 여기 한 곳에서만 정의한다(S3가 그대로 쓴다).
+SUM_EXCLUDED_NOTE_V2 = "합계 미포함"
+
+
+class CoverageRowV2(NamedTuple):
+    """42행 스키마의 한 행.
+
+    ★`row_id`는 **표시명과 분리된 안정 키**다. 수기표 표기가 흔들려도(예: r24) 코드 전반은
+      `row_id`만 참조하므로 파급되지 않는다 — 이게 V2를 새로 만드는 이유 중 하나다.
+    """
+
+    row_id: str
+    group: str
+    display: str
+    #: 질병 | 상해 2열 병기(종수술 5행만) — Q7.
+    dual_column: bool = False
+    #: 합계에서 제외하고 `SUM_EXCLUDED_NOTE_V2`를 붙인다(80% 행만) — Q2 · 243.
+    sum_excluded: bool = False
+    #: `yn_flags` 판정의 원천 행 — Q5. ★행 자체는 금액행이고, Y/N은 파생일 뿐이다.
+    yn_source: bool = False
+    #: 구 40행 이름·수기표 표기 흔들림 등 이 행으로 모아야 할 후보(S4 입력물).
+    aliases: tuple[str, ...] = ()
+
+
+KB_COVERAGES_V2: tuple[CoverageRowV2, ...] = (
+    # ── 실 비 (Q5: 실손 Y/N 판정 원천) ───────────────────────────────────────
+    CoverageRowV2("actual_inpatient", "실 비", "상 해/질 병 입 원", yn_source=True,
+                  aliases=("상해입원의료비", "질병입원의료비")),
+    CoverageRowV2("actual_outpatient", "실 비", "상 해/질 병 통 원 약 제", yn_source=True,
+                  aliases=("상해통원의료비", "질병통원의료비")),
+    # ── 수 술 ───────────────────────────────────────────────────────────────
+    CoverageRowV2("surgery_injury", "수 술", "상 해 수 술 비", aliases=("상해수술",)),
+    CoverageRowV2("surgery_disease", "수 술", "질 병 수 술 비", aliases=("질병수술",)),
+    CoverageRowV2("tier_surgery_1", "수 술", "1종 수술비 (질병 I 상해)", dual_column=True,
+                  aliases=("N종수술비(질병 1종)", "N종수술비(상해 1종)", "일반종수술 1종(표준환산)")),
+    CoverageRowV2("tier_surgery_2", "수 술", "2종 수술비 (질병 I 상해)", dual_column=True,
+                  aliases=("N종수술비(질병 2종)", "N종수술비(상해 2종)", "일반종수술 2종(표준환산)")),
+    CoverageRowV2("tier_surgery_3", "수 술", "3종 수술비 (질병 I 상해)", dual_column=True,
+                  aliases=("N종수술비(질병 3종)", "N종수술비(상해 3종)", "일반종수술 3종(표준환산)")),
+    CoverageRowV2("tier_surgery_4", "수 술", "4종 수술비 (질병 I 상해)", dual_column=True,
+                  aliases=("N종수술비(질병 4종)", "N종수술비(상해 4종)", "일반종수술 4종(표준환산)")),
+    CoverageRowV2("tier_surgery_5", "수 술", "5종 수술비 (질병 I 상해)", dual_column=True,
+                  aliases=("N종수술비(질병 5종)", "N종수술비(상해 5종)", "일반종수술 5종(표준환산)")),
+    CoverageRowV2("surgery_cerebral", "수 술", "뇌혈관 수술비", aliases=("뇌혈관수술",)),
+    CoverageRowV2("surgery_cardiac", "수 술", "심장질환 수술비", aliases=("심혈관수술",)),
+    # ── 암 ──────────────────────────────────────────────────────────────────
+    CoverageRowV2("cancer_general", "암", "암 진 단 비(일반암)", aliases=("암진단금",)),
+    CoverageRowV2("cancer_minor", "암", "유 사 암 진 단 비", aliases=("유사암진단금",)),
+    CoverageRowV2("cancer_surgery", "암", "암 수 술 / 로 봇 암 수 술", aliases=("암수술",)),
+    CoverageRowV2("cancer_chemo_radio", "암", "항 암 방 사 선 약 물 치 료",
+                  aliases=("항암약물방사선",)),
+    # ★병합: 구 `표적항암치료`·`면역항암치료` 2행 → 1행.
+    CoverageRowV2("cancer_high_cost", "암", "고액항암치료(표적,면역)",
+                  aliases=("표적항암치료", "면역항암치료")),
+    CoverageRowV2("radio_imrt_proton", "암", "세기조절 / 양성자 방사선"),
+    # ★Q3: 신형 표기를 채택하고 구형(`중 입 자 치료`)은 별칭으로 남긴다.
+    CoverageRowV2("radio_carbon_srs", "암", "중입자 / 정위 방사선",
+                  aliases=("중 입 자 치료", "중입자방사선")),
+    # ── 뇌 ──────────────────────────────────────────────────────────────────
+    CoverageRowV2("cerebral_disease", "뇌", "뇌 혈 관 질 환", aliases=("뇌혈관질환",)),
+    CoverageRowV2("stroke", "뇌", "뇌 졸 중", aliases=("뇌졸중",)),
+    CoverageRowV2("cerebral_hemorrhage", "뇌", "뇌 출 혈", aliases=("뇌출혈",)),
+    # ── 심 장 ───────────────────────────────────────────────────────────────
+    CoverageRowV2("cardiac_disease", "심 장", "심 장 질 환", aliases=("심혈관질환",)),
+    CoverageRowV2("ischemic_heart", "심 장", "허혈성 심장질환", aliases=("허혈성심장질환",)),
+    CoverageRowV2("acute_mi", "심 장", "급성심근경색", aliases=("급성심근경색",)),
+    # ── 입 원 ───────────────────────────────────────────────────────────────
+    CoverageRowV2("inpatient_injury", "입 원", "상 해 입 원", aliases=("상해입원",)),
+    CoverageRowV2("inpatient_disease", "입 원", "질 병 입 원", aliases=("질병입원",)),
+    CoverageRowV2("inpatient_private_room", "입 원", "1 인 실 입 원"),
+    # ★병합: 구 기타의 간병 2행 → 1행.
+    CoverageRowV2("caregiver", "입 원", "간 병 인",
+                  aliases=("간병인/간호간병상해일당", "간병인/간호간병질병일당")),
+    # ── 사 망 ───────────────────────────────────────────────────────────────
+    CoverageRowV2("death_general", "사 망", "일 반 사 망"),
+    # ★Q9: 기본계약 상해사망도 [후]에 표시한다 — 제외 규칙을 만들지 않는다.
+    CoverageRowV2("death_injury", "사 망", "상 해 사 망", aliases=("상해사망",)),
+    CoverageRowV2("death_disease", "사 망", "질 병 사 망", aliases=("질병사망",)),
+    # ── 후유장해 ────────────────────────────────────────────────────────────
+    # ★Q2 + 243: 행은 신설하되 **합계에서 뺀다**. 243의 "집계 제외"와 수기표의 "행 존재"를
+    #   동시에 지키는 유일한 형태다 — 보이되 더해지지 않는다.
+    CoverageRowV2("disability_80", "후유장해", "상해 질병 후 유 장 해 80%", sum_excluded=True),
+    CoverageRowV2("disability_injury_3", "후유장해", "상 해 후 유 장 해 3%",
+                  aliases=("상해후유장해",)),
+    CoverageRowV2("disability_disease_3", "후유장해", "질 병 후 유 장 해 3%",
+                  aliases=("질병후유장해",)),
+    # ── 골 절 ───────────────────────────────────────────────────────────────
+    CoverageRowV2("fracture_diagnosis", "골 절", "골 절 진 단 비", aliases=("골절진단비",)),
+    CoverageRowV2("fracture_surgery", "골 절", "골 절 수 술 비"),
+    CoverageRowV2("cast_treatment", "골 절", "깁스치료비"),
+    # ── 배상책임 (Q5 판정 원천) ─────────────────────────────────────────────
+    CoverageRowV2("liability_daily", "배상책임", "일 상 생 활 배 상 책 임", yn_source=True,
+                  aliases=("가족/일상/자녀배상",)),
+    # ── 운전자 (Q5 판정 원천) ───────────────────────────────────────────────
+    CoverageRowV2("driver_settlement", "운전자", "형 사 합 의 금", yn_source=True,
+                  aliases=("교통사고처리지원금",)),
+    CoverageRowV2("driver_lawyer", "운전자", "변 호 사 선 임", yn_source=True,
+                  aliases=("변호사선임비용",)),
+    CoverageRowV2("driver_fine", "운전자", "벌 금", yn_source=True,
+                  aliases=("벌금(대인/스쿨존/대물)",)),
+    CoverageRowV2("driver_injury_grade", "운전자", "자 부 상", yn_source=True,
+                  aliases=("자동차사고부상",)),
+)
+
+STANDARD_COUNT_V2 = len(KB_COVERAGES_V2)
+
+#: Q4 — 42행에 자리가 없는 항목은 **비고행(부록)** 으로 내린다. 삭제는 정보 손실이다.
+APPENDIX_ITEMS_V2: tuple[str, ...] = ("고액암", "3대비급여실손", "보철치료비", "화재벌금")
+
+#: ★처리 지시가 없어 **보류**한 구 40행 항목. 임의로 버리거나 부록에 끼워 넣지 않는다.
+#:   · `장기요양간병비`·`경증치매진단` — 구 `제외` 그룹. Q1~Q9가 다루지 않았다.
+#:   · `암 주요치료비` — ★286-D 매핑표가 **빠뜨린 항목**이다(287 Step 1 재검증에서 발견).
+#:     244가 "원문 데이터 없는 신담보, [후] 전용 자리로 행만 존치"로 만든 행이라
+#:     `고액항암치료`로 병합할지 부록으로 내릴지가 갈린다.
+#:   S2 착수 전에 Human이 항목별로 "부록 / 병합 / 폐기"를 정해야 한다(287 미결 3건).
+PENDING_DISPOSITION_V2: tuple[str, ...] = ("장기요양간병비", "경증치매진단", "암 주요치료비")
+
+LEGACY_APPENDIX_V2 = "APPENDIX"
+LEGACY_PENDING_V2 = "PENDING"
+
+#: 구 40행 → V2 대응. 값은 `row_id` 또는 처리 구분(`APPENDIX`/`PENDING`).
+#:   ★40행 **전 항목**이 여기에 있어야 한다(테스트로 고정) — 조용히 사라지는 담보가 없게.
+LEGACY_TO_V2: dict[str, str] = {
+    **{alias: row.row_id for row in KB_COVERAGES_V2 for alias in row.aliases},
+    **{name: LEGACY_APPENDIX_V2 for name in APPENDIX_ITEMS_V2},
+    **{name: LEGACY_PENDING_V2 for name in PENDING_DISPOSITION_V2},
+}
+
+_LEGACY_NAMES_V2 = frozenset(name for name, _group, _group12, _agg in KB_COVERAGES)
+
+#: V2에서 새로 생긴 행 = **구 40행에 원천이 없는** 행 — S4가 매칭 규칙을 만들어야 할 대상.
+#:   ★`aliases`가 비었는지로 판정하면 안 된다. 종수술 5행의 별칭(`N종수술비(질병 1종)` 등)은
+#:     파서·238 환산 라벨이지 구 40행 이름이 아니라서, 그렇게 세면 신설 행을 놓친다.
+NEW_ROWS_V2: tuple[str, ...] = tuple(
+    row.row_id
+    for row in KB_COVERAGES_V2
+    if not any(alias in _LEGACY_NAMES_V2 for alias in row.aliases)
+)

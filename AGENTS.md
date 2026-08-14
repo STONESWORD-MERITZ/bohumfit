@@ -101,7 +101,7 @@ For UI changes, also run the app locally and perform a browser smoke check when 
   현 로컬 Windows는 Application Control의 신규 네이티브 차단으로 정상 번들 생성 불가 — build:verify
   FAIL이 정직 상태이며, 기능 판정은 소스 게이트 + Codex 프로덕션 번들 대체 검증(Human 결정 2026-07-26)
 - `npm test` — 기준선 `402 passed / 41 files`(BOHUMFIT-284 실측·2026-08-10, 라우트 스모크 18건 포함)
-- `cd backend && python -m pytest -q` — 기준선 `937 passed, 8 skipped` (BOHUMFIT-286 실측·2026-08-11.
+- `cd backend && python -m pytest -q` — 기준선 `955 passed, 8 skipped` (BOHUMFIT-287 실측·2026-08-12.
   기준선 변경 시 `verify.md`·`CLAUDE.md` 동시 갱신)
 - 도메인 계약 grep: `SURIT` 0건, 구브랜드 색상(`#15663D` 등 구 그린) 0건 — 기존 계약 유지
 - 보호 영역 diff 검사: `backend/pipeline/`, `backend/coverage/` 코어, `supabase/`, 인증(auth) 관련 파일에 diff가 발생했는데 태스크에 명시돼 있지 않으면 커밋 금지
