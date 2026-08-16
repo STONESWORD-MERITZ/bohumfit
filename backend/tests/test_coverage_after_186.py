@@ -55,7 +55,15 @@ def _analysis() -> dict:
     return {"before": before, "final": build_final(before, diagnosis), "warnings": []}
 
 
+# BOHUMFIT-290(S2): 구 이름 조회 → V2 행 투영(값 불변).
+from tests.v2names import find_row as _find_v2  # noqa: E402
+
+
 def _coverage(rows: list[dict], name: str) -> dict:
+    return _find_v2(rows, name)
+
+
+def _coverage_legacy(rows: list[dict], name: str) -> dict:
     return next(row for row in rows if row["kb_name"] == name)
 
 

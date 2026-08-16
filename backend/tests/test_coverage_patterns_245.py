@@ -25,6 +25,11 @@ MAN = 10_000
 
 
 # ── 패턴 단위: 244 S2 원문 표기 기반(케이스 A~E 실측 형태의 익명 재현) ──────────
+# BOHUMFIT-290(S2): 집계 행이 V2 49행으로 바뀌었다 — 구 이름 조회는 투영 헬퍼로(값·셀 불변).
+from tests.v2names import find_row as _find_v2  # noqa: E402
+from coverage.v2_mapping import GROUP_APPENDIX_V2 as _APPENDIX  # noqa: E402
+
+
 def test_new_pattern_labels():
     cases = {
         # ① 일반사망(A형) — 독립 담보로 명시된 경우만
@@ -104,8 +109,8 @@ def test_death_dedup_and_group_total_preserved():
         "warnings": [],
     }
     before = build_before(raw, today="2026-07-25")
-    death = [c for c in before["coverages"] if c["group12"] == "사망" and c["enrolled"]]
-    etc = [c for c in before["coverages"] if c["group12"] == GROUP_ETC and c["enrolled"]]
+    death = [c for c in before["coverages"] if c["group12"] == "사 망" and c["enrolled"]]  # 290: V2 표기
+    etc = [c for c in before["coverages"] if c["group12"] == _APPENDIX and c["enrolled"]]  # 290: 기타→비고
     # 근거 없음 → 매트릭스 무차감(사망 그룹 보존) + 일반사망은 기타(계약 미확인)로 표시.
     assert sum(c["summary"] for c in death) == 12000 * MAN
     assert [(c["kb_name"], c["summary"]) for c in etc] == [("일반사망(계약 미확인)", 6000 * MAN)]
@@ -116,7 +121,7 @@ def test_death_dedup_and_group_total_preserved():
         "class_amounts": {"1": {"상해사망": 6000 * MAN, "질병사망": 6000 * MAN}},
     }}}
     before2 = build_before(raw2, today="2026-07-25")
-    death2 = [c for c in before2["coverages"] if c["group12"] == "사망" and c["enrolled"]]
+    death2 = [c for c in before2["coverages"] if c["group12"] == "사 망" and c["enrolled"]]
     assert sum(c["summary"] for c in death2) == 6000 * MAN  # 일반사망 6,000만 단일 계상
     assert before2["death_dedup"]["subtracted_total"] == 12000 * MAN
 
@@ -149,7 +154,7 @@ def test_target_cancer_alias_and_rename():
         "diagnosis": {}, "notes": {}, "extra": {}, "warnings": [],
     }
     before = build_before(raw, today="2026-07-25")
-    target = next(c for c in before["coverages"] if c["kb_name"] == "표적항암치료")
+    target = _find_v2(before["coverages"], "표적항암치료")  # 290: V2 `표적 약물 치료`
     assert target["summary"] == 7000 * MAN and target["group12"] == "암"
     # 구명칭 행은 더 이상 존재하지 않는다(단일 라벨 — 값 이관).
     assert not any(c["kb_name"] == "고액(표적)항암치료비" for c in before["coverages"])

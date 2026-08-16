@@ -268,7 +268,9 @@ def test_companies_sorted_by_contract_number():
 
 
 def _cov(before, name):
-    return next(c for c in before["coverages"] if c["kb_name"] == name)
+    # BOHUMFIT-290(S2): 집계 행이 V2 49행으로 바뀌어 구 이름은 투영(legacy_form_view)으로 찾는다.
+    from tests.v2names import find_row
+    return find_row(before["coverages"], name)
 
 
 def test_matrix_sum_coverages():
@@ -289,7 +291,9 @@ def test_ildang_sum_and_silson_rep():
 
 def test_all_37_present_and_matrix_columns():
     raw, before, _ = _build()
-    assert len(before["coverages"]) == 38  # 246: 40 - 제외 2(장기요양·경증치매)
+    # BOHUMFIT-290(S2): V2 49행(제외 그룹 없음 — 장기요양·경증치매는 비고행) + 비고행.
+    from coverage.constants import STANDARD_COUNT_V2
+    assert len([c for c in before["coverages"] if c.get("row_id")]) == STANDARD_COUNT_V2
     # 매트릭스 열 = 계약 6
     ncol = max(len(v["by_company"]) for v in raw["matrix"].values())
     assert ncol == 6, ncol
@@ -300,12 +304,14 @@ def test_all_37_present_and_matrix_columns():
 
 def test_diagnosis_and_final():
     _, _, final = _build()
+    from tests.v2names import v2name
     d = {c["kb_name"]: c for c in final["coverages"]}
-    assert d["상해사망"]["recommended"] == 2 * EOK and d["상해사망"]["status"] == "충분"
-    assert d["유사암진단금"]["status"] == "부족"  # 246 개명
-    assert d["질병후유장해"]["status"] == "미가입"  # 246 개명
+    # BOHUMFIT-290(S2): 최종 행도 V2 표시명 — 진단(recommended/status)은 별칭 경유로 그대로 붙는다.
+    assert d[v2name("상해사망")]["recommended"] == 2 * EOK and d[v2name("상해사망")]["status"] == "충분"
+    assert d[v2name("유사암진단금")]["status"] == "부족"  # 246 개명
+    assert d[v2name("질병후유장해")]["status"] == "미가입"  # 246 개명
     # value = 집계값(합산) 유지
-    assert d["상해사망"]["value"] == 5 * EOK + 5000 * MAN
+    assert d[v2name("상해사망")]["value"] == 5 * EOK + 5000 * MAN
 
 
 def test_non_kb_defense():

@@ -90,7 +90,9 @@ def _build():
 
 
 def _cov(table: dict, name: str):
-    return next(c for c in table["coverages"] if c["kb_name"] == name)
+    # BOHUMFIT-290(S2): 구 이름은 투영(legacy_form_view)으로 찾는다 — 값·셀은 그대로다.
+    from tests.v2names import find_row
+    return find_row(table["coverages"], name)
 
 
 def test_group13_added():
@@ -124,10 +126,10 @@ def test_179_base_coverage_count_unchanged():
     from coverage.constants import KB_COVERAGES
 
     _, before, _ = _build()
-    kb_names = {name for (name, _g, _g12, _a) in KB_COVERAGES}
-    base = [c for c in before["coverages"] if c["kb_name"] in kb_names]
-    # BOHUMFIT-246: 표준 40행(37+신담보 3) − 제외 2 = 38.
-    assert len(base) == 38
+    # BOHUMFIT-290(S2): 기본 행 = V2 49행(row_id 보유). 구 제외 2행은 비고행으로 보존된다.
+    from coverage.constants import STANDARD_COUNT_V2
+    base = [c for c in before["coverages"] if c.get("row_id")]
+    assert len(base) == STANDARD_COUNT_V2
 
 
 @pytest.mark.parametrize(
@@ -179,15 +181,18 @@ def test_classify_extra_skips_class_only_burn_line():
 def test_extra_coverages_summary(name, expected):
     _, before, _ = _build()
     assert _cov(before, name)["summary"] == expected
-    # BOHUMFIT-246: 화상류·골절수술비는 신 양식 비항목 → 기타 보존(값 불변 — 귀속만 이동).
-    expected_group = GROUP_ETC
+    # BOHUMFIT-246 → 290: 화상류·N대수술 등 비항목은 **비고행**(구 기타)에 값 불변 보존.
+    #   골절수술비는 290에서 V2 정식 행(골 절)으로 승격됐다.
+    from coverage.v2_mapping import GROUP_APPENDIX_V2
+    expected_group = "골 절" if name == "골절수술비" else GROUP_APPENDIX_V2
     assert _cov(before, name)["group12"] == expected_group
     assert _cov(before, name)["agg"] == "sum"
 
 
 def test_extra_not_pollute_base_rows():
     _, before, _ = _build()
-    etc_names = {c["kb_name"] for c in before["coverages"] if c["group12"] == GROUP_ETC}
+    from coverage.v2_mapping import GROUP_APPENDIX_V2
+    etc_names = {c["kb_name"] for c in before["coverages"] if c["group12"] == GROUP_APPENDIX_V2}
     assert "상해사망" not in etc_names
     assert "암진단금" not in etc_names  # 246 개명
 
@@ -210,9 +215,10 @@ def test_kp_same_and_diff_remarks():
 
 def test_final_includes_etc_rollup():
     _, _, final = _build()
+    from coverage.v2_mapping import GROUP_APPENDIX_V2
     groups = {r["group12"] for r in final["rollup_by_group12"]}
-    assert GROUP_ETC in groups
-    etc = [c for c in final["coverages"] if c["group12"] == GROUP_ETC]
+    assert GROUP_APPENDIX_V2 in groups  # BOHUMFIT-290: 기타 → 비고
+    etc = [c for c in final["coverages"] if c["group12"] == GROUP_APPENDIX_V2]
     # BOHUMFIT-246: 고액암 등 표준행이 기타로 이동 — 진단(recommended)은 표준행만 가질 수
     #   있고, EXTRA 검출 라벨은 여전히 recommended 없음.
     from coverage.constants import KB_COVERAGES as _KB

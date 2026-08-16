@@ -14,6 +14,15 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from coverage.aggregator import build_before, compute_stage_totals  # noqa: E402
 from coverage.consulting import apply_consulting_plan  # noqa: E402
 from coverage.constants import GROUP13, GROUP_ETC, NEW_ITEM_ORDER  # noqa: E402
+from coverage.v2_mapping import GROUP13_V2, GROUP_APPENDIX_V2, ROW_INDEX  # noqa: E402  (290)
+from tests.v2names import find_row  # noqa: E402  (290: 구 이름 → V2 행 투영)
+
+
+def _rows(coverages):
+    """BOHUMFIT-290(S2): 구 이름으로 V2 행을 찾는 매핑 — 값·셀은 그대로, 이름만 투영."""
+    from coverage.aggregator import legacy_form_view
+    return legacy_form_view(coverages)
+
 
 MAN = 10_000
 
@@ -104,36 +113,43 @@ def test_reconciliation_identity():
 
 def test_death_promotion_and_unresolved_fallback():
     before = build_before(_fix_raw(), today="2026-07-25")
-    rows = {c["kb_name"]: c for c in before["coverages"]}
+    rows = _rows(before["coverages"])
     # 승격: 일반사망 6,000만(사망 그룹) + 상해/질병사망 계약1 셀 0.
-    assert rows["일반사망"]["group12"] == "사망" and rows["일반사망"]["summary"] == 6000 * MAN
+    assert rows["일반사망"]["group12"] == "사 망" and rows["일반사망"]["summary"] == 6000 * MAN  # 290: V2 대분류 표기
     assert rows["상해사망"]["by_company"]["1"] == 0 and rows["상해사망"]["summary"] == 1000 * MAN
     assert rows["질병사망"]["by_company"]["1"] == 0
     # 근거 없는 재해사망은 승격하지 않고 기타 보존(이중 계상 0 우선).
     assert "재해사망" not in rows
-    assert rows["재해사망(계약 미확인)"]["group12"] == GROUP_ETC
+    assert rows["재해사망(계약 미확인)"]["group12"] == GROUP_APPENDIX_V2  # 290: 기타 → 비고
     # 중입자 배타: 표적 1.1억 → 6,000만 + 중입자 5,000만(암 그룹 내 상호배타 분리).
     assert rows["표적항암치료"]["summary"] == 6000 * MAN
-    assert rows["중입자방사선"]["group12"] == "암" and rows["중입자방사선"]["summary"] == 5000 * MAN
+    assert rows["중입자방사선"]["group12"] == "암" and rows["중입자방사선"]["summary"] == 5000 * MAN  # V2 radio_carbon
 
 
 # ── 뇌·심장 단계 파생(양식 시트3 수식 — constants 주석의 원문 그대로) ─────────────
-def test_stage_totals_follow_form_formulas():
+def test_stage_totals_follow_cascade_290():
+    """★BOHUMFIT-290(S2): 종합 판정 = 케스케이드 체인 합(246 시트3 수식·공통 가산 폐기).
+
+    같은 픽스처로 246 값과 나란히 적는다 — 이 변화가 **의도된 재정의**임을 남기기 위해서다.
+      246: 뇌초기 = 뇌혈관+뇌졸중+뇌출혈+뇌혈관수술+공통(초기가 가장 큼)
+      290: 뇌초기 = 뇌혈관 진단 시 지급 = 뇌혈관만 / 뇌중기 = 뇌혈관+뇌졸중 / 뇌말기 = 셋 다
+    """
     before = build_before(_fix_raw(), today="2026-07-25")
     stages = before["stage_totals"]
-    jong5, surgery = 1000 * MAN, 200 * MAN
-    common = jong5 + surgery
-    # 암 = 진단금+유사암+암수술+항암약물+표적(차감 후)+면역(0)+중입자 + 공통.
-    assert stages["암"] == (3000 + 600 + 1000 + 500 + 6000 + 0 + 5000) * MAN + common
-    assert stages["뇌초기"] == (1000 + 2000 + 3000 + 300) * MAN + common
-    assert stages["뇌중기"] == (2000 + 3000 + 300) * MAN + common
-    assert stages["뇌말기"] == (3000 + 300) * MAN + common
-    assert stages["심장초기"] == (0 + 4000 + 5000 + 400) * MAN + common  # 심혈관질환 신담보=0
-    assert stages["심장중기"] == (4000 + 5000 + 400) * MAN + common
-    assert stages["심장말기"] == (5000 + 400) * MAN + common
+    assert stages["뇌초기"] == 1000 * MAN
+    assert stages["뇌중기"] == (1000 + 2000) * MAN
+    assert stages["뇌말기"] == (1000 + 2000 + 3000) * MAN
+    assert stages["심장초기"] == 4000 * MAN            # 허혈성 (심장질환은 독립 — 체인 밖)
+    assert stages["심장중기"] == (4000 + 5000) * MAN   # 허혈성 + 급성
+    # ★단조성: 초기 ≤ 중기 ≤ 말기 (246에서는 반대였다 — 272 "뇌초기 > 뇌중기" 이상 해소)
+    assert stages["뇌초기"] <= stages["뇌중기"] <= stages["뇌말기"]
+    assert stages["심장초기"] <= stages["심장중기"]
+    # 구 키(암·심장말기)는 케스케이드에 대응 체인이 없어 사라진다(S3 블록 재설계 항목).
+    assert "암" not in stages and "심장말기" not in stages
+    # 암 계열은 체인별 행 — 표적 6,000만(차감 후) 체인 = 항암약물 0 + 표적 6,000만.
+    assert stages["표적 약물 치료"] == 6000 * MAN
 
 
-# ── Y/N 파생(양식 45~49행 COUNTA 수식 의미 등가) ────────────────────────────────
 def test_yn_flags():
     before = build_before(_fix_raw(), today="2026-07-25")
     flags = {f["item"]: f["value"] for f in before["yn_flags"]}
@@ -216,7 +232,7 @@ def test_overview_rows_survive_cancel_with_warning():
     """합계형 행은 해지를 반영할 수 없다 — [전] 수준 보존 + 경고(보존+warning 정책 명시)."""
     before = build_before(_overview_raw(), today="2026-07-25")
     after = apply_consulting_plan(before, {"existing": [{"contract_idx": 2, "disposition": "해지"}]})
-    rows = {c["kb_name"]: c for c in after["coverages"]}
+    rows = _rows(after["coverages"])
     # overview 행: [전] 합계 유지(계약 귀속 없음 → 해지 미반영).
     assert rows["상해사망"]["summary"] == 30000 * MAN and rows["상해사망"]["enrolled"] is True
     # 계약 키가 있는 상세 검출 EXTRA는 정상적으로 해지 반영(계약2 깁스 소멸).
@@ -230,34 +246,38 @@ def test_overview_rows_survive_cancel_with_warning():
 def test_after_cancel_removes_contract_values():
     before = build_before(_fix_raw(), today="2026-07-25")
     after = apply_consulting_plan(before, {"existing": [{"contract_idx": 2, "disposition": "해지"}]})
-    rows = {c["kb_name"]: c for c in after["coverages"]}
+    rows = _rows(after["coverages"])
     assert rows["상해후유장해"]["enrolled"] is False       # 계약2 전용 담보 소멸
     assert rows["일반사망"]["summary"] == 6000 * MAN       # 계약1 유지분 이월
     assert after["premium"]["monthly_total"] == 50_000     # 해지 계약 보험료 제외
 
 
 # ── 표시 순서·estimated 생존 ────────────────────────────────────────────────────
-def test_display_order_follows_form():
+def test_display_order_follows_v2_schema():
+    """BOHUMFIT-290(S2): 표시 순서 = V2 49행 스키마 순서, 비고행은 뒤."""
     before = build_before(_fix_raw(), today="2026-07-25")
-    rows = [c for c in before["coverages"] if c["enrolled"]]
-    group_seq = [c["group12"] for c in rows]
-    order = {g: i for i, g in enumerate(GROUP13)}
-    assert group_seq == sorted(group_seq, key=lambda g: order[g])  # 그룹 = 양식 순서
-    item_idx = {name: i for i, name in enumerate(NEW_ITEM_ORDER)}
-    for group in set(group_seq):
-        names = [c["kb_name"] for c in rows if c["group12"] == group and c["kb_name"] in item_idx]
-        assert names == sorted(names, key=lambda n: item_idx[n]), group  # 그룹 내 = 시트2 순서
+    rows = before["coverages"]
+    ids = [c["row_id"] for c in rows if c.get("row_id")]
+    assert ids == sorted(ids, key=lambda i: ROW_INDEX[i])
+    groups = [c["group12"] for c in rows]
+    order = {g: i for i, g in enumerate(GROUP13_V2)}
+    assert groups == sorted(groups, key=lambda g: order[g])
+    assert all(c["group12"] == GROUP_APPENDIX_V2 for c in rows if not c.get("row_id"))
 
 
 def test_estimated_flag_survives():
     before = build_before(_fix_raw(), today="2026-07-25")
-    row = next(c for c in before["coverages"] if c["kb_name"] == "일반종수술 5종(표준환산)")
-    assert row["estimated"] is True and row["group12"] == "종수술"
+    # BOHUMFIT-290: 238 환산 라벨은 V2 종수술 5행의 `unspecified` 열로 간다(종별을 잃은 라벨 — 추측 금지).
+    row = find_row(before["coverages"], "일반종수술 5종(표준환산)")
+    assert row["estimated"] is True and row["group12"] == "수 술" and row["row_id"] == "tier_surgery_5"
 
 
 def test_new_coverage_rows_exist_for_future_track():
     """신담보 3행([후] 전용 자리)은 [전]에서 미가입 행으로 존재한다."""
     before = build_before(_fix_raw(), today="2026-07-25")
-    rows = {c["kb_name"]: c for c in before["coverages"]}
-    for name in ("면역항암치료", "암 주요치료비", "심혈관질환"):
+    rows = _rows(before["coverages"])
+    # BOHUMFIT-290: 면역·심혈관질환은 V2 행(면역 약물 치료·심 장 질 환)으로 존재. ★`암 주요치료비`는
+    #   행이 아니라 **분배 대상**(DISTRIBUTED — S4)이라 행 목록에 없다.
+    for name in ("면역항암치료", "심혈관질환"):
         assert name in rows and rows[name]["enrolled"] is False and rows[name]["summary"] is None
+    assert "암 주요치료비" not in {c["kb_name"] for c in before["coverages"]}

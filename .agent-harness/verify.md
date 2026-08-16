@@ -21,10 +21,11 @@ npm run dev
 백엔드 pytest — `cd backend && python -m pytest -q`:
 
 ```text
-974 passed, 8 skipped
+994 passed, 8 skipped
 ```
 
-(BOHUMFIT-289 Codex 실측·2026-08-16 갱신 — 287 기준선 955/8에 46행·케스케이드·분배 계약 19건 반영.)
+(BOHUMFIT-290 Codex 실측·2026-08-16 갱신 — 289 기준선 974/8에 49행 첫 배선·케스케이드·
+Human Q6 ③ 재해사망 명시적 합산 계약 순증 20건 반영.)
 
 프런트 테스트 — `npm test`(라우트 스모크 18건 포함):
 
@@ -82,15 +83,16 @@ npx tsc -p tsconfig.node.json --noEmit
 
 | 케이스 | 유형 | 파일(로컬 전용) | 계약 | 담보행/enrolled | 총액 | 월납(부값) | overview행 | 파싱 경고 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 표준(계약별 매트릭스) | 상품별 가입현황 존재 | `보장분석\비교분석표\이*숙-INPUT.pdf` | 15 | 46/29 | 604,560,000 | 681,312 (531,312) | 0 | 0 |
-| overview(합계-only) | 239 fallback(매트릭스 부재) | `보장분석\비교분석표\라*실INPUT.pdf` | 15 | 54/42 | 1,542,990,000 | 4,675,189 (4,675,189) | 26 | 1 |
+| 표준(계약별 매트릭스) | 상품별 가입현황 존재 | `보장분석\비교분석표\이*숙-INPUT.pdf` | 15 | 57/29 | 614,860,000 | 681,312 (531,312) | 0 | 0 |
+| overview(합계-only) | 239 fallback(매트릭스 부재) | `보장분석\비교분석표\라*실INPUT.pdf` | 15 | 59/41 | 1,501,690,000 | 4,675,189 (4,675,189) | 25 | 1 |
 
 - 기준일 `today="2026-07-29"`, 해지 0(`build_after_analysis(..., {"existing": [], "proposals": []})`)
   기준값이며, 두 케이스 모두 **해지 0에서 [전]=[후] 상이 0**이 성립해야 한다.
 - 표준 케이스 추가 고정값: 회사합=합계 대사 [전]/[후] 상이 0, Y/N 회사별 = payload 파생 일치
   (자동차부상=계약3·가족일상=계약7만 Y), 보험료 셀은 9행(254 개정)·계약 idx 7은 월납 None(공란).
-- overview 케이스 추가 고정값: 회사 열 미생성·합계 열만·특이사항 경고 유지(246/239),
-  overview 담보 26종 합계 1,400,240,000.
+- overview 케이스 추가 고정값: 259 이후 귀속 가능한 담보는 회사 열 15개로 전개하고,
+  장기요양간병비 9,000,000은 합계-only·미귀속 경고 유지(246/239). overview 담보 25종 합계
+  1,358,940,000·귀속률 99.3%.
 
 ### 자동 대조 (BOHUMFIT-262 P5)
 
@@ -103,6 +105,22 @@ npm run smoke:coverage
   (payload·엑셀 시트2 양쪽)·**해지 0 시 전=후 0**·**`'?'` 잔존 0**·3시트 구성을 항상 검사한다.
 - 실 PDF가 없으면 **경고 후 건너뜀(exit 0)** — CI·타 환경에서 깨지지 않는다(PII로 커밋 불가).
 - 기준값은 `scripts/smoke-coverage.mjs`의 `BASELINE`에 있다. ★위 표를 고칠 때 함께 갱신한다.
+- ★**BOHUMFIT-290(S2) Human Q6 승인 반영**: 49행 V2 스키마 배선으로 담보행·총액·overview행·귀속률이
+  의도적으로 바뀌었다. 표준 +10,300,000(경증치매진단 비고 노출), overview −41,300,000
+  (실손 입원·통원 rep 병합 −50,300,000 + 장기요양간병비 비고 노출 +9,000,000)이며,
+  월납·회사합=합계·해지 0 전=후·Y/N·death_dedup은 불변이다. 위 표와 `BASELINE`은 같은 승인값이다.
+
+### 집계 바이트 증명 — 직렬화 방식 (BOHUMFIT-287·289 Codex 방식 → 290에서 고정)
+
+이후 모든 "산출물 바이트 동일" 증명은 아래 방식으로 한다(다른 방식으로 얻은 해시는 대조 불가).
+
+- 대상: `analyze_kb_coverage(pdf)["before"]`의 **행 단위** `coverages`(kb_name·group12·agg·summary·
+  by_company·enrolled·row_id·columns) + `premium` + `yn_flags` + `stage_totals` + `death_dedup`
+  + `final.rollup_by_group12` + `final` 행별 status. 입력 6종 = 이인숙·라금실·오현지 [전] + 오현지 [후] 3제안서
+  (`parse_proposal_pdf`의 insurer·monthly_premium·coverages 3튜플).
+- 직렬화: `json.dumps(obj, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)` → **sha256**.
+- 스크립트는 스크래치에 두고 실행 후 삭제한다(실데이터 산출물 저장 금지). 290 실측:
+  배선 전(HEAD `56aa60a`) `a27ced38…` / 배선 후 `ff540eba…` — 차이는 Q6 대조표로 전수 설명됐다.
 
 ### 규칙
 - ★**실 PDF·산출 xlsx는 저장소에 커밋 금지**(현행 `.gitignore` 유지 — PII). 이 문서에는

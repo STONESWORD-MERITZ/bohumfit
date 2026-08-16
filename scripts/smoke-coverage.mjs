@@ -17,15 +17,15 @@ import { join, resolve } from "node:path";
 const ROOT = resolve(import.meta.dirname, "..");
 const PDF_DIR = join(ROOT, "보장분석", "비교분석표");
 
-/** verify.md "스모크 정본 세트" 기준값(2026-07-29 실측 · 갱신 시 verify.md와 함께 수정). */
+/** verify.md "스모크 정본 세트" 기준값(BOHUMFIT-290 Human Q6 승인 · 갱신 시 verify.md와 함께 수정). */
 const BASELINE = [
   {
     label: "표준(계약별 매트릭스)",
     file: globSync("*-INPUT.pdf", { cwd: PDF_DIR })[0] ?? "__missing-standard.pdf",
     contracts: 15,
-    coverageRows: 46,
+    coverageRows: 57,
     enrolled: 29,
-    total: 604_560_000,
+    total: 614_860_000,
     monthly: 681_312,
     monthlyActive: 531_312,
     overviewRows: 0,
@@ -35,16 +35,16 @@ const BASELINE = [
     label: "overview(합계-only · 239 fallback)",
     file: globSync("*INPUT.pdf", { cwd: PDF_DIR }).find((name) => !name.endsWith("-INPUT.pdf")) ?? "__missing-overview.pdf",
     contracts: 15,
-    coverageRows: 54,
-    enrolled: 42,
-    total: 1_542_990_000,
+    coverageRows: 59,
+    enrolled: 41,
+    total: 1_501_690_000,
     monthly: 4_675_189,
     monthlyActive: 4_675_189,
-    overviewRows: 26,
+    overviewRows: 25,
     warnings: 1,
     // 256~258 귀속 완결 — overview 담보 26종 전부 회사별 귀속(회사합=합계).
-    overviewTotal: 1_400_240_000,
-    attributionRate: 100,
+    overviewTotal: 1_358_940_000,
+    attributionRate: 99.3,
   },
 ];
 

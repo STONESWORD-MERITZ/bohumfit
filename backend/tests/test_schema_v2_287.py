@@ -41,7 +41,7 @@ from coverage.constants import (
 # ── ① 골격 ────────────────────────────────────────────────────────────────
 def test_row_count_and_order_match_the_manual_tables():
     """★42행·순서까지 수기표와 같다 — 순서가 어긋나면 산출물 행이 밀린다."""
-    assert STANDARD_COUNT_V2 == 46  # ★289: 암 7행 → 11행
+    assert STANDARD_COUNT_V2 == 49  # ★289: 암 7→11행 · 290: +유사암수술·다빈치특정암·순환계 치료비
 
 
 def test_eleven_groups_in_sheet_order():
@@ -66,7 +66,7 @@ def test_every_row_belongs_to_a_declared_group_and_groups_are_contiguous():
 def test_row_ids_are_unique_and_ascii():
     """★`row_id`는 표시명과 분리된 안정 키다 — 표기가 흔들려도 코드가 안 흔들리게."""
     ids = [row.row_id for row in KB_COVERAGES_V2]
-    assert len(set(ids)) == 46
+    assert len(set(ids)) == 49
     for row_id in ids:
         assert row_id.isascii() and row_id.islower(), row_id
 
@@ -84,7 +84,7 @@ def test_sum_excluded_is_only_the_80_percent_row():
 def test_dual_column_is_only_the_five_tier_surgery_rows():
     """★Q7: 질병 | 상해 2열은 종수술 5행 전용이다."""
     dual = [row.row_id for row in KB_COVERAGES_V2 if row.dual_column]
-    assert dual == [f"tier_surgery_{tier}" for tier in range(1, 6)]
+    assert dual == [f"tier_surgery_{tier}" for tier in range(1, 6)] + ["caregiver"]  # 290: 간병인 2열
 
 
 def test_yn_source_rows_cover_every_legacy_yn_item():
@@ -157,11 +157,12 @@ def test_new_rows_are_the_ones_without_a_legacy_source():
     판정 기준은 287 그대로 — "구 40행 이름을 하나라도 별칭으로 갖는가"다.
     별칭이 비었는지로 세면 종수술 5행(파서·238 환산 라벨을 가짐)을 놓친다.
     """
-    assert len(NEW_ROWS_V2) == 16
+    assert len(NEW_ROWS_V2) == 19  # 290: +유사암수술·다빈치특정암·순환계 치료비
     assert set(NEW_ROWS_V2) == {
         "tier_surgery_1", "tier_surgery_2", "tier_surgery_3", "tier_surgery_4", "tier_surgery_5",
-        "cancer_surgery_davinci", "cancer_drug", "cancer_radiation",
-        "radio_imrt", "radio_proton", "radio_carbon",
+        "cancer_minor_surgery", "cancer_surgery_davinci", "cancer_surgery_davinci_specific",
+        "cancer_drug", "cancer_radiation",
+        "radio_imrt", "radio_proton", "radio_carbon", "circulatory_treatment",
         "inpatient_private_room", "death_general", "disability_80",
         "fracture_surgery", "cast_treatment",
     }
@@ -209,9 +210,19 @@ def test_legacy_constants_are_untouched():
     assert len(KB_COVERAGES) == 40 and len(GROUP12) == 10
 
 
-def test_v2_is_not_wired_anywhere_yet():
-    """★무배선 증명 — 집계·산출물이 V2를 참조하면 S1 범위를 넘은 것이다."""
+def test_v2_wiring_started_in_s2_and_legacy_schema_left_the_aggregator():
+    """★BOHUMFIT-290(S2) — 287의 "무배선 증명"을 **배선 증명**으로 대체한다.
+
+    S2부터 aggregator는 V2(`KB_COVERAGES_V2`)를 참조하고, 구 40행 스키마 상수
+    (`KB_COVERAGES`·`GROUP13`·`NEW_ITEM_ORDER`·`STAGE_COMPONENTS`·`YN_ITEMS`)는 **더 이상
+    참조하지 않는다**. 구 상수 자체는 S3 완료 시점까지 삭제하지 않는다(export 최소 어댑터가 쓴다).
+    """
     root = Path(__file__).resolve().parents[1] / "coverage"
-    for name in ("aggregator.py", "export_excel.py", "export_pdf.py"):
+    aggregator = (root / "aggregator.py").read_text(encoding="utf-8")
+    assert "KB_COVERAGES_V2" in aggregator and "PAYOUT_CASCADE_V2" in aggregator
+    for legacy in ("KB_COVERAGES,", "GROUP13,", "NEW_ITEM_ORDER", "STAGE_COMPONENTS", "STAGE_COMMON_ADD", "YN_ITEMS,"):
+        assert legacy not in aggregator, f"aggregator가 구 스키마 상수 {legacy}를 아직 참조한다"
+    # export는 S3 전까지 구 양식을 유지하므로 구 상수(GROUP13·FORM_ITEMS)를 **최소 어댑터**로만 참조한다.
+    for name in ("export_excel.py", "export_pdf.py"):
         text = (root / name).read_text(encoding="utf-8")
-        assert "_V2" not in text, f"{name}이 V2를 참조한다 — S2/S3 범위다"
+        assert "290" in text, f"{name}에 S2 최소 어댑터 표식이 없다"

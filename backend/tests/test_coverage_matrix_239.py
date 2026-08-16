@@ -60,6 +60,11 @@ DIAGNOSIS_PAGE = """홍길동 님의 전체 담보 진단 현황 2026-07-21
 """.splitlines()
 
 
+# BOHUMFIT-290(S2): 집계 행이 V2 49행으로 바뀌었다 — 구 이름 조회는 투영 헬퍼로(값·셀 불변).
+from tests.v2names import find_row as _find_v2  # noqa: E402
+from coverage.v2_mapping import GROUP_APPENDIX_V2 as _APPENDIX  # noqa: E402
+
+
 def _doc(monkeypatch, pages):
     monkeypatch.setattr(parser_mod, "_extract_pages", lambda _b: pages)
     return parse_document(b"synthetic")
@@ -104,7 +109,7 @@ def test_overview_fallback_when_no_matrix(monkeypatch):
     assert not any("찾지 못했습니다" in w for w in raw["warnings"])
     # build_before: overview 담보는 summary·enrolled 산출, by_company 비움.
     before = build_before(raw, today="2026-07-21")
-    sang = next(c for c in before["coverages"] if c["kb_name"] == "상해사망")
+    sang = _find_v2(before["coverages"], "상해사망")  # 290
     assert sang["summary"] == 3 * EOK and sang["enrolled"] is True
     assert sang["by_company"] == {}
 
@@ -120,7 +125,7 @@ def test_matrix_present_ignores_overview(monkeypatch):
     assert not any("대체" in w for w in raw["warnings"])
     assert not any("찾지 못했습니다" in w for w in raw["warnings"])
     before = build_before(raw, today="2026-07-21")
-    sang = next(c for c in before["coverages"] if c["kb_name"] == "상해사망")
+    sang = _find_v2(before["coverages"], "상해사망")  # 290
     assert sang["by_company"] == {"1": 2 * EOK, "2": 1 * EOK}
     assert sang["summary"] == 3 * EOK  # sum(2억+1억)
 

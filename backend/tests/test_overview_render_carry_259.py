@@ -182,8 +182,9 @@ def test_unattributed_cancellation_still_warns():
 def test_unknown_column_renders_for_attributed_overview():
     """귀속된 overview 행에 '?'가 남으면 "계약 미확인" 열을 노출한다(252 가드 일관 적용)."""
     analysis = _analysis(attributed=True)
+    from tests.v2names import v2name
     for row in analysis["before"]["coverages"]:
-        if row["kb_name"] == "상해사망":
+        if row["kb_name"] == v2name("상해사망"):  # 290: V2 표시명
             row["by_company"] = {"1": 1000 * MAN, "?": 2000 * MAN}
     ws, _res = _ws(analysis)
     labels = [ws.cell(row=4, column=c).value for c in range(1, ws.max_column + 1)]

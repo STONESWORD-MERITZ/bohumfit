@@ -23,6 +23,11 @@ from coverage.compare import build_after_analysis
 MAN = 10_000
 
 
+# BOHUMFIT-290(S2): 집계 행이 V2 49행 — 구 이름 조회는 export와 같은 투영(legacy_form_view)으로.
+from coverage.aggregator import legacy_form_view as _view  # noqa: E402
+from coverage.v2_mapping import GROUP_APPENDIX_V2 as _APPENDIX  # noqa: E402
+
+
 @pytest.fixture()
 def client():
     from fastapi.testclient import TestClient
@@ -107,7 +112,7 @@ def test_server_after_path_carries_overview_and_unknown_keys():
         "summary": 10000 * MAN, "by_company": {"?": 10000 * MAN}, "enrolled": True,
     })
     result = build_after_analysis(analysis, {"existing": [{"contract_idx": 1, "disposition": "cancel"}]})
-    rows = {c["kb_name"]: c for c in result["after"]["before"]["coverages"]}
+    rows = _view(result["after"]["before"]["coverages"])
     # overview 행: 전 계약 해지에도 합계 보존 + 경고.
     assert rows["상해사망"]["summary"] == 30000 * MAN
     assert any("합계" in w for w in result.get("warnings", []))

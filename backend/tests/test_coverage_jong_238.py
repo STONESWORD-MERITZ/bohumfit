@@ -26,6 +26,11 @@ SQL_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "supabase", "manu
 
 
 # ── 룩업 정확성: 확정표 10행 전부 ────────────────────────────────────────────
+# BOHUMFIT-290(S2): 집계 행이 V2 49행으로 바뀌었다 — 구 이름 조회는 투영 헬퍼로(값·셀 불변).
+from tests.v2names import find_row as _find_v2  # noqa: E402
+from coverage.v2_mapping import GROUP_APPENDIX_V2 as _APPENDIX  # noqa: E402
+
+
 @pytest.mark.parametrize("base_man", sorted(DEFAULT_JONG_TABLE))
 def test_lookup_exact_rows(base_man):
     tiers = lookup_jong_tiers(base_man * MAN)
@@ -121,11 +126,12 @@ def test_estimated_flag_survives_build_before():
         "matrix": {}, "diagnosis": {}, "notes": {}, "extra": extra, "warnings": [],
     }
     before = build_before(raw, today="2026-07-21")
-    rows = [c for c in before["coverages"] if "표준환산" in c["kb_name"]]
+    # BOHUMFIT-290(S2): 238 환산 라벨은 V2 종수술 5행의 `unspecified` 열로 착지한다(estimated 플래그 유지).
+    rows = [c for c in before["coverages"] if str(c.get("row_id", "")).startswith("tier_surgery_")]
     assert len(rows) == 5
     assert all(row.get("estimated") is True for row in rows)
-    tier3 = next(c for c in rows if c["kb_name"] == estimated_tier_label(3))
-    assert tier3["summary"] == 50 * MAN  # 300만 행: 3종=50만
+    tier3 = _find_v2(before["coverages"], estimated_tier_label(3))
+    assert tier3["summary"] == 50 * MAN  # 300만 행: 3종=50만 (unspecified 열 투영)
 
 
 def test_custom_table_overrides_default():

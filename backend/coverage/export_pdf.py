@@ -15,6 +15,7 @@ from .aggregator import compute_stage_totals, compute_yn_flags
 from .amount import format_krw, format_krw_delta
 from .compare import ensure_comparison
 from .constants import GROUP13, NEW_ITEM_ORDER
+from .v2_mapping import GROUP13_V2, ROW_INDEX  # 290
 
 EMERALD = "#084734"
 EMERALD_SOFT = "#EEF6F1"
@@ -44,7 +45,10 @@ def _period_label(contract: dict) -> str:
 
 
 def _grp_key(g: str) -> int:
-    return GROUP13.index(g) if g in GROUP13 else len(GROUP13)
+    # BOHUMFIT-290: V2 대분류 우선, 구 그룹은 뒤.
+    if g in GROUP13_V2:
+        return GROUP13_V2.index(g)
+    return len(GROUP13_V2) + (GROUP13.index(g) if g in GROUP13 else len(GROUP13))
 
 
 def _company_label(co: dict, companies: list) -> str:
@@ -75,7 +79,8 @@ def _group_coverages(coverages: list) -> list:
     for c in coverages:
         grouped.setdefault(c.get("group12") or "기타", []).append(c)
     return [
-        (g, sorted(grouped[g], key=lambda r: _item_key(r.get("kb_name"))))
+        # BOHUMFIT-290: V2 행은 스키마 순서(row_id), 그 밖은 종전 항목 순서.
+        (g, sorted(grouped[g], key=lambda r: (ROW_INDEX.get(r.get("row_id"), 10_000), _item_key(r.get("kb_name")))))
         for g in sorted(grouped, key=_grp_key)
     ]
 
@@ -289,9 +294,9 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
         stages_after = compute_stage_totals(after_before.get("coverages", []))
         stage_rows_html = "".join(
             f'<tr><td class="grp">{_esc(key)}</td>'
-            f'<td class="num">{_fmt_krw(stages_before.get(key, 0))}</td>'
+            f'<td class="num">{_fmt_krw(stages_before[key]) if key in stages_before else "-"}</td>'
             f'<td class="num">→</td>'
-            f'<td class="num strong">{_fmt_krw(stages_after.get(key, 0))}</td>'
+            f'<td class="num strong">{_fmt_krw(stages_after[key]) if key in stages_after else "-"}</td>'
             f'<td class="num {"good" if stages_after.get(key, 0) > stages_before.get(key, 0) else "warn" if stages_after.get(key, 0) < stages_before.get(key, 0) else ""}">'
             f'{_fmt_delta_krw(stages_after.get(key, 0) - stages_before.get(key, 0))}</td></tr>'
             for key in ("암", "뇌초기", "뇌중기", "뇌말기", "심장초기", "심장중기", "심장말기")

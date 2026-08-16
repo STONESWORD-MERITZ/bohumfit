@@ -487,7 +487,11 @@ KB_COVERAGES_V2: tuple[CoverageRowV2, ...] = (
     CoverageRowV2("cancer_minor", "암", "유 사 암 진 단 비", aliases=("유사암진단금",)),
     CoverageRowV2("cancer_surgery", "암", "암 수 술 (레보아이 포함)",
                   aliases=("암수술", "암 수 술 / 로 봇 암 수 술")),
+    # BOHUMFIT-290(S2·Human 확정): 유사암 수술 — 다빈치(갑상선) 체인의 상위 행.
+    CoverageRowV2("cancer_minor_surgery", "암", "유사암 수술"),
     CoverageRowV2("cancer_surgery_davinci", "암", "다빈치 로봇 수술"),
+    # BOHUMFIT-290(S2·Human 확정): 다빈치 특정암 — 전립선·갑상선 다빈치의 착지 행.
+    CoverageRowV2("cancer_surgery_davinci_specific", "암", "다빈치 특정암"),
     CoverageRowV2("cancer_drug", "암", "항암 약물 치료"),
     CoverageRowV2("cancer_drug_targeted", "암", "표적 약물 치료", aliases=("표적항암치료",)),
     CoverageRowV2("cancer_drug_immune", "암", "면역 약물 치료", aliases=("면역항암치료",)),
@@ -505,29 +509,39 @@ KB_COVERAGES_V2: tuple[CoverageRowV2, ...] = (
     CoverageRowV2("cardiac_disease", "심 장", "심 장 질 환", aliases=("심혈관질환",)),
     CoverageRowV2("ischemic_heart", "심 장", "허혈성 심장질환", aliases=("허혈성심장질환",)),
     CoverageRowV2("acute_mi", "심 장", "급성심근경색", aliases=("급성심근경색",)),
+    # BOHUMFIT-290(S2·Human 확정): 순환계 치료비 — Q8형 분배의 **본체** 착지 행.
+    #   심장 대분류 말미 · ★케스케이드 밖 독립 행(체인 없음).
+    CoverageRowV2("circulatory_treatment", "심 장", "순환계 치료비"),
     # ── 입 원 ───────────────────────────────────────────────────────────────
     CoverageRowV2("inpatient_injury", "입 원", "상 해 입 원", aliases=("상해입원",)),
     CoverageRowV2("inpatient_disease", "입 원", "질 병 입 원", aliases=("질병입원",)),
     CoverageRowV2("inpatient_private_room", "입 원", "1 인 실 입 원"),
     # ★병합: 구 기타의 간병 2행 → 1행.
-    CoverageRowV2("caregiver", "입 원", "간 병 인",
+    # BOHUMFIT-290(S2·Human): 간병인은 **상해|질병 2열 병기**(종수술과 같은 방식).
+    #   상해일당·질병일당 두 원천을 한 행에 합치지 않고 열로 나눈다.
+    CoverageRowV2("caregiver", "입 원", "간 병 인", dual_column=True,
                   aliases=("간병인/간호간병상해일당", "간병인/간호간병질병일당")),
     # ── 사 망 ───────────────────────────────────────────────────────────────
-    CoverageRowV2("death_general", "사 망", "일 반 사 망"),
+    # BOHUMFIT-290: 별칭 = 246 사망 승격 extras 라벨(`일반사망`).
+    CoverageRowV2("death_general", "사 망", "일 반 사 망", aliases=("일반사망",)),
     # ★Q9: 기본계약 상해사망도 [후]에 표시한다 — 제외 규칙을 만들지 않는다.
+    # ★Human Q6 ③: `재해사망`은 별칭이 아니라 독립 합산 원천 — v2_mapping의 명시 규칙으로 더한다.
     CoverageRowV2("death_injury", "사 망", "상 해 사 망", aliases=("상해사망",)),
     CoverageRowV2("death_disease", "사 망", "질 병 사 망", aliases=("질병사망",)),
     # ── 후유장해 ────────────────────────────────────────────────────────────
     # ★Q2 + 243: 행은 신설하되 **합계에서 뺀다**. 243의 "집계 제외"와 수기표의 "행 존재"를
     #   동시에 지키는 유일한 형태다 — 보이되 더해지지 않는다.
-    CoverageRowV2("disability_80", "후유장해", "상해 질병 후 유 장 해 80%", sum_excluded=True),
+    # BOHUMFIT-290: 별칭 = 파서 extras 라벨(288 실측 — 정본 2건에 실재: 이인숙 2,000만·라금실 200만).
+    CoverageRowV2("disability_80", "후유장해", "상해 질병 후 유 장 해 80%", sum_excluded=True,
+                  aliases=("80%이상 후유장해",)),
     CoverageRowV2("disability_injury_3", "후유장해", "상 해 후 유 장 해 3%",
                   aliases=("상해후유장해",)),
     CoverageRowV2("disability_disease_3", "후유장해", "질 병 후 유 장 해 3%",
                   aliases=("질병후유장해",)),
     # ── 골 절 ───────────────────────────────────────────────────────────────
     CoverageRowV2("fracture_diagnosis", "골 절", "골 절 진 단 비", aliases=("골절진단비",)),
-    CoverageRowV2("fracture_surgery", "골 절", "골 절 수 술 비"),
+    # BOHUMFIT-290: 별칭 = 파서 extras 라벨(EXTRA_PATTERNS `골절수술` → "골절수술비").
+    CoverageRowV2("fracture_surgery", "골 절", "골 절 수 술 비", aliases=("골절수술비",)),
     CoverageRowV2("cast_treatment", "골 절", "깁스치료비"),
     # ── 배상책임 (Q5 판정 원천) ─────────────────────────────────────────────
     CoverageRowV2("liability_daily", "배상책임", "일 상 생 활 배 상 책 임", yn_source=True,
@@ -575,6 +589,11 @@ LEGACY_TO_V2: dict[str, str] = {
 
 _LEGACY_NAMES_V2 = frozenset(name for name, _group, _group12, _agg in KB_COVERAGES)
 
+#: BOHUMFIT-290(Q5): Y/N 파생 항목 — **항목 5종·원천 담보명은 구 `YN_ITEMS`와 동일**하다.
+#:   내부 플래그는 유지하고 원천의 착지만 V2 행(`LEGACY_TO_V2`)으로 바뀐다. 상해실손·질병실손은
+#:   같은 V2 행(실비 2행)에 합쳐지지만 원천 상세(`sources`)로 계속 구분한다.
+YN_ITEMS_V2: tuple[tuple[str, tuple[str, ...]], ...] = tuple(YN_ITEMS)
+
 #: V2에서 새로 생긴 행 = **구 40행에 원천이 없는** 행 — S4가 매칭 규칙을 만들어야 할 대상.
 #:   ★`aliases`가 비었는지로 판정하면 안 된다. 종수술 5행의 별칭(`N종수술비(질병 1종)` 등)은
 #:     파서·238 환산 라벨이지 구 40행 이름이 아니라서, 그렇게 세면 신설 행을 놓친다.
@@ -616,9 +635,14 @@ PAYOUT_CASCADE_V2: dict[str, tuple[str, ...]] = {
     # 심장 — 2단(★`cardiac_disease`는 참여하지 않는다)
     "ischemic_heart": ("ischemic_heart",),
     "acute_mi": ("ischemic_heart", "acute_mi"),
-    # 암수술 — 2단
+    # 암수술 — 2단 · ★BOHUMFIT-290: 다빈치를 **종별 3분류**로 개정(Human 확정)
+    #   289의 단일 체인 `다빈치→[암수술,다빈치]`는 **일반암 케이스**로 흡수됐다.
+    #   ★키가 row_id가 아닌 **케이스 id**인 항목은 `CASCADE_CASE_ROW_V2`가 착지 행을 준다.
     "cancer_surgery": ("cancer_surgery",),
-    "cancer_surgery_davinci": ("cancer_surgery", "cancer_surgery_davinci"),
+    "cancer_minor_surgery": ("cancer_minor_surgery",),
+    "davinci_general": ("cancer_surgery", "cancer_surgery_davinci"),
+    "davinci_prostate": ("cancer_surgery", "cancer_surgery_davinci_specific"),
+    "davinci_thyroid": ("cancer_minor_surgery", "cancer_surgery_davinci_specific"),
     # 항암 약물 — 3단
     "cancer_drug": ("cancer_drug",),
     "cancer_drug_targeted": ("cancer_drug", "cancer_drug_targeted"),
@@ -631,7 +655,24 @@ PAYOUT_CASCADE_V2: dict[str, tuple[str, ...]] = {
 }
 
 #: 케스케이드에 참여하지 않는 것이 **의도**인 행(테스트가 이 목록을 지킨다).
-CASCADE_INDEPENDENT_V2: tuple[str, ...] = ("cardiac_disease", "cancer_general", "cancer_minor")
+CASCADE_INDEPENDENT_V2: tuple[str, ...] = (
+    "cardiac_disease", "cancer_general", "cancer_minor",
+    "circulatory_treatment",  # BOHUMFIT-290: 순환계 치료비 — 독립(Human 확정)
+)
+
+#: BOHUMFIT-290: 케스케이드 키 중 **row_id가 아닌 케이스 id** → 착지(마지막) 행.
+#:   다빈치는 진단 종별(일반암·전립선·갑상선)에 따라 체인이 갈리므로 행 하나로 키를 삼을 수 없다.
+CASCADE_CASE_ROW_V2: dict[str, str] = {
+    "davinci_general": "cancer_surgery_davinci",
+    "davinci_prostate": "cancer_surgery_davinci_specific",
+    "davinci_thyroid": "cancer_surgery_davinci_specific",
+}
+#: 케이스 표시명(종합 판정 블록·S3 표시용).
+CASCADE_CASE_LABEL_V2: dict[str, str] = {
+    "davinci_general": "다빈치(일반암)",
+    "davinci_prostate": "다빈치(전립선)",
+    "davinci_thyroid": "다빈치(갑상선)",
+}
 
 
 # ── BOHUMFIT-289: 분배 규칙 (★S4가 배선할 데이터. 여기서는 정의만) ──────────
@@ -665,12 +706,22 @@ DISTRIBUTION_RULES_V2: tuple[DistributionRuleV2, ...] = (
         source="통합치료비 약관 내역 — 수술 항목",
         targets=("surgery_cerebral", "surgery_cardiac"),
     ),
+    # BOHUMFIT-290: 289 미해결분 해소 — Q8형 **본체**는 `순환계 치료비` 신규 행으로(Human 확정).
+    #   288 실증: 알파Plus #169 본체 5,000만 → 이 행 / 내역 "수술 1,000만" → 위 규칙.
+    DistributionRuleV2(
+        "integrated_treatment_body",
+        source="특정순환계질환 통합치료비 — 본체(연간 총 지급 한도)",
+        targets=("circulatory_treatment",),
+    ),
 )
 
-#: ★패킷 명세 중 **실측으로 확인되지 않은** 부분 — 추측해서 규칙을 만들지 않는다.
-#:   패킷은 Q8형의 "본체 → r30(순환계 치료비)"라고 했으나, 신판 46행에 `순환계 치료비` 행이
-#:   **없다**(전 시트 `순환계`·`통합치료` 문자열 0건, r30은 `뇌 졸 중`). 본체의 착지 행이
-#:   정해지기 전까지 규칙을 만들지 않고 여기에 남긴다(289 태스크 문서 "패킷 대비 미확인" 참조).
-DISTRIBUTION_UNRESOLVED_V2: tuple[str, ...] = (
-    "Q8형 통합치료비의 **본체** 금액이 들어갈 행 — 신판에 대응 행 없음",
+#: BOHUMFIT-290: 암 통합치료비 **패턴 자동 판정 규칙**(Human 확정 · ★배선은 S4).
+#:   내역 치료별 금액이 **상이**하면 Q8형(내역 분해) / **동액이거나 미기재**면 주요치료비형(3행 동액).
+#:   288 실측: 알파Plus #117·#119는 본문에 내역 금액이 **없다** → 이 규칙으로는 주요치료비형.
+DISTRIBUTION_PATTERN_RULE_V2 = (
+    "내역 치료별 금액 상이 → Q8형(내역 분해) / 동액 또는 미기재 → 주요치료비형(3행 동액)"
 )
+
+#: 289가 주차했던 미해결분 — ★BOHUMFIT-290에서 **해소**(본체 착지 = `circulatory_treatment`).
+#:   빈 튜플을 유지해 "미해결이 없다"를 코드로 남긴다.
+DISTRIBUTION_UNRESOLVED_V2: tuple[str, ...] = ()

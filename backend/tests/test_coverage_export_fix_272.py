@@ -30,10 +30,11 @@ def test_stage_map_always_recomputes_from_coverages():
             {"kb_name": "암진단금", "summary": 10_000_000, "enrolled": True, "agg": "sum", "by_company": {}},
         ],
         # ★[전] 값이 그대로 남아 있는 상황(클라이언트 스프레드 재현)
-        "stage_totals": {"암": 999_999_999},
+        "stage_totals": {"뇌초기": 999_999_999},
     }
     stages = _stage_map(before_like)
-    assert stages["암"] != 999_999_999
+    # BOHUMFIT-290: 종합 블록 키는 케스케이드 체인(뇌초기…)이다 — 구 "암" 키는 사라졌다.
+    assert stages.get("뇌초기") != 999_999_999
     assert stages == compute_stage_totals(before_like["coverages"])
 
 
@@ -89,11 +90,17 @@ def test_excel_stage_matches_pdf_source_when_before_differs_from_after():
         row = rows[key]
         excel_before = ws.cell(row=row, column=9).value or 0
         excel_after = ws.cell(row=row, column=11).value or 0
+        if key not in expected:
+            # BOHUMFIT-290 최소 어댑터: 케스케이드에 대응 체인이 없는 구 키(암·심장말기)는 빈 셀(→ 0으로 읽힘).
+            assert excel_after == 0 and excel_before == 0, key
+            continue
         assert abs(excel_after - round(expected.get(key, 0) / 10_000)) <= 1, key
         if excel_before == excel_after:
             same_count += 1
     # 해지 3건이 단계 합계를 실제로 낮췄으므로 전=후인 행이 남아 있으면 안 된다.
-    assert same_count == 0
+    #   ★290: 대응 체인이 없어 "-"로 찍힌 구 키(암·심장말기) 2행은 전=후("-")가 정상이므로 제외한다.
+    dash_rows = sum(1 for key in STAGE_ROWS if key not in expected)
+    assert same_count == dash_rows
 
 
 # ── 결함 C: 총납입 라벨 ────────────────────────────────────────────────────

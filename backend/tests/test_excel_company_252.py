@@ -22,6 +22,11 @@ from coverage.export_excel import FORM_ITEMS, build_workbook_bytes
 MAN = 10_000
 
 
+# BOHUMFIT-290(S2): 집계 행이 V2 49행 — 구 이름 조회는 export와 같은 투영(legacy_form_view)으로.
+from coverage.aggregator import legacy_form_view as _view  # noqa: E402
+from coverage.v2_mapping import GROUP_APPENDIX_V2 as _APPENDIX  # noqa: E402
+
+
 def _analysis(companies: int = 2) -> dict:
     """계약 2개·담보별 by_company 채움(만원 정수 배수 — 반올림 편차 0 설계)."""
     contracts = [
@@ -95,8 +100,8 @@ def test_company_columns_match_payload_and_sum_to_total():
     """★회사별 열 값 = payload by_company(만원) · 회사별 합 = 합계 열(전·후 대사 0)."""
     result = build_after_analysis(_analysis(), {"existing": [], "proposals": []})
     ws = _ws(result)
-    before_rows = {c["kb_name"]: c for c in result["before"]["coverages"]}
-    after_rows = {c["kb_name"]: c for c in result["after"]["before"]["coverages"]}
+    before_rows = _view(result["before"]["coverages"])
+    after_rows = _view(result["after"]["before"]["coverages"])
     n = 2
     col_bsum = 2 + n            # [전] 합계
     col_asum = col_bsum + 4     # 담보명 3열 뒤 [후] 합계

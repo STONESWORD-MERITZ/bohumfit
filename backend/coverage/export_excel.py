@@ -30,9 +30,10 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-from .aggregator import compute_stage_totals, compute_yn_flags
+from .aggregator import compute_stage_totals, compute_yn_flags, legacy_form_view  # 290: 최소 어댑터
 from .compare import ensure_comparison
 from .constants import GROUP13, GROUP_ETC
+from .v2_mapping import GROUP13_V2, GROUP_APPENDIX_V2  # 290
 from .excel_style import (
     AMBER_TX,
     BORDER_BOX,
@@ -85,7 +86,10 @@ _BORDER = BORDER_GRID
 
 
 def _grp_key(g: str) -> int:
-    return GROUP13.index(g) if g in GROUP13 else len(GROUP13)
+    # BOHUMFIT-290: V2 대분류(실 비·수 술…)는 V2 순서로, 구 그룹은 종전 순서로.
+    if g in GROUP13_V2:
+        return GROUP13_V2.index(g)
+    return len(GROUP13_V2) + (GROUP13.index(g) if g in GROUP13 else len(GROUP13))
 
 
 def _company_label(co: dict, companies: list) -> str:
@@ -126,7 +130,8 @@ def _cell(ws, row, col, value=None, *, bold=False, fill=None, fmt=None, align="c
 
 
 def _coverage_maps(before_like: dict) -> dict:
-    return {row.get("kb_name"): row for row in (before_like or {}).get("coverages", [])}
+    # BOHUMFIT-290 최소 어댑터: V2 49행 집계를 구 양식 셀(FORM_ITEMS)로 투영한다(S3 전까지).
+    return legacy_form_view((before_like or {}).get("coverages", []))
 
 
 def _yn_flags(before_like: dict) -> list:
@@ -187,6 +192,10 @@ def _company_columns_available(before_like: dict) -> bool:
     rows = [
         row for row in (before_like or {}).get("coverages", [])
         if row.get("overview") and row.get("enrolled")
+        # BOHUMFIT-290: 비고행(부록)은 회사 열에 전개되지 않으므로 가드 대상이 아니다 —
+        #   구 제외 그룹(장기요양간병비 등)이 비고행으로 처음 노출되며 미귀속(합계-only)일 수 있는데,
+        #   그것 때문에 표 전체가 합계형으로 내려앉으면 안 된다(라금실 정본 실측).
+        and row.get("group12") != GROUP_APPENDIX_V2
     ]
     if not rows:
         return True
@@ -203,7 +212,9 @@ def _company_columns_available(before_like: dict) -> bool:
 def _unknown_bucket_present(before_like: dict, companies: list) -> bool:
     ids = {str(c.get("idx")) for c in companies}
     form_names = set(FORM_ITEMS)
-    for row in (before_like or {}).get("coverages", []):
+    for name, row in _coverage_maps(before_like).items():
+        if name not in form_names:
+            continue
         # BOHUMFIT-259: overview 배제 제거 — 귀속되지 않은 overview 행은 by_company가 비어
         #   있어 자동으로 미해당이고, 귀속된 행에 '?'가 남으면 미확인 열을 정직하게 노출한다.
         if not row.get("enrolled") or row.get("kb_name") not in form_names:
@@ -527,9 +538,14 @@ def _sheet_compare_form(ws, analysis: dict, before: dict, after_before: dict | N
 
     # 부록: 양식 밖 담보 전량 수록(누락 0)
     form_names = set(FORM_ITEMS)
+    # BOHUMFIT-290: 부록 = 비고행 + **양식 셀에 투영되지 않는 V2 행**(신설 19행 등) 중 값 있는 것.
+    #   구 양식 셀에 이미 비친 V2 행(별칭 보유)은 중복 표기하지 않는다.
+    projected = {name for name, row in _coverage_maps(before).items() if name in form_names and row.get("row_id")}
+    projected_ids = {row.get("row_id") for name, row in _coverage_maps(before).items() if name in projected}
     extras = [
         row for row in (before.get("coverages") or [])
         if row.get("kb_name") not in form_names and row.get("enrolled")
+        and (row.get("group12") == GROUP_APPENDIX_V2 or row.get("row_id") not in projected_ids)
     ]
     appendix_row = 53
     last_row = 51
@@ -661,10 +677,12 @@ def _sheet_final_form(ws, analysis: dict, before: dict, after_before: dict | Non
     for offset, key in enumerate(STAGE_ROWS):
         row = 5 + offset
         _cell(ws, row, 8, key, bold=True, fill=FORM_BLUE)
-        _cell(ws, row, 9, _man(stages_before.get(key, 0)), fmt='#,##0"만원"', align="right")
+        # BOHUMFIT-290 최소 어댑터: 케스케이드 블록에 대응 체인이 없는 구 키(암·심장말기)는 **빈 셀**
+        #   (숫자 0으로 꾸미지 않는다 — S3 블록 재설계까지의 정직한 공백. 문자열을 넣으면 시트2 검산이 깨진다).
+        _cell(ws, row, 9, _man(stages_before[key]) if key in stages_before else None, fmt='#,##0"만원"', align="right")
         _cell(ws, row, 10, "→")
         if after_before:
-            _cell(ws, row, 11, _man(stages_after.get(key, 0)), fmt='#,##0"만원"', align="right",
+            _cell(ws, row, 11, _man(stages_after[key]) if key in stages_after else None, fmt='#,##0"만원"', align="right",
                   color=RED_TX, bold=True)
 
     ws.merge_cells("H13:K13")

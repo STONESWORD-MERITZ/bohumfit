@@ -82,10 +82,16 @@ def test_over80_disability_excluded_from_disability_group():
 
     # 후유장해 집계 = 3-100%(80%미만) 담보만 = 5,000만 + 2,000만
     disability = by_group.get("후유장해", [])
-    assert sorted(disability) == sorted([("상해후유장해", 5000 * MAN), ("질병후유장해", 2000 * MAN)])  # 246 정식명
-    assert sum(v for _, v in disability) == 7000 * MAN
-    # 80%이상은 기타로 표시(정보 보존) — 후유장해 합계에 미포함.
-    assert ("80%이상 후유장해", 100 * MAN) in by_group.get(GROUP_ETC, [])
+    # BOHUMFIT-290(S2·Q2): 80% 행은 후유장해 대분류의 **정식 행**이 됐다(값 보존·sum_excluded 플래그).
+    #   집계 합계(group_totals)는 243 잣대대로 여전히 3-100%만 더한다.
+    from coverage.aggregator import group_rollup_v2
+    assert sorted(disability) == sorted([
+        ("상 해 후 유 장 해 3%", 5000 * MAN), ("질 병 후 유 장 해 3%", 2000 * MAN),
+        ("상해 질병 후 유 장 해 80%", 100 * MAN),
+    ])
+    assert group_rollup_v2(before["coverages"])["후유장해"] == 7000 * MAN  # 80% 제외
+    row80 = next(c for c in before["coverages"] if c.get("row_id") == "disability_80")
+    assert row80["sum_excluded"] is True and row80["summary"] == 100 * MAN
 
 
 def test_over80_classifier_still_labels_separately():

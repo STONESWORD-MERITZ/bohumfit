@@ -11,7 +11,14 @@ from .aggregator import (
     carry_coverage_row,
     overview_rows_need_cancel_warning,
 )
-from .constants import GROUP13
+from .constants import GROUP13 as _LEGACY_GROUP13  # 290: 구 페이로드 호환(S3까지)
+from .v2_mapping import (  # BOHUMFIT-290: 신규 제안 담보도 V2 행으로 착지시킨다
+    GROUP13_V2,
+    GROUP_APPENDIX_V2,
+    KIND_ROW,
+    ROWS_BY_ID,
+    resolve,
+)
 
 STATUS_SUFFICIENT = "충분"
 STATUS_SHORT = "부족"
@@ -78,8 +85,18 @@ def _status_counts(rows: list[dict]) -> dict[str, int]:
     return counts
 
 
-def _group_key(group: str | None) -> int:
-    return GROUP13.index(group) if group in GROUP13 else len(GROUP13)
+def _group_key(group: str | None, legacy: bool = False) -> int:
+    """BOHUMFIT-290: 그룹 정렬 축 — V2 페이로드는 V2 대분류 순, 구 페이로드(row_id 없음)는 종전 순.
+    "암"처럼 두 축에 다 있는 이름은 페이로드 모드가 정한다(프런트 미러 패리티 — S3까지)."""
+    if legacy:
+        return _LEGACY_GROUP13.index(group) if group in _LEGACY_GROUP13 else len(_LEGACY_GROUP13)
+    if group in GROUP13_V2:
+        return GROUP13_V2.index(group)
+    return len(GROUP13_V2) + (_LEGACY_GROUP13.index(group) if group in _LEGACY_GROUP13 else len(_LEGACY_GROUP13))
+
+
+def _is_legacy_rows(rows) -> bool:
+    return not any(row.get("row_id") for row in rows or [])
 
 
 def _sort_contracts(contracts: list[dict]) -> list[dict]:
@@ -112,9 +129,10 @@ def compare_before_after(before_final: dict, after_final: dict) -> dict:
         (row.get("group12"), row.get("kb_name")): row
         for row in after_final.get("coverages", [])
     }
+    legacy = _is_legacy_rows(before_final.get("coverages", [])) and _is_legacy_rows(after_final.get("coverages", []))
     keys = sorted(
         set(before_rows) | set(after_rows),
-        key=lambda key: (_group_key(key[0]), key[1] or ""),
+        key=lambda key: (_group_key(key[0], legacy), key[1] or ""),
     )
 
     rows: list[dict] = []
@@ -209,7 +227,7 @@ def compare_before_after(before_final: dict, after_final: dict) -> dict:
         "short_to_sufficient": short_to_sufficient,
         "before_status_counts": _status_counts(before_final.get("coverages", [])),
         "after_status_counts": _status_counts(after_final.get("coverages", [])),
-        "by_group12": sorted(group_rollup.values(), key=lambda item: _group_key(item.get("group12"))),
+        "by_group12": sorted(group_rollup.values(), key=lambda item: _group_key(item.get("group12"), legacy)),
     }
     improvements = []
     if improved_count:
@@ -278,15 +296,23 @@ def build_after_analysis(analysis: dict, plan: dict | None = None) -> dict:
         after_companies.append(updated)
 
     proposal_contracts = []
-    proposal_values: defaultdict[str, dict[str, int | None]] = defaultdict(dict)
+    # BOHUMFIT-290(S2): 신규 제안 담보 이름(구 kb_name)을 **V2 행**으로 착지시킨다.
+    #   ★[전]이 V2 49행이 됐으므로 이름 그대로 대조하면 하나도 안 맞는다 — resolve()가 단일 소스.
+    #   2열 병기 행(종수술·간병인)은 열별 값(`proposal_columns`)도 함께 넘긴다.
+    proposal_values: defaultdict[str, dict[str, int | None]] = defaultdict(dict)   # row_id/name → {pid: amt}
+    proposal_columns: defaultdict[str, defaultdict[str, dict]] = defaultdict(lambda: defaultdict(dict))
     proposal_meta: dict[str, dict] = {}
-    known_coverages = {row.get("kb_name") for row in before.get("coverages", [])}
+    known_rows = {row.get("row_id"): row for row in before.get("coverages", []) if row.get("row_id")}
+    known_names = {row.get("kb_name") for row in before.get("coverages", [])}
+    # ★구 페이로드([전] 행에 row_id가 없음 — 프런트 캐시 미러·과거 저장분): 종전 규칙 그대로
+    #   (kb_name 대조 · 미매칭은 제안서 group12 유지). S3에서 프런트 미러가 V2로 옮겨오기 전까지의 호환.
+    legacy_before = not known_rows
     for seq, proposal in enumerate(plan.get("proposals", []), start=1):
         proposal_id = _contract_id(proposal.get("proposal_id") or f"P{seq}") or f"P{seq}"
         if not proposal_id.startswith("P"):
             proposal_id = f"P{seq}"
         monthly = _to_int(proposal.get("monthly_premium"))
-        if monthly is None or monthly < 0:
+        if monthly is None:
             warnings.append(f"신규제안 {proposal_id}의 월보험료가 없어 제외했습니다.")
             continue
         pay_months = _to_int(proposal.get("pay_months"))
@@ -298,9 +324,9 @@ def build_after_analysis(analysis: dict, plan: dict | None = None) -> dict:
             "idx": proposal_id,
             "insurer": proposal.get("insurer") or "신규제안",
             "product": proposal.get("product") or proposal_id,
-            "contract_date": None,
+            "contract_date": proposal.get("contract_date"),
             "pay_cycle": proposal.get("pay_cycle") or "월납",
-            "pay_years": proposal.get("pay_years"),
+            "pay_years": (pay_months // 12) if pay_months else None,
             "pay_months": pay_months,
             "maturity": proposal.get("maturity"),
             "monthly_premium": monthly,
@@ -316,30 +342,60 @@ def build_after_analysis(analysis: dict, plan: dict | None = None) -> dict:
             if amount is None or amount < 0:
                 warnings.append(f"신규제안 {proposal_id}의 담보 {kb_name} 금액이 없어 제외했습니다.")
                 continue
-            if kb_name not in known_coverages:
-                group12 = coverage.get("group12")
-                agg = coverage.get("agg")
-                if not group12 or not agg:
-                    warnings.append(f"신규제안 {proposal_id}의 미매핑 담보 {kb_name or '-'}는 제외했습니다.")
+            target = resolve(kb_name)
+            if legacy_before:
+                key = kb_name
+                if key not in known_names:
+                    group12 = coverage.get("group12")
+                    agg = coverage.get("agg")
+                    if not group12 or not agg:
+                        warnings.append(f"신규제안 {proposal_id}의 미매핑 담보 {kb_name or '-'}는 제외했습니다.")
+                        continue
+                    proposal_meta.setdefault(
+                        kb_name,
+                        {"kb_name": kb_name, "kb_group": coverage.get("kb_group") or group12,
+                         "group12": group12, "agg": agg},
+                    )
+            elif target.kind == KIND_ROW and target.row_id in known_rows:
+                key = target.row_id
+                if target.column:
+                    # 2열 병기 행: 열별로 모으고, 행 값은 아래에서 열 합으로 만든다(build_v2_rows와 동일).
+                    cell = proposal_columns[key][target.column]
+                    cur = cell.get(proposal_id)
+                    cell[proposal_id] = amount if cur is None else max(cur, amount)
                     continue
-                proposal_meta.setdefault(
-                    kb_name,
-                    {
-                        "kb_name": kb_name,
-                        "kb_group": coverage.get("kb_group") or group12,
-                        "group12": group12,
-                        "agg": agg,
-                    },
-                )
-            current = proposal_values[kb_name].get(proposal_id)
-            proposal_values[kb_name][proposal_id] = amount if current is None else max(current, amount)
+            else:
+                # V2에 자리가 없는 제안 담보 → 비고행으로 보존(버리지 않는다).
+                key = kb_name
+                if key not in known_names:
+                    proposal_meta.setdefault(
+                        key,
+                        {
+                            "kb_name": kb_name,
+                            "kb_group": GROUP_APPENDIX_V2,
+                            "group12": GROUP_APPENDIX_V2,
+                            "agg": coverage.get("agg") or "sum",
+                        },
+                    )
+            current = proposal_values[key].get(proposal_id)
+            proposal_values[key][proposal_id] = amount if current is None else max(current, amount)
+
+    # 2열 병기 행의 행 값 = 열 합(같은 제안서의 질병·상해를 더한다 — build_v2_rows의 by_company 규칙).
+    for row_id, columns in proposal_columns.items():
+        for column_cells in columns.values():
+            for pid, amount in column_cells.items():
+                proposal_values[row_id][pid] = (proposal_values[row_id].get(pid) or 0) + amount
 
     after_companies = _sort_contracts(after_companies + proposal_contracts)
     # BOHUMFIT-249: [후] 이월을 aggregator.carry_coverage_row(단일 소스)로 통일.
     #   ★종전 이 경로만 246 회송 보정(overview 합계 이월·'?' 키 이월)이 빠져 있어
     #   overview 케이스의 [후] 보장금액이 전부 0으로 소실됐다(프로덕션 실물 결함 원인).
     after_coverages = [
-        carry_coverage_row(row, kept_contract_ids, known_contracts, proposal_values.get(row.get("kb_name")))
+        carry_coverage_row(
+            row, kept_contract_ids, known_contracts,
+            proposal_values.get(row.get("row_id") or row.get("kb_name")),
+            proposal_columns.get(row.get("row_id")) if row.get("row_id") else None,
+        )
         for row in before.get("coverages", [])
     ]
     # BOHUMFIT-259: 귀속되지 않은 overview 행이 있을 때만 경고(귀속분은 해지가 회사 열
@@ -349,7 +405,7 @@ def build_after_analysis(analysis: dict, plan: dict | None = None) -> dict:
     ):
         if OVERVIEW_CANCEL_WARNING not in warnings:
             warnings.append(OVERVIEW_CANCEL_WARNING)
-    for kb_name, meta in sorted(proposal_meta.items(), key=lambda item: (_group_key(item[1].get("group12")), item[0])):
+    for kb_name, meta in sorted(proposal_meta.items(), key=lambda item: (_group_key(item[1].get("group12"), legacy_before), item[0])):
         by_company = proposal_values.get(kb_name, {})
         summary = aggregate_coverage_values(by_company, meta.get("agg"))
         after_coverages.append({
@@ -399,6 +455,10 @@ def build_after_analysis(analysis: dict, plan: dict | None = None) -> dict:
             "gap": gap,
             "status": status,
         }
+        # BOHUMFIT-290: V2 식별자·플래그 유지(투영·S3용). 구 페이로드 행은 키가 없어 그대로다.
+        for key in ("row_id", "sum_excluded"):
+            if coverage.get(key):
+                row[key] = coverage[key]
         after_final_rows.append(row)
         if status in rollup_counts[coverage.get("group12")]:
             rollup_counts[coverage.get("group12")][status] += 1
@@ -408,7 +468,8 @@ def build_after_analysis(analysis: dict, plan: dict | None = None) -> dict:
         "coverages": after_final_rows,
         "rollup_by_group12": [
             {"group12": group, "status_counts": dict(rollup_counts[group])}
-            for group in GROUP13
+            # 구 페이로드(row_id 없음)는 종전 그룹 축(프런트 미러 패리티 — S3 전까지) 유지.
+            for group in (_LEGACY_GROUP13 if legacy_before else GROUP13_V2)
         ],
     }
     comparison = compare_before_after(before_final, after_final)

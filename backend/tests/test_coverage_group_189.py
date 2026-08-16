@@ -20,6 +20,11 @@ EXPECTED_GROUP_ORDER_V2 = (
 )
 
 
+# BOHUMFIT-290(S2): 집계 행이 V2 49행으로 바뀌었다 — 구 이름 조회는 투영 헬퍼로(값·셀 불변).
+from tests.v2names import find_row as _find_v2  # noqa: E402
+from coverage.v2_mapping import GROUP_APPENDIX_V2 as _APPENDIX  # noqa: E402
+
+
 def _group(kb_name: str) -> str:
     meta = coverage_meta(kb_name)
     assert meta is not None
@@ -68,25 +73,29 @@ def test_brain_and_heart_diagnosis_split_while_surgery_stays_in_surgery() -> Non
 
 def test_fracture_burn_and_inpatient_labels_without_amount_change() -> None:
     before = build_before(_raw())
-    by_name = {row["kb_name"]: row for row in before["coverages"]}
+    from coverage.aggregator import legacy_form_view
+    by_name = legacy_form_view(before["coverages"])
 
-    # BOHUMFIT-246: 간병인·보철·화상→기타 보존, 상해입원(구 일당)→의료이용,
-    #   상해입원의료비→가입특약(Y/N) 판정 원천. 값 전부 불변(귀속만 이동).
-    assert by_name["간병인/간호간병상해일당"]["group12"] == "기타"
+    # BOHUMFIT-290(S2): 귀속이 V2 대분류로 이동 — 값 전부 불변(246과 같은 원칙).
+    #   간병인→입 원(상해 열) · 상해입원→입 원 · 골절진단비→골 절 · 보철·화상→비고 ·
+    #   상해입원의료비→실 비(yn_source 행 — 구 가입특약(Y/N) 그룹은 소멸, 플래그는 yn_flags에 유지).
+    assert by_name["간병인/간호간병상해일당"]["group12"] == "입 원"
     assert by_name["간병인/간호간병상해일당"]["summary"] == 30_000
-    assert by_name["상해입원"]["group12"] == "의료이용"
+    assert by_name["상해입원"]["group12"] == "입 원"
     assert by_name["상해입원"]["summary"] == 20_000
-    assert by_name["골절진단비"]["group12"] == "골절"
+    assert by_name["골절진단비"]["group12"] == "골 절"
     assert by_name["골절진단비"]["summary"] == 1_000_000
-    assert by_name["보철치료비"]["group12"] == "기타"
-    assert by_name["화상"]["group12"] == "기타"
+    assert by_name["보철치료비"]["group12"] == _APPENDIX
+    assert by_name["화상"]["group12"] == _APPENDIX
     assert by_name["화상"]["summary"] == 5_000_000
-    assert by_name["상해입원의료비"]["group12"] == "가입특약(Y/N)"
+    assert by_name["상해입원의료비"]["group12"] == "실 비"
     assert by_name["상해입원의료비"]["summary"] == 50_000_000
 
 
 def test_final_rollup_uses_group_order_v2() -> None:
     before = build_before(_raw())
     final = build_final(before, {})
-    assert [row["group12"] for row in final["rollup_by_group12"]] == list(EXPECTED_GROUP_ORDER_V2)
+    # BOHUMFIT-290(S2): 롤업 순서 = V2 대분류 11 + 비고.
+    from coverage.v2_mapping import GROUP13_V2
+    assert [row["group12"] for row in final["rollup_by_group12"]] == list(GROUP13_V2)
     assert "화상" not in EXTRA_LABEL_GROUP  # 246: 화상은 기타 기본값(귀속 해제)

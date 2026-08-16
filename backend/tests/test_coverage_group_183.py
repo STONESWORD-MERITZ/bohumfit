@@ -4,6 +4,11 @@ from coverage.aggregator import build_before, build_final
 from coverage.constants import EXTRA_PATTERNS, GROUP13
 
 
+# BOHUMFIT-290(S2): 집계 행이 V2 49행으로 바뀌었다 — 구 이름 조회는 투영 헬퍼로(값·셀 불변).
+from tests.v2names import find_row as _find_v2  # noqa: E402
+from coverage.v2_mapping import GROUP_APPENDIX_V2 as _APPENDIX  # noqa: E402
+
+
 def _raw() -> dict:
     return {
         "customer": {"name": None, "age": None, "sex": None},
@@ -49,22 +54,25 @@ def test_dementia_is_excluded_from_before_and_final_rendering() -> None:
     final = build_final(before, {})
     names = {row["kb_name"] for row in before["coverages"]}
 
-    assert "장기요양간병비" not in names
-    assert "경증치매진단" not in names
-    assert all(row["kb_name"] not in {"장기요양간병비", "경증치매진단"} for row in final["coverages"])
+    # BOHUMFIT-290(S2·Human Q4 확정): 구 제외 2행은 **비고행**으로 보존된다(값이 있을 때만) — 대분류 밖.
+    for name in ("장기요양간병비", "경증치매진단"):
+        if name in names:
+            row = next(r for r in before["coverages"] if r["kb_name"] == name)
+            assert row["group12"] == _APPENDIX
 
 
 def test_care_fracture_and_burn_groups_move_without_amount_change() -> None:
     before = build_before(_raw())
-    by_name = {row["kb_name"]: row for row in before["coverages"]}
+    from coverage.aggregator import legacy_form_view
+    by_name = legacy_form_view(before["coverages"])
 
-    # BOHUMFIT-246: 간병인·보철·화상은 신 양식 비항목 → 기타 보존(값 불변).
-    assert by_name["간병인/간호간병상해일당"]["group12"] == "기타"
+    # BOHUMFIT-290(S2): 간병인은 V2 `간 병 인`(입 원·상해 열)로 승격, 보철·화상은 비고행 — 값 불변.
+    assert by_name["간병인/간호간병상해일당"]["group12"] == "입 원"
     assert by_name["간병인/간호간병상해일당"]["summary"] == 30_000
-    assert by_name["골절진단비"]["group12"] == "골절"
+    assert by_name["골절진단비"]["group12"] == "골 절"
     assert by_name["골절진단비"]["summary"] == 1_000_000
-    assert by_name["보철치료비"]["group12"] == "기타"
-    assert by_name["화상"]["group12"] == "기타"
+    assert by_name["보철치료비"]["group12"] == _APPENDIX
+    assert by_name["화상"]["group12"] == _APPENDIX
     assert by_name["화상"]["summary"] == 2_000_000
 
 
@@ -73,7 +81,7 @@ def test_selected_non_standard_riders_stay_in_etc() -> None:
     by_name = {row["kb_name"]: row for row in before["coverages"]}
 
     for label in ("N대수술비", "상급/종합병원 일당", "양성종양·폴립", "통원일당"):
-        assert by_name[label]["group12"] == "기타"
+        assert by_name[label]["group12"] == _APPENDIX  # 290: 기타 → 비고
 
 
 def test_mojibake_extra_pattern_removed() -> None:

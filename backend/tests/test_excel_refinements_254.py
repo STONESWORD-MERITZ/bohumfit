@@ -22,6 +22,11 @@ from coverage.export_excel import FORM_ITEMS, YN_ROWS, build_workbook_bytes
 MAN = 10_000
 
 
+# BOHUMFIT-290(S2): 집계 행이 V2 49행 — 구 이름 조회는 export와 같은 투영(legacy_form_view)으로.
+from coverage.aggregator import legacy_form_view as _view  # noqa: E402
+from coverage.v2_mapping import GROUP_APPENDIX_V2 as _APPENDIX  # noqa: E402
+
+
 def _raw(with_yn: bool = True) -> dict:
     """계약 2개 — 계약1은 운전자 특약군, 계약2는 실손·자동차부상 보유(회사별 Y 표적)."""
     extra = {}
@@ -65,7 +70,7 @@ def _ws(with_yn: bool = True):
 def test_yn_flags_expose_per_company_without_changing_amounts():
     """compute_yn_flags가 by_company를 파생하되 원천 금액·합계 규칙은 불변."""
     before = build_before(_raw(), today="2026-07-27")
-    rows = {r["kb_name"]: r for r in before["coverages"]}
+    rows = _view(before["coverages"])
     flags = {f["item"]: f for f in compute_yn_flags(before["coverages"])}
 
     assert flags["운전자특약"]["value"] == "Y"
@@ -183,7 +188,7 @@ def test_section_borders_applied_on_block_edges():
 def test_amount_cells_unchanged_by_refinements():
     """★값 불변: 담보 금액 셀·회사합=합계가 개정 후에도 그대로."""
     ws, result = _ws()
-    rows = {c["kb_name"]: c for c in result["before"]["coverages"]}
+    rows = _view(result["before"]["coverages"])
     n = 2
     col_bsum = 2 + n
     for item in ("질병사망", "암진단금"):

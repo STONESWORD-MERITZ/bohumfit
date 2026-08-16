@@ -25,6 +25,11 @@ MAN = 10_000
 GEN = datetime(2026, 7, 31)
 
 
+# BOHUMFIT-290(S2): 집계 행이 V2 49행 — 구 이름 조회는 export와 같은 투영(legacy_form_view)으로.
+from coverage.aggregator import legacy_form_view as _view  # noqa: E402
+from coverage.v2_mapping import GROUP_APPENDIX_V2 as _APPENDIX  # noqa: E402
+
+
 def _analysis(companies: int = 2, monthly=(10_000, 20_000)) -> dict:
     raw = {
         "customer": {"name": "홍길동", "age": 50, "sex": "남자"},
@@ -160,7 +165,7 @@ def test_amount_cells_unchanged_by_presentation_changes():
     """★값 불변: 담보 금액·회사합=합계는 표시 개편 후에도 그대로."""
     wb, result = _wb(_analysis())
     ws = wb["비교분석표"]
-    rows = {c["kb_name"]: c for c in result["before"]["coverages"]}
+    rows = _view(result["before"]["coverages"])
     row = 10 + FORM_ITEMS.index("질병사망")
     assert ws.cell(row=row, column=2).value == 3000
     assert ws.cell(row=row, column=3).value == 2000

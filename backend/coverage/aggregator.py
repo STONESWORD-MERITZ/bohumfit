@@ -7,21 +7,29 @@ from datetime import date
 
 from .constants import (
     AGG_SUM,
+    CASCADE_CASE_LABEL_V2,
     DEATH_EXCLUSION_LABELS,
-    EXTRA_LABEL_GROUP,
-    GROUP13,
-    GROUP_ETC,
-    GROUP_EXCLUDED,
-    KB_COVERAGES,
-    NEW_ITEM_ORDER,
-    STAGE_COMMON_ADD,
-    STAGE_COMPONENTS,
-    YN_ITEMS,
+    KB_COVERAGES_V2,
+    LEGACY_TO_V2,
+    PAYOUT_CASCADE_V2,
+    YN_ITEMS_V2,
 )
 from .schema import before_coverage, final_coverage
+from .v2_mapping import (
+    DUAL_COLUMNS,
+    GROUP13_V2,
+    GROUP_APPENDIX_V2,
+    KIND_ROW,
+    ROW_AGG,
+    ROW_INDEX,
+    ROWS_BY_ID,
+    combine,
+    resolve,
+)
 
-# BOHUMFIT-246: 항목 표시 순서 인덱스(비분양식 시트2 순서) — 목록 밖 라벨은 그룹 내 뒤.
-_ITEM_ORDER_IDX = {name: idx for idx, name in enumerate(NEW_ITEM_ORDER)}
+# BOHUMFIT-290(S2): ★V2 49행이 처음으로 실계산에 물린다. 구 40행 스키마 상수(행 목록·그룹 순서·
+#   항목 순서·246 단계 수식·Y/N 항목표)는 이 모듈에서 더 이상 참조하지 않는다(배선 증명 테스트가
+#   고정). 구 상수 자체는 S3 완료 시점까지 삭제하지 않는다(export 최소 어댑터가 쓴다).
 
 
 def _apply_exclusions(matrix: dict, extras: dict) -> tuple[dict, dict, dict]:
@@ -80,7 +88,10 @@ def _apply_exclusions(matrix: dict, extras: dict) -> tuple[dict, dict, dict]:
     return matrix, extras, dedup
 
 
-def carry_coverage_row(row: dict, kept_ids: set, known_ids: set, extra_values: dict | None = None) -> dict:
+def carry_coverage_row(
+    row: dict, kept_ids: set, known_ids: set, extra_values: dict | None = None,
+    extra_columns: dict | None = None,
+) -> dict:
     """BOHUMFIT-249: [후] 이월 행 변환의 ★단일 소스(211 패리티 — 246 회송 보정 규칙 통일).
 
     - overview 행: **계약 귀속(by_company)이 있으면 일반 행과 동일 규칙**으로 이월한다
@@ -121,6 +132,24 @@ def carry_coverage_row(row: dict, kept_ids: set, known_ids: set, extra_values: d
     updated["by_company"] = by_company
     updated["summary"] = aggregate_coverage_values(by_company, row.get("agg"))
     updated["enrolled"] = any(value is not None for value in by_company.values())
+    # BOHUMFIT-290: 2열 병기(`columns`)·원천 상세(`sources`)도 같은 keep/cancel 필터를 탄다.
+    #   신규 제안값은 `extra_columns`(열별)로 받는다 — 열을 모르면 unspecified.
+    if row.get("columns"):
+        columns = {}
+        for column, cell in row["columns"].items():
+            cells = {
+                str(key): value
+                for key, value in (cell.get("by_company") or {}).items()
+                if str(key) in kept_ids or str(key) not in known_ids
+            }
+            cells.update({k: v for k, v in ((extra_columns or {}).get(column) or {}).items() if v is not None})
+            columns[column] = {"by_company": cells, "summary": aggregate_coverage_values(cells, row.get("agg"))}
+        updated["columns"] = columns
+    if row.get("sources"):
+        updated["sources"] = {
+            name: {str(k): v for k, v in cells.items() if str(k) in kept_ids or str(k) not in known_ids}
+            for name, cells in row["sources"].items()
+        }
     return updated
 
 
@@ -144,52 +173,105 @@ def overview_rows_need_cancel_warning(coverages: list[dict]) -> bool:
 
 
 def compute_yn_flags(coverages: list[dict]) -> list[dict]:
-    """BOHUMFIT-246: 양식 45~49행 Y/N 파생 — 원천 담보 1건 이상 enrolled면 Y.
-    (원본 수식 `=IF(COUNTA(범위)=0,"N", IF(COUNTA(범위),"Y"))`의 의미 등가.)"""
+    """BOHUMFIT-246 → 290(Q5): Y/N 파생 — 원천 담보 1건 이상 enrolled면 Y.
+
+    ★내부 플래그(item 5종·값·계약별 Y)는 **그대로 유지**하고, 원천만 V2 행으로 재배선했다.
+      원천 담보(구 이름)는 V2 행의 `sources`에 남아 있어 상해실손/질병실손처럼 **같은 행에
+      합쳐진 원천도 구분**할 수 있다. 해지(carry)로 계약이 빠지면 행 by_company에서도 빠지므로
+      `sources` 값 ∩ 행 by_company 생존 키로 판정한다.
+    """
+    by_id = {row.get("row_id"): row for row in coverages if row.get("row_id")}
     by_name = {row.get("kb_name"): row for row in coverages}
     flags = []
-    for item, sources in YN_ITEMS:
-        source_rows = [by_name.get(name) for name in sources]
-        enrolled = any(row and row.get("enrolled") for row in source_rows)
-        # BOHUMFIT-254 개정3: 계약(회사)별 Y 파생 — 해지 시 "어느 회사 담보가 빠지는지"
-        #   식별용(누락 방지). ★금액은 건드리지 않는다: 원천 9행의 기존 by_company(253 귀속
-        #   정합)에 값이 있는 계약 키만 "Y"로 표시한다(없으면 키 자체를 만들지 않음=공백).
-        #   합계 Y/N 규칙(원천 1건 이상 enrolled)은 불변 — 5케이스 정합 상이 0 실측.
+    for item, sources in YN_ITEMS_V2:
         per_company: dict[str, str] = {}
-        for row in source_rows:
-            for company_id, amount in ((row or {}).get("by_company") or {}).items():
-                if amount is not None:
+        source_summaries = []
+        enrolled = False
+        for source_name in sources:
+            row_id = LEGACY_TO_V2.get(source_name)
+            row = by_id.get(row_id) or by_name.get(source_name)
+            if not row:
+                source_summaries.append({"kb_name": source_name, "summary": None})
+                continue
+            row_cells = {k: v for k, v in (row.get("by_company") or {}).items() if v is not None}
+            sources_map = row.get("sources")
+            if sources_map is None:
+                # 원천 상세가 없는 행(구 payload·제안서 전용 행)은 행 값으로 판정한다.
+                src_cells = row_cells
+                sources_map = {}
+            else:
+                # V2 행: 이 원천이 없으면 빈 것 — 같은 행의 **다른** 원천(예: 상해실손) 값을 빌리지 않는다.
+                src_cells = sources_map.get(source_name) or {}
+            live = {k: v for k, v in src_cells.items() if v is not None and k in row_cells}
+            # 신규 제안(carry로 병합된 P키 등) — 어느 원천에도 없는 계약 키는 이 행의 값이므로 포함한다.
+            sourced_keys = {k for cells in sources_map.values() for k, v in cells.items() if v is not None}
+            live.update({k: v for k, v in row_cells.items() if k not in sourced_keys})
+            if live:
+                enrolled = True
+                for company_id in live:
                     per_company[company_id] = "Y"
+                source_summary = aggregate_coverage_values(live, row.get("agg"))
+            elif row.get("enrolled") and not row_cells:
+                # 239 합계-only(overview·귀속 없음) 행: 계약 열은 없지만 가입은 맞다 — 246 규칙 유지.
+                enrolled = True
+                source_summary = row.get("summary")
+            else:
+                source_summary = None
+            source_summaries.append({"kb_name": source_name, "summary": source_summary})
         flags.append({
             "item": item,
             "value": "Y" if enrolled else "N",
             "by_company": per_company,
-            "sources": [
-                {"kb_name": name, "summary": (by_name.get(name) or {}).get("summary")}
-                for name in sources
-            ],
+            "sources": source_summaries,
         })
     return flags
 
 
+# BOHUMFIT-290: 종합 판정 블록 라벨 — 뇌·심장은 패킷 정의 그대로 구 라벨을 재사용한다
+#   (뇌초기=뇌혈관 / 뇌중기=뇌혈관+뇌졸중 / 뇌말기=+뇌출혈 · 심장초기=허혈성 / 심장중기=허혈성+급성).
+#   ★구 `심장말기`·`암`은 케스케이드에 대응 체인이 없어 **사라진다**(S3 블록 재설계 항목).
+STAGE_LABEL_V2: dict[str, str] = {
+    "cerebral_disease": "뇌초기",
+    "stroke": "뇌중기",
+    "cerebral_hemorrhage": "뇌말기",
+    "ischemic_heart": "심장초기",
+    "acute_mi": "심장중기",
+}
+
+
+def stage_label(key: str) -> str:
+    if key in STAGE_LABEL_V2:
+        return STAGE_LABEL_V2[key]
+    if key in CASCADE_CASE_LABEL_V2:
+        return CASCADE_CASE_LABEL_V2[key]
+    return ROWS_BY_ID[key].display if key in ROWS_BY_ID else key
+
+
 def compute_stage_totals(coverages: list[dict]) -> dict:
-    """BOHUMFIT-246: 종합비교 단계 파생(비분양식 시트3 수식 이식 — 원문은 constants 주석).
-    빈 값은 0으로 합산(원본 SUM 동일). [후]도 같은 수식(I열 규칙 — K7 이중합산 미이식)."""
-    by_name = {row.get("kb_name"): row for row in coverages}
+    """BOHUMFIT-290(S2): 종합 판정 = **케스케이드 체인별 지급 합계**(Human 확정 · 289 정의).
 
-    def _value(name: str) -> int:
-        return (by_name.get(name) or {}).get("summary") or 0
+    ★행 정의가 `PAYOUT_CASCADE_V2`와 1:1이다 — 체인 하나가 블록 한 행. 진단이 나면 체인의
+      행이 **함께 지급**되므로 값은 체인 행 summary의 합이다(빈 값 0).
+    ★246 공통 가산(일반종수술5종+질병수술)은 케스케이드 정의에 없어 **폐기**됐다.
+    """
+    by_id = {row.get("row_id"): row for row in coverages if row.get("row_id")}
 
-    common = sum(_value(name) for name in STAGE_COMMON_ADD)
-    return {stage: sum(_value(name) for name in names) + common for stage, names in STAGE_COMPONENTS}
+    def _value(row_id: str) -> int:
+        return (by_id.get(row_id) or {}).get("summary") or 0
+
+    return {
+        stage_label(key): sum(_value(row_id) for row_id in chain)
+        for key, chain in PAYOUT_CASCADE_V2.items()
+    }
 
 
 def _coverage_sort_key(index_and_row: tuple[int, dict]) -> tuple[int, int, int]:
+    """BOHUMFIT-290: 표시 순서 = (V2 스키마 순서, 비고는 유입 순서)."""
     insertion, row = index_and_row
-    group = row.get("group12")
-    group_idx = GROUP13.index(group) if group in GROUP13 else len(GROUP13)
-    item_idx = _ITEM_ORDER_IDX.get(row.get("kb_name"), len(NEW_ITEM_ORDER))
-    return (group_idx, item_idx, insertion)
+    row_id = row.get("row_id")
+    if row_id in ROW_INDEX:
+        return (0, ROW_INDEX[row_id], insertion)
+    return (1, 0, insertion)
 
 
 def aggregate_coverage_values(by_company: dict, agg: str):
@@ -253,6 +335,168 @@ def _is_paid_up(contract: dict, today_iso: str) -> bool:
     return end is not None and end <= today_iso
 
 
+def _empty_bucket() -> dict:
+    return {
+        "by_company": {},
+        "columns": {column: {} for column in DUAL_COLUMNS},
+        "sources": {},
+        "overview": False,
+        "estimated": False,
+    }
+
+
+def _feed(bucket: dict, name: str, by_company: dict, agg: str, column: str | None) -> None:
+    for key, value in (by_company or {}).items():
+        key = str(key)
+        bucket["by_company"][key] = combine(bucket["by_company"].get(key), value, agg)
+        if column:
+            cells = bucket["columns"][column]
+            cells[key] = combine(cells.get(key), value, agg)
+    bucket["sources"][name] = {str(k): v for k, v in (by_company or {}).items()}
+
+
+def _appendix_row(name: str, by_company: dict, agg: str, **flags) -> dict:
+    row = before_coverage(
+        name, GROUP_APPENDIX_V2, GROUP_APPENDIX_V2, agg,
+        _aggregate(by_company, agg), dict(by_company),
+        any(value is not None for value in by_company.values()),
+    )
+    row.update({k: v for k, v in flags.items() if v})
+    return row
+
+
+def build_v2_rows(matrix: dict, extras: dict) -> list[dict]:
+    """BOHUMFIT-290(S2): 파서 결과(구 이름 매트릭스 + extras) → **V2 49행 + 비고행**.
+
+    ★규칙
+      · 이름 → 목적지는 `v2_mapping.resolve()` 한 곳에서 정한다(표시명 → 별칭 → 처분).
+      · 같은 계약 키에 원천이 겹치면 행 agg로 합친다(sum=더함 · rep=큰 값). 실손 입원 2행이
+        한 행으로 합쳐질 때 같은 계약의 5,030만이 두 번 더해지지 않는 이유다(rep).
+      · 2열 병기 행은 `columns`(disease/injury/unspecified)를 따로 갖고, 행 by_company·summary는
+        전 열 합산이다(S3가 열을 표시한다).
+      · ★자리가 없는 이름은 **비고행**으로 남긴다 — 버리지 않는다(276a·패킷 원칙).
+      · 80% 행(`sum_excluded`)은 값을 보존하고 플래그만 단다 — 합계 제외는 소비처(S3)와
+        `group_rollup_v2`가 지킨다.
+    """
+    buckets: dict[str, dict] = {}
+    appendix: list[dict] = []
+
+    def _route(name: str, by_company: dict, agg: str, overview_summary=None, **flags):
+        target = resolve(name)
+        if target.kind == KIND_ROW:
+            bucket = buckets.setdefault(target.row_id, _empty_bucket())
+            _feed(bucket, name, by_company, ROW_AGG[target.row_id], target.column)
+            for flag in ("overview", "estimated"):
+                if flags.get(flag):
+                    bucket[flag] = True
+            if overview_summary is not None:
+                bucket["overview_summary"] = combine(bucket.get("overview_summary"), overview_summary, ROW_AGG[target.row_id])
+            return
+        # 분배 대상(암 주요치료비)은 S4 배선 전까지, 그 밖의 미매칭은 영구적으로 비고행.
+        if any(value is not None for value in (by_company or {}).values()) or overview_summary is not None:
+            row = _appendix_row(name, by_company, agg, **flags)
+            if overview_summary is not None and row.get("summary") is None:
+                row["summary"] = overview_summary
+                row["enrolled"] = True
+            appendix.append(row)
+
+    for name, row in (matrix or {}).items():
+        by_company = row.get("by_company") or {}
+        overview = bool(row.get("overview"))
+        overview_summary = None
+        if overview and not any(v is not None for v in by_company.values()):
+            # 239 합계-only 문서(계약 귀속 없음): 합계만 행 수준으로 싣는다 — 259 이월 규칙
+            #   (귀속 없는 overview 행은 합계 수준 이월)이 그대로 성립하도록 by_company는 비워 둔다.
+            overview_summary = row.get("summary")
+        _route(name, by_company, row.get("agg") or AGG_SUM, overview=overview, overview_summary=overview_summary)
+
+    for label, extra in (extras or {}).items():
+        by_company = extra.get("by_company") or {}
+        display_label = label
+        n_values = extra.get("n_values") or []
+        if label == "N대수술비" and n_values:
+            display_label = f"N대수술비({'·'.join(str(n) for n in sorted(set(n_values)))}대)"
+        _route(display_label, by_company, extra.get("agg", AGG_SUM), estimated=bool(extra.get("estimated")))
+
+    rows: list[dict] = []
+    for spec in KB_COVERAGES_V2:
+        bucket = buckets.get(spec.row_id) or _empty_bucket()
+        agg = ROW_AGG[spec.row_id]
+        by_company = bucket["by_company"]
+        summary = _aggregate(by_company, agg)
+        enrolled = any(value is not None for value in by_company.values())
+        if bucket.get("overview_summary") is not None and summary is None:
+            # 239: 귀속 없는 합계-only 값 — 행 수준 summary로만 싣는다(by_company는 비어 있음).
+            summary, enrolled = bucket["overview_summary"], True
+        row = before_coverage(spec.display, spec.group, spec.group, agg, summary, by_company, enrolled)
+        row["row_id"] = spec.row_id
+        row["sources"] = bucket["sources"]
+        if spec.dual_column:
+            row["columns"] = {
+                column: {"by_company": cells, "summary": _aggregate(cells, agg)}
+                for column, cells in bucket["columns"].items()
+            }
+        if spec.sum_excluded:
+            row["sum_excluded"] = True
+        if bucket["overview"]:
+            row["overview"] = True
+        if bucket["estimated"]:
+            row["estimated"] = True
+        rows.append(row)
+
+    rows.extend(appendix)
+    return [row for _idx, row in sorted(enumerate(rows), key=_coverage_sort_key)]
+
+
+def legacy_form_view(coverages: list[dict]) -> dict[str, dict]:
+    """BOHUMFIT-290(S2) ★최소 어댑터 — V2 49행 집계를 **구 40행 양식 셀**로 비추는 읽기 전용 뷰.
+
+    export(엑셀 비분양식)는 S3 전까지 구 항목명으로 셀을 채운다. 이 뷰는 구 이름 → V2 행을
+    `resolve()`로 찾아 값(by_company·summary)을 돌려준다.
+      · 병합된 행(실손 입원 2→1 등)은 **같은 V2 행 값**이 두 셀에 실린다.
+      · 2열 병기 행은 별칭이 가리키는 **열 값**을 준다(간병인 상해→injury 열 등).
+      · 비고행(구 이름 그대로 보존됨)은 그 행을 그대로 준다.
+    ★계산은 하지 않는다 — 산출물 양식을 S3까지 유지하기 위한 투영일 뿐이다.
+    """
+    by_id = {row.get("row_id"): row for row in coverages if row.get("row_id")}
+    by_name = {row.get("kb_name"): row for row in coverages}
+    view: dict[str, dict] = {}
+
+    def _project(name: str, row: dict, column: str | None) -> dict:
+        projected = {**row, "kb_name": name}
+        if column and row.get("columns"):
+            cell = row["columns"].get(column) or {}
+            projected["by_company"] = dict(cell.get("by_company") or {})
+            projected["summary"] = cell.get("summary")
+            projected["enrolled"] = any(v is not None for v in projected["by_company"].values())
+        return projected
+
+    for row in coverages:
+        view[row.get("kb_name")] = row  # V2 표시명·비고 라벨 그대로
+    for spec in KB_COVERAGES_V2:
+        row = by_id.get(spec.row_id)
+        if not row:
+            continue
+        for alias in spec.aliases:
+            if alias in by_name:
+                continue  # 같은 이름의 비고행이 있으면 그쪽이 우선(정보 보존)
+            target = resolve(alias)
+            view.setdefault(alias, _project(alias, row, target.column))
+    return view
+
+
+def group_rollup_v2(coverages: list[dict]) -> dict[str, int]:
+    """BOHUMFIT-290: 대분류 합계 = 소속 행 summary 합 — ★`sum_excluded`(80%) 행은 뺀다(Q2·243)."""
+    totals: dict[str, int] = {group: 0 for group in GROUP13_V2}
+    for row in coverages:
+        if row.get("sum_excluded"):
+            continue
+        group = row.get("group12")
+        if group in totals:
+            totals[group] += row.get("summary") or 0
+    return totals
+
+
 def build_before(raw: dict, today: str | None = None) -> dict:
     contracts = raw.get("contracts", [])
     today_iso = today or date.today().isoformat()
@@ -286,55 +530,7 @@ def build_before(raw: dict, today: str | None = None) -> dict:
 
     # BOHUMFIT-246: 상호배타 차감(사망·중입자)을 집계 전에 적용 — 차감 실적은 총액 대사용.
     matrix, extras, dedup = _apply_exclusions(raw.get("matrix", {}), raw.get("extra", {}))
-    coverages = []
-    for kb_name, kb_group, group12, agg in KB_COVERAGES:
-        if group12 == GROUP_EXCLUDED:
-            continue
-        row = matrix.get(kb_name)
-        by_company = row["by_company"] if row else {}
-        overview_row = bool(row and row.get("overview"))
-        if overview_row:
-            # BOHUMFIT-239: 전체 보장현황 fallback — 담보별 합계만 제공(계약별 열 없음).
-            # 표준 문서(상품별 가입현황 매트릭스)는 이 플래그가 없어 else 경로로 무변경.
-            summary = row.get("summary")
-            enrolled = summary is not None
-        else:
-            summary = _aggregate(by_company, agg)
-            enrolled = any(v is not None for v in by_company.values())
-        built = before_coverage(kb_name, kb_group, group12, agg, summary, by_company, enrolled)
-        if overview_row:
-            # BOHUMFIT-246 회송 보정: 합계-only 출처 표식 — [후] 이월(consulting)이 빈 계약
-            # 셀로 재집계해 값을 소실하지 않도록 행 단위로 전달한다(239 가드와 동일 원칙).
-            built["overview"] = True
-        coverages.append(built)
-
-    for label, extra in extras.items():
-        by_company = extra.get("by_company", {})
-        agg = extra.get("agg", AGG_SUM)
-        group12 = EXTRA_LABEL_GROUP.get(label, GROUP_ETC)
-        summary = _aggregate(by_company, agg)
-        display_label = label
-        # BOHUMFIT-237 C: N대수술비는 원문의 N을 병기 — 복수면 나열(정보 무손실 표기.
-        # 최대값 단일 표기는 계약별 상이 정보를 잃어 나열을 대표 규칙으로 채택).
-        n_values = extra.get("n_values") or []
-        if label == "N대수술비" and n_values:
-            display_label = f"N대수술비({'·'.join(str(n) for n in sorted(set(n_values)))}대)"
-        row = before_coverage(
-            display_label,
-            group12,
-            group12,
-            agg,
-            summary,
-            by_company,
-            any(value is not None for value in by_company.values()),
-        )
-        # BOHUMFIT-238: 표준 환산 산출 행 구분 필드(표시명 외 데이터 소비자용) — 246 유실 금지.
-        if extra.get("estimated"):
-            row["estimated"] = True
-        coverages.append(row)
-
-    # BOHUMFIT-246: 표시 순서 = (비분양식 그룹 순서, 시트2 항목 순서, 유입 순서).
-    coverages = [row for _idx, row in sorted(enumerate(coverages), key=_coverage_sort_key)]
+    coverages = build_v2_rows(matrix, extras)
 
     return {
         "customer": raw.get("customer"),
@@ -354,26 +550,48 @@ def build_before(raw: dict, today: str | None = None) -> dict:
     }
 
 
+def _diagnosis_for(diagnosis: dict, coverage: dict) -> dict:
+    """BOHUMFIT-290: KB 진단은 구 담보명으로 온다 — V2 행은 표시명·별칭·원천명 순으로 찾는다."""
+    if not diagnosis:
+        return {}
+    candidates = [coverage.get("kb_name")]
+    spec = ROWS_BY_ID.get(coverage.get("row_id") or "")
+    if spec:
+        candidates.extend(spec.aliases)
+    candidates.extend((coverage.get("sources") or {}).keys())
+    for name in candidates:
+        if name in diagnosis:
+            return diagnosis[name]
+    return {}
+
+
 def build_final(before: dict, diagnosis: dict) -> dict:
     coverages = []
     rollup_counts = defaultdict(lambda: {"충분": 0, "부족": 0, "미가입": 0})
     for coverage in before["coverages"]:
-        if coverage.get("group12") == GROUP_EXCLUDED:
-            continue
-        diagnosis_row = diagnosis.get(coverage["kb_name"], {})
+        diagnosis_row = _diagnosis_for(diagnosis, coverage)
         status = diagnosis_row.get("status")
-        coverages.append(
-            final_coverage(
-                coverage["group12"],
-                coverage["kb_name"],
-                coverage["agg"],
-                coverage["summary"],
-                diagnosis_row.get("recommended"),
-                diagnosis_row.get("gap"),
-                status,
-            )
+        final_row = final_coverage(
+            coverage["group12"],
+            coverage["kb_name"],
+            coverage["agg"],
+            coverage["summary"],
+            diagnosis_row.get("recommended"),
+            diagnosis_row.get("gap"),
+            status,
         )
+        # BOHUMFIT-290: 최종 행도 row_id·플래그를 유지한다(표시·투영·S3가 쓴다).
+        for key in ("row_id", "sum_excluded", "columns"):
+            if coverage.get(key):
+                final_row[key] = coverage[key]
+        coverages.append(final_row)
         if status in rollup_counts[coverage["group12"]]:
             rollup_counts[coverage["group12"]][status] += 1
-    rollup = [{"group12": group, "status_counts": dict(rollup_counts[group])} for group in GROUP13]
-    return {"premium": before["premium"], "coverages": coverages, "rollup_by_group12": rollup}
+    rollup = [{"group12": group, "status_counts": dict(rollup_counts[group])} for group in GROUP13_V2]
+    return {
+        "premium": before["premium"],
+        "coverages": coverages,
+        "rollup_by_group12": rollup,
+        # BOHUMFIT-290: 대분류 금액 합계(80% 제외) — S3 표시·Q6 대조표용.
+        "group_totals": group_rollup_v2(before["coverages"]),
+    }

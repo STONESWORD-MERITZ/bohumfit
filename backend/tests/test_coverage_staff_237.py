@@ -17,6 +17,11 @@ from coverage.parser import parse_detail_pages  # noqa: E402
 
 
 # ── A: 공용 포맷터 ────────────────────────────────────────────────────────────
+# BOHUMFIT-290(S2): 집계 행이 V2 49행 — 구 이름 조회는 export와 같은 투영(legacy_form_view)으로.
+from coverage.aggregator import legacy_form_view as _view  # noqa: E402
+from coverage.v2_mapping import GROUP_APPENDIX_V2 as _APPENDIX  # noqa: E402
+
+
 def test_format_krw_units():
     assert format_krw(20_000_000) == "2,000만원"
     assert format_krw(120_000_000) == "1억 2,000만원"
@@ -78,7 +83,7 @@ def test_n_values_collected_and_displayed():
     assert "N대수술비(121·131대)" in names
     row = next(c for c in before["coverages"] if c["kb_name"] == "N대수술비(121·131대)")
     assert row["summary"] == 8_000_000
-    assert row["group12"] == "기타"
+    assert row["group12"] == _APPENDIX  # 290: 기타 → 비고
 
 
 def test_single_n_value_displayed():

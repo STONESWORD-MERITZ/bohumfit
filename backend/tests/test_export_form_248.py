@@ -46,8 +46,9 @@ def test_overview_appendix_labels_not_overwritten():
     wb = openpyxl.load_workbook(io.BytesIO(build_workbook_bytes(analysis)))
     ws = wb["비교분석표"]
     text = " ".join(str(c.value) for row in ws.iter_rows() for c in row if c.value is not None)
-    assert "부록: 기타" in text
-    assert "80%이상 후유장해" in text          # 라벨 보존(덮임 없음)
+    # BOHUMFIT-290(S2·Q2): 80% 담보는 이제 후유장해 대분류의 정식 행이라 부록이 아니라 본 표에 실린다.
+    #   구 라벨 "80%이상 후유장해"는 V2 표시명 "상해 질병 후 유 장 해 80%"로 보인다(값 100 보존).
+    assert "상해 질병 후 유 장 해 80%" in text
     values = [c.value for row in ws.iter_rows() for c in row if c.value is not None]
     assert 100 in values                       # 값(만원)도 별도 열에 존재
 
