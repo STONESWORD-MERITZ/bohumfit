@@ -92,12 +92,13 @@ def test_excel_matrix_header_and_paid_up_label():
     before = build_before(_raw(contracts), today=TODAY)
     data = build_workbook_bytes({"before": before, "final": {"premium": before["premium"], "coverages": [], "rollup_by_group12": []}})
     wb = openpyxl.load_workbook(io.BytesIO(data))
-    # BOHUMFIT-248 P2: 비분양식 비교분석표 — 계약 열 라벨(4행) + 납입완료는 구 분 메타로 이관.
-    sheet = wb["비교분석표"]
+    # BOHUMFIT-291: 컨설팅 전 시트 — 계약 열 라벨(2행) + 납입완료는 회사명 셀 메모로 이관(수기표에 메타 행 없음).
+    sheet = wb["컨설팅 전"]
     headers = [cell.value for row in sheet.iter_rows() for cell in row if isinstance(cell.value, str)]
     assert "보험사1" in headers and "보험사2" in headers
     assert "계약 1" not in headers and "계약 2" not in headers
-    assert any("납입완료" in h for h in headers)   # 236 A 병기 보존(계약1 = 만기 경과)
+    comments = [cell.comment.text for row in sheet.iter_rows(min_row=2, max_row=2) for cell in row if cell.comment]
+    assert any("납입완료" in c for c in comments)   # 236 A 병기 보존(계약1 = 만기 경과)
 
 
 def test_excel_matrix_header_duplicate_insurer_disambiguated():
@@ -111,8 +112,8 @@ def test_excel_matrix_header_duplicate_insurer_disambiguated():
     before = build_before(_raw(contracts), today=TODAY)
     data = build_workbook_bytes({"before": before, "final": {"premium": before["premium"], "coverages": [], "rollup_by_group12": []}})
     wb = openpyxl.load_workbook(io.BytesIO(data))
-    headers = [cell.value for row in wb["비교분석표"].iter_rows() for cell in row if isinstance(cell.value, str)]
-    assert "삼성화재 (1)" in headers and "삼성화재 (2)" in headers  # 248: 신 양식 계약 열 라벨
+    headers = [cell.value for row in wb["컨설팅 전"].iter_rows() for cell in row if isinstance(cell.value, str)]
+    assert "삼성화재 (1)" in headers and "삼성화재 (2)" in headers  # 291: 컨설팅 전 계약 열 라벨
 
 
 def test_pdf_html_dual_premium_and_paid_up_chip():

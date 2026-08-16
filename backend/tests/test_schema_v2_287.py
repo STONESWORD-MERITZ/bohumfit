@@ -222,7 +222,9 @@ def test_v2_wiring_started_in_s2_and_legacy_schema_left_the_aggregator():
     assert "KB_COVERAGES_V2" in aggregator and "PAYOUT_CASCADE_V2" in aggregator
     for legacy in ("KB_COVERAGES,", "GROUP13,", "NEW_ITEM_ORDER", "STAGE_COMPONENTS", "STAGE_COMMON_ADD", "YN_ITEMS,"):
         assert legacy not in aggregator, f"aggregator가 구 스키마 상수 {legacy}를 아직 참조한다"
-    # export는 S3 전까지 구 양식을 유지하므로 구 상수(GROUP13·FORM_ITEMS)를 **최소 어댑터**로만 참조한다.
+    # ★BOHUMFIT-291(S3): export 2종은 49행 양식으로 전환됐고 S2 최소 어댑터(legacy_form_view·구 그룹 축)는 제거됐다.
     for name in ("export_excel.py", "export_pdf.py"):
         text = (root / name).read_text(encoding="utf-8")
-        assert "290" in text, f"{name}에 S2 최소 어댑터 표식이 없다"
+        for legacy in ("legacy_form_view", "FORM_ITEMS", "STAGE_ROWS", "NEW_ITEM_ORDER", "GROUP13,", "GROUP13 "):
+            assert legacy not in text, f"{name}에 구 양식/어댑터 참조 {legacy}가 남아 있다"
+    assert "def legacy_form_view" not in aggregator, "S3에서 어댑터가 제거돼야 한다"

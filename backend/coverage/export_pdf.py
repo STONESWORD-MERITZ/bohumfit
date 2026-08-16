@@ -14,8 +14,8 @@ from datetime import datetime
 from .aggregator import compute_stage_totals, compute_yn_flags
 from .amount import format_krw, format_krw_delta
 from .compare import ensure_comparison
-from .constants import GROUP13, NEW_ITEM_ORDER
-from .v2_mapping import GROUP13_V2, ROW_INDEX  # 290
+from .constants import CASCADE_CHILD_PREFIX_V2, KB_COVERAGES_V2, LEGACY_TO_V2, SUM_EXCLUDED_NOTE_V2, YN_ITEMS_V2
+from .v2_mapping import COLUMN_DISEASE, COLUMN_INJURY, COLUMN_UNSPECIFIED, GROUP13_V2, GROUP_APPENDIX_V2, ROW_INDEX
 
 EMERALD = "#084734"
 EMERALD_SOFT = "#EEF6F1"
@@ -45,10 +45,8 @@ def _period_label(contract: dict) -> str:
 
 
 def _grp_key(g: str) -> int:
-    # BOHUMFIT-290: V2 대분류 우선, 구 그룹은 뒤.
-    if g in GROUP13_V2:
-        return GROUP13_V2.index(g)
-    return len(GROUP13_V2) + (GROUP13.index(g) if g in GROUP13 else len(GROUP13))
+    # BOHUMFIT-291(S3): 대분류 순서 = V2 11 + 비고(어댑터 제거 — 구 그룹 축 폐기).
+    return GROUP13_V2.index(g) if g in GROUP13_V2 else len(GROUP13_V2)
 
 
 def _company_label(co: dict, companies: list) -> str:
@@ -63,11 +61,62 @@ def _company_label(co: dict, companies: list) -> str:
     return f"{insurer} ({ordinal})"
 
 
-_ITEM_ORDER_IDX = {name: idx for idx, name in enumerate(NEW_ITEM_ORDER)}
+# BOHUMFIT-291(S3): 49행 양식 표시 규칙 — 엑셀(export_excel)과 동일 계약.
+#   ★값은 S2 집계 그대로. 여기서는 표기만 정한다.
+CASCADE_CHILD_ROWS: frozenset[str] = frozenset({
+    "stroke", "cerebral_hemorrhage", "acute_mi",
+    "cancer_surgery_davinci", "cancer_surgery_davinci_specific",
+    "cancer_drug_targeted", "cancer_drug_immune",
+    "radio_imrt", "radio_proton", "radio_carbon",
+})
+DUAL_ORDER: dict[str, tuple[str, str]] = {
+    **{f"tier_surgery_{t}": (COLUMN_DISEASE, COLUMN_INJURY) for t in range(1, 6)},
+    "caregiver": (COLUMN_INJURY, COLUMN_DISEASE),
+}
+_SPEC_BY_ID = {row.row_id: row for row in KB_COVERAGES_V2}
+_YN_ITEM_OF_ROW: dict[str, str] = {}
+for _item, _sources in YN_ITEMS_V2:
+    for _src in _sources:
+        _rid = LEGACY_TO_V2.get(_src)
+        if _rid:
+            _YN_ITEM_OF_ROW.setdefault(_rid, _item)
 
 
-def _item_key(name) -> int:
-    return _ITEM_ORDER_IDX.get(name, len(NEW_ITEM_ORDER))
+def _dual_text(row: dict, key: str | None) -> str:
+    """2열 병기 행을 PDF 한 칸에 `질병/상해`(간병인은 `상해/질병`)로 병기. 종별 미확인은 합계 하나."""
+    order = DUAL_ORDER.get(row.get("row_id") or "")
+    columns = row.get("columns") or {}
+    if not order or not columns:
+        return _fmt_krw(row.get("summary") if key is None else (row.get("by_company") or {}).get(key))
+
+    def _v(col):
+        cell = columns.get(col) or {}
+        return cell.get("summary") if key is None else (cell.get("by_company") or {}).get(key)
+
+    if _v(COLUMN_UNSPECIFIED) is not None:
+        return _fmt_krw(row.get("summary") if key is None else (row.get("by_company") or {}).get(key))
+    left, right = _v(order[0]), _v(order[1])
+    if left is None and right is None:
+        return "-"
+    return f"{_fmt_krw(left)}/{_fmt_krw(right)}"
+
+
+def _row_label(row: dict, *, final: bool = False, yn_map: dict | None = None) -> str:
+    """행 표시명 — ★수기표 문자열 그대로. 최종 대응 섹션(final=True)에서만 케스케이드 하위 행에 `L ` 접두.
+    Q2(합계 미포함)·Q5(Y/N)는 이름 뒤 작은 태그로 붙인다(이름 문자열은 건드리지 않는다)."""
+    row_id = row.get("row_id") or ""
+    name = _esc(row.get("kb_name"))
+    if final and row_id in CASCADE_CHILD_ROWS:
+        name = _esc(CASCADE_CHILD_PREFIX_V2) + name
+    tags = []
+    if row.get("sum_excluded"):
+        tags.append(_esc(SUM_EXCLUDED_NOTE_V2))
+    item = _YN_ITEM_OF_ROW.get(row_id)
+    if item and yn_map is not None:
+        tags.append(f"가입 {_esc(yn_map.get(item, 'N'))}")
+    if tags:
+        name += " " + " ".join(f'<small class="row-tag">[{t}]</small>' for t in tags)
+    return name
 
 
 COMPANY_CHUNK = 5  # BOHUMFIT-261 P3: 표 1개당 회사 열 수(실측 — 5개면 ≈160mm로 A4 세로 안착)
@@ -77,10 +126,10 @@ def _group_coverages(coverages: list) -> list:
     """BOHUMFIT-240 P3/248: 대분류 순서 그룹핑 + 그룹 내 = 비분양식 시트2 항목 순서."""
     grouped: dict[str, list] = {}
     for c in coverages:
-        grouped.setdefault(c.get("group12") or "기타", []).append(c)
+        grouped.setdefault(c.get("group12") or GROUP_APPENDIX_V2, []).append(c)
     return [
-        # BOHUMFIT-290: V2 행은 스키마 순서(row_id), 그 밖은 종전 항목 순서.
-        (g, sorted(grouped[g], key=lambda r: (ROW_INDEX.get(r.get("row_id"), 10_000), _item_key(r.get("kb_name")))))
+        # BOHUMFIT-291: V2 행은 스키마 순서(row_id), 비고행은 유입 순서.
+        (g, sorted(grouped[g], key=lambda r: ROW_INDEX.get(r.get("row_id"), 10_000)))
         for g in sorted(grouped, key=_grp_key)
     ]
 
@@ -214,28 +263,24 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
         ] or [[]]
         # BOHUMFIT-240 P3: 담보를 13대분류 섹션으로 그룹핑(대분류 헤더 행 + 소속 담보).
         #   대분류는 섹션 헤더 행으로 제공하므로 per-row 대분류 열은 제거한다.
-        NEW_PLACEHOLDERS = ("면역항암치료", "암 주요치료비", "심혈관질환")
+        after_yn_map = {f["item"]: f["value"] for f in compute_yn_flags(after_before.get("coverages", []))}
         grouped = list(_group_coverages(after_before.get("coverages", [])))
         coverage_tables = []
         for chunk_no, chunk in enumerate(company_chunks, start=1):
             col_span = 2 + len(chunk)
             chunk_rows = []
             for group, group_rows in grouped:
-                # BOHUMFIT-248 P3: 기타 그룹은 정보 보존 문구 병기(화면 247 접이식과 의미 동일).
-                head = f"{group} (신 체계 미포섭 — 정보 보존)" if group == "기타" else group
+                # BOHUMFIT-291: 비고행 블록(Q4 · 미매칭 보존) — 정보 보존 문구 병기.
+                head = f"{group} (49행 밖 담보 — 정보 보존)" if group == GROUP_APPENDIX_V2 else group
                 chunk_rows.append(f'<tr class="grp-head"><td colspan="{col_span}">{_esc(head)}</td></tr>')
                 for c in group_rows:
-                    by = c.get("by_company", {})
+                    # BOHUMFIT-291: 2열 병기 행은 한 칸 `질병/상해` · Q2/Q5 태그는 이름 뒤 작은 글자.
                     cells = "".join(
-                        f'<td class="num">{_fmt_krw(by.get(str(co.get("idx"))))}</td>' for co in chunk
+                        f'<td class="num">{_dual_text(c, str(co.get("idx")))}</td>' for co in chunk
                     )
-                    # BOHUMFIT-248 P3: 신담보 3행 오독 방지 표기(247 화면 배지와 동일 의미).
-                    tag = ' <small class="new-tag">[신규 설계 반영 대상]</small>' if (
-                        c.get("kb_name") in NEW_PLACEHOLDERS and not c.get("enrolled")
-                    ) else ""
                     chunk_rows.append(
-                        f'<tr><td class="nm indent">{_esc(c.get("kb_name"))}{tag}</td>'
-                        f'<td class="num strong">{_fmt_krw(c.get("summary"))}</td>{cells}</tr>'
+                        f'<tr><td class="nm indent">{_row_label(c, yn_map=after_yn_map)}</td>'
+                        f'<td class="num strong">{_dual_text(c, None)}</td>{cells}</tr>'
                     )
             name_head = "".join(
                 f'<th class="num company-name">{_esc(_company_label(co, after_companies))}</th>' for co in chunk
@@ -270,8 +315,8 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
             )
         # BOHUMFIT-238: 표준 환산 산출 행이 있으면 기준 문구 병기(필수).
         jong_note = ""
-        if any("표준환산" in str(c.get("kb_name")) for c in after_before.get("coverages", [])):
-            jong_note = '<p class="notes">※ 종수술비 종별 금액은 표준 환산 기준으로 산출되어 상품별 실제와 상이할 수 있습니다.</p>'
+        if any(c.get("estimated") for c in after_before.get("coverages", [])):
+            jong_note = '<p class="notes">※ 종수술비 종별 금액 일부는 표준 환산 기준(종별 미확인 → 합계 표기)으로 산출되어 상품별 실제와 상이할 수 있습니다.</p>'
         after_section = f"""
 <section class="report-section">
 <h2>⑤ 최종 전 VS 후 — 회사별 보장 세부</h2>
@@ -292,30 +337,22 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
     if after_before:
         stages_before = before.get("stage_totals") or compute_stage_totals(before.get("coverages", []))
         stages_after = compute_stage_totals(after_before.get("coverages", []))
+        # BOHUMFIT-291: 종합 판정 블록 = 케스케이드 체인 1:1(compute_stage_totals 키 순서 그대로 · 17행).
+        #   구 3단(초기/중기/말기·암·심장말기) 폐기. Y/N 별도 블록 없음(Q5 — 행 안 태그).
         stage_rows_html = "".join(
             f'<tr><td class="grp">{_esc(key)}</td>'
-            f'<td class="num">{_fmt_krw(stages_before[key]) if key in stages_before else "-"}</td>'
+            f'<td class="num">{_fmt_krw(value_b)}</td>'
             f'<td class="num">→</td>'
-            f'<td class="num strong">{_fmt_krw(stages_after[key]) if key in stages_after else "-"}</td>'
-            f'<td class="num {"good" if stages_after.get(key, 0) > stages_before.get(key, 0) else "warn" if stages_after.get(key, 0) < stages_before.get(key, 0) else ""}">'
-            f'{_fmt_delta_krw(stages_after.get(key, 0) - stages_before.get(key, 0))}</td></tr>'
-            for key in ("암", "뇌초기", "뇌중기", "뇌말기", "심장초기", "심장중기", "심장말기")
-        )
-        yn_before_map = {f["item"]: f["value"] for f in (before.get("yn_flags") or compute_yn_flags(before.get("coverages", [])))}
-        yn_after_map = {f["item"]: f["value"] for f in compute_yn_flags(after_before.get("coverages", []))}
-        yn_rows_html = "".join(
-            f'<tr><td class="grp">{_esc(item)}</td><td class="num">{_esc(yn_before_map.get(item, "N"))}</td>'
-            f'<td class="num strong">{_esc(yn_after_map.get(item, "N"))}</td></tr>'
-            for item in ("운전자특약", "자동차부상치료비", "가족일상배상책임", "상해실손의료비", "질병실손의료비")
+            f'<td class="num strong">{_fmt_krw(stages_after.get(key, 0))}</td>'
+            f'<td class="num {"good" if stages_after.get(key, 0) > value_b else "warn" if stages_after.get(key, 0) < value_b else ""}">'
+            f'{_fmt_delta_krw(stages_after.get(key, 0) - value_b)}</td></tr>'
+            for key, value_b in stages_before.items()
         )
         stage_yn_section = f"""
-<h3>종합비교 — 암·뇌·심장 단계 (전 → 후 · 개선 +)</h3>
-<table><thead><tr><th>종합</th><th class="num">전</th><th></th><th class="num">후</th><th class="num">개선(후−전)</th></tr></thead>
+<h3>종합 판정 — 진단 시 지급 합계(케스케이드) · 전 → 후 · 개선 +</h3>
+<table><thead><tr><th>진단(체인)</th><th class="num">전</th><th></th><th class="num">후</th><th class="num">개선(후−전)</th></tr></thead>
 <tbody>{stage_rows_html}</tbody></table>
-<p class="notes">※ 단계 합계 = 해당 진단·수술 담보 + 일반종수술 5종 + 질병수술(비분양식 산식 · H10 심장중기 정정 반영).</p>
-<h3>가입특약 Y/N</h3>
-<table><thead><tr><th>항목</th><th class="num">전</th><th class="num">후</th></tr></thead>
-<tbody>{yn_rows_html}</tbody></table>
+<p class="notes">※ 각 행 = 그 진단이 발생했을 때 함께 지급되는 담보의 합(뇌 3단·심장 2단·암수술/약물/방사선 계열 · 289 확정). '{_esc(CASCADE_CHILD_PREFIX_V2.strip())}' 접두 = 상위 진단 지급에 더해지는 하위 담보.</p>
 """
     special_notes = list(analysis.get("warnings") or [])
     for caution in (comparison.get("cautions") or []) if comparison else []:
@@ -344,12 +381,15 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
         if not group_rows:
             group_rows.append('<tr><td colspan="4" class="empty">대분류별 보장금액 변화가 없습니다.</td></tr>')
         compare_rows = []
+        # BOHUMFIT-291: 특약별 비교 = `최종` 대응 섹션 — 케스케이드 하위 행에 `L ` 접두(row_id는 최종 행에서 찾는다).
+        final_ids = {c.get("kb_name"): c for c in (after_final or {}).get("coverages", []) if c.get("row_id")}
         for row in comparison.get("coverages", []):
             delta = row.get("delta_value")
             delta_cls = "good" if isinstance(delta, (int, float)) and delta > 0 else "warn" if isinstance(delta, (int, float)) and delta < 0 else ""
+            src_row = final_ids.get(row.get("kb_name")) or {"kb_name": row.get("kb_name")}
             compare_rows.append(
                 f'<tr><td class="grp">{_esc(row.get("group12"))}</td>'
-                f'<td class="nm">{_esc(row.get("kb_name"))}</td>'
+                f'<td class="nm">{_row_label(src_row, final=True)}</td>'
                 f'<td class="num">{_fmt_krw(row.get("before_value"))}</td>'
                 f'<td class="num strong">{_fmt_krw(row.get("after_value"))}</td>'
                 f'<td class="num {delta_cls}">{_fmt_delta_krw(delta)}</td></tr>'
@@ -473,6 +513,7 @@ thead {{ display: table-header-group; }}
 tr {{ page-break-inside: avoid; }}
 table {{ page-break-inside: auto; }}
 .report-section h2 {{ margin-top: 0; }}
+.row-tag {{ color: {GRAY}; font-size: 0.78em; margin-left: 4px; }}
 .cards {{ display: flex; gap: 10px; margin-bottom: 8px; }}
 .card {{ flex: 1; border: 1px solid {LINE}; border-radius: 8px; padding: 8px 12px; }}
 .card.highlight {{ border-color: {EMERALD}; background: {EMERALD_SOFT}; }}

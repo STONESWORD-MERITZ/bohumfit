@@ -73,7 +73,7 @@ def test_brain_and_heart_diagnosis_split_while_surgery_stays_in_surgery() -> Non
 
 def test_fracture_burn_and_inpatient_labels_without_amount_change() -> None:
     before = build_before(_raw())
-    from coverage.aggregator import legacy_form_view
+    from tests.v2names import legacy_form_view
     by_name = legacy_form_view(before["coverages"])
 
     # BOHUMFIT-290(S2): 귀속이 V2 대분류로 이동 — 값 전부 불변(246과 같은 원칙).

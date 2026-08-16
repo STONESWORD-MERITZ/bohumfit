@@ -64,11 +64,12 @@ def test_excel_compare_sheet_includes_before_after_premium_and_group_summary() -
     assert "보험 보장 분석 리포트" in cover_text
     assert "리뷰온에셋" in cover_text            # report_cover 소속(GA) — 직급 행에 반영
 
-    compare = workbook["비교분석표"]
-    values = [cell.value for row in compare.iter_rows() for cell in row if cell.value is not None]
-    assert "보험료 합계" in values
-    assert 150_000 in values and 130_000 in values   # 전/후 월납(원 단위)
-    final = workbook["최종비교분석표"]
+    b_vals = [cell.value for row in workbook["컨설팅 전"].iter_rows() for cell in row if cell.value is not None]
+    a_vals = [cell.value for row in workbook["컨설팅 후"].iter_rows() for cell in row if cell.value is not None]
+    assert 150_000 in b_vals and 130_000 in a_vals   # 전/후 월납(원 단위)
+    final = workbook["최종"]
     fvals = [cell.value for row in final.iter_rows() for cell in row if cell.value is not None]
     assert -20_000 in fvals                      # 차액 = 후−전
-    assert "암" in fvals and "심장중기" in fvals   # 종합비교 블록(H10 정정 라벨)
+    # 291: 종합 판정 블록 = 케스케이드 17행(구 "암"·"심장말기" 키 없음)
+    assert "뇌초기" in fvals and "심장중기" in fvals and "다빈치(일반암)" in fvals
+    assert "심장말기" not in fvals

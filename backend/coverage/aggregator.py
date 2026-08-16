@@ -448,43 +448,6 @@ def build_v2_rows(matrix: dict, extras: dict) -> list[dict]:
     return [row for _idx, row in sorted(enumerate(rows), key=_coverage_sort_key)]
 
 
-def legacy_form_view(coverages: list[dict]) -> dict[str, dict]:
-    """BOHUMFIT-290(S2) ★최소 어댑터 — V2 49행 집계를 **구 40행 양식 셀**로 비추는 읽기 전용 뷰.
-
-    export(엑셀 비분양식)는 S3 전까지 구 항목명으로 셀을 채운다. 이 뷰는 구 이름 → V2 행을
-    `resolve()`로 찾아 값(by_company·summary)을 돌려준다.
-      · 병합된 행(실손 입원 2→1 등)은 **같은 V2 행 값**이 두 셀에 실린다.
-      · 2열 병기 행은 별칭이 가리키는 **열 값**을 준다(간병인 상해→injury 열 등).
-      · 비고행(구 이름 그대로 보존됨)은 그 행을 그대로 준다.
-    ★계산은 하지 않는다 — 산출물 양식을 S3까지 유지하기 위한 투영일 뿐이다.
-    """
-    by_id = {row.get("row_id"): row for row in coverages if row.get("row_id")}
-    by_name = {row.get("kb_name"): row for row in coverages}
-    view: dict[str, dict] = {}
-
-    def _project(name: str, row: dict, column: str | None) -> dict:
-        projected = {**row, "kb_name": name}
-        if column and row.get("columns"):
-            cell = row["columns"].get(column) or {}
-            projected["by_company"] = dict(cell.get("by_company") or {})
-            projected["summary"] = cell.get("summary")
-            projected["enrolled"] = any(v is not None for v in projected["by_company"].values())
-        return projected
-
-    for row in coverages:
-        view[row.get("kb_name")] = row  # V2 표시명·비고 라벨 그대로
-    for spec in KB_COVERAGES_V2:
-        row = by_id.get(spec.row_id)
-        if not row:
-            continue
-        for alias in spec.aliases:
-            if alias in by_name:
-                continue  # 같은 이름의 비고행이 있으면 그쪽이 우선(정보 보존)
-            target = resolve(alias)
-            view.setdefault(alias, _project(alias, row, target.column))
-    return view
-
-
 def group_rollup_v2(coverages: list[dict]) -> dict[str, int]:
     """BOHUMFIT-290: 대분류 합계 = 소속 행 summary 합 — ★`sum_excluded`(80%) 행은 뺀다(Q2·243)."""
     totals: dict[str, int] = {group: 0 for group in GROUP13_V2}

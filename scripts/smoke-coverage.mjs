@@ -64,7 +64,8 @@ sys.path.insert(0, sys.argv[1])
 import openpyxl
 from coverage.aggregator import aggregate_coverage_values, build_before, build_final
 from coverage.compare import build_after_analysis
-from coverage.export_excel import FORM_ITEMS, build_workbook_bytes
+from coverage.export_excel import DATA_ROW0, build_workbook_bytes
+from coverage.constants import KB_COVERAGES_V2
 from coverage.parser import parse_document
 
 pdf_path, today = sys.argv[2], sys.argv[3]
@@ -93,16 +94,19 @@ ov_total = sum(c["summary"] or 0 for c in ov)
 rate = round(sum(c["summary"] or 0 for c in attributed) / ov_total * 100, 1) if ov_total else None
 
 # 엑셀도 사용자 동선과 동일하게 생성해 시트2 회사합=합계를 재대조
+# BOHUMFIT-291(S3): 49행 양식 — 시트 '컨설팅 전', 담보 7행~, 합계 F·G(2열), 회사당 2열(H~).
 wb = openpyxl.load_workbook(io.BytesIO(build_workbook_bytes(result)))
-ws = wb["비교분석표"]
+ws = wb["컨설팅 전"]
 n = len(before["contract_list"]) if (not ov or attributed) else 0
-col_bsum = 2 + n
 xl_mismatch = 0
+def _num(v):
+    return v if isinstance(v, (int, float)) else 0
 if n:
-    for off, item in enumerate(FORM_ITEMS):
-        r = 10 + off
-        cells = [ws.cell(row=r, column=2 + i).value or 0 for i in range(n)]
-        if sum(cells) != (ws.cell(row=r, column=col_bsum).value or 0):
+    for off in range(len(KB_COVERAGES_V2)):
+        r = DATA_ROW0 + off
+        cells = [_num(ws.cell(row=r, column=8 + 2 * i).value) + _num(ws.cell(row=r, column=9 + 2 * i).value) for i in range(n)]
+        total = _num(ws.cell(row=r, column=6).value) + _num(ws.cell(row=r, column=7).value)
+        if sum(cells) != total:
             xl_mismatch += 1
 
 # 해지 0 → 전=후 동일
@@ -158,7 +162,7 @@ try {
     if (actual.excelCompanySumMismatch !== 0) problems.push(`회사합≠합계 ${actual.excelCompanySumMismatch}건(엑셀 시트2)`);
     if (actual.beforeAfterDiff !== 0) problems.push(`해지 0인데 전≠후 ${actual.beforeAfterDiff}건`);
     if (actual.unknownKeys !== 0) problems.push(`계약 미확인('?') 잔존 ${actual.unknownKeys}건`);
-    const sheets = ["표지(세로)", "비교분석표", "최종비교분석표"];
+    const sheets = ["표지(세로)", "컨설팅 전", "컨설팅 후", "최종"];  // BOHUMFIT-291 4시트
     if (JSON.stringify(actual.sheets) !== JSON.stringify(sheets)) {
       problems.push(`시트 구성 ${JSON.stringify(actual.sheets)}`);
     }

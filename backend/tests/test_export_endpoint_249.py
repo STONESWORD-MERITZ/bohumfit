@@ -24,7 +24,7 @@ MAN = 10_000
 
 
 # BOHUMFIT-290(S2): 집계 행이 V2 49행 — 구 이름 조회는 export와 같은 투영(legacy_form_view)으로.
-from coverage.aggregator import legacy_form_view as _view  # noqa: E402
+from tests.v2names import legacy_form_view as _view  # noqa: E402
 from coverage.v2_mapping import GROUP_APPENDIX_V2 as _APPENDIX  # noqa: E402
 
 
@@ -66,18 +66,18 @@ def test_excel_endpoint_produces_form_sheets_and_preserves_overview_after(client
     response = client.post("/coverage/export/excel", json=result)
     assert response.status_code == 200
     wb = openpyxl.load_workbook(io.BytesIO(response.content))
-    # ① 비분양식 3시트 — 구 5시트 구조는 어떤 payload로도 생성 불가.
-    assert wb.sheetnames == ["표지(세로)", "비교분석표", "최종비교분석표"]
-    ws = wb["비교분석표"]
-    # ② overview: [전]·[후] 합계 열 모두 값 보존(만원). 상해사망=양식 13행 → 시트 13행.
-    #    overview는 계약 열 0 → [전] 합계=2열, [후] 합계=6열(담보명 3열 뒤).
-    assert ws.cell(row=13, column=2).value == 30000   # [전] 상해사망 3억
-    assert ws.cell(row=13, column=6).value == 30000   # ★[후] 보존 — 249 결함의 재발 방지 고정
-    assert ws.cell(row=16, column=2).value == 10000   # 암진단금 1억
-    assert ws.cell(row=16, column=6).value == 10000
-    # ③ 월납 이월(원 단위) — 254 개정2: 보험료 행은 상단 9행("월보험료")으로 이동(값 불변).
-    assert ws.cell(row=9, column=2).value == 4_675_189
-    assert ws.cell(row=9, column=6).value == 4_675_189
+    # ① 291 4시트 — 구 3/5시트 구조는 어떤 payload로도 생성 불가.
+    assert wb.sheetnames == ["표지(세로)", "컨설팅 전", "컨설팅 후", "최종"]
+    from tests.excel_v2_layout import COL_SUM, ROW_PREMIUM, row_of
+    ws_b, ws_a = wb["컨설팅 전"], wb["컨설팅 후"]
+    # ② overview: [전]·[후] 합계 열 모두 값 보존(만원). 계약 열 0 → 합계(F열).
+    assert ws_b.cell(row=row_of("death_injury"), column=COL_SUM).value == 30000   # [전] 상해사망 3억
+    assert ws_a.cell(row=row_of("death_injury"), column=COL_SUM).value == 30000   # ★[후] 보존 — 249 재발 방지
+    assert ws_b.cell(row=row_of("cancer_general"), column=COL_SUM).value == 10000  # 암진단 1억
+    assert ws_a.cell(row=row_of("cancer_general"), column=COL_SUM).value == 10000
+    # ③ 월납 이월(원 단위) — 291: 6행 월납(값 불변).
+    assert ws_b.cell(row=ROW_PREMIUM, column=COL_SUM).value == 4_675_189
+    assert ws_a.cell(row=ROW_PREMIUM, column=COL_SUM).value == 4_675_189
 
 
 def test_excel_endpoint_standard_before_after_equal_when_no_cancel(client):
@@ -97,10 +97,11 @@ def test_excel_endpoint_standard_before_after_equal_when_no_cancel(client):
     result = build_after_analysis(analysis, {"existing": [], "proposals": []})
     response = client.post("/coverage/export/excel", json=result)
     assert response.status_code == 200
-    ws = openpyxl.load_workbook(io.BytesIO(response.content))["비교분석표"]
-    # 질병사망=양식 12행. [전] 합계(계약 1열 → 3열)·[후] 합계(7열) 동일.
-    assert ws.cell(row=12, column=3).value == 5000
-    assert ws.cell(row=12, column=7).value == 5000
+    from tests.excel_v2_layout import COL_SUM, row_of
+    wb = openpyxl.load_workbook(io.BytesIO(response.content))
+    # 질병사망 행 — 컨설팅 전·후 합계(F열) 동일(해지 0).
+    assert wb["컨설팅 전"].cell(row=row_of("death_disease"), column=COL_SUM).value == 5000
+    assert wb["컨설팅 후"].cell(row=row_of("death_disease"), column=COL_SUM).value == 5000
 
 
 def test_server_after_path_carries_overview_and_unknown_keys():

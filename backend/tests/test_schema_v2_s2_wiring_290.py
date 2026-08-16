@@ -26,8 +26,8 @@ from coverage.aggregator import (
     compute_stage_totals,
     compute_yn_flags,
     group_rollup_v2,
-    legacy_form_view,
 )
+from tests.v2names import legacy_form_view  # 291: 테스트 전용 투영으로 이관
 from coverage.compare import build_after_analysis
 from coverage.constants import KB_COVERAGES_V2, PAYOUT_CASCADE_V2, YN_ITEMS_V2
 from coverage.service import analyze_kb_coverage

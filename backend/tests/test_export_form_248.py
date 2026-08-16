@@ -16,6 +16,7 @@ import openpyxl
 
 from coverage.aggregator import build_before
 from coverage.export_excel import build_workbook_bytes
+from tests.excel_v2_layout import COL_SUM, SHEET_BEFORE, row_of  # 291
 
 MAN = 10_000
 
@@ -44,7 +45,7 @@ def test_overview_appendix_labels_not_overwritten():
         "extra": {"80%이상 후유장해": {"agg": "sum", "by_company": {"1": 100 * MAN}}},
     })
     wb = openpyxl.load_workbook(io.BytesIO(build_workbook_bytes(analysis)))
-    ws = wb["비교분석표"]
+    ws = wb[SHEET_BEFORE]
     text = " ".join(str(c.value) for row in ws.iter_rows() for c in row if c.value is not None)
     # BOHUMFIT-290(S2·Q2): 80% 담보는 이제 후유장해 대분류의 정식 행이라 부록이 아니라 본 표에 실린다.
     #   구 라벨 "80%이상 후유장해"는 V2 표시명 "상해 질병 후 유 장 해 80%"로 보인다(값 100 보존).
@@ -60,8 +61,9 @@ def test_estimated_note_and_overview_summary_column():
         "extra": {"일반종수술 5종(표준환산)": {"agg": "sum", "by_company": {"1": 1000 * MAN}, "estimated": True}},
     })
     wb = openpyxl.load_workbook(io.BytesIO(build_workbook_bytes(analysis)))
-    ws = wb["비교분석표"]
+    ws = wb[SHEET_BEFORE]
     text = " ".join(str(c.value) for row in ws.iter_rows() for c in row if c.value is not None)
-    assert "표준 환산 기준" in text
-    # overview: 계약 열 0 → [전] 합계 열 = 2열. 암진단금(양식 16행 → 시트 16행) 값 5,000(만원).
-    assert ws.cell(row=16, column=2).value == 5000
+    assert "표준환산" in text  # 291: 하단 안내 "표준환산 종수술은 종별 미확인으로 병합 표기"
+    # overview: 계약 열 0 → 합계 열(F). 암진단비(일반암) 값 5,000(만원). 표준환산 5종은 병합 셀 1,000.
+    assert ws.cell(row=row_of("cancer_general"), column=COL_SUM).value == 5000
+    assert ws.cell(row=row_of("tier_surgery_5"), column=COL_SUM).value == 1000

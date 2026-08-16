@@ -60,8 +60,8 @@ def test_excel_uses_same_five_step_sheet_order() -> None:
     # BOHUMFIT-248 P2: 엑셀 산출을 비분양식 3시트로 정본화 — 검증 의도를 신 양식 등가로 갱신.
     workbook = load_workbook(io.BytesIO(build_workbook_bytes(_report())))
 
-    assert workbook.sheetnames == ["표지(세로)", "비교분석표", "최종비교분석표"]
-    compare_values = [cell.value for row in workbook["비교분석표"].iter_rows() for cell in row if cell.value is not None]
-    assert "담보내용" in compare_values and "보험료 합계" in compare_values
-    final_values = [cell.value for row in workbook["최종비교분석표"].iter_rows() for cell in row if cell.value is not None]
+    assert workbook.sheetnames == ["표지(세로)", "컨설팅 전", "컨설팅 후", "최종"]
+    compare_values = [cell.value for row in workbook["컨설팅 전"].iter_rows() for cell in row if cell.value is not None]
+    assert "상 품 명" in compare_values and any(isinstance(v, str) and "회사명" in v for v in compare_values)
+    final_values = [cell.value for row in workbook["최종"].iter_rows() for cell in row if cell.value is not None]
     assert -20_000 in final_values               # 차액 = 후−전

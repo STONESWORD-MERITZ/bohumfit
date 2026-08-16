@@ -70,8 +70,8 @@ def test_pdf_per_rider_compare_table_focuses_on_coverage_amounts() -> None:
 def test_excel_compare_sheet_uses_amount_columns_only() -> None:
     # BOHUMFIT-248 P2: 엑셀 산출을 비분양식 3시트로 정본화 — 검증 의도를 신 양식 등가로 갱신.
     workbook = load_workbook(io.BytesIO(build_workbook_bytes(_report())))
-    sheet = workbook["비교분석표"]
+    sheet = workbook["컨설팅 전"]
     values = [cell.value for row in sheet.iter_rows() for cell in row if cell.value is not None]
     # 신 양식: 담보 행은 금액(만원 숫자)만 — 진단 상태 문자열은 시트에 없다.
     assert "부족" not in values and "충분" not in values and "미가입" not in values
-    assert "질병수술" in values                   # 신 체계 정식명 행 존재
+    assert "질 병 수 술 비" in values              # 291: V2 행명(수기표 문자열) 존재

@@ -172,14 +172,16 @@ def test_excel_adds_after_compare_and_summary_sheets() -> None:
     result = build_after_analysis(_analysis(), _plan())
     workbook = load_workbook(io.BytesIO(build_workbook_bytes(result)))
 
-    assert workbook.sheetnames == ["표지(세로)", "비교분석표", "최종비교분석표"]
-    compare = workbook["비교분석표"]
-    values = [cell.value for row in compare.iter_rows() for cell in row if cell.value is not None]
-    assert "비교분석 전 보장" in values and "비교분석 후 보장" in values
-    final = workbook["최종비교분석표"]
+    # BOHUMFIT-291(S3): 49행 수기표 양식 4시트 — 컨설팅 전/후 + 최종(기존/점검 후/기대효과).
+    assert workbook.sheetnames == ["표지(세로)", "컨설팅 전", "컨설팅 후", "최종"]
+    before_vals = [cell.value for row in workbook["컨설팅 전"].iter_rows() for cell in row if cell.value is not None]
+    after_vals = [cell.value for row in workbook["컨설팅 후"].iter_rows() for cell in row if cell.value is not None]
+    assert any(isinstance(v, str) and "【 전 】" in v for v in before_vals)
+    assert any(isinstance(v, str) and "【 후 】" in v for v in after_vals)
+    final = workbook["최종"]
     fvals = [cell.value for row in final.iter_rows() for cell in row if cell.value is not None]
-    assert "보험료 차액(후−전)" in fvals
-    assert -20_000 in fvals                    # 차액 = 후−전(개선 = 절감 음수)
+    assert "기대효과" in fvals
+    assert -20_000 in fvals                    # 월납 차액 = 후−전(개선 = 절감 음수)
 
 
 def test_pdf_html_adds_customer_compare_page_with_brand_and_disclaimer() -> None:

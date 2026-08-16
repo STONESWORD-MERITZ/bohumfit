@@ -22,7 +22,9 @@ from coverage.aggregator import (
     overview_rows_need_cancel_warning,
 )
 from coverage.compare import build_after_analysis
-from coverage.export_excel import FORM_ITEMS, build_workbook_bytes
+from tests.excel_v2_layout import (  # 291: 49행 양식 좌표
+    COL_SUM, ROW_COMPANY, ROW_PRODUCT, SHEET_AFTER, SHEET_BEFORE, company_col, header_labels, row_of, workbook,
+)
 
 MAN = 10_000
 
@@ -105,66 +107,55 @@ def _analysis(attributed: bool, partial: bool = False):
 
 
 def _ws(analysis, plan=None):
+    """291: (컨설팅 전 시트, 컨설팅 후 시트, result)."""
     result = build_after_analysis(analysis, plan or {"existing": [], "proposals": []})
-    wb = openpyxl.load_workbook(io.BytesIO(build_workbook_bytes(result)))
-    return wb["비교분석표"], result
+    wb = workbook(result)
+    return wb[SHEET_BEFORE], wb[SHEET_AFTER], result
 
 
-def _row_of(item):
-    return 10 + FORM_ITEMS.index(item)
+ROW_INJURY_DEATH = row_of("death_injury")
 
 
 # ── 렌더 가드 전환 ────────────────────────────────────────────────────────────
 def test_attributed_overview_renders_company_columns():
     """★259 A: 귀속된 overview는 표준 문서와 동일하게 [전]·[후] 회사 열을 전개한다."""
-    ws, result = _ws(_analysis(attributed=True))
-    assert ws.cell(row=4, column=2).value == "합성손보1"
-    assert ws.cell(row=4, column=3).value == "합성손보2"
-    assert ws.cell(row=5, column=2).value == "합성상품1호"     # 2단 헤더(252/254)
-    n = 2
-    col_bsum = 2 + n
-    col_asum = col_bsum + 4
-    col_a0 = col_asum + 1
-    row = _row_of("상해사망")
-    assert [ws.cell(row=row, column=2 + i).value for i in range(n)] == [1000, 2000]
-    assert ws.cell(row=row, column=col_bsum).value == 3000
+    ws_b, ws_a, _result = _ws(_analysis(attributed=True))
+    assert ws_b.cell(row=ROW_COMPANY, column=company_col(0)).value == "합성손보1"
+    assert ws_b.cell(row=ROW_COMPANY, column=company_col(1)).value == "합성손보2"
+    assert ws_b.cell(row=ROW_PRODUCT, column=company_col(0)).value == "합성상품1호"
+    row = ROW_INJURY_DEATH
+    assert [ws_b.cell(row=row, column=company_col(i)).value for i in range(2)] == [1000, 2000]
+    assert ws_b.cell(row=row, column=COL_SUM).value == 3000
     # [후] 회사 열도 전개(해지 0 → 전=후).
-    assert ws.cell(row=4, column=col_a0).value == "합성손보1"
-    assert [ws.cell(row=row, column=col_a0 + i).value for i in range(n)] == [1000, 2000]
-    assert ws.cell(row=row, column=col_asum).value == 3000
+    assert ws_a.cell(row=ROW_COMPANY, column=company_col(0)).value == "합성손보1"
+    assert [ws_a.cell(row=row, column=company_col(i)).value for i in range(2)] == [1000, 2000]
+    assert ws_a.cell(row=row, column=COL_SUM).value == 3000
 
 
 def test_unattributed_overview_keeps_summary_only():
     """★가드 전환 회귀: by_company가 비면 종전대로 회사 열 미생성(합계만)."""
-    ws, _res = _ws(_analysis(attributed=False))
-    assert ws.cell(row=4, column=2).value == "합 계"      # 회사 열 0 → 2열이 합계
-    labels = [ws.cell(row=4, column=c).value for c in range(1, ws.max_column + 1)]
-    assert "합성손보1" not in labels
-    assert ws.cell(row=_row_of("상해사망"), column=2).value == 3000
+    ws_b, _ws_a, _res = _ws(_analysis(attributed=False))
+    assert "합성손보1" not in header_labels(ws_b)
+    assert ws_b.cell(row=ROW_INJURY_DEATH, column=COL_SUM).value == 3000
 
 
 def test_partially_attributed_overview_keeps_summary_only():
     """부분 귀속(빈 행 혼재)은 빈 회사 열 오독을 피하려 합계만 유지한다."""
-    ws, _res = _ws(_analysis(attributed=True, partial=True))
-    labels = [ws.cell(row=4, column=c).value for c in range(1, ws.max_column + 1)]
-    assert "합성손보1" not in labels
-    assert ws.cell(row=4, column=2).value == "합 계"
+    ws_b, _ws_a, _res = _ws(_analysis(attributed=True, partial=True))
+    assert "합성손보1" not in header_labels(ws_b)
+    assert ws_b.cell(row=ROW_INJURY_DEATH, column=COL_SUM).value == 3000
 
 
 def test_cancellation_drops_only_that_company_column():
     """★259 B: 해지 1건 — [후] 회사 열에서 해당 계약만 빠지고 합계가 재집계된다."""
     analysis = _analysis(attributed=True)
-    ws, result = _ws(analysis, {"existing": [{"contract_idx": 1, "disposition": "cancel"}],
-                                "proposals": []})
-    n, m = 2, 1
-    col_bsum = 2 + n
-    col_asum = col_bsum + 4
-    col_a0 = col_asum + 1
-    row = _row_of("상해사망")
-    assert ws.cell(row=4, column=col_a0).value == "합성손보2"      # 남은 계약만
-    assert ws.cell(row=row, column=col_a0).value == 2000
-    assert ws.cell(row=row, column=col_asum).value == 2000         # 합계 재집계
-    assert ws.cell(row=row, column=col_bsum).value == 3000         # [전]은 불변
+    ws_b, ws_a, result = _ws(analysis, {"existing": [{"contract_idx": 1, "disposition": "cancel"}],
+                                        "proposals": []})
+    row = ROW_INJURY_DEATH
+    assert ws_a.cell(row=ROW_COMPANY, column=company_col(0)).value == "합성손보2"      # 남은 계약만
+    assert ws_a.cell(row=row, column=company_col(0)).value == 2000
+    assert ws_a.cell(row=row, column=COL_SUM).value == 2000         # 합계 재집계
+    assert ws_b.cell(row=row, column=COL_SUM).value == 3000         # [전]은 불변
     # 귀속됐으므로 "합계형 문서는 해지 반영 불가" 경고가 붙지 않는다.
     messages = [c.get("message") for c in result["comparison"].get("cautions") or []]
     assert OVERVIEW_CANCEL_WARNING not in messages + (result.get("warnings") or [])
@@ -173,8 +164,8 @@ def test_cancellation_drops_only_that_company_column():
 def test_unattributed_cancellation_still_warns():
     """미귀속 overview + 해지 → 보존+경고 정책 유지(246)."""
     analysis = _analysis(attributed=False)
-    _ws_, result = _ws(analysis, {"existing": [{"contract_idx": 1, "disposition": "cancel"}],
-                                  "proposals": []})
+    _b, _a, result = _ws(analysis, {"existing": [{"contract_idx": 1, "disposition": "cancel"}],
+                                    "proposals": []})
     messages = [c.get("message") for c in result["comparison"].get("cautions") or []]
     assert OVERVIEW_CANCEL_WARNING in messages + (result.get("warnings") or [])
 
@@ -186,6 +177,5 @@ def test_unknown_column_renders_for_attributed_overview():
     for row in analysis["before"]["coverages"]:
         if row["kb_name"] == v2name("상해사망"):  # 290: V2 표시명
             row["by_company"] = {"1": 1000 * MAN, "?": 2000 * MAN}
-    ws, _res = _ws(analysis)
-    labels = [ws.cell(row=4, column=c).value for c in range(1, ws.max_column + 1)]
-    assert "계약 미확인" in labels
+    ws_b, _ws_a, _res = _ws(analysis)
+    assert "계약 미확인" in header_labels(ws_b)

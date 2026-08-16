@@ -63,7 +63,7 @@ def test_dementia_is_excluded_from_before_and_final_rendering() -> None:
 
 def test_care_fracture_and_burn_groups_move_without_amount_change() -> None:
     before = build_before(_raw())
-    from coverage.aggregator import legacy_form_view
+    from tests.v2names import legacy_form_view
     by_name = legacy_form_view(before["coverages"])
 
     # BOHUMFIT-290(S2): 간병인은 V2 `간 병 인`(입 원·상해 열)로 승격, 보철·화상은 비고행 — 값 불변.

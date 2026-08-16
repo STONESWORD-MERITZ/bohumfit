@@ -20,7 +20,7 @@ from tests.v2names import find_row  # noqa: E402  (290: 구 이름 → V2 행 �
 
 def _rows(coverages):
     """BOHUMFIT-290(S2): 구 이름으로 V2 행을 찾는 매핑 — 값·셀은 그대로, 이름만 투영."""
-    from coverage.aggregator import legacy_form_view
+    from tests.v2names import legacy_form_view
     return legacy_form_view(coverages)
 
 

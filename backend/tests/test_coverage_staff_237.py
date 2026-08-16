@@ -18,7 +18,7 @@ from coverage.parser import parse_detail_pages  # noqa: E402
 
 # ── A: 공용 포맷터 ────────────────────────────────────────────────────────────
 # BOHUMFIT-290(S2): 집계 행이 V2 49행 — 구 이름 조회는 export와 같은 투영(legacy_form_view)으로.
-from coverage.aggregator import legacy_form_view as _view  # noqa: E402
+from tests.v2names import legacy_form_view as _view  # noqa: E402
 from coverage.v2_mapping import GROUP_APPENDIX_V2 as _APPENDIX  # noqa: E402
 
 

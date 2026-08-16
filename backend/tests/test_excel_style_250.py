@@ -13,6 +13,7 @@ import openpyxl
 from coverage.aggregator import build_before
 from coverage.excel_style import EMERALD, FILL_ONLY_COLORS, GREENTEA, LIME, WHITE
 from coverage.export_excel import build_workbook_bytes
+from tests.excel_v2_layout import COL_SUM, SHEET_BEFORE, company_col, row_of  # 291
 
 MAN = 10_000
 
@@ -50,27 +51,26 @@ def _label_cells(ws) -> dict:
 
 
 def test_style_presence_and_values_unchanged():
-    """헤더=에메랄드+흰 글자·강조 행=그린 티·특수 행=라임·패널 라벨 — 값은 249와 동일 규칙."""
+    """헤더=에메랄드+흰 글자·대분류 선두 행=그린 티·특수 행(순환계 치료비)=라임 — 값은 집계 그대로.
+    291: 시트 `컨설팅 전`(49행 양식). 우측 고객정보 패널(구 O열)은 수기표에 없어 폐기."""
     wb = openpyxl.load_workbook(io.BytesIO(build_workbook_bytes(_analysis())))
-    ws = wb["비교분석표"]
-    labels = _label_cells(ws)
-    header = labels["담보내용"]
+    ws = wb[SHEET_BEFORE]
+    header = ws.cell(row=2, column=company_col(0))          # 회사명 헤더
     assert header.fill.fgColor.rgb == EMERALD and header.font.color.rgb == WHITE
-    assert ws.cell(row=5, column=2).fill.fgColor.rgb == EMERALD
-    assert ws.cell(row=5, column=2).font.color.rgb == WHITE
-    # 강조 행(암진단금 — 원본 실측 위치 세트): 값 셀에 그린 티 면.
-    cancer = labels["암진단금"]
-    assert any(ws.cell(row=cancer.row, column=col).fill.fgColor.rgb == GREENTEA
-               for col in range(2, ws.max_column))
+    title = ws.cell(row=2, column=2)
+    assert title.fill.fgColor.rgb == EMERALD and title.font.color.rgb == WHITE
+    # 대분류 선두 행(암 진단비(일반암) = 암 대분류 첫 행): 값 셀에 그린 티 면.
+    cancer_row = row_of("cancer_general")
+    assert any(ws.cell(row=cancer_row, column=col).fill.fgColor.rgb == GREENTEA
+               for col in range(COL_SUM, ws.max_column))
     # 특수 행(순환계 치료비): 라임 면.
-    circ = labels["순환계 치료비"]
-    assert any(ws.cell(row=circ.row, column=col).fill.fgColor.rgb == LIME
-               for col in range(2, ws.max_column))
-    # 우측 고객정보 패널(라벨+공란 — PII 미기입).
-    assert "1.성명 : " in labels and "[양식]" in labels and "고등전산" in labels
-    # 값 검증(스타일 계층이 값을 바꾸지 않음): 질병사망=양식 12행 합계 5,000만 → 5000(만원).
-    assert ws.cell(row=12, column=3).value == 5000
-    assert ws.cell(row=16, column=3).value == 3000
+    circ_row = row_of("circulatory_treatment")
+    assert any(ws.cell(row=circ_row, column=col).fill.fgColor.rgb == LIME
+               for col in range(COL_SUM, ws.max_column))
+    # 값 검증(스타일 계층이 값을 바꾸지 않음): 질병사망 5,000·암진단 3,000·순환계 1,000(만원).
+    assert ws.cell(row=row_of("death_disease"), column=COL_SUM).value == 5000
+    assert ws.cell(row=cancer_row, column=COL_SUM).value == 3000
+    assert ws.cell(row=circ_row, column=COL_SUM).value == 1000
     # 인쇄 폭 맞춤(15계약 대응 — 사양 결정 3 잠정).
     assert ws.page_setup.fitToWidth == 1
 

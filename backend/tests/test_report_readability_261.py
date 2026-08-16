@@ -18,16 +18,14 @@ import openpyxl
 from coverage.aggregator import build_before
 from coverage.compare import build_after_analysis
 from coverage.excel_style import EMERALD, WHITE
-from coverage.export_excel import FORM_ITEMS, MONTHS_20Y, build_workbook_bytes
+from coverage.export_excel import MONTHS_20Y, build_workbook_bytes
+from tests.excel_v2_layout import COL_SUM, SHEET_BEFORE, SHEET_FINAL, company_col, row_of  # 291
 from coverage.export_pdf import COMPANY_CHUNK, build_coverage_html
 
 MAN = 10_000
 GEN = datetime(2026, 7, 31)
 
 
-# BOHUMFIT-290(S2): 집계 행이 V2 49행 — 구 이름 조회는 export와 같은 투영(legacy_form_view)으로.
-from coverage.aggregator import legacy_form_view as _view  # noqa: E402
-from coverage.v2_mapping import GROUP_APPENDIX_V2 as _APPENDIX  # noqa: E402
 
 
 def _analysis(companies: int = 2, monthly=(10_000, 20_000)) -> dict:
@@ -88,37 +86,45 @@ def test_cover_falls_back_when_no_planner_data():
 
 # ── P2 20년 총납입 차액 ────────────────────────────────────────────────────
 def test_twenty_year_delta_row_added_and_matches_formula():
-    """월납 차액 × 240 — 기존 월납 차액 행은 유지(병기)."""
+    """월납 차액 × 240 — 291 `최종` 시트: 4행 월납(전/후/차액) · 6행 20년 총납입(전/후/차액) 병기."""
     analysis = _analysis()
     plan = {"existing": [{"contract_idx": 1, "disposition": "cancel"}], "proposals": []}
     wb, result = _wb(analysis, plan)
-    ws = wb["최종비교분석표"]
+    ws = wb[SHEET_FINAL]
     before_monthly = result["before"]["premium"]["monthly_total"]
     after_monthly = result["after"]["before"]["premium"]["monthly_total"]
     delta = after_monthly - before_monthly
     assert delta == -10_000                                   # 계약1(월 10,000) 해지
-    assert ws.cell(row=13, column=8).value == "보험료 차액(후−전)"
-    assert ws.cell(row=14, column=8).value == delta           # 월납 차액 행 유지
-    assert ws.cell(row=15, column=8).value == "20년 납부 시 총납입 차액"
-    assert ws.cell(row=16, column=8).value == delta * MONTHS_20Y == -2_400_000
-    assert ws.cell(row=18, column=8).value == "특이사항"       # 블록 밀림 반영
+    assert ws.cell(row=4, column=6).value == before_monthly
+    assert ws.cell(row=4, column=8).value == after_monthly
+    assert ws.cell(row=4, column=10).value == delta            # 월납 차액
+    assert ws.cell(row=6, column=6).value == before_monthly * MONTHS_20Y
+    assert ws.cell(row=6, column=10).value == delta * MONTHS_20Y == -2_400_000  # 20년 총납입 차액
 
 
 def test_twenty_year_delta_color_follows_direction():
-    """절감=에메랄드 / 증가=앰버(250 규칙)."""
+    """절감=에메랄드 / 증가=앰버(250 규칙) — 291: 종합 판정·담보 기대효과 셀 색(후−전 부호)."""
     from coverage.excel_style import AMBER_TX
 
     analysis = _analysis()
-    wb, _res = _wb(analysis, {"existing": [{"contract_idx": 1, "disposition": "cancel"}],
-                              "proposals": []})
-    assert wb["최종비교분석표"].cell(row=16, column=8).font.color.rgb == EMERALD   # 절감
-    # 증가 케이스: 신규 제안으로 월납이 늘면 앰버.
+    wb, _res = _wb(analysis, {"existing": [{"contract_idx": 1, "disposition": "cancel"}], "proposals": []})
+    ws = wb[SHEET_FINAL]
+    assert ws.cell(row=4, column=10).font.color.rgb == EMERALD
+    assert ws.cell(row=6, column=10).font.color.rgb == EMERALD
+    # 계약1 해지 → 질병사망 3,000만 감소(앰버) — 기대효과 열
+    assert ws.cell(row=row_of("death_disease"), column=10).value == -3000
+    assert ws.cell(row=row_of("death_disease"), column=10).font.color.rgb == AMBER_TX
+    # 증가 케이스: 신규 제안으로 담보가 늘면 에메랄드.
     analysis2 = _analysis()
     plan = {"existing": [], "proposals": [
         {"proposal_id": "P1", "insurer": "신규", "product": "신규안", "monthly_premium": 50_000,
-         "pay_months": 240, "maturity": "100세", "coverages": []}]}
+         "pay_months": 240, "maturity": "100세",
+         "coverages": [{"kb_name": "질병사망", "amount": 1000 * MAN, "group12": "사망", "agg": "sum"}]}]}
     wb2, _res2 = _wb(analysis2, plan)
-    assert wb2["최종비교분석표"].cell(row=16, column=8).font.color.rgb == AMBER_TX
+    assert wb2[SHEET_FINAL].cell(row=4, column=10).font.color.rgb == AMBER_TX
+    assert wb2[SHEET_FINAL].cell(row=6, column=10).font.color.rgb == AMBER_TX
+    cell = wb2[SHEET_FINAL].cell(row=row_of("death_disease"), column=10)
+    assert cell.value == 1000 and cell.font.color.rgb == EMERALD
 
 
 # ── P3 PDF 가독성 ──────────────────────────────────────────────────────────
@@ -164,10 +170,10 @@ def test_pdf_company_columns_are_chunked():
 def test_amount_cells_unchanged_by_presentation_changes():
     """★값 불변: 담보 금액·회사합=합계는 표시 개편 후에도 그대로."""
     wb, result = _wb(_analysis())
-    ws = wb["비교분석표"]
-    rows = _view(result["before"]["coverages"])
-    row = 10 + FORM_ITEMS.index("질병사망")
-    assert ws.cell(row=row, column=2).value == 3000
-    assert ws.cell(row=row, column=3).value == 2000
-    assert ws.cell(row=row, column=4).value == 5000            # 합계 열
-    assert rows["질병사망"]["summary"] == 5000 * MAN
+    ws = wb[SHEET_BEFORE]
+    rows = {c["row_id"]: c for c in result["before"]["coverages"] if c.get("row_id")}
+    row = row_of("death_disease")
+    assert ws.cell(row=row, column=company_col(0)).value == 3000
+    assert ws.cell(row=row, column=company_col(1)).value == 2000
+    assert ws.cell(row=row, column=COL_SUM).value == 5000            # 합계 열
+    assert rows["death_disease"]["summary"] == 5000 * MAN

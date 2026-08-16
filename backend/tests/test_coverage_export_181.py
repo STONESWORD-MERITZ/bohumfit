@@ -51,15 +51,16 @@ def test_excel_sheets_and_values():
     # BOHUMFIT-248 P2: 엑셀 산출을 비분양식 3시트로 정본화 — 검증 의도를 신 양식 등가로 갱신.
     data = build_workbook_bytes(ANALYSIS)
     wb = load_workbook(io.BytesIO(data))
-    assert wb.sheetnames == ["표지(세로)", "비교분석표", "최종비교분석표"]
-    sheet = wb["비교분석표"]
+    assert wb.sheetnames == ["표지(세로)", "컨설팅 전", "컨설팅 후", "최종"]
+    sheet = wb["컨설팅 전"]
     vals = [c.value for row in sheet.iter_rows() for c in row if c.value is not None]
     assert 573227 in vals                      # 보험료 합계(원 단위)
     assert 55000 in vals                       # 상해사망 합계 5억5천 → 만원 단위 55,000
     text = " ".join(str(v) for v in vals)
-    assert "보험료 합계" in text and "동일" in text          # 계피 메타(236 이관 표기)
-    assert "부록: 기타" in text and "N대수술비" in text      # 양식 밖 담보 보존(누락 0)
-    assert "가설계" in text and "만원" in text               # 단위 안내
+    comments = " ".join(c.comment.text for row in sheet.iter_rows() for c in row if c.comment)
+    assert "계피동일" in comments or "구분:" in comments   # 계피 메타(236 이관 — 291은 셀 메모)
+    assert "비고" in text and "N대수술비" in text           # 양식 밖 담보 보존(누락 0 — 비고 블록)
+    assert "만원" in text                                   # 단위 안내
 
 
 def test_pdf_html_brand_and_values():
