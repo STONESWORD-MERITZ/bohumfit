@@ -1,3 +1,31 @@
+## 2026-08-16 BOHUMFIT-289 — Codex 커밋·push 완료
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human**(Q8 본체 행 확정) / **야간 288**(`[전]` 대조)
+
+- 본 커밋: `67daca0` — `feat(BOHUMFIT-289): V2 스키마 46행 개정 + 케스케이드·분배 상수(병존·무배선 유지)`
+- `origin/main` push 완료. 실 PDF·PII·수기 엑셀·임시 산출물은 커밋 0.
+
+### Git 원문 — 289 본 커밋 push 직후
+```text
+git log --oneline -5:
+67daca0 feat(BOHUMFIT-289): V2 스키마 46행 개정 + 케스케이드·분배 상수(병존·무배선 유지)
+559e972 docs(BOHUMFIT-287): Codex 검증·push 결과 기록
+13e9b0a feat(BOHUMFIT-287): 42행 스키마 V2 정의(구 40행과 병존·무배선)
+5a02005 docs(BOHUMFIT-283): 오픈 전 전수검사 결과(조건부 판정·284로 마감)
+4657224 docs(BOHUMFIT-286): Codex 검증·push 결과 기록
+
+git status --short -uall:
+(출력 없음)
+
+git rev-list --left-right --count origin/main...HEAD:
+0\t0
+```
+
+### Next
+1. **야간 288** — `[전]` 트랙 전수 대조(`20260805` 분석서 ↔ 수기표 `기존` 55열).
+2. **Human** — Q8형 통합치료비 본체 착지 행 확정.
+3. **Chat** — Q8 행 확정 뒤 S2(집계 배선) 발번.
+
 ## 2026-08-16 BOHUMFIT-289 — Codex 2차 검증 통과 / 커밋·push 진행
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(범위 커밋·push) / **Human**(Q8 본체 행 확정)
