@@ -1,3 +1,38 @@
+## 2026-08-17 BOHUMFIT-288/291 — Codex 검증·분리 커밋·push 완료
+
+Owner flow: Claude Chat → Claude Code → Codex → Human | Current owner: **Human**(2열 헤더 결정) / **Chat**(S4 발번)
+
+- 288 문서 커밋: `57f94a7` — `docs(BOHUMFIT-288): 오현지 [전] 트랙 전수 대조 + Q8 본체 실증`
+- 291 구현 커밋: `ba9b907` — `feat(BOHUMFIT-291): 산출물 49행 양식 전환 — 컨설팅 전/후·2열 병기·L 접두·종합 17행(값 무변경)`
+- 전체 게이트 실측: backend `1003 passed, 8 skipped`; frontend `402 passed / 41 files`; tsc app/node·lint·build PASS;
+  `smoke:coverage` PASS; `build:verify`는 Windows 껍데기 `343,702 B`를 정상 거부(exit 1, 예상 FAIL).
+- S2 대조: 정본 4,211셀 + 우상균 787셀 = **4,998셀 불일치 0**. HEAD/current 4문서 payload SHA-256도 완전 동일.
+- 실렌더: 엑셀 16시트·PDF 62쪽에서 겹침·잘림 0. 우상균은 6계약·월납 488,294원까지 재현했다.
+- Codex 범위 내 보정: 양식 이식 중 빠진 261 차액 색상(절감 에메랄드·증가 앰버) 단언과 렌더를 복원했다. 값·산식 변화 0.
+- 보호 범위 `v2_mapping`·`compute_stage_totals`·`pipeline/`·`filters.py`·`proposal_parser.py`·`parser.py`·`src/`·`vite.config` diff 0.
+  실 PDF·PII·수기 엑셀·프로토타입·생성 산출물 stage 0.
+
+### 첫 push 직후 `git log --oneline -5` 원문
+
+```text
+ba9b907 feat(BOHUMFIT-291): 산출물 49행 양식 전환 — 컨설팅 전/후·2열 병기·L 접두·종합 17행(값 무변경)
+57f94a7 docs(BOHUMFIT-288): 오현지 [전] 트랙 전수 대조 + Q8 본체 실증
+9191006 docs(BOHUMFIT-290): Codex 검증·push 결과 기록
+d58ad95 feat(BOHUMFIT-290): 49행 스키마 집계 배선 + 케스케이드 종합 판정 + 재해사망 합산 (smoke 기준값 갱신 — Human Q6 승인)
+56aa60a docs(BOHUMFIT-289): Codex 검증·push 결과 기록
+```
+
+### 첫 push 직후 `git rev-list --left-right --count origin/main...HEAD` 원문
+
+```text
+0	0
+```
+
+### Next
+
+1. **Human** — 종수술·간병인 회사별 2열 헤더를 6행에 넣을지 결정.
+2. **Chat** — 결정 수신 후 S4 발번.
+
 ## 2026-08-17 BOHUMFIT-291 S3 — Codex 2차 검증 PASS / 288→291 커밋 대기
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(288→291 분리 커밋·push) / **Human**(2열 헤더 결정)
