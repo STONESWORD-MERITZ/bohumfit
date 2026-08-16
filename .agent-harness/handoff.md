@@ -1,3 +1,36 @@
+## 2026-08-16 BOHUMFIT-290 — Codex 2차 검증·Human Q6 승인 반영·push 완료
+
+Owner flow: Claude Chat → Claude Code → Codex → Human | Current owner: **Chat**(S3 산출물 발번)
+
+- 구현 커밋: `d58ad95` — `feat(BOHUMFIT-290): 49행 스키마 집계 배선 + 케스케이드 종합 판정 + 재해사망 합산 (smoke 기준값 갱신 — Human Q6 승인)`
+- Q6 독립 대조: 이인숙 총액 `604,560,000 → 614,860,000`(+10,300,000), 라금실 총액 `1,542,990,000 → 1,501,690,000`(-41,300,000). 월납·`yn_flags`·`death_dedup` 불변, 사유 없는 변화 0건.
+- `재해사망`은 별칭이 아니라 `상해사망`의 명시적 합산 원천으로 고정했다. 정본 4문서에는 원천 특약이 없어 실데이터 변화 0건이며, 합성 회귀로 상해 8,000만+재해 2,000만=상해사망 1억 및 246 중복 차감 보존을 고정했다.
+- 게이트 실측: backend `994 passed, 8 skipped`; frontend `402 passed / 41 files`; tsc app/node·lint·build PASS; `smoke:coverage` Human 승인 기준값 갱신 후 PASS; `build:verify`는 Windows 껍데기 `343,702 B`를 정상적으로 거부(exit 1, 예상 FAIL).
+- 49행·대분류 11·암 13행·17행 케스케이드·실손 rep max·238 unspecified·비고행 보존을 검증했다. 엑셀/PDF 4문서 실렌더에서 깨짐 0, 구 종합 키는 빈 셀/`-`로 표시됨을 확인했다.
+- 보호 범위 `backend/pipeline/`·`filters.py`·`proposal_parser.py`·`parser.py`·`src/`·`vite.config.ts` diff 0. 실 PDF·PII·수기 엑셀·스냅샷 JSON·임시 산출물 stage 0.
+- 기존 미추적 `.agent-harness/tasks/BOHUMFIT-288-before-track-audit.md`는 290 범위 밖으로 보존하고 stage하지 않았다.
+
+### 첫 push 직후 `git log --oneline -5` 원문
+
+```text
+d58ad95 feat(BOHUMFIT-290): 49행 스키마 집계 배선 + 케스케이드 종합 판정 + 재해사망 합산 (smoke 기준값 갱신 — Human Q6 승인)
+56aa60a docs(BOHUMFIT-289): Codex 검증·push 결과 기록
+67daca0 feat(BOHUMFIT-289): V2 스키마 46행 개정 + 케스케이드·분배 상수(병존·무배선 유지)
+559e972 docs(BOHUMFIT-287): Codex 검증·push 결과 기록
+13e9b0a feat(BOHUMFIT-287): 42행 스키마 V2 정의(구 40행과 병존·무배선)
+```
+
+### 첫 push 직후 `git rev-list --left-right --count origin/main...HEAD` 원문
+
+```text
+0	0
+```
+
+### Next
+
+1. **Chat** — S3 산출물 발번: 구 종합 블록 키를 17행 케스케이드 기준으로 재설계.
+2. **Chat/Human** — S4에서 extras 합성 라벨을 파서 단계에서 분리하고 분배 규칙 확정.
+
 ## 2026-08-16 BOHUMFIT-290 S2 — 49행 스키마 집계 배선 · Human Q6 승인 / Codex 2차 검증 PASS
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(커밋/push)
