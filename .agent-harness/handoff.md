@@ -1,3 +1,118 @@
+## 2026-08-16 BOHUMFIT-289 — Codex 2차 검증 통과 / 커밋·push 진행
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(범위 커밋·push) / **Human**(Q8 본체 행 확정)
+
+### 2차 검증 결과
+- 289 전용+287 회귀 `37 passed`(신규 289은 파라미터 전개 포함 **21건**) 및 backend 전체
+  **974 passed, 8 skipped**. frontend **402 passed / 41 files**, tsc app/node·lint PASS.
+- `npm run smoke:coverage` PASS: 표준 **604,560,000 / 681,312**, overview
+  **1,542,990,000 / 4,675,189**, 회사합=합계 0·전=후 0.
+- ★HEAD `559e972` 별도 worktree와 현재 코드에 같은 실입력(제안서 3건 묶음 + 6계약·정본 2건·0805)을
+  넣고, 원본 파일명은 익명 슬롯으로 직렬화했다. 양쪽 모두 **162,036 bytes**, SHA-256
+  `b15ce2129d29fd18510347f78b0a47352a4095263bbf854cb99eb31017d1f472`로 완전 동일했다.
+  ★Claude Code의 `74d7fce0…`는 직렬화 레시피/스크립트가 남아 있지 않아 해시 문자열 자체는 독립
+  재현하지 못했다. 287 Codex 때와 동일하게 **같은 직렬화에서 HEAD=현재 바이트 동일성**만 최종 증거로
+  채택했으며, 두 프로세스는 정상 종료·비공집합(162,036 bytes)임을 확인했다.
+- 신판 수기표 재판독: `컨설팅 전/후` 각 **46행·완전 일치**, 대분류 11, 시트명 메타 일치,
+  `최종`의 L 접두 3행(`뇌졸중`·`뇌출혈`·`급성심근경색`) 확인. 전 시트 `순환계`·`통합치료` 0건,
+  Q3 정본 `중 입 자 치료` 확인.
+- V2 계약: 종수술 2열 플래그 5행·`sum_excluded` 80% 행 1개·`yn_source` 7행·ASCII row_id 중복 0,
+  뇌 3단·심장 2단(★`cardiac_disease` 독립)·암수술 2단·약물 3단·방사선 형제 비누적,
+  분배 2종(EQUAL)·Q8 본체는 `DISTRIBUTION_UNRESOLVED_V2`에만 주차·`PENDING=()`.
+- 구 상수 SHA-256 3종은 287 스냅샷과 동일. 계산 4파일(`aggregator`·export 2종·`proposal_parser`)의
+  V2/케스케이드/분배 참조 0건. 287 테스트 갱신은 HEAD 34 assertions → 현재 287+289
+  **88 assertions**, xfail 0으로 완화가 아니며 원본 대조는 289로 이관됐다.
+- `npm run build`: 2,054 modules·JS **343,702 B**. `build:verify`는 크기 하한과 필수 문자열 3종
+  부재로 exit 1 — 248 Windows Application Control 껍데기와 동일한 **예상 FAIL**.
+- 보호 영역(`aggregator`·export 2종·`proposal_parser`·`pipeline/`·`filters.py`·`src/`·
+  `vite.config.*`·`supabase/`) diff 0. `SURIT`·구브랜드 그린 제품 코드 0. 실 PDF·수기 xlsx·임시
+  worktree/스크립트 stage 0이며 임시물은 삭제했다.
+- 기준선 3문서 동기화: backend **974/8**, frontend **402/41**.
+
+### Git 원문 — 289 커밋 직전
+```text
+git log --oneline -5:
+559e972 docs(BOHUMFIT-287): Codex 검증·push 결과 기록
+13e9b0a feat(BOHUMFIT-287): 42행 스키마 V2 정의(구 40행과 병존·무배선)
+5a02005 docs(BOHUMFIT-283): 오픈 전 전수검사 결과(조건부 판정·284로 마감)
+4657224 docs(BOHUMFIT-286): Codex 검증·push 결과 기록
+94c18a8 fix(BOHUMFIT-286): 1~5종 수술비 tier 오검출 수정(범위 표기 오인·종별 미구분)
+
+git status --short -uall:
+ M .agent-harness/handoff.md
+ M .agent-harness/locks.md
+ M .agent-harness/verify.md
+ M AGENTS.md
+ M CLAUDE.md
+ M backend/coverage/constants.py
+ M backend/tests/test_schema_v2_287.py
+?? .agent-harness/tasks/BOHUMFIT-289-schema-v2-rev46.md
+?? backend/tests/test_schema_v2_rev46_289.py
+
+git rev-list --left-right --count origin/main...HEAD:
+0\t0
+```
+
+### Next
+1. **야간 288** — `[전]` 트랙 전수 대조(`20260805` 분석서 ↔ 수기표 `기존` 55열).
+2. **Human** — Q8형 통합치료비 **본체 착지 행** 확정.
+3. **Chat** — Q8 행 확정 뒤 S2(집계 배선) 발번.
+
+## 2026-08-13 BOHUMFIT-289 V2 스키마 46행 개정 — 완료 / 커밋 대기
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(검증·커밋) / **Human**(패킷 대비 미확인 2건)
+기준 HEAD `559e972`. git 쓰기 0. 상세는 tasks/BOHUMFIT-289-schema-v2-rev46.md.
+
+### 신판 실측
+- ★시트명이 바뀌었다: `기존`/`리모델링` → **`컨설팅 전`/`컨설팅 후`**. 담보 행 **r7~r52 = 46행**,
+  두 시트 완전 일치. → `SHEET_NAME_*_V2`로 기록(S3용).
+- **42 → 46은 전부 `암` 안에서 났다**(대분류는 11개 그대로). 묶음 3개가 풀렸다 —
+  암수술/로봇 → 암수술(레보아이)+다빈치 / 항암방사선약물+고액항암 → 약물 3행+방사선 /
+  세기조절·양성자·중입자 3행 분리.
+- ★**Q3 폐기 확인**: 신판은 **구형 표기 `중 입 자 치료`** 를 쓴다. 287이 채택했던
+  `중입자 / 정위 방사선`은 **별칭으로 내려갔다**(표기 결정이 뒤집혔다).
+- ★★**"L 접두" 발견 — `최종` 시트다**(컨설팅 전/후에는 0건):
+  `L 뇌 졸 중`·`L 뇌 출 혈`·`L 급 성 심 근 경 색`. **케스케이드 하위 행 표시**이고,
+  루트(뇌혈관질환·허혈성)와 **독립 행(심장질환)** 에는 안 붙어 Human 확정 체인과 정확히 맞물린다.
+  ★암 계열에는 아직 L이 없어 **표시 적용 범위는 S3 결정**으로 남는다.
+
+### 상수 개정
+행 42→**46** · 부록 4→**6**(장기요양간병비·경증치매진단 확정) · **`PENDING` 빈 튜플**(287 보류 3건
+전부 해소) · `DISTRIBUTED_ITEMS_V2` 신설(`암 주요치료비`는 부록이 아니라 **분배로 해소**) ·
+신설 행 13→**16** · `PAYOUT_CASCADE_V2`(14체인) · `CASCADE_INDEPENDENT_V2` ·
+`DISTRIBUTION_RULES_V2`(2종) · `CASCADE_CHILD_PREFIX_V2="L "` · `SHEET_NAME_*_V2`.
+★row_id 4개 폐기·8개 신설 — **287 V2가 무배선이라 파급 0**이다(무배선의 이득).
+
+### ★패킷 대비 미확인 2건 (추측하지 않고 기록)
+① **Q8형 "본체 → r30(순환계 치료비)"** — ★신판에 **`순환계 치료비` 행이 없다**
+   (전 시트 `순환계`·`통합치료` 문자열 **0건**, r30은 `뇌 졸 중`). 규칙을 만들지 않고
+   `DISTRIBUTION_UNRESOLVED_V2`에 주차했다. ★임의로 `뇌 졸 중`에 넣으면 순환계 통합치료비
+   5,000만원이 **뇌졸중 진단비로 둔갑**한다 — 지어내지 않는 것이 옳다.
+   → **본체 착지 행을 Human이 지정해야 S4가 배선할 수 있다.**
+② **L 접두 위치** — `컨설팅 전/후` 0건·`최종` 3건. 암 계열 미적용이라 표시 범위는 S3 결정.
+
+### 게이트
+- backend **974/8**(955 + 신규 19, 회귀 0) · `npm test` **402/41**(회귀 0·`src/` 무변경)
+- ★★`smoke:coverage` **정본 2건 기준값 완전 불변** · tsc app·node · lint 무경고 · build:verify 예상 FAIL
+- ★★**산출물 바이트 증명 재실행**(287 방식): HEAD 사본 vs 현재, 입력 6종 sha256 **완전 일치**
+  `74d7fce0…` — ★**287에서 측정한 해시와도 동일**하다(두 번의 개정이 산출물을 전혀 안 건드렸다).
+- ★보호 영역 **diff 0**(`proposal_parser.py` 포함) · 구 상수 sha256 3종 **불변**
+- ★**무배선 증명 확장** — 4개 파일에 `PAYOUT_CASCADE_V2`·`DISTRIBUTION_RULES_V2`·
+  `KB_COVERAGES_V2` 참조 **0건**(케스케이드·분배까지 코드로 고정)
+
+### 테스트
+신설 `test_schema_v2_rev46_289.py` **21건**(46행 골격 6·케스케이드 7·분배 4·무배선 1·
+신판 원본 대조 2·Q3 폐기 1). `test_schema_v2_287.py`는 행명 전문·수기표 대조를 289로 **이관**하고
+구 40행 병존 증명만 남겼다. 기대값 갱신 6건은 전부 289 변경의 직접 귀결이고 **완화 0** —
+`PENDING`이 비었음을 단언으로 고정해 오히려 강화됐다.
+
+### Next
+1. **Codex** — 2차 검증·커밋. 검증 항목: ①backend 974/8 ②smoke 정본 2건 **완전 불변**
+   ③산출물 해시 `74d7fce0…` ④보호 영역 diff 0 ⑤구 상수 sha256 불변 ⑥무배선 테스트 통과.
+2. **Human** — ★미확인 ①(Q8형 본체 착지 행) 지정. 이게 없으면 S4가 막힌다.
+   L 접두를 암 계열에도 붙일지(②)는 S3 단계에서 답해도 된다.
+3. **Chat** — ①이 답해지면 **S2(집계 배선)** 발행. ★[전] 트랙 전수 대조(286 이월)는 여전히 미실시.
+
 ## 2026-08-14 BOHUMFIT-283 · BOHUMFIT-287 — Codex 2차 검증 · 분리 커밋 · push 완료
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human**(미결 3건) / **Chat**(288·S2 발번)

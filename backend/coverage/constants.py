@@ -476,19 +476,27 @@ KB_COVERAGES_V2: tuple[CoverageRowV2, ...] = (
                   aliases=("N종수술비(질병 5종)", "N종수술비(상해 5종)", "일반종수술 5종(표준환산)")),
     CoverageRowV2("surgery_cerebral", "수 술", "뇌혈관 수술비", aliases=("뇌혈관수술",)),
     CoverageRowV2("surgery_cardiac", "수 술", "심장질환 수술비", aliases=("심혈관수술",)),
-    # ── 암 ──────────────────────────────────────────────────────────────────
+    # ── 암 (BOHUMFIT-289: 7행 → **11행** 재설계. 제품 오너 확정) ────────────
+    #   ★구 42행의 묶음 3개가 전부 풀렸다:
+    #     `암 수 술 / 로 봇 암 수 술` → 암수술 + 다빈치 로봇 수술
+    #     `항 암 방 사 선 약 물 치 료` + `고액항암치료(표적,면역)` → 약물 3행 + 방사선 1행
+    #     `세기조절 / 양성자 방사선` + `중입자 / 정위 방사선` → 세기조절·양성자·중입자 3행
+    #   ★Q3 폐기: 신판은 구형 표기 `중 입 자 치료`를 쓴다. 287이 채택했던
+    #     `중입자 / 정위 방사선`은 이제 **별칭**으로 내려간다(표기 결정이 뒤집혔다).
     CoverageRowV2("cancer_general", "암", "암 진 단 비(일반암)", aliases=("암진단금",)),
     CoverageRowV2("cancer_minor", "암", "유 사 암 진 단 비", aliases=("유사암진단금",)),
-    CoverageRowV2("cancer_surgery", "암", "암 수 술 / 로 봇 암 수 술", aliases=("암수술",)),
-    CoverageRowV2("cancer_chemo_radio", "암", "항 암 방 사 선 약 물 치 료",
-                  aliases=("항암약물방사선",)),
-    # ★병합: 구 `표적항암치료`·`면역항암치료` 2행 → 1행.
-    CoverageRowV2("cancer_high_cost", "암", "고액항암치료(표적,면역)",
-                  aliases=("표적항암치료", "면역항암치료")),
-    CoverageRowV2("radio_imrt_proton", "암", "세기조절 / 양성자 방사선"),
-    # ★Q3: 신형 표기를 채택하고 구형(`중 입 자 치료`)은 별칭으로 남긴다.
-    CoverageRowV2("radio_carbon_srs", "암", "중입자 / 정위 방사선",
-                  aliases=("중 입 자 치료", "중입자방사선")),
+    CoverageRowV2("cancer_surgery", "암", "암 수 술 (레보아이 포함)",
+                  aliases=("암수술", "암 수 술 / 로 봇 암 수 술")),
+    CoverageRowV2("cancer_surgery_davinci", "암", "다빈치 로봇 수술"),
+    CoverageRowV2("cancer_drug", "암", "항암 약물 치료"),
+    CoverageRowV2("cancer_drug_targeted", "암", "표적 약물 치료", aliases=("표적항암치료",)),
+    CoverageRowV2("cancer_drug_immune", "암", "면역 약물 치료", aliases=("면역항암치료",)),
+    CoverageRowV2("cancer_radiation", "암", "방사선 치료"),
+    CoverageRowV2("radio_imrt", "암", "세기조절 방사선 치료",
+                  aliases=("세기조절 / 양성자 방사선",)),
+    CoverageRowV2("radio_proton", "암", "양성자 방사선 치료"),
+    CoverageRowV2("radio_carbon", "암", "중 입 자 치료",
+                  aliases=("중입자방사선", "중입자 / 정위 방사선")),
     # ── 뇌 ──────────────────────────────────────────────────────────────────
     CoverageRowV2("cerebral_disease", "뇌", "뇌 혈 관 질 환", aliases=("뇌혈관질환",)),
     CoverageRowV2("stroke", "뇌", "뇌 졸 중", aliases=("뇌졸중",)),
@@ -537,26 +545,32 @@ KB_COVERAGES_V2: tuple[CoverageRowV2, ...] = (
 
 STANDARD_COUNT_V2 = len(KB_COVERAGES_V2)
 
-#: Q4 — 42행에 자리가 없는 항목은 **비고행(부록)** 으로 내린다. 삭제는 정보 손실이다.
-APPENDIX_ITEMS_V2: tuple[str, ...] = ("고액암", "3대비급여실손", "보철치료비", "화재벌금")
+#: Q4 + BOHUMFIT-289 — 46행에 자리가 없는 항목은 **비고행(부록)** 으로 내린다. 삭제는 정보 손실이다.
+#:   ★289에서 `장기요양간병비`·`경증치매진단` 2건이 보류에서 **부록으로 확정**됐다(Human).
+APPENDIX_ITEMS_V2: tuple[str, ...] = (
+    "고액암", "3대비급여실손", "보철치료비", "화재벌금",
+    "장기요양간병비", "경증치매진단",
+)
 
-#: ★처리 지시가 없어 **보류**한 구 40행 항목. 임의로 버리거나 부록에 끼워 넣지 않는다.
-#:   · `장기요양간병비`·`경증치매진단` — 구 `제외` 그룹. Q1~Q9가 다루지 않았다.
-#:   · `암 주요치료비` — ★286-D 매핑표가 **빠뜨린 항목**이다(287 Step 1 재검증에서 발견).
-#:     244가 "원문 데이터 없는 신담보, [후] 전용 자리로 행만 존치"로 만든 행이라
-#:     `고액항암치료`로 병합할지 부록으로 내릴지가 갈린다.
-#:   S2 착수 전에 Human이 항목별로 "부록 / 병합 / 폐기"를 정해야 한다(287 미결 3건).
-PENDING_DISPOSITION_V2: tuple[str, ...] = ("장기요양간병비", "경증치매진단", "암 주요치료비")
+#: ★BOHUMFIT-289: `암 주요치료비`는 부록이 아니라 **분배 규칙으로 해소**된다(Human 확정).
+#:   담보 하나가 여러 행으로 갈라지므로 1:1 대응표에 넣을 수 없어 별도 구분을 둔다.
+DISTRIBUTED_ITEMS_V2: tuple[str, ...] = ("암 주요치료비",)
+
+#: 287의 보류 목록 — ★289에서 **전부 해소**됐다(부록 2 + 분배 1). 빈 튜플을 유지해
+#:   "보류가 없다"는 상태를 코드로 남긴다(다음에 생기면 여기 다시 쌓인다).
+PENDING_DISPOSITION_V2: tuple[str, ...] = ()
 
 LEGACY_APPENDIX_V2 = "APPENDIX"
 LEGACY_PENDING_V2 = "PENDING"
+LEGACY_DISTRIBUTED_V2 = "DISTRIBUTED"
 
-#: 구 40행 → V2 대응. 값은 `row_id` 또는 처리 구분(`APPENDIX`/`PENDING`).
+#: 구 40행 → V2 대응. 값은 `row_id` 또는 처리 구분(`APPENDIX`/`PENDING`/`DISTRIBUTED`).
 #:   ★40행 **전 항목**이 여기에 있어야 한다(테스트로 고정) — 조용히 사라지는 담보가 없게.
 LEGACY_TO_V2: dict[str, str] = {
     **{alias: row.row_id for row in KB_COVERAGES_V2 for alias in row.aliases},
     **{name: LEGACY_APPENDIX_V2 for name in APPENDIX_ITEMS_V2},
     **{name: LEGACY_PENDING_V2 for name in PENDING_DISPOSITION_V2},
+    **{name: LEGACY_DISTRIBUTED_V2 for name in DISTRIBUTED_ITEMS_V2},
 }
 
 _LEGACY_NAMES_V2 = frozenset(name for name, _group, _group12, _agg in KB_COVERAGES)
@@ -568,4 +582,95 @@ NEW_ROWS_V2: tuple[str, ...] = tuple(
     row.row_id
     for row in KB_COVERAGES_V2
     if not any(alias in _LEGACY_NAMES_V2 for alias in row.aliases)
+)
+
+
+# ── BOHUMFIT-289: 시트명·표시 관례 (S3 반영 예고 — 여기서는 기록만) ─────────
+#   신판은 시트명을 `기존`/`리모델링` → **`컨설팅 전`/`컨설팅 후`** 로 바꿨다.
+SHEET_NAME_BEFORE_V2 = "컨설팅 전"
+SHEET_NAME_AFTER_V2 = "컨설팅 후"
+SHEET_NAME_FINAL_V2 = "최종"
+
+#: ★케스케이드 **하위 행** 앞에 붙는 접두. 신판 `최종` 시트 실측에서 확인했다 —
+#:   `L 뇌 졸 중`·`L 뇌 출 혈`·`L 급 성 심 근 경 색`. 체인의 **루트**(뇌혈관질환·허혈성
+#:   심장질환)와 **독립 행**(심장질환)에는 붙지 않는다 — 아래 `PAYOUT_CASCADE_V2`와 정확히 맞물린다.
+CASCADE_CHILD_PREFIX_V2 = "L "
+
+
+# ── BOHUMFIT-289: 지급 케스케이드 (Human 확정 · ★정의만, 어디에도 배선하지 않는다) ──
+#
+#   ★읽는 법: `PAYOUT_CASCADE_V2[진단명] = (그 진단이 발생했을 때 **함께 지급되는 행들**)`
+#     체인은 **자기 자신을 마지막에 포함**하고, 상위(넓은) 행부터 나열한다.
+#     예) 뇌출혈이 나면 뇌혈관질환·뇌졸중·뇌출혈 담보가 **모두** 지급된다.
+#
+#   ★형제는 누적되지 않는다: 세기조절·양성자·중입자는 각자 `방사선 치료`만 물고 올라가고
+#     서로를 포함하지 않는다. 약물(표적·면역)은 계층이라 누적된다.
+#
+#   ★체인이 **없는** 행: `심 장 질 환`(Human 확정 — 케스케이드 밖 독립 행) ·
+#     `암 진 단 비(일반암)` · `유 사 암 진 단 비`. 여기에 체인을 만들면 안 된다.
+PAYOUT_CASCADE_V2: dict[str, tuple[str, ...]] = {
+    # 뇌 — 3단
+    "cerebral_disease": ("cerebral_disease",),
+    "stroke": ("cerebral_disease", "stroke"),
+    "cerebral_hemorrhage": ("cerebral_disease", "stroke", "cerebral_hemorrhage"),
+    # 심장 — 2단(★`cardiac_disease`는 참여하지 않는다)
+    "ischemic_heart": ("ischemic_heart",),
+    "acute_mi": ("ischemic_heart", "acute_mi"),
+    # 암수술 — 2단
+    "cancer_surgery": ("cancer_surgery",),
+    "cancer_surgery_davinci": ("cancer_surgery", "cancer_surgery_davinci"),
+    # 항암 약물 — 3단
+    "cancer_drug": ("cancer_drug",),
+    "cancer_drug_targeted": ("cancer_drug", "cancer_drug_targeted"),
+    "cancer_drug_immune": ("cancer_drug", "cancer_drug_targeted", "cancer_drug_immune"),
+    # 방사선 — 2단 · ★형제 비누적
+    "cancer_radiation": ("cancer_radiation",),
+    "radio_imrt": ("cancer_radiation", "radio_imrt"),
+    "radio_proton": ("cancer_radiation", "radio_proton"),
+    "radio_carbon": ("cancer_radiation", "radio_carbon"),
+}
+
+#: 케스케이드에 참여하지 않는 것이 **의도**인 행(테스트가 이 목록을 지킨다).
+CASCADE_INDEPENDENT_V2: tuple[str, ...] = ("cardiac_disease", "cancer_general", "cancer_minor")
+
+
+# ── BOHUMFIT-289: 분배 규칙 (★S4가 배선할 데이터. 여기서는 정의만) ──────────
+#
+#   ★배경: 담보 하나가 여러 행으로 갈라지는 형태가 실제로 있다. 1:1 대응표로는 못 담는다.
+#     ①주요치료비형 — `암 주요치료비` 한 담보가 암수술·항암약물·방사선 3행을 **동액**으로 채운다.
+#     ②Q8형(통합치료비) — 통합치료비 담보의 **약관 내역 중 "수술" 항목**이 뇌혈관·심장 수술비로 간다.
+#
+#   ★★분배분과 개별 특약이 **같은 행에 함께 올 때의 합산 규칙은 여기서 정하지 않는다.**
+#     기존 sum/rep 의미론(`AGG_SUM`/`AGG_REP`)과 함께 S4에서 결정한다 — 패킷이 명시적으로 금지했다.
+DISTRIBUTION_EQUAL_V2 = "EQUAL"
+
+
+class DistributionRuleV2(NamedTuple):
+    rule_id: str
+    #: 분배 원천을 가리키는 라벨(구 담보명 또는 원문 담보 계열).
+    source: str
+    #: 채워질 `row_id`들.
+    targets: tuple[str, ...]
+    mode: str = DISTRIBUTION_EQUAL_V2
+
+
+DISTRIBUTION_RULES_V2: tuple[DistributionRuleV2, ...] = (
+    DistributionRuleV2(
+        "major_treatment",
+        source="암 주요치료비",
+        targets=("cancer_surgery", "cancer_drug", "cancer_radiation"),
+    ),
+    DistributionRuleV2(
+        "integrated_treatment_surgery",
+        source="통합치료비 약관 내역 — 수술 항목",
+        targets=("surgery_cerebral", "surgery_cardiac"),
+    ),
+)
+
+#: ★패킷 명세 중 **실측으로 확인되지 않은** 부분 — 추측해서 규칙을 만들지 않는다.
+#:   패킷은 Q8형의 "본체 → r30(순환계 치료비)"라고 했으나, 신판 46행에 `순환계 치료비` 행이
+#:   **없다**(전 시트 `순환계`·`통합치료` 문자열 0건, r30은 `뇌 졸 중`). 본체의 착지 행이
+#:   정해지기 전까지 규칙을 만들지 않고 여기에 남긴다(289 태스크 문서 "패킷 대비 미확인" 참조).
+DISTRIBUTION_UNRESOLVED_V2: tuple[str, ...] = (
+    "Q8형 통합치료비의 **본체** 금액이 들어갈 행 — 신판에 대응 행 없음",
 )

@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-"""BOHUMFIT-287(S1) — 42행 스키마 V2 정의. ★구 40행과 **병존**하며 아무 데도 배선되지 않는다.
+"""BOHUMFIT-287(S1) → BOHUMFIT-289(S1b) — 46행 스키마 V2 정의. ★구 40행과 **병존**하며 아무 데도 배선되지 않는다.
 
 ★S1의 성패는 "새 상수가 생겼다"가 아니라 **"제품 동작이 하나도 안 바뀌었다"**다.
   그래서 이 파일의 절반은 V2 계약이고, 절반은 **구 상수가 그대로인지** 지키는 스냅샷이다.
 
 ★고정하는 계약
-  ①42행 · 대분류 11 · 행 순서가 수기표와 같다
+  ①**46행**(289 개정) · 대분류 11 · 행 순서가 수기표 신판과 같다
   ②합계제외는 80% 행에만(Q2·243) · 2열 병기는 종수술 5행에만(Q7)
   ③구 40행 **전 항목**이 V2 어딘가에 대응한다(부록·보류 포함) — 조용히 사라지는 담보가 없다
   ④`row_id`는 고유하고 표시명과 분리돼 있다
@@ -35,33 +35,13 @@ from coverage.constants import (
     SUM_EXCLUDED_NOTE_V2,
 )
 
-# ── 수기표 2건 실측 행명(286 Phase A · 4개 시트 7~48행 전수 대조) ─────────────
-#   ★Q3에 따라 r24는 정본 A 신형 표기(`중입자 / 정위 방사선`)를 채택했다.
-EXPECTED_DISPLAY: tuple[str, ...] = (
-    "상 해/질 병 입 원", "상 해/질 병 통 원 약 제",
-    "상 해 수 술 비", "질 병 수 술 비",
-    "1종 수술비 (질병 I 상해)", "2종 수술비 (질병 I 상해)", "3종 수술비 (질병 I 상해)",
-    "4종 수술비 (질병 I 상해)", "5종 수술비 (질병 I 상해)",
-    "뇌혈관 수술비", "심장질환 수술비",
-    "암 진 단 비(일반암)", "유 사 암 진 단 비", "암 수 술 / 로 봇 암 수 술",
-    "항 암 방 사 선 약 물 치 료", "고액항암치료(표적,면역)",
-    "세기조절 / 양성자 방사선", "중입자 / 정위 방사선",
-    "뇌 혈 관 질 환", "뇌 졸 중", "뇌 출 혈",
-    "심 장 질 환", "허혈성 심장질환", "급성심근경색",
-    "상 해 입 원", "질 병 입 원", "1 인 실 입 원", "간 병 인",
-    "일 반 사 망", "상 해 사 망", "질 병 사 망",
-    "상해 질병 후 유 장 해 80%", "상 해 후 유 장 해 3%", "질 병 후 유 장 해 3%",
-    "골 절 진 단 비", "골 절 수 술 비", "깁스치료비",
-    "일 상 생 활 배 상 책 임",
-    "형 사 합 의 금", "변 호 사 선 임", "벌 금", "자 부 상",
-)
-
-
+# ── ★행명은 289로 이관됐다 ─────────────────────────────────────────────────
+#   46행 전문·수기표 대조는 `test_schema_v2_rev46_289.py`가 갖는다(신판 기준).
+#   이 파일은 **구 40행 병존 증명**과 행 성격 계약만 남긴다.
 # ── ① 골격 ────────────────────────────────────────────────────────────────
 def test_row_count_and_order_match_the_manual_tables():
     """★42행·순서까지 수기표와 같다 — 순서가 어긋나면 산출물 행이 밀린다."""
-    assert STANDARD_COUNT_V2 == 42
-    assert tuple(row.display for row in KB_COVERAGES_V2) == EXPECTED_DISPLAY
+    assert STANDARD_COUNT_V2 == 46  # ★289: 암 7행 → 11행
 
 
 def test_eleven_groups_in_sheet_order():
@@ -86,7 +66,7 @@ def test_every_row_belongs_to_a_declared_group_and_groups_are_contiguous():
 def test_row_ids_are_unique_and_ascii():
     """★`row_id`는 표시명과 분리된 안정 키다 — 표기가 흔들려도 코드가 안 흔들리게."""
     ids = [row.row_id for row in KB_COVERAGES_V2]
-    assert len(set(ids)) == 42
+    assert len(set(ids)) == 46
     for row_id in ids:
         assert row_id.isascii() and row_id.islower(), row_id
 
@@ -133,58 +113,79 @@ def test_every_legacy_row_has_a_disposition():
     assert missing == [], f"대응이 정의되지 않은 구 담보: {missing}"
 
 
-def test_appendix_holds_exactly_the_four_confirmed_items():
-    """★Q4: 자리 없는 4항목만 부록이다. 여기에 임의로 5번째를 끼워 넣지 않는다."""
-    assert APPENDIX_ITEMS_V2 == ("고액암", "3대비급여실손", "보철치료비", "화재벌금")
+def test_appendix_holds_exactly_the_confirmed_items():
+    """★Q4 + 289: 자리 없는 **6항목**이 부록이다. 임의로 7번째를 끼워 넣지 않는다.
+
+    289에서 `장기요양간병비`·`경증치매진단`이 보류 → 부록으로 확정됐다(Human).
+    """
+    assert APPENDIX_ITEMS_V2 == (
+        "고액암", "3대비급여실손", "보철치료비", "화재벌금",
+        "장기요양간병비", "경증치매진단",
+    )
     appendix = {name for name, target in LEGACY_TO_V2.items() if target == LEGACY_APPENDIX_V2}
     assert appendix == set(APPENDIX_ITEMS_V2)
 
 
-def test_pending_items_are_flagged_not_silently_placed():
-    """★처리 지시가 없는 항목은 **보류**로 남는다(추측해서 부록에 넣지 않는다).
+def test_pending_is_empty_after_289_resolved_all_three():
+    """★287이 남긴 보류 3건이 289에서 전부 해소됐다 — 부록 2 + 분배 1.
 
-    `암 주요치료비`는 286-D 매핑표가 빠뜨린 항목이라 287 Step 1 재검증에서 발견됐다.
+    ★빈 튜플을 **유지**하는 것이 계약이다. "보류가 없다"를 코드로 남겨,
+      다음에 보류가 생기면 여기에 다시 쌓이게 한다.
     """
-    assert set(PENDING_DISPOSITION_V2) == {"장기요양간병비", "경증치매진단", "암 주요치료비"}
-    for name in PENDING_DISPOSITION_V2:
-        assert LEGACY_TO_V2[name] == LEGACY_PENDING_V2
+    from coverage.constants import DISTRIBUTED_ITEMS_V2, LEGACY_DISTRIBUTED_V2
+
+    assert PENDING_DISPOSITION_V2 == ()
+    assert LEGACY_PENDING_V2 not in LEGACY_TO_V2.values()
+    # `암 주요치료비`는 부록이 아니라 **분배**로 해소됐다(Human 확정).
+    assert DISTRIBUTED_ITEMS_V2 == ("암 주요치료비",)
+    assert LEGACY_TO_V2["암 주요치료비"] == LEGACY_DISTRIBUTED_V2
 
 
 def test_legacy_targets_are_real_rows():
     """대응 값이 실재하는 `row_id`이거나 처리 구분이다(오타 방지)."""
+    from coverage.constants import LEGACY_DISTRIBUTED_V2
+
     ids = {row.row_id for row in KB_COVERAGES_V2}
+    markers = (LEGACY_APPENDIX_V2, LEGACY_PENDING_V2, LEGACY_DISTRIBUTED_V2)
     for name, target in LEGACY_TO_V2.items():
-        assert target in ids or target in (LEGACY_APPENDIX_V2, LEGACY_PENDING_V2), (name, target)
+        assert target in ids or target in markers, (name, target)
 
 
 def test_new_rows_are_the_ones_without_a_legacy_source():
-    """★S4가 매칭 규칙을 만들어야 할 대상 13행.
+    """★S4가 매칭 규칙을 만들어야 할 대상 **16행**(289: 암 분리로 13 → 16).
 
-    ★286-D 문서는 이를 **11행으로 과소 집계**했다. 종수술 5행의 별칭은 파서·238 환산 라벨이지
-      구 40행 이름이 아니고, `항암약물방사선`·`중입자방사선`도 구 40행에 없다.
+    판정 기준은 287 그대로 — "구 40행 이름을 하나라도 별칭으로 갖는가"다.
+    별칭이 비었는지로 세면 종수술 5행(파서·238 환산 라벨을 가짐)을 놓친다.
     """
-    assert len(NEW_ROWS_V2) == 13
+    assert len(NEW_ROWS_V2) == 16
     assert set(NEW_ROWS_V2) == {
         "tier_surgery_1", "tier_surgery_2", "tier_surgery_3", "tier_surgery_4", "tier_surgery_5",
-        "cancer_chemo_radio", "radio_imrt_proton", "radio_carbon_srs",
+        "cancer_surgery_davinci", "cancer_drug", "cancer_radiation",
+        "radio_imrt", "radio_proton", "radio_carbon",
         "inpatient_private_room", "death_general", "disability_80",
         "fracture_surgery", "cast_treatment",
     }
 
 
 def test_merged_rows_gather_both_legacy_sources():
-    """★병합 3건이 양쪽 원천을 모두 가져간다 — 한쪽만 오면 금액이 반만 남는다."""
+    """★병합 행이 양쪽 원천을 모두 가져간다 — 한쪽만 오면 금액이 반만 남는다.
+
+    ★289: `고액항암치료(표적,면역)` 병합은 **해체**됐다 — 표적·면역이 각자 행을 갖는다.
+    """
     by_id = {row.row_id: row for row in KB_COVERAGES_V2}
-    assert set(by_id["cancer_high_cost"].aliases) == {"표적항암치료", "면역항암치료"}
+    assert "cancer_high_cost" not in by_id
+    assert by_id["cancer_drug_targeted"].aliases == ("표적항암치료",)
+    assert by_id["cancer_drug_immune"].aliases == ("면역항암치료",)
     assert set(by_id["caregiver"].aliases) == {"간병인/간호간병상해일당", "간병인/간호간병질병일당"}
     assert set(by_id["actual_inpatient"].aliases) == {"상해입원의료비", "질병입원의료비"}
     assert set(by_id["actual_outpatient"].aliases) == {"상해통원의료비", "질병통원의료비"}
 
 
 def test_legacy_spelling_variant_is_kept_as_alias():
-    """★Q3: 구형 표기(`중 입 자 치료`)는 버리지 않고 별칭으로 남긴다."""
-    row = next(r for r in KB_COVERAGES_V2 if r.row_id == "radio_carbon_srs")
-    assert "중 입 자 치료" in row.aliases
+    """★289에서 Q3가 **폐기**됐다 — 신판이 구형 표기를 쓰므로 표시/별칭이 뒤집혔다."""
+    row = next(r for r in KB_COVERAGES_V2 if r.row_id == "radio_carbon")
+    assert row.display == "중 입 자 치료"
+    assert "중입자 / 정위 방사선" in row.aliases, "287이 채택했던 표기를 별칭으로 보존해야 한다"
 
 
 # ── ④ ★병존 증명 — 구 상수 스냅샷 ────────────────────────────────────────
@@ -214,30 +215,3 @@ def test_v2_is_not_wired_anywhere_yet():
     for name in ("aggregator.py", "export_excel.py", "export_pdf.py"):
         text = (root / name).read_text(encoding="utf-8")
         assert "_V2" not in text, f"{name}이 V2를 참조한다 — S2/S3 범위다"
-
-
-# ── ⑤ 수기표 원본 재확인(파일이 있을 때만) ────────────────────────────────
-MANUAL_DIR = Path(__file__).resolve().parents[2] / "보장분석" / "비교분석표"
-def _find_manual(pattern: str, fallback: str) -> Path:
-    matches = sorted(MANUAL_DIR.glob(pattern))
-    return matches[0] if matches else MANUAL_DIR / fallback
-
-
-MANUAL_FILES = [
-    (_find_manual("*260810.xlsx", "manual-a-missing.xlsx"), "리모델링"),
-    (_find_manual("* -찐.xlsx", "manual-b-missing.xlsx"), "리모델링"),
-]
-
-
-@pytest.mark.parametrize("path,sheet", MANUAL_FILES, ids=("manual-a", "manual-b"))
-def test_display_names_match_the_manual_workbooks(path: Path, sheet: str):
-    """★수기표 원본과 문자열 단위로 대조한다 — 상수만 보고 자기 자신을 검증하지 않기 위해서다."""
-    if not path.exists():
-        pytest.skip(f"수기 엑셀 없음(gitignore 폴더): {path.name}")
-    openpyxl = pytest.importorskip("openpyxl")
-    worksheet = openpyxl.load_workbook(path, data_only=True)[sheet]
-    actual = tuple(str(worksheet.cell(row, 3).value).strip() for row in range(7, 49))
-    if " -찐" in path.name:
-        # ★Q3에서 채택하지 않은 구형 표기 한 칸만 신형으로 맞춰 비교한다(같은 항목).
-        actual = tuple("중입자 / 정위 방사선" if v == "중 입 자 치료" else v for v in actual)
-    assert actual == EXPECTED_DISPLAY

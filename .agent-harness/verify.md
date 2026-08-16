@@ -21,10 +21,10 @@ npm run dev
 백엔드 pytest — `cd backend && python -m pytest -q`:
 
 ```text
-955 passed, 8 skipped
+974 passed, 8 skipped
 ```
 
-(BOHUMFIT-287 실측·2026-08-12 갱신 — 286 기준선 937/8에 V2 계약·무배선 회귀 18건 반영.)
+(BOHUMFIT-289 Codex 실측·2026-08-16 갱신 — 287 기준선 955/8에 46행·케스케이드·분배 계약 19건 반영.)
 
 프런트 테스트 — `npm test`(라우트 스모크 18건 포함):
 
