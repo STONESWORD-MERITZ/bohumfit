@@ -16,15 +16,16 @@ For UI changes, also run the app locally and do a browser smoke test:
 npm run dev
 ```
 
-## 검증 기준선 (BOHUMFIT-292 Codex 2차 실측 · 2026-08-18 갱신)
+## 검증 기준선 (BOHUMFIT-294 Codex 2차 실측 · 2026-08-18 갱신)
 
 백엔드 pytest — `cd backend && python -m pytest -q`:
 
 ```text
-1044 passed, 8 skipped
+1052 passed, 8 skipped
 ```
 
-(BOHUMFIT-293 1차 실측·2026-08-18 — 292 기준선 1031/8에 서식 회귀 스위트 13건을 더해 1044/8.
+(BOHUMFIT-294 Codex 2차 실측·2026-08-18 — 293 기준선 1044/8에 카카오 중복 생략 계약 8건을 더해 1052/8.
+BOHUMFIT-293은 292 기준선 1031/8에 서식 회귀 스위트 13건을 더해 1044/8.
 구 40행 양식 파생 상수 5종 제거로 줄어든 테스트는 없다(구 상수 단언을 V2 또는 파서 사전 단언으로 이관).
 직전 이력: BOHUMFIT-292 Claude Code 1차 실측·2026-08-18 — 291 기준선 1003/8에 S4 매칭·분배 배선 계약 28건을
 더해 1031/8. Codex 2차 실측으로 확정.)
@@ -32,10 +33,10 @@ npm run dev
 프런트 테스트 — `npm test`(라우트 스모크 18건 포함):
 
 ```text
-402 passed / 41 files
+406 passed / 41 files
 ```
 
-(BOHUMFIT-277b 실측·2026-08-08 갱신 — 277 기준선 363/37에 scrub·raw 비전송 회귀 10건 반영.)
+(BOHUMFIT-294 Codex 2차 실측·2026-08-18 — 기존 402/41에 카카오 중복 생략 회귀 4건을 더해 406/41.)
 
 타입체크 — 양쪽 모두 통과해야 한다:
 

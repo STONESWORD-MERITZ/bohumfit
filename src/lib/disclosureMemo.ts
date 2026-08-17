@@ -73,6 +73,24 @@ function memoItem(item: DisclosureMemoItem) {
   const inpatient = item.inpatient ?? 0;
   const periods = (item.inpatient_periods ?? []).filter((p) => p && s(p.start));
 
+  // BOHUMFIT-294: 같은 블록 안에서 **직전에 이미 출력한 코드·병명과 글자 단위로 동일한 값만** 생략한다.
+  //   ★생략된 값은 반드시 그 블록 위쪽 줄에 있다(첫 줄에는 항상 출력) — 정보 손실 0.
+  //   ★값이 조금이라도 다르면 그대로 둔다 — 251의 "건별로 그 이벤트의 원문 값을 보인다"가 지켜야 할 지점.
+  //   서버 _kakao_item과 동일 규칙(4경로 골든 동등성).
+  //   ★적용 범위는 **수술 건별 record 줄로 한정**한다. 입원 회차줄(205)·회차별 근거(213)는 회차마다
+  //     자기완결적으로 읽혀야 한다는 별도 설계라 진단을 그대로 반복 출력한다.
+  const lastShown = { code: "", name: "" };
+  const note = (code: string, name: string) => {
+    if (code) lastShown.code = code;
+    if (name) lastShown.name = name;
+  };
+  const dedup = (code: string, name: string): [string, string] => {
+    const outCode = code && code === lastShown.code ? "" : code;
+    const outName = name && name === lastShown.name ? "" : name;
+    note(code, name);
+    return [outCode, outName];
+  };
+
   let line1: string;
   if (inpatient > 0 && periods.length > 0) {
     line1 = [...periods]
@@ -83,14 +101,19 @@ function memoItem(item: DisclosureMemoItem) {
         const pDate = en && en !== st ? `${st} ~ ${en}` : st;
         const days = (p.days ?? 0) > 0 ? `입원${p.days}일` : "입원";
         const tail = s(p.hospital).trim() ? ` / ${s(p.hospital).trim()}` : "";
-        return `${pDate} / ${days} / ${code} / ${kind}${s(item.display_name || item.name)}${tail}\n`;
+        // BOHUMFIT-294: 회차줄은 **압축하지 않는다**(205 회차 분리·213 회차별 근거 — 회차마다 자기완결).
+        const dn = s(item.display_name || item.name);
+        note(code, dn);
+        return `${pDate} / ${days} / ${code} / ${kind}${dn}${tail}\n`;
       })
       .join("");
     if (periods.length >= 2) line1 += `→ 입원 총 ${periods.length}회 · 합산 ${inpatient}일\n`;
   } else {
     const visitStr = inpatient > 0 ? `입원${inpatient}일` : `통원${item.visit ?? 1}회`;
     const tail = hospitals.length ? ` / ${hospitals[0]}${hospitals.length > 1 ? ` 외 ${hospitals.length - 1}곳` : ""}` : "";
-    line1 = `${dateStr} / ${visitStr} / ${code} / ${kind}${s(item.display_name || item.name)}${tail}\n`;
+    const dn = s(item.display_name || item.name);
+    note(code, dn);   // 294: 블록 첫 줄 — 출력은 그대로, 직전 값만 기록
+    line1 = `${dateStr} / ${visitStr} / ${code} / ${kind}${dn}${tail}\n`;
   }
 
   const surgeryCount = currentSurgeryCount(item);
@@ -109,7 +132,9 @@ function memoItem(item: DisclosureMemoItem) {
     // BOHUMFIT-251: 수술 건별 전개 — 날짜 / 원문코드 / 맥락 / 병명 / 수술명 (심평원 원문 충실).
     line2 = surgeryRecords
       .map((r) => {
-        const parts = [s(r.date), s(r.code), s(r.context), s(r.name), s(r.surgery_name)].map((p) => p.trim());
+        // BOHUMFIT-294: 직전 줄과 **글자 단위로 같은** 코드·병명만 생략(다르면 그대로 — 251 원문 충실화).
+        const [rc, rn] = dedup(s(r.code), s(r.name));
+        const parts = [s(r.date), rc, s(r.context), rn, s(r.surgery_name)].map((p) => p.trim());
         const hospital = s(r.hospital).trim() ? ` / ${s(r.hospital).trim()}` : "";
         // BOHUMFIT-251 ③: 동일 일자 타 진단 병기(예: 모소낭 수술 + 항문농양) — 둘 다 고지 대상.
         const co = values(r.co_diagnoses);

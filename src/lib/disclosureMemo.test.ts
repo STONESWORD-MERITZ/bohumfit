@@ -204,6 +204,86 @@ describe("BOHUMFIT-251(3차) surgery records memo parity", () => {
     expect(memo).toContain(fixture.surgery_item_expected.trimEnd());
   });
 
+  // ── BOHUMFIT-294: 반복 문자열 생략(정보 삭제 아님) ──────────────────────────────
+  const repeatItem: DisclosureMemoItem = {
+    first_date: "2023-02-05",
+    latest_date: "2024-01-07",
+    display_code: "L050",
+    code: "L05",
+    name: "합성질환A",
+    display_name: "합성질환A",
+    visit: 4,
+    inpatient: 0,
+    inpatient_periods: [],
+    hospitals: ["가나병원"],
+    surgeries: ["절개술", "배농술", "절제술", "봉합술"],
+    surgery_count: 4,
+    surgery_records: [
+      { date: "2023-02-05", code: "L050", context: "통원1회", name: "합성질환A", surgery_name: "절개술", hospital: "가나병원", co_diagnoses: [] },
+      { date: "2023-07-21", code: "L050", context: "통원1회", name: "합성질환A", surgery_name: "배농술", hospital: "가나병원", co_diagnoses: [] },
+      { date: "2023-11-27", code: "L050", context: "통원1회", name: "합성질환A", surgery_name: "절제술", hospital: "가나병원", co_diagnoses: [] },
+      { date: "2024-01-07", code: "L050", context: "통원1회", name: "합성질환A", surgery_name: "봉합술", hospital: "가나병원", co_diagnoses: [] },
+    ],
+  } as DisclosureMemoItem;
+
+  it("omits repeated code/name but keeps them in the header (294 A)", () => {
+    const memo = buildMemo({ [Q3]: [repeatItem] });
+    expect(memo).toContain("2023-02-05 ~ 2024-01-07 / L050 / (양방)합성질환A");
+    // ★같은 값이 헤더 1 + 건별 4 = 5회 → 1회. 줄 수·날짜·수술명·병원은 그대로.
+    expect(memo.split("L050").length - 1).toBe(1);
+    expect(memo.split("합성질환A").length - 1).toBe(1);
+    for (const [date, surgery] of [["2023-02-05", "절개술"], ["2023-07-21", "배농술"], ["2023-11-27", "절제술"], ["2024-01-07", "봉합술"]]) {
+      expect(memo).toContain(`${date} / 통원1회 / ${surgery} / 가나병원`);
+    }
+  });
+
+  it("keeps code/name whenever they differ from the previous line (294 — 251 원문 충실화)", () => {
+    const mixed = {
+      ...repeatItem,
+      surgery_count: 3,
+      surgery_records: [
+        repeatItem.surgery_records![0],
+        { date: "2023-03-10", code: "L0292", context: "통원1회", name: "합성질환B", surgery_name: "배농술", hospital: "가나병원", co_diagnoses: [] },
+        { date: "2023-04-01", code: "L0292", context: "통원1회", name: "합성질환B", surgery_name: "절제술", hospital: "가나병원", co_diagnoses: [] },
+      ],
+    } as DisclosureMemoItem;
+    const memo = buildMemo({ [Q3]: [mixed] });
+    expect(memo).toContain("2023-03-10 / L0292 / 통원1회 / 합성질환B / 배농술 / 가나병원");  // 값이 바뀌면 출력
+    expect(memo).toContain("2023-04-01 / 통원1회 / 절제술 / 가나병원");                      // 같으면 생략
+    expect(memo.split("L0292").length - 1).toBe(1);
+  });
+
+  it("never compresses inpatient period lines (294 — 205/213 회차별 자기완결)", () => {
+    const inpatientItem = {
+      ...repeatItem,
+      visit: 0,
+      inpatient: 17,
+      inpatient_periods: [
+        { start: "2023-02-05", end: "2023-02-08", days: 4, hospital: "가나병원" },
+        { start: "2023-03-22", end: "2023-03-27", days: 6, hospital: "가나병원" },
+        { start: "2024-01-07", end: "2024-01-13", days: 7, hospital: "가나병원" },
+      ],
+      surgery_count: 2,
+      surgery_records: [
+        { date: "2023-02-05", code: "L050", context: "입원4일", name: "합성질환A", surgery_name: "절개술", hospital: "가나병원", co_diagnoses: [] },
+        { date: "2023-03-22", code: "L050", context: "입원6일", name: "합성질환A", surgery_name: "배농술", hospital: "가나병원", co_diagnoses: [] },
+      ],
+    } as DisclosureMemoItem;
+    const memo = buildMemo({ [Q3]: [inpatientItem] });
+    expect(memo).toContain("2023-02-05 ~ 2023-02-08 / 입원4일 / L050 / (양방)합성질환A / 가나병원");
+    expect(memo).toContain("2023-03-22 ~ 2023-03-27 / 입원6일 / L050 / (양방)합성질환A / 가나병원");  // 회차줄 무압축
+    expect(memo).toContain("→ 입원 총 3회 · 합산 17일");
+    expect(memo).toContain("2023-02-05 / 입원4일 / 절개술 / 가나병원");    // record 줄만 생략
+    expect(memo.split("L050").length - 1).toBe(3);                        // 회차 3줄 유지
+  });
+
+  it("leaves legacy payloads without surgery_records untouched (294)", () => {
+    const legacy = { ...repeatItem, surgery_records: [], surgery_count: 2, surgeries: ["절개술", "배농술"] } as DisclosureMemoItem;
+    const memo = buildMemo({ [Q3]: [legacy] });
+    expect(memo).toContain("2023-02-05 ~ 2024-01-07 / 통원4회 / L050 / (양방)합성질환A / 가나병원");
+    expect(memo).toContain("절개술, 배농술");
+  });
+
   it("drops the visit aggregate from the summary line when records expand (결함 3)", () => {
     const memo = buildMemo({ [Q3]: [fixture.surgery_item] });
     expect(memo).not.toContain("통원5회");

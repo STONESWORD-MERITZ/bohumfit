@@ -445,6 +445,28 @@ def _kakao_item(item: dict) -> str:
     hosp_str = ", ".join(hosp_list)
     kind = "(한방)" if any(k in hosp_str for k in ["한의원", "한방", "한의"]) else "(양방)"
 
+    # BOHUMFIT-294: 같은 블록 안에서 **직전에 이미 출력한 코드·병명과 글자 단위로 동일한 값만** 생략한다.
+    #   ★생략된 값은 반드시 그 블록 위쪽 줄에 있다(첫 줄에는 항상 출력) — 정보 손실 0.
+    #   ★값이 조금이라도 다르면 그대로 둔다 — 251의 "건별로 그 이벤트의 원문 값을 보인다"가 지켜야 할 지점이고,
+    #     251 골든(코드·병명이 record마다 상이)은 이 규칙에서 압축 대상이 0이라 기대 문자열이 그대로다.
+    _last_shown: dict[str, str] = {"code": "", "name": ""}
+
+    #   ★적용 범위는 **수술 건별 record 줄로 한정**한다. 입원 회차줄(205)·회차별 근거(213)는 회차마다
+    #     자기완결적으로 읽혀야 한다는 별도 설계라 진단을 그대로 반복 출력한다(기존 테스트가 고정).
+    def _note(code: str, name: str) -> None:
+        """출력은 그대로 두고 '직전 값'만 기록한다(회차줄·헤더용)."""
+        if code:
+            _last_shown["code"] = code
+        if name:
+            _last_shown["name"] = name
+
+    def _dedup(code: str, name: str) -> tuple[str, str]:
+        """(표시할 코드, 표시할 병명) — 직전과 같으면 빈 문자열(줄에서 빠진다)."""
+        out_code = "" if code and code == _last_shown["code"] else code
+        out_name = "" if name and name == _last_shown["name"] else name
+        _note(code, name)
+        return out_code, out_name
+
     inpatient = item.get("inpatient") or 0
     # BOHUMFIT-205: 입원은 회차별(입원 개시일 ~ 종료일 / 일수)로 각각 표기한다.
     #   기존 한 줄(최초 진료일 ~ 최종 진료일 / 입원N일)은 여러 회 입원이 하나의 장기 입원처럼
@@ -468,7 +490,11 @@ def _kakao_item(item: dict) -> str:
             _tail = f" / {p_hosp}" if p_hosp else ""
             # BOHUMFIT-251(3차): 프런트 memoItem과 동일하게 표시 병명(display_name) 우선 —
             #   셀 개행 공백 아티팩트("농 양이있는 모소낭") 정리본으로 4경로 정합.
-            _lines.append(f"{p_date} / {p_days} / {code_clean} / {kind}{_s(item.get('display_name') or item.get('name'))}{_tail}\n")
+            # BOHUMFIT-294: 회차줄은 **압축하지 않는다**(205 회차 분리·213 회차별 근거 — 회차마다 자기완결).
+            #   직전 값만 기록해 뒤따르는 수술 record 줄이 중복을 생략할 수 있게 한다.
+            _dn = _s(item.get("display_name") or item.get("name"))
+            _note(code_clean, _dn)
+            _lines.append(f"{p_date} / {p_days} / {code_clean} / {kind}{_dn}{_tail}\n")
         line1 = "".join(_lines)
         if len(_periods) >= 2:
             line1 += f"→ 입원 총 {len(_periods)}회 · 합산 {inpatient}일\n"
@@ -482,7 +508,9 @@ def _kakao_item(item: dict) -> str:
         if hosp_list:
             _h_tail = f" / {hosp_list[0]}" + (f" 외 {len(hosp_list) - 1}곳" if len(hosp_list) > 1 else "")
         # BOHUMFIT-251(3차): 프런트 memoItem과 동일하게 표시 병명(display_name) 우선(4경로 정합).
-        line1 = f"{date_str} / {visit_str} / {code_clean} / {kind}{_s(item.get('display_name') or item.get('name'))}{_h_tail}\n"
+        _dn = _s(item.get("display_name") or item.get("name"))
+        _note(code_clean, _dn)   # 294: 블록 첫 줄 — 출력은 그대로, 직전 값만 기록
+        line1 = f"{date_str} / {visit_str} / {code_clean} / {kind}{_dn}{_h_tail}\n"
 
     surgery_count = _current_surgery_count(item)
     surgeries = _visible_surgery_names(item)
@@ -498,8 +526,10 @@ def _kakao_item(item: dict) -> str:
             line1 = f"{date_str} / {code_clean} / {kind}{_s(item.get('display_name') or item.get('name'))}\n"
         _rec_lines = []
         for r in _surgery_records:
-            _parts = [p for p in (_s(r.get("date")), _s(r.get("code")), _s(r.get("context")),
-                                  _s(r.get("name")), _s(r.get("surgery_name"))) if p.strip()]
+            # BOHUMFIT-294: 직전 줄과 **글자 단위로 같은** 코드·병명만 생략(다르면 그대로 — 251 원문 충실화).
+            _rc, _rn = _dedup(_s(r.get("code")), _s(r.get("name")))
+            _parts = [p for p in (_s(r.get("date")), _rc, _s(r.get("context")),
+                                  _rn, _s(r.get("surgery_name"))) if p.strip()]
             _line = " / ".join(_parts)
             if _s(r.get("hospital")).strip():
                 _line += f" / {_s(r.get('hospital')).strip()}"
