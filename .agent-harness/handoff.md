@@ -1,3 +1,143 @@
+## 2026-08-18 BOHUMFIT-293/294 — Codex 2차 검증 PASS · 분리 커밋/push 완료
+
+Owner flow: Claude Chat → Claude Code → Codex → Human | Current owner: **Human**(프로덕션 카톡 문안 육안) / **Chat**(285 조사)
+
+- 분리 커밋: 293 `676e4b6` → 294 `7b91bfd` 순서 준수. 두 본 커밋을 `origin/main`에 push했다.
+- 293: 기준 HEAD `6efce30` 별도 worktree와 현재 트리에 동일 실입력 4건을 넣어 payload·PDF HTML·엑셀의 전 셀 값/서식/병합/인쇄설정/메모 canonical 해시를 대조했고 **4/4 전부 동일**했다. 원시 `.xlsx` ZIP 바이트는 같은 현재 코드의 연속 실행끼리도 달라져 비결정 메타데이터로 판정했으며, 제품 의미 전수 대조는 차이 0이다. 구 양식 파생 상수 5종과 제품용 `legacy_form_view`는 AST 기준 정의·참조 0, 서식 회귀 13건 통과(261 차액 색상 포함), smoke 기준값 무변경.
+- 294: 251 골든 픽스처 무수정. 백엔드 집중 회귀(293 서식+294+251) `35 passed`, 프런트 문안 `18 passed`; 별도 임시 교차 하네스로 반복/부분변경/동일일자 복수코드/입원+통원/수술 0건 **5종 서버 `_kakao_item` ↔ 프런트 `memoItem` 문자 단위 동등**을 재현했다. 입원 회차줄은 무압축, 코드·날짜·시술명·병명 원문 변형 0, 모바일은 `Disclosure.tsx`의 동일 프런트 생성부를 소비한다.
+- 전체 게이트 실측: backend **1052 passed, 8 skipped**(1 warning) · frontend **406 passed / 41 files** · tsc app/node · lint · `smoke:coverage` PASS. `npm run build`는 `343,702 B`, `build:verify`는 크기 하한·필수 문자열 누락으로 **예상 FAIL**(248 확정 로컬 껍데기).
+- 범위: `pipeline/`·`filters.py`·286~292 값 계층·`vite.config.*`·251 골든 diff 0. 실 PDF·고지 데이터·PII·수기 엑셀·생성 산출물 stage 0. 신규 태스크/테스트의 실명 표기는 익명 라벨·패턴 탐색으로 제거했다.
+
+### push 직후 원문
+
+`git log --oneline -5`:
+
+```text
+7b91bfd fix(BOHUMFIT-294): 카카오 복사문 중복 필드 생략(251 원문 충실화·4경로 동등성 유지)
+676e4b6 chore(BOHUMFIT-293): 층위 2 정리 — 구 40행 제거·서식 회귀 테스트·문서 정합(산출물 무변경)
+6efce30 docs(BOHUMFIT-292): Codex 검증·push 결과 기록
+3ebcc8d feat(BOHUMFIT-292): S4 매칭·분배 배선 — 통합치료비 자동판정·다빈치 3분류·과포섭 정정·합성 라벨 분리·2열 헤더 (라금실 enrolled 42 — Human 승인)
+7ee9d28 docs(BOHUMFIT-291): Codex 검증·push 결과 기록
+```
+
+`git status --short -uall`(결과 기록 전):
+
+```text
+ M .agent-harness/handoff.md
+ M .agent-harness/locks.md
+```
+
+`git rev-list --left-right --count origin/main...HEAD`:
+
+```text
+0	0
+```
+
+### Next
+
+1. **Human** — 프로덕션 실 데이터 카카오 문안을 복사해 반복 생략·가독성을 육안 확인한다.
+2. **Chat** — BOHUMFIT-285 수술 판정 조사(B: 비수술 항목의 수술 전개 포함)를 발번한다.
+
+## 2026-08-18 BOHUMFIT-294 카카오 복사문 중복 개선 · 완료 / 커밋 대기
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(2차 검증·커밋) / **Human**(육안 확인)
+기준 HEAD `6efce30`. git 쓰기 0 · 실 고지 데이터 stage 0 · PII 기록 0. 상세는 tasks/BOHUMFIT-294-kakao-dedup.md.
+★**293 미커밋분 위에서 작업**했다 — 두 태스크는 파일이 겹치지 않는다(293=`coverage/constants.py`·테스트 3·문서 / 294=`main.py`·`disclosureMemo.ts`·테스트 2).
+
+### Step 1 — 판별이 이 태스크의 전부였다
+- 경로 전수: 문안 구현체는 **서버 `_kakao_item` + 프런트 `memoItem` 2개**뿐이고 골든으로 묶여 있다.
+  모바일(267/268)은 별도 생성부 없이 프런트를 그대로 소비한다.
+- ★실 고지 PDF 3문서가 **비밀번호(생년월일) 잠금**이라 로컬 재현 불가(251도 같은 상황). PII 규칙상 요구·기재하지 않고,
+  Human 보고("헤더 1 + 시술 4 = 5회 반복")를 **합성 픽스처로 재현**해 측정했다.
+- ★★**251 의도분 판별**: 251이 확정한 것은 "건별로 **그 이벤트의** 원문 값을 보인다"이지 "같은 값을 반복한다"가 아니다.
+  → **글자 단위로 동일할 때만** 생략하면 251 의도분은 하나도 안 건드린다. 실제로 **251 골든은 압축 대상이 0**이라
+  골든 기대 문자열이 그대로여야 하고, 실제로 **골든 무수정 통과**했다(그게 증거다).
+- **C(동일 시술명 다중 부착) = 조인 오염 아님**. 251 3차 보정이 현행 코드에 유효(그룹 귀속 `(날짜,병원)` 링크 ·
+  이벤트 값 `_evt_by_date_hosp` 우선 · record dedup `(수술명,병원)` 날짜별). 날짜/병원이 실제로 다른 별개 진료다.
+  → **파서 수정 불필요 · 별도 태스크도 불필요**.
+- **B(비수술 항목 전개)는 무접촉**(285 범위). 실 데이터 잠금으로 정량 비중은 **확인 불가**, 대신 구조적 사실만 기록
+  (수술 행 원문이 record·`surgery_count`로 그대로 흘러 Q1~Q5 배지에 물린다 — 285 우선순위 자료).
+
+### Step 2~3 — 규칙과 구현
+직전 줄과 **글자 단위로 동일한 코드·병명만** 생략(생략분은 반드시 같은 블록 위쪽에 존재 → **정보 손실 0**,
+원문 값 변형 0). 서버·프런트 동일 규칙. 적용은 **수술 건별 record 줄로 한정**.
+
+### ★구현 중 범위 축소 1건 — 기존 테스트가 잡았다
+1차 구현은 입원 회차줄도 압축했는데 205·213 테스트 2건이 즉시 실패했다. 두 테스트는 "회차줄마다 진단이 붙어야
+한다"를 고정한다(205 회차 혼동 방지 · 213 회차별 근거) — 회차줄은 **회차마다 자기완결**이 목적이라 반복이 기능이다.
+게다가 패킷 표적 A는 "헤더와 **각 시술 줄**"이지 회차줄이 아니다. → **테스트를 완화하지 않고 범위를 줄였다**(회차줄 압축 철회).
+
+### 효과 (합성 재현 · 줄 수는 어느 케이스도 줄지 않았다)
+A-통원 1진단 4수술 **228→168자(−26%)**, 같은 코드·병명 5회 → **1회** / A-입원 3회차 6수술 **467→377자(−19%)** /
+**251 골든 179→179자(0% — 의도)**.
+
+### 게이트
+backend **1052/8**(293의 1044 + 신규 8 · 회귀 0) · `npm test` **406/41**(402 + 신규 4) · tsc · lint ·
+smoke PASS(기준값 무변경) · build:verify 예상 FAIL · `pipeline/`·`filters.py`·`vite.config`·`src/pages`·`src/components` diff 0 ·
+★251 골든 픽스처 **무수정** · PII 0.
+
+### Next
+1. **Codex** — 2차 검증·커밋(★293 → 294 순서로 분리 커밋 권장): ①1052/8 ②406/41 ③251 골든 무수정 통과
+   ④205/213 회차줄 무압축 ⑤정보 손실 0 단언 ⑥`보장분석/` 미stage.
+2. **Human** — 프로덕션에서 실 고지 데이터로 카톡 문안 육안 확인(로컬은 생년월일 잠금).
+3. **Chat** — 285(수술 판정) 조사 발주. B 유형은 거기서 다룬다.
+
+## 2026-08-18 BOHUMFIT-293 층위 2 정리 — 구 40행 제거·서식 회귀 테스트·문서 정합 · 완료 / 커밋 대기
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(2차 검증·커밋) / **Human**(층위 3 발주 여부 1건)
+기준 HEAD `6efce30`(292 반영). git 쓰기 0 · 실 PDF/수기 엑셀 stage 0. 상세는 tasks/BOHUMFIT-293-schema-v2-cleanup.md.
+
+### 무엇을 했나
+**값·양식은 한 셀도 바꾸지 않고** 구 40행 잔재를 걷어내고, 291에서 실제로 났던 서식 회귀를 테스트로 막았다.
+
+### Step 1 — 잔재 스캔의 핵심 발견
+`KB_COVERAGES`는 **두 역할을 겸하고 있었다**. ①구 양식 40행(죽음 — 49행 V2가 대체) ②**KB 원문 담보명 사전**
+(`match_coverage`·`coverage_meta`가 PDF 원문을 정식명으로 정규화 · `agg` 필드가 V2 행의 sum/rep 결정 ·
+`_LEGACY_NAMES_V2` → 신설 행 판별) ③`GROUP13`은 **구 페이로드 호환 축**. ②③은 살아 있고, 없애려면 파서를 고쳐야 하는데
+파서는 무접촉 범위다 → **①만 제거**한다는 판단으로 진행했다(사유는 decisions.md에 기록).
+
+### Step 2 — 제거
+- 삭제 5종: `NEW_ITEM_ORDER`·`YN_ITEMS`·`STAGE_COMPONENTS`·`STAGE_COMMON_ADD`·`STANDARD_COUNT`(제품 참조 0 확인 후).
+- ★`YN_ITEMS_V2`가 구 `YN_ITEMS`에서 파생(`tuple(YN_ITEMS)`)되고 있어 **같은 값을 리터럴로 정착**시켰다(값 무변경).
+- `KB_COVERAGES`·`KB_NAME_ALIASES`·`GROUP12/13`은 유지하되 주석을 역할표로 교체("양식이 아니라 사전").
+- ★삭제 주석 안에만 있던 **시트3 원본 수식(I5~I11)·H10 정정·K7 미이식 근거**를 decisions.md로 실제 이관해 보존.
+- `_V2` rename 미실시(302개 참조 — 산정만) · `scripts/prototype_286_ohj.py` 유지 · `tests/v2names.py` 영구 헬퍼로 정착.
+- ★사고 1건: 1차 절삭이 구간을 넓게 잡아 `classify_extra`·`davinci_label`·`anticancer_label`·`DEATH_EXCLUSION_LABELS`까지
+  함께 지웠다(수집 오류 57건으로 즉시 노출). HEAD에서 해당 블록만 복원하고 **HEAD 대비 최상위 이름 diff**로
+  "의도한 5개만 사라짐·그 외 차이 0"을 재확인했다.
+
+### Step 3 — 서식 회귀 테스트 (신설 13건)
+`tests/test_format_regression_293.py` — 차액 색상(261)·합계 강조·Q2 메모·Q5 메모·L 접두·2열 헤더·브랜드 색(빨강 0)·
+인쇄 설정·PDF 고령 가독성(13.5pt·5개 분할)·비고 보존을 **실문서 3건**으로 고정.
+★**뮤테이션 4종 전부 검출**(차액 색상 제거 = 291에서 실제로 난 회귀 / Q2 메모 제거 / PDF 10pt / 2열 순서 역전) — 주입분은 되돌렸고 export 2종 diff 0.
+
+### Step 4 — 문서 정합
+decisions.md에 **층위 2 결정 전수**(Q1~Q9·케스케이드·분배·다빈치 3분류·재해사망 합산·2열 헤더·L 접두·292 Human ①③④⑥) +
+293 결정 + 시트3 수식 보존. verify.md에 `★스키마 정본` 절 + **smoke 기준값 이력표**(290/291/292/293). 기준선 3문서 1044/8.
+
+### 게이트
+★**4문서 산출물 해시 12종(엑셀 셀+서식+병합+인쇄+메모 / PDF HTML / payload) 완전 동일** — 제거가 결과에 영향 0 ·
+backend **1044/8**(1031 + 13 · 회귀 0) · ★smoke **PASS 기준값 무변경(2/2)** · npm test 402/41 · tsc · lint ·
+build:verify 예상 FAIL(248) · 보호 영역(aggregator·v2_mapping·compare·integrated_treatment·parser·proposal_parser·
+export 2종·pipeline·filters·src·scripts·vite.config) **diff 0**.
+
+### 기존 테스트 갱신 — 3파일 (완화 0)
+179(`STANDARD_COUNT==40` → `len(KB_COVERAGES)==40` — **의미를 파서 사전 표제어 수로 재정의해 단언 유지**) ·
+246(미사용 import 제거) · 287(Y/N 원천을 `YN_ITEMS_V2`로 이관하되 **항목·원천 담보명을 문자열로 별도 고정**해 자기참조 방지 +
+삭제 5종 부활 방지 `hasattr` 가드 추가).
+
+### ★Human 결정 1건
+**층위 3(프런트 V2 이관) 발주 여부** — 프런트가 구 40행 축 미러를 갖고 있다(`coverageAfterDisplayCache.ts`의
+`GROUP_ORDER`·`YN_ITEMS`·`STAGE_COMPONENTS` · `CoverageInsightBlocks.tsx`의 `STAGE_ROWS`). 백엔드는 V2 11그룹인데
+미러는 구 그룹명이다. 이걸 옮겨야 `GROUP12/13`·`compare._LEGACY_GROUP13`까지 완전히 걷어낼 수 있다.
+293은 `src/` 무접촉이라 손대지 않았고 현재 동작에 회귀도 만들지 않았다(기록만).
+
+### Next
+1. **Codex** — 2차 검증·커밋: ①1044/8 ②smoke PASS(기준값 무변경) ③산출물 해시 12종 동일 재현 ④서식 회귀 13건 +
+   뮤테이션 검출력 표본 재현 ⑤보호 영역 diff 0 ⑥`보장분석/` 미stage.
+2. **Human** — 층위 3 발주 여부.
+3. **Chat** — (승인 시) 층위 3 프런트 V2 이관 태스크 · 292 이월분 ②(알파Plus 수기값 근거)·⑤(직접 담보 합산 규칙).
+
 ## 2026-08-18 BOHUMFIT-292 — Codex 2차 검증 PASS / Human 확정 반영 / 커밋·push 진행
 
 Owner flow: Claude Chat → Claude Code → Codex → Human | Current owner: **Codex**(커밋·push) / **Chat**(층위 2 정리 태스크)
