@@ -16,7 +16,28 @@ Owner flow: Claude Chat → Claude Code → Codex → Human | Current owner: **C
   `build:verify`는 크기/필수 문자열 부재를 감지해 exit 1(248 확정 예상 FAIL); 292 표적 테스트 `28 passed`; 정본 smoke PASS.
 - 보호 범위: `backend/pipeline/`·`filters.py`·`compute_stage_totals`·케스케이드/분배 상수·49행 정의·`v2_mapping.py`·`compare.py`·`src/`·`vite.config.*`·`supabase/` diff 0.
   기존 테스트 갱신 4파일은 좌표·2열 순서·Phase E 라벨의 직접 귀결로 단언 완화 0. 실 PDF·수기 엑셀·PII·생성 산출물 stage 0.
-- 구현 커밋·push 해시와 `git log --oneline -5`·`origin/main...HEAD` 원문은 push 직후 이 항목에 후속 기록한다.
+- 구현 커밋·push: `3ebcc8d` — `feat(BOHUMFIT-292): S4 매칭·분배 배선 — 통합치료비 자동판정·다빈치 3분류·과포섭 정정·합성 라벨 분리·2열 헤더 (라금실 enrolled 42 — Human 승인)`.
+
+### 첫 push 직후 `git log --oneline -5` 원문
+
+```text
+3ebcc8d feat(BOHUMFIT-292): S4 매칭·분배 배선 — 통합치료비 자동판정·다빈치 3분류·과포섭 정정·합성 라벨 분리·2열 헤더 (라금실 enrolled 42 — Human 승인)
+7ee9d28 docs(BOHUMFIT-291): Codex 검증·push 결과 기록
+ba9b907 feat(BOHUMFIT-291): 산출물 49행 양식 전환 — 컨설팅 전/후·2열 병기·L 접두·종합 17행(값 무변경)
+57f94a7 docs(BOHUMFIT-288): 오현지 [전] 트랙 전수 대조 + Q8 본체 실증
+9191006 docs(BOHUMFIT-290): Codex 검증·push 결과 기록
+```
+
+### 첫 push 직후 `git rev-list --left-right --count origin/main...HEAD` 원문
+
+```text
+0	0
+```
+
+### 첫 push 직후 `git status --short -uall` 원문
+
+```text
+```
 
 ### Next
 
