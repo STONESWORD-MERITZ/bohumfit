@@ -69,9 +69,10 @@ CASCADE_CHILD_ROWS: frozenset[str] = frozenset({
     "cancer_drug_targeted", "cancer_drug_immune",
     "radio_imrt", "radio_proton", "radio_carbon",
 })
+# ★BOHUMFIT-292(S4·Phase F): 간병인도 종수술과 같은 `질병/상해` 순서(Human 확정 · 값 무변경).
 DUAL_ORDER: dict[str, tuple[str, str]] = {
     **{f"tier_surgery_{t}": (COLUMN_DISEASE, COLUMN_INJURY) for t in range(1, 6)},
-    "caregiver": (COLUMN_INJURY, COLUMN_DISEASE),
+    "caregiver": (COLUMN_DISEASE, COLUMN_INJURY),
 }
 _SPEC_BY_ID = {row.row_id: row for row in KB_COVERAGES_V2}
 _YN_ITEM_OF_ROW: dict[str, str] = {}
@@ -83,7 +84,7 @@ for _item, _sources in YN_ITEMS_V2:
 
 
 def _dual_text(row: dict, key: str | None) -> str:
-    """2열 병기 행을 PDF 한 칸에 `질병/상해`(간병인은 `상해/질병`)로 병기. 종별 미확인은 합계 하나."""
+    """2열 병기 행을 PDF 한 칸에 `질병/상해`(간병인도 동일 — 292)로 병기. 종별 미확인은 합계 하나."""
     order = DUAL_ORDER.get(row.get("row_id") or "")
     columns = row.get("columns") or {}
     if not order or not columns:

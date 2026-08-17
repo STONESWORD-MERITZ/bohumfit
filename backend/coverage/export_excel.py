@@ -226,12 +226,24 @@ CASCADE_CHILD_ROWS: frozenset[str] = frozenset({
     "cancer_drug_targeted", "cancer_drug_immune",
     "radio_imrt", "radio_proton", "radio_carbon",
 })
-#: 2열 병기 행의 좌|우 열 — 종수술 = 질병|상해, 간병인 = 상해|질병(Human Q7).
+#: 2열 병기 행의 좌|우 열 — ★BOHUMFIT-292(S4·Phase F · Human 확정): 종수술·간병인 모두 **질병|상해**로 통일
+#:   (291의 간병인 상해|질병을 수정). 값은 무변경 — 열 순서만.
 DUAL_ORDER: dict[str, tuple[str, str]] = {
     **{f"tier_surgery_{t}": (COLUMN_DISEASE, COLUMN_INJURY) for t in range(1, 6)},
-    "caregiver": (COLUMN_INJURY, COLUMN_DISEASE),
+    "caregiver": (COLUMN_DISEASE, COLUMN_INJURY),
 }
 DUAL_LABEL = {COLUMN_DISEASE: "질병", COLUMN_INJURY: "상해"}
+#: BOHUMFIT-292(S4·Phase F): 컨설팅 전/후 시트의 2열 헤더 행(`질병 | 상해`)을 **종수술 첫 행 바로 위**에 삽입한다.
+#:   그 아래 행은 1행씩 밀린다 — 좌표는 `track_row_of()` 한 곳에서 계산한다(최종 시트는 헤더 없음 · `DATA_ROW0 + 순서`).
+DUAL_HEADER_BEFORE = "tier_surgery_1"
+DUAL_HEADER_ROW = DATA_ROW0 + ROW_INDEX[DUAL_HEADER_BEFORE]
+TRACK_LAST_DATA_ROW = DATA_ROW0 + len(KB_COVERAGES_V2)  # 49행 + 헤더 1행
+
+
+def track_row_of(row_id: str) -> int:
+    """컨설팅 전/후 시트에서 담보 행의 엑셀 행 번호(2열 헤더 삽입분 반영)."""
+    idx = ROW_INDEX[row_id]
+    return DATA_ROW0 + idx + (1 if idx >= ROW_INDEX[DUAL_HEADER_BEFORE] else 0)
 #: Q2 표기(상수 단일 소스 `SUM_EXCLUDED_NOTE_V2`).
 YN_ROW_IDS = tuple(row.row_id for row in KB_COVERAGES_V2 if row.yn_source)
 _YN_ITEM_OF_ROW: dict[str, str] = {}
@@ -404,8 +416,20 @@ def _sheet_track(ws, analysis: dict, before_like: dict, *, is_after: bool) -> No
     yn = _yn_by_row(before_like)
     group_start: dict[str, int] = {}
     group_end: dict[str, int] = {}
-    for offset, spec in enumerate(KB_COVERAGES_V2):
-        row = DATA_ROW0 + offset
+    for spec in KB_COVERAGES_V2:
+        row = track_row_of(spec.row_id)
+        if spec.row_id == DUAL_HEADER_BEFORE:
+            # ★292 Phase F: 2열 헤더 행 — 대분류(B) 병합 구간 안에 들어가고 합계·회사별 각 2열에 `질병 | 상해`.
+            hdr = DUAL_HEADER_ROW
+            group_start.setdefault(spec.group, hdr)
+            group_end[spec.group] = hdr
+            ws.row_dimensions[hdr].height = 16
+            ws.merge_cells(start_row=hdr, start_column=col_name0, end_row=hdr, end_column=col_name0 + 2)
+            _cell(ws, hdr, col_name0, "2열 병기 (좌 | 우)", bold=True, fill=EMERALD_SOFT, fmt="@", size=9)
+            _cell(ws, hdr, col_name0 + 1, None, fill=EMERALD_SOFT); _cell(ws, hdr, col_name0 + 2, None, fill=EMERALD_SOFT)
+            for col in [col_sum] + [col_co0 + 2 * k for k in range(n + unk + (1 if new_slot else 0))]:
+                _cell(ws, hdr, col, DUAL_LABEL[COLUMN_DISEASE], bold=True, fill=EMERALD, color=WHITE, fmt="@", size=9)
+                _cell(ws, hdr, col + 1, DUAL_LABEL[COLUMN_INJURY], bold=True, fill=EMERALD, color=WHITE, fmt="@", size=9)
         data = rows_by_id.get(spec.row_id) or {}
         group_start.setdefault(spec.group, row)
         group_end[spec.group] = row
@@ -454,7 +478,7 @@ def _sheet_track(ws, analysis: dict, before_like: dict, *, is_after: bool) -> No
             _pair(row, col_co0 + 2 * n, _man(_unknown_sum(data, ids)), fmt="#,##0", fill=row_fill)
         if new_slot:
             _pair(row, col_co0 + 2 * (n + unk), None, fmt="#,##0", fill=row_fill)
-    last_data_row = DATA_ROW0 + len(KB_COVERAGES_V2) - 1
+    last_data_row = TRACK_LAST_DATA_ROW
     # 대분류(B) 병합 — 그룹 구간
     for group, start in group_start.items():
         end = group_end[group]
@@ -464,11 +488,9 @@ def _sheet_track(ws, analysis: dict, before_like: dict, *, is_after: bool) -> No
         for r in range(start + 1, end + 1):
             _cell(ws, r, col_grp, None, fill=GREENTEA)
 
-    # 2열 병기 소제목 행: 담보행 바로 위(6행) 오른쪽 셀에 "질병|상해"를 쓰지 않고, 첫 종수술 행 메모로 안내.
-    first_dual = rows_by_id.get("tier_surgery_1")
-    tier_row = DATA_ROW0 + ROW_INDEX["tier_surgery_1"]
-    ws.cell(row=tier_row, column=col_name0).comment = Comment(
-        "2열 병기: 좌=질병 · 우=상해 (간병인은 좌=상해 · 우=질병). 종별 미확인(표준환산)은 병합 셀에 합계.", "BohumFit")
+    # 2열 병기: 헤더 행(질병 | 상해)이 종수술 위에 있고, 간병인도 같은 순서(292 Human 확정). 메모는 보조 안내.
+    ws.cell(row=DUAL_HEADER_ROW, column=col_name0).comment = Comment(
+        "2열 병기: 좌=질병 · 우=상해 (종수술 1~5종 · 간병인 동일). 종별 미확인(표준환산)은 병합 셀에 합계.", "BohumFit")
 
     # ── 비고 블록 ───────────────────────────────────────────────────────
     appendix = _appendix_rows(before_like)
@@ -498,7 +520,7 @@ def _sheet_track(ws, analysis: dict, before_like: dict, *, is_after: bool) -> No
     # 하단 안내
     note_row = last_row + 2
     ws.merge_cells(start_row=note_row, start_column=col_grp, end_row=note_row, end_column=max(col_end - 1, col_sum + 1))
-    note = "보장금액 단위: 만원 / 보험료: 원 · 종수술·간병인은 2열 병기(좌|우) · 후유장해 80%는 대분류 합계 미포함(243)"
+    note = "보장금액 단위: 만원 / 보험료: 원 · 종수술·간병인은 2열 병기(질병|상해) · 후유장해 80%는 대분류 합계 미포함(243)"
     if any((rows_by_id.get(r) or {}).get("estimated") for r in rows_by_id):
         note += " · 표준환산 종수술은 종별 미확인으로 병합 표기"
     _cell(ws, note_row, col_grp, note, align="left", border=False, color=GRAY_TX, fmt="@", size=9)

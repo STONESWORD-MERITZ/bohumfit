@@ -253,6 +253,10 @@ EXTRA_PATTERNS: tuple[tuple[re.Pattern[str], str, str, bool], ...] = (
     # BOHUMFIT-237 C: "5대골절수술비"류가 N대수술비 N 병기에 혼입되지 않도록 분리
     # (234에서 기록만 했던 잔존 포섭 해소 — 골절 그룹).
     (re.compile(r"골절수술"), "골절수술비", AGG_SUM, False),
+    # BOHUMFIT-292(S4·Phase E): 합성 라벨 `심·뇌혈관수술비` 분리 — 담보명에 뇌/심 구분이 있으면
+    #   각자 행(뇌혈관 수술비·심장질환 수술비). 둘 다·둘 다 아님은 아래 합성 라벨로 비고 보존(추측 금지).
+    (re.compile(r"\A(?!.*심).*뇌\S*혈관수술"), "뇌혈관수술비", AGG_SUM, False),
+    (re.compile(r"\A(?!.*뇌).*심\S*혈관수술"), "심혈관수술비", AGG_SUM, False),
     (re.compile(r"혈관수술"), "심·뇌혈관수술비", AGG_SUM, False),
     (re.compile(r"\d+대\S*수술"), "N대수술비", AGG_SUM, True),
     (re.compile(r"통원일당"), "통원일당", AGG_SUM, False),
@@ -265,7 +269,22 @@ EXTRA_PATTERNS: tuple[tuple[re.Pattern[str], str, str, bool], ...] = (
     #   방지(D·E 실측: 항암중입자방사선치료가 ③ 패턴에도 걸림). ③의 (?<!표적)는 표적항암약물
     #   라인 배제 — KB가 매트릭스 표적항암치료(구 고액(표적)) 행에 이미 합산함(이중 계상 방지).
     (re.compile(r"중입자"), "중입자방사선", AGG_SUM, False),
-    (re.compile(r"(?<!표적)항암\S*(?:방사선|약물)\S*치료"), "항암약물방사선", AGG_SUM, False),
+    # BOHUMFIT-292 Human ③: 카티(CAR-T)는 면역약물치료 행. KB 고액항암 매트릭스 포함분은 배타 차감한다.
+    (re.compile(r"카티\(CAR-T\)"), "면역항암치료", AGG_SUM, False),
+    # BOHUMFIT-292(S4·Phase C): 다빈치 로봇 수술 — KB가 KB분류 `암수술`로 매트릭스 암수술 행에 합산하는
+    #   라인(오현지 [전] #24 특정암 100만·#25 특정암제외 500만 실측). classify_extra가 종별(일반/전립선/
+    #   갑상선/특정암/미상) 라벨로 세분하고 parser가 matrix_included(암수술)를 기록해 aggregator가 차감한다.
+    (re.compile(r"다빈치|로봇\S*암수술"), "다빈치", AGG_SUM, False),
+    # BOHUMFIT-292(S4·Phase B): 세기조절·양성자는 **각자 행**(49행 r23·r24). 종전 포괄 패턴이 이 둘을
+    #   `항암약물방사선`으로 과포섭해 매트릭스 표적항암치료(KB분류 고액항암치료비)와 **이중 계상**했다
+    #   (오현지 [전] #37·#39, 우상균 #42·#43 실측). 중입자와 같은 target_included 차감 대상.
+    (re.compile(r"세기조절"), "세기조절방사선", AGG_SUM, False),
+    (re.compile(r"양성자"), "양성자방사선", AGG_SUM, False),
+    # ★292 협소화: `항암(방사선|약물|방사선약물|방사선및약물)치료` — 치료가 **바로** 이어지는 순수
+    #   항암약물·항암방사선 담보만. `…약물허가치료`(표적·카티(CAR-T) 고액항암 계열 — 매트릭스 표적항암치료에
+    #   KB가 이미 합산)·`항암세기조절…`·`항암양성자…`·`항암중입자…`는 제외(각자 규칙·이중 계상 방지).
+    #   라벨은 classify_extra가 약물/방사선/결합으로 세분한다(Phase E).
+    (re.compile(r"(?<!표적)항암(?:방사선및약물|방사선약물|약물방사선|방사선|약물)치료"), "항암약물방사선", AGG_SUM, False),
     # ①② 사망 — 원문에 독립 담보로 명시된 경우만(A `일반사망`·D `재해사망특약` 실측).
     #   상호배타 가드: 그룹 미등록(기타 귀속)으로 매트릭스 상해/질병사망 집계와 분리하고,
     #   KB의 지급사유별 중복 행은 parser 측 dedup으로 1회만 계상(A: 동일 6,000만이 2행).
@@ -277,6 +296,10 @@ EXTRA_PATTERNS: tuple[tuple[re.Pattern[str], str, str, bool], ...] = (
     (re.compile(r"응급실\S*(?:내원|치료)"), "응급실", AGG_SUM, False),
     (re.compile(r"깁스치료(?:비|특약)"), "깁스치료비", AGG_SUM, False),
 )
+
+#: BOHUMFIT-292(S4): 매트릭스 표적항암치료(KB분류 고액항암치료비) 셀에서 배타 차감할 상세 라벨.
+#:   246 중입자 기전을 세기조절·양성자로 확장(라벨 → 착지 행은 V2 별칭이 정한다).
+TARGET_INCLUDED_LABELS: frozenset[str] = frozenset({"중입자방사선", "세기조절방사선", "양성자방사선", "면역항암치료"})
 
 # BOHUMFIT-237 C: N대수술비의 N 병기용 — 괄호 수식어 제거본에서 매칭된 N을 추출.
 _N_SURGERY_RE = re.compile(r"(\d+)대\S*수술")
@@ -300,6 +323,12 @@ EXTRA_LABEL_GROUP = {
     # 암(19·22행)
     "항암약물방사선": "암",
     "중입자방사선": "암",
+    "세기조절방사선": "암",  # BOHUMFIT-292(S4)
+    "양성자방사선": "암",    # BOHUMFIT-292(S4)
+    "면역항암치료": "암",    # BOHUMFIT-292 Human ③: 카티(CAR-T)
+    "다빈치(일반암)": "암", "다빈치(전립선)": "암", "다빈치(갑상선)": "암", "다빈치(특정암)": "암",
+    "다빈치(종별 미상)": "암",  # BOHUMFIT-292(S4)
+    "항암약물치료비": "암", "항암방사선치료비": "암", "뇌혈관수술비": "뇌", "심혈관수술비": "심장",  # BOHUMFIT-292(S4·Phase E)
     # 심장(32행)
     "순환계 치료비": "심장",
     # 종수술(33~37행) — 238 환산 라벨(jong_surgery.estimated_tier_label)과 원문 버킷.
@@ -405,8 +434,68 @@ def classify_extra(text: str):
     for pattern, label, agg, use_stripped in EXTRA_PATTERNS:
         target = stripped_name if use_stripped else compact_name
         if pattern.search(target):
+            if label == "다빈치":
+                return davinci_label(compact_name), agg
+            if label == "항암약물방사선":
+                return anticancer_label(compact_name), agg
             return label, agg
     return None
+
+
+# ── BOHUMFIT-292(S4·Phase E): 합성 라벨 `항암약물방사선` 분리 ────────────────────────────
+_KB_CANCER_CLASS_TAIL_RE = re.compile(r"(?:항암방사선약물치료비|고액항암치료비|기타인보험\(정액\)담보)$")
+ANTICANCER_DRUG_LABEL = "항암약물치료비"          # → V2 `항암 약물 치료`
+ANTICANCER_RADIATION_LABEL = "항암방사선치료비"   # → V2 `방사선 치료`
+ANTICANCER_COMBINED_LABEL = "항암약물방사선"       # 결합 담보(방사선·약물을 한 담보로 지급) — 비고 보존
+
+
+def anticancer_label(compact_name: str) -> str:
+    """담보명이 약물만/방사선만/결합인지로 라벨을 가른다 — ★결합 담보는 갈라 추측하지 않는다(비고 보존).
+
+    실측: `항암약물치료비`·`항암약물치료특약` → 약물 / `항암방사선치료비` → 방사선 /
+          `항암방사선약물치료비`·`26종 항암방사선및약물치료비`·`계속받는 항암방사선약물치료비` → 결합.
+    """
+    # KB분류 열(`항암방사선약물치료비`·`고액항암치료비`)은 split_detail_parts의 분류 토큰(진단/수술/…)이 아니라
+    # 담보명 뒤에 붙어 온다 — 판정은 **담보명 본체**로만(분류 꼬리 제거 · 꼬리만 남으면 원문 유지).
+    core = _KB_CANCER_CLASS_TAIL_RE.sub("", compact_name) or compact_name
+    has_drug = "약물" in core
+    has_radiation = "방사선" in core
+    if has_drug and not has_radiation:
+        return ANTICANCER_DRUG_LABEL
+    if has_radiation and not has_drug:
+        return ANTICANCER_RADIATION_LABEL
+    return ANTICANCER_COMBINED_LABEL
+
+
+# ── BOHUMFIT-292(S4·Phase C): 다빈치 종별 식별 ────────────────────────────────────────
+#: 종별 라벨 → 착지는 V2 별칭이 정한다(일반암·종별 미상 → 다빈치 로봇 수술 / 전립선·갑상선·특정암 → 다빈치 특정암).
+DAVINCI_GENERAL_LABEL = "다빈치(일반암)"
+DAVINCI_PROSTATE_LABEL = "다빈치(전립선)"
+DAVINCI_THYROID_LABEL = "다빈치(갑상선)"
+DAVINCI_SPECIFIC_LABEL = "다빈치(특정암)"
+DAVINCI_UNKNOWN_LABEL = "다빈치(종별 미상)"
+DAVINCI_LABELS: frozenset[str] = frozenset({
+    DAVINCI_GENERAL_LABEL, DAVINCI_PROSTATE_LABEL, DAVINCI_THYROID_LABEL, DAVINCI_SPECIFIC_LABEL, DAVINCI_UNKNOWN_LABEL,
+})
+
+
+def davinci_label(compact_name: str) -> str:
+    """담보명 문자열만으로 다빈치 종별을 판정한다 — ★추측 금지(276a).
+
+    · `특정암제외`·`일반암` → 일반암        · `전립선` → 전립선        · `갑상선` → 갑상선
+    · `특정암`(제외 없음) → 특정암(행은 다빈치 특정암 — 전립선/갑상선 중 어느 체인인지는 원문에 없다)
+    · 그 밖(종별 미기재) → 종별 미상: 다빈치 로봇 수술 행에만 두고 `needs_review`(일반암으로 추측하지 않는다)
+    실측 패턴(오현지 [전]): `다빈치로봇암수술비(연간1회한,특정암)` / `(연간1회한,특정암제외)`.
+    """
+    if "특정암제외" in compact_name or "일반암" in compact_name:
+        return DAVINCI_GENERAL_LABEL
+    if "전립선" in compact_name:
+        return DAVINCI_PROSTATE_LABEL
+    if "갑상선" in compact_name:
+        return DAVINCI_THYROID_LABEL
+    if "특정암" in compact_name:
+        return DAVINCI_SPECIFIC_LABEL
+    return DAVINCI_UNKNOWN_LABEL
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -474,8 +563,8 @@ KB_COVERAGES_V2: tuple[CoverageRowV2, ...] = (
                   aliases=("N종수술비(질병 4종)", "N종수술비(상해 4종)", "일반종수술 4종(표준환산)")),
     CoverageRowV2("tier_surgery_5", "수 술", "5종 수술비 (질병 I 상해)", dual_column=True,
                   aliases=("N종수술비(질병 5종)", "N종수술비(상해 5종)", "일반종수술 5종(표준환산)")),
-    CoverageRowV2("surgery_cerebral", "수 술", "뇌혈관 수술비", aliases=("뇌혈관수술",)),
-    CoverageRowV2("surgery_cardiac", "수 술", "심장질환 수술비", aliases=("심혈관수술",)),
+    CoverageRowV2("surgery_cerebral", "수 술", "뇌혈관 수술비", aliases=("뇌혈관수술", "뇌혈관수술비")),   # 292(S4·E): 상세 분리 라벨
+    CoverageRowV2("surgery_cardiac", "수 술", "심장질환 수술비", aliases=("심혈관수술", "심혈관수술비")),  # 292(S4·E)
     # ── 암 (BOHUMFIT-289: 7행 → **11행** 재설계. 제품 오너 확정) ────────────
     #   ★구 42행의 묶음 3개가 전부 풀렸다:
     #     `암 수 술 / 로 봇 암 수 술` → 암수술 + 다빈치 로봇 수술
@@ -488,17 +577,19 @@ KB_COVERAGES_V2: tuple[CoverageRowV2, ...] = (
     CoverageRowV2("cancer_surgery", "암", "암 수 술 (레보아이 포함)",
                   aliases=("암수술", "암 수 술 / 로 봇 암 수 술")),
     # BOHUMFIT-290(S2·Human 확정): 유사암 수술 — 다빈치(갑상선) 체인의 상위 행.
-    CoverageRowV2("cancer_minor_surgery", "암", "유사암 수술"),
-    CoverageRowV2("cancer_surgery_davinci", "암", "다빈치 로봇 수술"),
+    CoverageRowV2("cancer_minor_surgery", "암", "유사암 수술", aliases=("유사암수술",)),  # 292(S4): 통합치료 내역 항목
+    CoverageRowV2("cancer_surgery_davinci", "암", "다빈치 로봇 수술",
+                  aliases=("다빈치(일반암)", "다빈치(종별 미상)")),  # 292(S4): 종별 미상은 확인 필요 표기
     # BOHUMFIT-290(S2·Human 확정): 다빈치 특정암 — 전립선·갑상선 다빈치의 착지 행.
-    CoverageRowV2("cancer_surgery_davinci_specific", "암", "다빈치 특정암"),
-    CoverageRowV2("cancer_drug", "암", "항암 약물 치료"),
+    CoverageRowV2("cancer_surgery_davinci_specific", "암", "다빈치 특정암",
+                  aliases=("다빈치(전립선)", "다빈치(갑상선)", "다빈치(특정암)")),  # 292(S4)
+    CoverageRowV2("cancer_drug", "암", "항암 약물 치료", aliases=("항암약물치료비",)),  # 292(S4): 상세·내역 라벨
     CoverageRowV2("cancer_drug_targeted", "암", "표적 약물 치료", aliases=("표적항암치료",)),
     CoverageRowV2("cancer_drug_immune", "암", "면역 약물 치료", aliases=("면역항암치료",)),
-    CoverageRowV2("cancer_radiation", "암", "방사선 치료"),
+    CoverageRowV2("cancer_radiation", "암", "방사선 치료", aliases=("항암방사선치료비",)),  # 292(S4): 상세·내역 라벨
     CoverageRowV2("radio_imrt", "암", "세기조절 방사선 치료",
-                  aliases=("세기조절 / 양성자 방사선",)),
-    CoverageRowV2("radio_proton", "암", "양성자 방사선 치료"),
+                  aliases=("세기조절 / 양성자 방사선", "세기조절방사선")),  # 292(S4): 상세 라벨 별칭
+    CoverageRowV2("radio_proton", "암", "양성자 방사선 치료", aliases=("양성자방사선",)),  # 292(S4)
     CoverageRowV2("radio_carbon", "암", "중 입 자 치료",
                   aliases=("중입자방사선", "중입자 / 정위 방사선")),
     # ── 뇌 ──────────────────────────────────────────────────────────────────

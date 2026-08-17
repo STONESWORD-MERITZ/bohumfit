@@ -12,7 +12,7 @@ import io
 import openpyxl
 
 from coverage.constants import KB_COVERAGES_V2, SHEET_NAME_AFTER_V2, SHEET_NAME_BEFORE_V2, SHEET_NAME_FINAL_V2
-from coverage.export_excel import DATA_ROW0, build_workbook_bytes
+from coverage.export_excel import DATA_ROW0, TRACK_LAST_DATA_ROW, build_workbook_bytes, track_row_of
 from coverage.v2_mapping import ROW_INDEX
 
 SHEET_BEFORE = SHEET_NAME_BEFORE_V2
@@ -27,7 +27,8 @@ ROW_COMPANY = 2    # 회사명
 ROW_PERIOD = 3     # 납기만기
 ROW_PRODUCT = 4    # 상품명(4~5 병합)
 ROW_PREMIUM = 6    # 월납
-LAST_DATA_ROW = DATA_ROW0 + len(KB_COVERAGES_V2) - 1
+# BOHUMFIT-292(S4·Phase F): 컨설팅 전/후 시트는 종수술 위 2열 헤더 1행이 들어가 49행 + 1.
+LAST_DATA_ROW = TRACK_LAST_DATA_ROW
 APPENDIX_ROW0 = LAST_DATA_ROW + 1
 
 # 최종 시트
@@ -41,6 +42,12 @@ def workbook(result: dict):
 
 
 def row_of(row_id: str) -> int:
+    """컨설팅 전/후 시트 좌표(2열 헤더 삽입분 반영 — 292)."""
+    return track_row_of(row_id)
+
+
+def final_row_of(row_id: str) -> int:
+    """최종 시트 좌표(헤더 없음)."""
     return DATA_ROW0 + ROW_INDEX[row_id]
 
 

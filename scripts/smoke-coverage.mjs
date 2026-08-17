@@ -17,7 +17,7 @@ import { join, resolve } from "node:path";
 const ROOT = resolve(import.meta.dirname, "..");
 const PDF_DIR = join(ROOT, "보장분석", "비교분석표");
 
-/** verify.md "스모크 정본 세트" 기준값(BOHUMFIT-290 Human Q6 승인 · 갱신 시 verify.md와 함께 수정). */
+/** verify.md "스모크 정본 세트" 기준값(BOHUMFIT-292 Human ① 승인 · 갱신 시 verify.md와 함께 수정). */
 const BASELINE = [
   {
     label: "표준(계약별 매트릭스)",
@@ -36,7 +36,7 @@ const BASELINE = [
     file: globSync("*INPUT.pdf", { cwd: PDF_DIR }).find((name) => !name.endsWith("-INPUT.pdf")) ?? "__missing-overview.pdf",
     contracts: 15,
     coverageRows: 59,
-    enrolled: 41,
+    enrolled: 42,
     total: 1_501_690_000,
     monthly: 4_675_189,
     monthlyActive: 4_675_189,
@@ -64,7 +64,7 @@ sys.path.insert(0, sys.argv[1])
 import openpyxl
 from coverage.aggregator import aggregate_coverage_values, build_before, build_final
 from coverage.compare import build_after_analysis
-from coverage.export_excel import DATA_ROW0, build_workbook_bytes
+from coverage.export_excel import DATA_ROW0, build_workbook_bytes, track_row_of
 from coverage.constants import KB_COVERAGES_V2
 from coverage.parser import parse_document
 
@@ -102,8 +102,9 @@ xl_mismatch = 0
 def _num(v):
     return v if isinstance(v, (int, float)) else 0
 if n:
-    for off in range(len(KB_COVERAGES_V2)):
-        r = DATA_ROW0 + off
+    # BOHUMFIT-292(S4·Phase F): 종수술 위 2열 헤더 행이 들어가 좌표는 track_row_of()로(값·기준값 무변경).
+    for spec in KB_COVERAGES_V2:
+        r = track_row_of(spec.row_id)
         cells = [_num(ws.cell(row=r, column=8 + 2 * i).value) + _num(ws.cell(row=r, column=9 + 2 * i).value) for i in range(n)]
         total = _num(ws.cell(row=r, column=6).value) + _num(ws.cell(row=r, column=7).value)
         if sum(cells) != total:

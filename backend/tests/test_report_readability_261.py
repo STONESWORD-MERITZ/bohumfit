@@ -19,7 +19,7 @@ from coverage.aggregator import build_before
 from coverage.compare import build_after_analysis
 from coverage.excel_style import EMERALD, WHITE
 from coverage.export_excel import MONTHS_20Y, build_workbook_bytes
-from tests.excel_v2_layout import COL_SUM, SHEET_BEFORE, SHEET_FINAL, company_col, row_of  # 291
+from tests.excel_v2_layout import COL_SUM, SHEET_BEFORE, SHEET_FINAL, company_col, final_row_of, row_of  # 291·292
 from coverage.export_pdf import COMPANY_CHUNK, build_coverage_html
 
 MAN = 10_000
@@ -112,8 +112,8 @@ def test_twenty_year_delta_color_follows_direction():
     assert ws.cell(row=4, column=10).font.color.rgb == EMERALD
     assert ws.cell(row=6, column=10).font.color.rgb == EMERALD
     # 계약1 해지 → 질병사망 3,000만 감소(앰버) — 기대효과 열
-    assert ws.cell(row=row_of("death_disease"), column=10).value == -3000
-    assert ws.cell(row=row_of("death_disease"), column=10).font.color.rgb == AMBER_TX
+    assert ws.cell(row=final_row_of("death_disease"), column=10).value == -3000   # 292: 최종 시트 좌표
+    assert ws.cell(row=final_row_of("death_disease"), column=10).font.color.rgb == AMBER_TX
     # 증가 케이스: 신규 제안으로 담보가 늘면 에메랄드.
     analysis2 = _analysis()
     plan = {"existing": [], "proposals": [
@@ -123,7 +123,7 @@ def test_twenty_year_delta_color_follows_direction():
     wb2, _res2 = _wb(analysis2, plan)
     assert wb2[SHEET_FINAL].cell(row=4, column=10).font.color.rgb == AMBER_TX
     assert wb2[SHEET_FINAL].cell(row=6, column=10).font.color.rgb == AMBER_TX
-    cell = wb2[SHEET_FINAL].cell(row=row_of("death_disease"), column=10)
+    cell = wb2[SHEET_FINAL].cell(row=final_row_of("death_disease"), column=10)  # 292: 최종 시트는 헤더 없음
     assert cell.value == 1000 and cell.font.color.rgb == EMERALD
 
 

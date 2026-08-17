@@ -9,7 +9,10 @@ from .amount import extract_cells, extract_diag_cells, parse_amount, parse_won, 
 from .constants import (
     KB_FORMAT_HINTS,
     KNOWN_INSURERS,
+    DAVINCI_LABELS,
+    DAVINCI_UNKNOWN_LABEL,
     ROLE_MARKERS,
+    TARGET_INCLUDED_LABELS,
     classify_extra,
     extract_n_surgery,
     match_coverage,
@@ -841,15 +844,27 @@ def parse_detail_pages(detail_pages: list[list[str]], contracts: list[dict], jon
                 if dedup_key in death_seen:
                     continue
                 death_seen.add(dedup_key)
-            if label == "중입자방사선":
+            if label in TARGET_INCLUDED_LABELS:
                 name, _cls = split_detail_parts(line)
                 if "고액항암치료비" in _despace(name):
                     # BOHUMFIT-246: KB가 이 라인을 매트릭스 표적항암치료(구 고액(표적)) 행에
                     #   합산함(D 실측: 표적 6,000만+중입자 5,000만=1.1억) — 배타 차감용 포함분
                     #   기록(검출·계상 불변). E형("기타 인보험" 분류)은 미기록 → 차감 없음.
+                    # BOHUMFIT-292(S4): 세기조절·양성자도 같은 지급사유(고액항암치료비)로 합산돼 있어
+                    #   (오현지 [전] 표적 5,000만 = 세기 1,000+표적 3,000+양성자 1,000 실측) 동일 차감.
                     ion_entry = extra.setdefault(label, {"agg": agg, "by_company": {}})
                     included = ion_entry.setdefault("target_included", {})
                     included[key] = included.get(key, 0) + amount
+            if label in DAVINCI_LABELS:
+                # BOHUMFIT-292(S4·Phase C): KB가 다빈치 라인을 KB분류 `암수술`로 매트릭스 암수술 행에
+                #   합산한다(오현지 [전] 실측) — 배타 차감용 포함분 기록. 종별 미상은 확인 필요 표기.
+                name, cls = split_detail_parts(line)
+                dv_entry = extra.setdefault(label, {"agg": agg, "by_company": {}})
+                if _despace(cls) == "암수술":
+                    included = dv_entry.setdefault("matrix_included", {}).setdefault("암수술", {})
+                    included[key] = included.get(key, 0) + amount
+                if label == DAVINCI_UNKNOWN_LABEL:
+                    dv_entry["needs_review"] = True
             entry = extra.setdefault(label, {"agg": agg, "by_company": {}})
             entry["by_company"][key] = entry["by_company"].get(key, 0) + amount
             # BOHUMFIT-237 C: N대수술비는 원문의 N(131대 등)을 채집해 표시명 병기에 쓴다.

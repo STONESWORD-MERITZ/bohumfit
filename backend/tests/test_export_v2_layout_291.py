@@ -33,6 +33,7 @@ from tests.excel_v2_layout import (
     company_col,
     row_of,
     workbook,
+    final_row_of,
 )
 
 MAN = 10_000
@@ -103,10 +104,10 @@ def test_dual_columns_split_disease_and_injury():
     assert ws.cell(row=ROW_COMPANY, column=p_col).value == "메리츠"
     assert (ws.cell(row=r5, column=p_col).value, ws.cell(row=r5, column=p_col + 1).value) == (400, 1000)  # 질병|상해
     assert (ws.cell(row=r5, column=COL_SUM).value, ws.cell(row=r5, column=COL_SUM + 1).value) == (400, 1000)
-    # 간병인 = 상해|질병
+    # 간병인 = 질병|상해 (★292 Phase F: 종수술과 통일 — 291의 상해|질병에서 수정. 값 무변경, 열 순서만)
     rc = row_of("caregiver")
-    assert (ws.cell(row=rc, column=company_col(1)).value, ws.cell(row=rc, column=company_col(1) + 1).value) == (10, 20)
-    assert DUAL_ORDER["caregiver"] == ("injury", "disease")
+    assert (ws.cell(row=rc, column=company_col(1)).value, ws.cell(row=rc, column=company_col(1) + 1).value) == (20, 10)
+    assert DUAL_ORDER["caregiver"] == ("disease", "injury")
 
 
 def test_unspecified_tier_value_is_merged_not_guessed():
@@ -134,7 +135,7 @@ def test_final_sheet_l_prefix_stage_block_and_appendix():
     result = _result(RICH, RICH_EXTRA)
     wb = workbook(result)
     ws = wb[SHEET_FINAL]
-    labels = {r.row_id: ws.cell(row=row_of(r.row_id), column=COL_NAME).value for r in KB_COVERAGES_V2}
+    labels = {r.row_id: ws.cell(row=final_row_of(r.row_id), column=COL_NAME).value for r in KB_COVERAGES_V2}  # 292: 최종은 헤더 없음
     for rid in CASCADE_CHILD_ROWS:
         assert labels[rid].startswith(CASCADE_CHILD_PREFIX_V2), rid
     assert labels["stroke"] == "L 뇌 졸 중" and labels["cancer_drug_targeted"] == "L 표적 약물 치료"

@@ -12,7 +12,13 @@ from typing import Any
 
 import pdfplumber
 
-from .constants import AGG_REP, AGG_SUM, coverage_meta
+from .integrated_treatment import (
+    ORIGIN_DISTRIBUTED,
+    distribution_entries,
+    extract_integrated_treatments,
+    summarize as summarize_integrated,
+)
+from .constants import AGG_REP, AGG_SUM, coverage_meta, davinci_label
 from .proposal_registry import (
     DEFAULT_PAY_MONTHS,
     INJECT_REGISTRY_FALLBACKS,
@@ -320,23 +326,39 @@ def _is_example_window(window: str) -> bool:
     return any(_compact(marker) in compact for marker in EXAMPLE_SECTION_MARKERS)
 
 
+# BOHUMFIT-292(S4): 가입담보리스트에서 담보명이 길어 줄이 바뀌면 금액이 **다음 줄**에 `번호 금액 보험료` 형태로 온다
+#   (실측: 5.10.5 제안서 `암진단및치료비Ⅱ[표적항암약물허가치료비(…)(연` / `131 1천만원 309 20년 / 100세`,
+#   알파Plus `갱신형 암 통합치료비Ⅱ(…` / `119 1억원 10,313`). 이 형태의 다음 줄만 금액 보완에 쓴다(그 밖은 무변경).
+_WRAPPED_AMOUNT_LINE_RE = re.compile(r"^\d{1,3}\s+(\d[\d,]*\s*(?:천만|백만|십만|억|만)?원)\s+[\d,]+")
+
+
 def _extract_rule_entries(lines: Sequence[str], profile: ProductProfile | None) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     seen: set[tuple[str, int, str]] = set()
-    for window in _line_windows(lines):
+    windows = list(_line_windows(lines))
+    for index, window in enumerate(windows):
         if _is_example_window(window):
             continue
         for rule in PROPOSAL_RULES:
             if _skip_rule(rule, window, profile) or not _matches(rule, window):
                 continue
             amount = _first_amount(window)
+            if amount is None and index + 1 < len(windows):
+                wrapped = _WRAPPED_AMOUNT_LINE_RE.match(windows[index + 1])
+                if wrapped:
+                    amount = parse_korean_amount_to_krw(wrapped.group(1))
+                    window = f"{window} {windows[index + 1]}"
             if amount is None:
                 continue
             key = (rule.kb_name, amount, window[:80])
             if key in seen:
                 continue
             seen.add(key)
-            entries.append(_entry(rule.kb_name, amount, rule.group12, rule.agg, "text", window, rule.merge_rule))
+            kb_name = rule.kb_name
+            if kb_name == "다빈치":
+                # BOHUMFIT-292(S4·Phase C): 담보명 종별 식별 → 일반/전립선/갑상선/특정암/미상(추측 금지).
+                kb_name = davinci_label(_compact(window))
+            entries.append(_entry(kb_name, amount, rule.group12, rule.agg, "text", window, rule.merge_rule))
     return entries
 
 
@@ -495,21 +517,48 @@ def _registry_entries(
 
 
 def _merge_entries(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    merged: dict[str, dict[str, Any]] = {}
+    """같은 담보명 병합.
+
+    BOHUMFIT-292(S4·Phase D-4): 출처 식별자 `origin`으로 두 경우를 가른다.
+      · 직접 특약(origin 없음)끼리 — 종전 규칙(리스트/상세 중복은 **rep** · 둘 다 SUM 규칙이면 sum)
+      · 분배분(`origin=distributed`)끼리 — **sum**(별개 담보의 내역이 같은 행에 오는 경우)
+      · 직접 + 분배 공존 — **sum**(별개 보장 · Human 확정). `origin=direct+distributed`·source에 양쪽 근거를 남긴다.
+    """
+    direct: dict[str, dict[str, Any]] = {}
+    distributed: dict[str, dict[str, Any]] = {}
     for entry in entries:
         name = str(entry.get("kb_name") or "")
         amount = int(entry.get("amount") or 0)
         if not name or amount <= 0:
             continue
-        current = merged.get(name)
+        if entry.get("origin") == ORIGIN_DISTRIBUTED:
+            current = distributed.get(name)
+            if not current:
+                distributed[name] = dict(entry)
+            else:
+                current["amount"] = int(current.get("amount") or 0) + amount
+                current["source"] = f"{current.get('source')}, {entry.get('source')}"
+            continue
+        current = direct.get(name)
         if not current:
-            merged[name] = dict(entry)
+            direct[name] = dict(entry)
             continue
         if entry.get("merge_rule") == AGG_SUM and current.get("merge_rule") == AGG_SUM:
             current["amount"] = int(current.get("amount") or 0) + amount
             current["source"] = f"{current.get('source')}, {entry.get('source')}"
         elif amount > int(current.get("amount") or 0):
-            merged[name] = dict(entry)
+            direct[name] = dict(entry)
+    merged: dict[str, dict[str, Any]] = {}
+    for name in set(direct) | set(distributed):
+        d, x = direct.get(name), distributed.get(name)
+        if d and x:
+            item = dict(d)
+            item["amount"] = int(d.get("amount") or 0) + int(x.get("amount") or 0)
+            item["source"] = f"{d.get('source')} + {x.get('source')}"
+            item["origin"] = "direct+distributed"
+            merged[name] = item
+        else:
+            merged[name] = dict(d or x)
     return sorted(merged.values(), key=lambda item: (str(item.get("group12") or ""), str(item.get("kb_name") or "")))
 
 
@@ -545,6 +594,12 @@ def parse_proposal_text(text: str, filename: str = "proposal.pdf") -> dict[str, 
     entries = _extract_rule_entries(lines, profile) + _extract_car_injury_14(lines) + _extract_tier_surgery_entries(lines)
     if profile and profile.key == "mirae-mcare":
         entries.extend(_extract_mirae_table_entries(lines))
+    # BOHUMFIT-292(S4·Phase D): 통합치료비류 자동 판정(Q8형/주요치료비형) → 분배 entry(origin=distributed).
+    integrated = extract_integrated_treatments(lines)
+    entries.extend(distribution_entries(integrated, _entry))
+    for rider in integrated:
+        if rider.get("needs_review"):
+            warnings.append(f"{filename}: #{rider['no']} {rider['name']} — {rider['needs_review']}")
     existing_names = {str(entry.get("kb_name")) for entry in entries}
     # BOHUMFIT-276a: 레지스트리 고정값은 **담보 행으로 넣지 않는다** — 힌트·미확인 목록만 받는다.
     registry_entries, registry_hints, unresolved = _registry_entries(profile, existing_names)
@@ -560,6 +615,8 @@ def parse_proposal_text(text: str, filename: str = "proposal.pdf") -> dict[str, 
             "group12": entry.get("group12"),
             "agg": entry.get("agg"),
             "source": entry.get("source"),
+            # BOHUMFIT-292(S4): 출처 식별자 — direct(기본) / distributed / direct+distributed
+            "origin": entry.get("origin") or "direct",
         }
         for entry in _merge_entries(entries)
     ]
@@ -584,6 +641,8 @@ def parse_proposal_text(text: str, filename: str = "proposal.pdf") -> dict[str, 
             # BOHUMFIT-276a: 193 표본 고정값은 담보 행이 아니라 힌트로만 남긴다(276b 수기 확인용).
             "registry_hints": registry_hints,
             "unresolved_coverages": unresolved,
+            # BOHUMFIT-292(S4): 통합치료비류 판정·내역·미착지 항목(원문 근거 보존)
+            "integrated_treatments": summarize_integrated(integrated),
         },
     }
 

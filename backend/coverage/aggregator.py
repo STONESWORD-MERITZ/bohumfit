@@ -12,6 +12,7 @@ from .constants import (
     KB_COVERAGES_V2,
     LEGACY_TO_V2,
     PAYOUT_CASCADE_V2,
+    TARGET_INCLUDED_LABELS,
     YN_ITEMS_V2,
 )
 from .schema import before_coverage, final_coverage
@@ -80,10 +81,17 @@ def _apply_exclusions(matrix: dict, extras: dict) -> tuple[dict, dict, dict]:
         if unresolved:
             extras[f"{label}(계약 미확인)"] = {"agg": entry.get("agg", AGG_SUM), "by_company": unresolved}
 
-    ion = extras.get("중입자방사선")
-    if ion:
-        for key, included in (ion.get("target_included") or {}).items():
-            _subtract("표적항암치료", key, included)
+    # BOHUMFIT-292(S4): 중입자 + 세기조절·양성자 — parser가 기록한 target_included를 같은 규칙으로 차감.
+    for ion_label in sorted(TARGET_INCLUDED_LABELS):
+        ion = extras.get(ion_label)
+        if ion:
+            for key, included in (ion.get("target_included") or {}).items():
+                _subtract("표적항암치료", key, included)
+    # BOHUMFIT-292(S4·Phase C): 다빈치 등 — parser가 기록한 matrix_included{매트릭스 행: {계약: 금액}} 차감.
+    for label in sorted(extras):
+        for row_name, included_map in (extras[label].get("matrix_included") or {}).items():
+            for key, included in included_map.items():
+                _subtract(row_name, key, included)
 
     return matrix, extras, dedup
 
@@ -342,6 +350,7 @@ def _empty_bucket() -> dict:
         "sources": {},
         "overview": False,
         "estimated": False,
+        "needs_review": False,  # BOHUMFIT-292(S4): 종별 미상 다빈치 등 — 확인 필요 표기
     }
 
 
@@ -386,7 +395,7 @@ def build_v2_rows(matrix: dict, extras: dict) -> list[dict]:
         if target.kind == KIND_ROW:
             bucket = buckets.setdefault(target.row_id, _empty_bucket())
             _feed(bucket, name, by_company, ROW_AGG[target.row_id], target.column)
-            for flag in ("overview", "estimated"):
+            for flag in ("overview", "estimated", "needs_review"):
                 if flags.get(flag):
                     bucket[flag] = True
             if overview_summary is not None:
@@ -416,7 +425,8 @@ def build_v2_rows(matrix: dict, extras: dict) -> list[dict]:
         n_values = extra.get("n_values") or []
         if label == "N대수술비" and n_values:
             display_label = f"N대수술비({'·'.join(str(n) for n in sorted(set(n_values)))}대)"
-        _route(display_label, by_company, extra.get("agg", AGG_SUM), estimated=bool(extra.get("estimated")))
+        _route(display_label, by_company, extra.get("agg", AGG_SUM), estimated=bool(extra.get("estimated")),
+               needs_review=bool(extra.get("needs_review")))
 
     rows: list[dict] = []
     for spec in KB_COVERAGES_V2:
@@ -442,6 +452,8 @@ def build_v2_rows(matrix: dict, extras: dict) -> list[dict]:
             row["overview"] = True
         if bucket["estimated"]:
             row["estimated"] = True
+        if bucket["needs_review"]:
+            row["needs_review"] = True
         rows.append(row)
 
     rows.extend(appendix)
