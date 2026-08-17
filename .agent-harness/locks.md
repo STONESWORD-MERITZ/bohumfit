@@ -4,9 +4,10 @@ Use this file to record active Codex file ownership during a task.
 
 ## Active
 
-(없음 — 293·294 Codex 2차 검증·분리 커밋·push 완료. Human 프로덕션 카톡 문안 육안 확인 대기)
+(없음 — BOHUMFIT-295/295b Codex 3차 검증 완료, 단독 커밋·push 진행)
 
 ### Released
+- 2026-08-18 `BOHUMFIT-295/295b` - Codex - Released(반려 2건 해소 재검증 PASS · 뮤테이션 3종 전부 검출·PII 0 · backend 1058/8 · frontend 412/42 · smoke PASS · 산출물 canonical hash 12/12 동일 · 후속 298/296 변경분 미포함).
 - 2026-08-18 `BOHUMFIT-293/294` - Codex - Released(2차 검증 PASS · 293 `676e4b6` → 294 `7b91bfd` 분리 커밋/push · backend 1052/8 · frontend 406/41 · smoke PASS · build:verify 343,702 B 예상 FAIL · 보호 영역/실자료 stage 0).
 - 2026-08-18 `BOHUMFIT-294-kakao-dedup` - Claude Code - Released(카카오 복사문 중복 개선 · git 쓰기 0 · PII 0). ★251 의도분 판별이 핵심 — 251은 "건별로 **그 이벤트의** 원문 값"을 요구했지 반복을 요구하지 않았다. 규칙: 직전 줄과 **글자 단위 동일한 코드·병명만** 생략(생략분은 블록 위쪽에 존재 — 정보 손실 0 · 원문 변형 0), 적용은 **수술 record 줄 한정**. ★251 골든은 압축 대상 0이라 **픽스처 무수정 통과**(4경로 동등성 증거). ★구현 중 범위 축소 1건: 입원 회차줄 압축은 205/213(회차별 자기완결) 테스트가 잡아 **완화 대신 철회**. C = 조인 오염 아님(251 3차 보정 유효 — 파서 무접촉) · B = 285 범위 무접촉(실 데이터 잠금으로 비중 확인 불가). 효과: A-통원 228→168자(−26%, 같은 값 5회→1회) · A-입원 467→377자(−19%) · 골든 0%. 게이트 1052/8 · 406/41 · tsc · lint · smoke PASS · 보호 영역 diff 0. 실 고지 PDF는 비밀번호 잠금으로 재현 불가(합성 픽스처 대체).
 - 2026-08-18 `BOHUMFIT-293-schema-v2-cleanup` - Claude Code - Released(층위 2 정리 · git 쓰기 0 · ★값/양식 무변경). 구 40행 **양식 파생 상수 5종**(NEW_ITEM_ORDER·YN_ITEMS·STAGE_COMPONENTS·STAGE_COMMON_ADD·STANDARD_COUNT) 제거 — `KB_COVERAGES`·`KB_NAME_ALIASES`·`GROUP12/13`은 **KB 원문 담보명 사전·구 페이로드 축**으로 존속(파서 무접촉 제약·사유 decisions.md). `YN_ITEMS_V2` 구 상수 파생 → 리터럴 정착(값 무변경). 시트3 원본 수식 decisions.md로 보존. `_V2` rename 미실시(302 참조 산정만). 신설 `test_format_regression_293.py` 13건(차액 색상·메모·L 접두·2열 헤더·브랜드·인쇄·PDF 가독성·비고) — ★뮤테이션 4종 전부 검출. ★**산출물 해시 12종 완전 동일** · 1044/8(+13·회귀 0) · smoke PASS 기준값 무변경 · 402/41 · tsc · lint · 보호 영역 diff 0. 문서 4종 정합(decisions 층위 2 결정 전수·verify 스키마 정본+기준값 이력·기준선 1044). Human 결정 1건(층위 3 프런트 이관).

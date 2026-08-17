@@ -5,8 +5,8 @@ import ConsentGate from "../components/ConsentGate";
 import { useAuth } from "../lib/auth-context";
 import {
   buildAfterResult,
-  computeStageTotals,
-  computeYnFlags,
+  displayStageTotals,
+  displayYnFlags,
   groupKey,
   itemOrderKey,
   keyOf,
@@ -297,24 +297,17 @@ export default function CoverageRemodel() {
   );
   const comparisonGroups = useMemo(() => groupComparisonRows(displayComparison?.coverages || []), [displayComparison]);
   const comparisonValueGroups = useMemo(() => groupComparisonValues(displayComparison?.coverages || []), [displayComparison]);
-  // BOHUMFIT-247 B·D: 종합비교(시트3 수식)·Y/N — [전]은 백엔드 파생값(정본) 우선, [후]는
-  //   클라이언트 이월 결과에서 동일 수식으로 재산출(246 미러 — 규칙 변경 시 백엔드 동시 수정).
-  const beforeStages = useMemo(
-    () => (result ? (result.before.stage_totals ?? computeStageTotals(result.before.coverages)) : null),
-    [result],
-  );
-  const afterStages = useMemo(
-    () => (afterResult ? computeStageTotals(afterResult.after.before.coverages) : null),
-    [afterResult],
-  );
-  const beforeYn = useMemo(
-    () => (result ? (result.before.yn_flags ?? computeYnFlags(result.before.coverages)) : null),
-    [result],
-  );
-  const afterYn = useMemo(
-    () => (afterResult ? computeYnFlags(afterResult.after.before.coverages) : null),
-    [afterResult],
-  );
+  // BOHUMFIT-247 B·D: 종합비교(시트3 수식)·Y/N — [전]은 백엔드 파생값(정본) 우선, 없으면 클라 미러 폴백.
+  // ★BOHUMFIT-295: [후]도 **같은 규칙**으로 맞춘다(종전에는 무조건 클라 재산출이라 비대칭이었다).
+  //   클라 미러는 구 40행 `kb_name`으로 조회하는데 payload는 290 이후 V2 49행 표시명이라 전부 미스 →
+  //   제안서가 없어도 [후] 종합비교가 0, Y/N이 N으로 무너졌다(Human 실사용 보고). overview형 문서의
+  //   비고행 `항암약물방사선`만 구 이름이 우연히 남아 암 체인에 결합 담보 값이 유입되던 것도 같은 통로다.
+  //   ★불변식: 제안서 0건이면 [후] == [전]. 서버는 양쪽 파생값을 이미 동일하게 내려준다.
+  //   폴백은 남긴다 — `stage_totals`가 없는 구 payload(과거 저장분·구 서버) 하위호환(247 패리티 계약).
+  const beforeStages = useMemo(() => displayStageTotals(result?.before), [result]);
+  const afterStages = useMemo(() => displayStageTotals(afterResult?.after.before), [afterResult]);
+  const beforeYn = useMemo(() => displayYnFlags(result?.before), [result]);
+  const afterYn = useMemo(() => displayYnFlags(afterResult?.after.before), [afterResult]);
   // BOHUMFIT-247 C: 특이사항 = 분석 경고([전] — E overview 합계형 안내 등) + 비교 주의(246
   //   overview 해지 불가 경고 포함) + 개선 요약. 중복 제거해 한 영역에 노출.
   // BOHUMFIT-182(D-12): 합계형(overview) 문서 해지 경고는 나열에서 빼고 **전용 배너**로 승격한다.

@@ -1,3 +1,58 @@
+## 2026-08-18 BOHUMFIT-295/295b — Codex 3차 검증 PASS · 단독 커밋/push 진행
+
+Owner flow: Claude Chat → Claude Code → Codex → Human | Current owner: **Codex**(단독 커밋·push) / **Human**(프로덕션 육안)
+
+- 루트 게이트 통과. 기준 HEAD/origin `59fca67`, 시작 `origin/main...HEAD` = `0 0`. 후속 미커밋분 298·296 문서가 같은 워킹트리에 존재함을 확인했고, 격리 worktree에서 **295/295b만** 검증·커밋 대상으로 구성했다.
+- ★반려 R1 재검증: (1) `CoverageRemodel` 네 useMemo를 종전 비대칭으로 복원, (2) 표시 헬퍼를 무조건 재산출로 교체, (3) stale 판정 제거 뮤테이션을 각각 직접 적용했다. 세 경우 모두 `CoverageRemodelWiring295.test.tsx`가 실패했고, 원복 뒤 집중 테스트 2/2 통과. `CoverageRemodel.tsx`는 뮤테이션 전 SHA-256 `B00C9D28…`로 바이트 복원, lib는 후속 298 동시 변경과 분리해 295 논리만 보존했다.
+- ★반려 R2 재검증: 신규 4파일과 diff 추가 줄을 실명·실파일명·연락처·주민번호·주소 패턴으로 전수 검사해 0건. 서버 불변식 테스트는 `_raw` 익명 합성만 사용한다. 기존 276b·286·290·291·292의 실명은 범위 밖으로 미수정.
+- 전체 게이트(295 단독): backend **1058 passed, 8 skipped**(1 warning) · frontend **412 passed / 42 files** · tsc app/node · lint · `smoke:coverage` PASS. `npm run build` 343,702 B, `build:verify`는 크기 하한·필수 문자열 누락의 **예상 FAIL**(248 확정 로컬 껍데기).
+- 산출물 무영향: 293 HEAD와 295 수정본에 정본 4문서를 각각 투입해 payload·PDF HTML·XLSX canonical hash **12/12 동일**. 원시 XLSX ZIP 바이트의 생성시각 차이는 `docProps/core.xml` 제외 정규화로 제거했다. 임시 산출물·검증 하네스는 삭제했다.
+- `npm run dev` 실브라우저: 로컬 제품 엔트리는 Supabase 환경변수 부재로 인증 E2E가 불가했다. 대신 격리 dev 서버에서 실제 `CoverageRemodel`을 익명 V2 페이로드로 렌더해 표준형·overview형 제안서 0건 모두 종합 7행과 Y/N 5항목 [전]=[후], 암 +1,410만 소거를 확인했다. 해지 시 stale 값 미복사, 익명 3제안 시 [후]가 [전] 복사가 아님을 확인했다. 실제 제안서 3건은 백엔드 직접 재파싱해 담보 31행 변화·월납 181,802→327,182를 확인했다. 브라우저 콘솔 오류 0. 실계정 E2E는 Human 프로덕션 육안으로 이관한다.
+- 보호 범위: backend 제품 코드·케스케이드·`compute_stage_totals`·49행 스키마·pipeline·filters·vite diff 0. 254·272 스프레드 누수 재발 0. 실 PDF·PII·수기 엑셀·생성 산출물 stage 0.
+- 기준선 3문서: backend **1058/8**, frontend **412/42**로 동기화. `verify.md`에 결함 지점 배선 뮤테이션 표준과 295의 410 오통과 선례가 유지됨.
+
+### 시작 상태 원문
+
+`git log --oneline -5`:
+
+```text
+59fca67 docs(BOHUMFIT-294): Codex 검증·push 결과 기록
+7b91bfd fix(BOHUMFIT-294): 카카오 복사문 중복 필드 생략(251 원문 충실화·4경로 동등성 유지)
+676e4b6 chore(BOHUMFIT-293): 층위 2 정리 — 구 40행 제거·서식 회귀 테스트·문서 정합(산출물 무변경)
+6efce30 docs(BOHUMFIT-292): Codex 검증·push 결과 기록
+3ebcc8d feat(BOHUMFIT-292): S4 매칭·분배 배선 — 통합치료비 자동판정·다빈치 3분류·과포섭 정정·합성 라벨 분리·2열 헤더 (라금실 enrolled 42 — Human 승인)
+```
+
+`git status --short -uall`:
+
+```text
+ M .agent-harness/handoff.md
+ M .agent-harness/locks.md
+ M .agent-harness/verify.md
+ M src/components/CoverageInsightBlocks.test.tsx
+ M src/components/CoverageInsightBlocks.tsx
+ M src/lib/coverageAfterDisplayCache.ts
+ M src/lib/coverageNewTaxonomyDisplay.test.ts
+ M src/pages/CoverageRemodel.tsx
+?? .agent-harness/tasks/BOHUMFIT-295-cascade-regression.md
+?? .agent-harness/tasks/BOHUMFIT-295b-wiring-test-pii.md
+?? .agent-harness/tasks/BOHUMFIT-296-remark-relocation.md
+?? .agent-harness/tasks/BOHUMFIT-298-frontend-v2.md
+?? backend/tests/test_no_proposal_invariant_295.py
+?? src/pages/CoverageRemodelWiring295.test.tsx
+```
+
+`git rev-list --left-right --count origin/main...HEAD`:
+
+```text
+0	0
+```
+
+### Next
+
+1. **Codex** — 야간 298·296·297·299 handoff 리뷰 후 순차 분리 커밋(현재 확인: 298 완료, 296는 Human 결정 대기 중단, 297·299 미시작).
+2. **Human** — 프로덕션에서 표준형·overview형 제안서 0건 종합비교/Y/N 및 제안서 3건·해지 즉시 반영 육안 확인.
+
 ## 2026-08-18 BOHUMFIT-293/294 — Codex 2차 검증 PASS · 분리 커밋/push 완료
 
 Owner flow: Claude Chat → Claude Code → Codex → Human | Current owner: **Human**(프로덕션 카톡 문안 육안) / **Chat**(285 조사)

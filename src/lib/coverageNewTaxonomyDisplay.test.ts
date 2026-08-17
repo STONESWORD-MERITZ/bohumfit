@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildAfterResult,
   computeStageTotals,
+  displayStageTotals,
+  displayYnFlags,
   computeYnFlags,
   itemOrderKey,
   ITEM_ORDER,
@@ -98,6 +100,66 @@ describe("BOHUMFIT-247 신 체계 표시 미러", () => {
     // 파생값도 전=후 동일.
     expect(computeStageTotals(after.after.before.coverages)).toEqual(computeStageTotals(analysis.before.coverages));
     expect(computeYnFlags(after.after.before.coverages)).toEqual(computeYnFlags(analysis.before.coverages));
+  });
+
+  // ── ★BOHUMFIT-295: 제안서 없음 → [후] == [전] 불변식 (실사용 회귀 재현) ──────────────
+  //   payload 담보 이름이 290 이후 **V2 49행 표시명**이라 구 40행 이름 미러(computeStageTotals·
+  //   computeYnFlags)로는 전부 0/N이 된다. [전]은 서버 파생값을 쓰고 [후]만 재산출해 비대칭이었다.
+  const v2Analysis = () =>
+    analysisWith([
+      coverage({ kb_name: "뇌 혈 관 질 환", group12: "뇌", summary: 4000 * MAN, enrolled: true, by_company: { "1": 4000 * MAN } }),
+      coverage({ kb_name: "상 해/질 병 입 원", group12: "실 비", summary: 5000 * MAN, enrolled: true, by_company: { "1": 5000 * MAN } }),
+      // 292 Phase E 결합 담보 — 비고행이라 **구 이름 그대로** 남는다(암 체인 오염의 통로였다)
+      coverage({ kb_name: "항암약물방사선", group12: "비고", summary: 1410 * MAN, enrolled: true, by_company: { "2": 1410 * MAN } }),
+    ]);
+
+  it("295 — 제안서·해지 0이면 [후] 파생값이 [전]과 같다(서버 값 보존)", () => {
+    const analysis = v2Analysis();
+    analysis.before.stage_totals = { 뇌초기: 4000 * MAN, 뇌중기: 4000 * MAN, 뇌말기: 4000 * MAN };
+    analysis.before.yn_flags = [
+      { item: "상해실손의료비", value: "Y", sources: [{ kb_name: "상해입원의료비", summary: 5000 * MAN }] },
+    ];
+    const after = buildAfterResult(analysis, {}, []);
+    expect(after.after.before.stage_totals).toEqual(analysis.before.stage_totals);
+    expect(after.after.before.yn_flags).toEqual(analysis.before.yn_flags);
+    // ★회귀 재현: 구 이름 미러로 재산출하면 뇌가 0이 되고 암에 비고행 1,410만이 들어온다.
+    const legacyMirror = computeStageTotals(after.after.before.coverages);
+    expect(legacyMirror["뇌초기"]).toBe(0);
+    expect(legacyMirror["암"]).toBe(1410 * MAN);
+    // 화면은 파생값을 우선 쓰므로 그 오염이 표시되지 않는다.
+    expect(after.after.before.stage_totals!["뇌초기"]).toBe(4000 * MAN);
+    expect(Object.keys(after.after.before.stage_totals!)).not.toContain("암");
+  });
+
+  it("295 — 해지가 있으면 stale 파생값을 지운다([전] 값을 [후]인 척 보이지 않는다)", () => {
+    const analysis = v2Analysis();
+    analysis.before.stage_totals = { 뇌초기: 4000 * MAN };
+    analysis.before.yn_flags = [{ item: "상해실손의료비", value: "Y", sources: [] }];
+    const after = buildAfterResult(analysis, { "1": { disposition: "cancel" } }, []);
+    expect(after.after.before.stage_totals).toBeUndefined();
+    expect(after.after.before.yn_flags).toBeUndefined();
+  });
+
+  it("295 — 표시 선택은 [전]·[후]가 **같은 헬퍼**를 쓴다(비대칭이 재발하면 실패)", () => {
+    const analysis = v2Analysis();
+    analysis.before.stage_totals = { 뇌초기: 4000 * MAN };
+    analysis.before.yn_flags = [{ item: "상해실손의료비", value: "Y", sources: [] }];
+    const after = buildAfterResult(analysis, {}, []);
+    // 화면이 쓰는 선택 함수 — 제안서 0건이면 전·후가 완전히 같아야 한다(불변식).
+    expect(displayStageTotals(after.after.before)).toEqual(displayStageTotals(analysis.before));
+    expect(displayYnFlags(after.after.before)).toEqual(displayYnFlags(analysis.before));
+    expect(displayStageTotals(after.after.before)!["뇌초기"]).toBe(4000 * MAN);   // 0이 아니다
+    expect(displayYnFlags(after.after.before)![0].value).toBe("Y");               // N이 아니다
+    expect(displayStageTotals(null)).toBeNull();
+  });
+
+  it("295 — stage_totals가 없는 구 payload는 종전대로 클라 미러 폴백(하위호환)", () => {
+    const analysis = analysisWith([
+      coverage({ kb_name: "뇌혈관질환", group12: "뇌", summary: 1000 * MAN, enrolled: true, by_company: { "1": 1000 * MAN } }),
+    ]);
+    const after = buildAfterResult(analysis, {}, []);
+    expect(after.after.before.stage_totals).toBeUndefined();
+    expect(computeStageTotals(after.after.before.coverages)).toEqual(computeStageTotals(analysis.before.coverages));
   });
 
   it("overview + 해지 — 합계행 보존 + 경고, 계약 키 담보는 정상 해지 반영", () => {

@@ -269,6 +269,20 @@ export function computeStageTotals(coverages: BeforeCoverage[]): Record<string, 
   );
 }
 
+// ★BOHUMFIT-295: 종합비교·Y/N 표시값 선택 — **[전]과 [후]가 같은 규칙을 쓰도록** 한 곳에 둔다.
+//   종전에는 [전]만 백엔드 파생값을 쓰고 [후]는 무조건 클라 미러로 재산출해 비대칭이었고,
+//   미러가 구 40행 `kb_name` 기준이라 V2 payload에서 전부 0/N이 됐다(제안서가 없어도 [후]가 무너짐).
+//   백엔드 파생값이 있으면 그것이 정본, 없으면(구 payload) 종전 미러로 폴백한다.
+export function displayStageTotals(payload: AnalyzeResult["before"] | null | undefined) {
+  if (!payload) return null;
+  return payload.stage_totals ?? computeStageTotals(payload.coverages);
+}
+
+export function displayYnFlags(payload: AnalyzeResult["before"] | null | undefined) {
+  if (!payload) return null;
+  return payload.yn_flags ?? computeYnFlags(payload.coverages);
+}
+
 export function keyOf(idx: number | string): string {
   return String(idx);
 }
@@ -608,6 +622,17 @@ export function buildAfterResult(
   );
   const paidTotal = paidUnknown ? null : afterCompanies.reduce((sum, company) => sum + (company.paid_total || 0), 0);
   const sortedCompanies = sortCompanies(afterCompanies);
+  // ★BOHUMFIT-295: `{...analysis.before}` 스프레드가 [전]의 파생값(stage_totals·yn_flags)을 그대로
+  //   복사해 왔다(254·272가 지목한 스프레드 경로). 파생값은 **coverages에서 나오므로**, 입력인
+  //   coverages가 그대로면 여전히 유효하고 바뀌면 stale이다 — 그 판정을 여기서 한 번만 한다.
+  //   · 해지 0·제안 0(= [후] 담보가 [전]과 동일) → [전] 파생값 유지 → 화면 [후] == [전](불변식 복원)
+  //   · 해지/제안 있음 → **stale 값을 지운다**. 조용히 [전] 값을 [후]인 척 보여주지 않는다.
+  //     (그 경우 표시는 종전처럼 클라 미러 폴백으로 떨어진다 — 프런트가 아직 V2 스키마를 모르는
+  //      층위 3 미이관 상태라 정확한 [후] 재산출은 그 태스크에서 해결한다. 이번 변경으로 나빠지지 않는다.)
+  const coverageFingerprint = (rows: BeforeCoverage[]) =>
+    rows.map((row) => `${row.kb_name}\u0001${row.summary ?? ""}\u0001${row.enrolled ? 1 : 0}`).join("\u0002");
+  const derivedStillValid =
+    coverageFingerprint(afterCoverages) === coverageFingerprint(analysis.before.coverages);
   const afterBefore: AnalyzeResult["before"] = {
     ...analysis.before,
     premium: {
@@ -619,6 +644,8 @@ export function buildAfterResult(
     companies: sortedCompanies,
     contract_list: sortedCompanies,
     coverages: afterCoverages,
+    stage_totals: derivedStillValid ? analysis.before.stage_totals : undefined,
+    yn_flags: derivedStillValid ? analysis.before.yn_flags : undefined,
   };
 
   const finalByName = new Map(analysis.final.coverages.map((row) => [row.kb_name, row]));
