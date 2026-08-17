@@ -21,10 +21,12 @@ npm run dev
 백엔드 pytest — `cd backend && python -m pytest -q`:
 
 ```text
-1031 passed, 8 skipped
+1044 passed, 8 skipped
 ```
 
-(BOHUMFIT-292 Claude Code 1차 실측·2026-08-18 — 291 기준선 1003/8에 S4 매칭·분배 배선 계약 28건을
+(BOHUMFIT-293 1차 실측·2026-08-18 — 292 기준선 1031/8에 서식 회귀 스위트 13건을 더해 1044/8.
+구 40행 양식 파생 상수 5종 제거로 줄어든 테스트는 없다(구 상수 단언을 V2 또는 파서 사전 단언으로 이관).
+직전 이력: BOHUMFIT-292 Claude Code 1차 실측·2026-08-18 — 291 기준선 1003/8에 S4 매칭·분배 배선 계약 28건을
 더해 1031/8. Codex 2차 실측으로 확정.)
 
 프런트 테스트 — `npm test`(라우트 스모크 18건 포함):
@@ -117,6 +119,30 @@ npm run smoke:coverage
   p19#19 `항암약물치료특약` 1,000만이 비고 `항암약물방사선`에서 `항암 약물 치료` 행으로 옮겨진 Phase E 규칙의
   직접 귀결(총액·행 수·월납·overview 불변 · 이인숙 PASS). 사용자 지시로 Human ① 승인이 확정돼
   `BASELINE`과 이 표를 함께 갱신했으며 smoke가 PASS해야 한다.
+
+### ★스키마 정본 (BOHUMFIT-293 · 층위 2 정리 완료)
+
+- **49행 V2가 유일한 산출물 스키마다.** `KB_COVERAGES_V2`(49) · `GROUP12_V2`(11) · `PAYOUT_CASCADE_V2`(17체인)로
+  엑셀 4시트(`표지(세로)`·`컨설팅 전`·`컨설팅 후`·`최종`)·PDF·API가 만들어진다. 구 40행 양식은 **폐기**다.
+- 구 양식 파생 상수 5종(`NEW_ITEM_ORDER`·`YN_ITEMS`·`STAGE_COMPONENTS`·`STAGE_COMMON_ADD`·`STANDARD_COUNT`)은
+  293에서 삭제했다. 되살아나면 `test_schema_v2_287.py`가 실패한다(모듈 속성 검사).
+- ★`KB_COVERAGES`·`KB_NAME_ALIASES`·`GROUP12/13`은 **남아 있다** — 이제 "양식"이 아니라 **KB 원문 담보명 사전**
+  (`match_coverage`·`coverage_meta` · `agg` → V2 행 sum/rep)과 **구 페이로드 호환 축**이다. 지우려면 파서와
+  프런트 미러를 먼저 옮겨야 한다(층위 3). 사유는 `decisions.md`(2026-08-18) 참조.
+- **서식 회귀**는 `tests/test_format_regression_293.py`가 실문서 3건으로 막는다 — 차액 색상(261)·합계 강조·
+  Q2 메모·Q5 메모·L 접두·2열 헤더·브랜드 색(빨강 0)·인쇄 설정·PDF 고령 가독성·비고 보존.
+  ★291에서 261 차액 색상이 조용히 빠진 유형을 겨냥한다(뮤테이션 4종으로 검출력 확인 완료).
+
+### smoke 기준값 이력 — 한곳에
+
+| 시점 | 기준값 변화 | 승인 |
+|---|---|---|
+| BOHUMFIT-290(S2) | 49행 배선 — 표준 총액 **+10,300,000**(경증치매진단 비고 노출) · overview **−41,300,000**(실손 입원·통원 rep 병합 −50,300,000 + 장기요양간병비 비고 노출 +9,000,000) | Human Q6 |
+| BOHUMFIT-291(S3) | **없음** — 프로브의 엑셀 좌표만 새 양식으로(BASELINE 무변경) | — |
+| BOHUMFIT-292(S4) | overview 정본 `enrolled 41→42`(`항암약물치료특약` 1,000만이 비고에서 `항암 약물 치료` 행으로 · 총액·월납·overview 불변) | Human ① |
+| BOHUMFIT-293 | **없음** — 산출물 12종(4문서 × 엑셀·HTML·payload) 해시 완전 동일(정리만) | — |
+
+★월납·회사합=합계·해지 0 시 전=후·Y/N·death_dedup은 위 전 구간에서 **불변**이다.
 
 ### 집계 바이트 증명 — 직렬화 방식 (BOHUMFIT-287·289 Codex 방식 → 290에서 고정)
 

@@ -6,7 +6,7 @@
    실 PDF·엑셀은 절대 저장/커밋하지 않는다(A방식: Codex 로컬 실 PDF 보정).
 """
 from coverage.amount import parse_amount
-from coverage.constants import KB_COVERAGES, GROUP12, AGG_SUM, AGG_REP, STANDARD_COUNT
+from coverage.constants import KB_COVERAGES, GROUP12, AGG_SUM, AGG_REP
 from coverage.aggregator import _aggregate, build_before, build_final
 from coverage.parser import (
     parse_contract_list, parse_matrix, parse_diagnosis, parse_document, KBFormatError,
@@ -163,7 +163,9 @@ def test_amount_tokenizer():
 def test_mapping_37_12_rep():
     # BOHUMFIT-246: 비분양식 정본화 — 표준 40행(37 + 신담보 3: 면역항암·암 주요치료비·심혈관질환),
     #   대분류 10+기타. 값 변경 없음(개명·재귀속) — 총액 대사는 test_taxonomy_246에서 증명.
-    assert STANDARD_COUNT == 40
+    # ★BOHUMFIT-293: `STANDARD_COUNT`(구 양식 행 수)는 제거됐다. 40이라는 수는 이제 "양식 행 수"가
+    #   아니라 **KB 원문 담보명 사전의 표제어 수**다 — 사전이 줄면 파싱이 조용히 실패하므로 계속 고정한다.
+    assert len(KB_COVERAGES) == 40
     assert len(GROUP12) == 10
     reps = [n for (n, _, _, a) in KB_COVERAGES if a == AGG_REP]
     assert reps == ["가족/일상/자녀배상", "상해입원의료비", "상해통원의료비",

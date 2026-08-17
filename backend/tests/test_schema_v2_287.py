@@ -90,10 +90,19 @@ def test_dual_column_is_only_the_five_tier_surgery_rows():
 def test_yn_source_rows_cover_every_legacy_yn_item():
     """★Q5: `yn_flags`는 내부 유지하되 표시는 운전자/배상/실비 행으로 분산된다.
 
-    구 `YN_ITEMS`의 원천 담보가 **하나도 빠짐없이** 어떤 yn_source 행으로 흘러가야 한다.
+    Y/N 원천 담보가 **하나도 빠짐없이** 어떤 yn_source 행으로 흘러가야 한다.
+    ★BOHUMFIT-293: 구 `YN_ITEMS`가 제거돼 `YN_ITEMS_V2`(같은 값을 리터럴로 정착)로 원천을 읽는다.
+      항목 5종·원천 담보명 문자열은 아래에서 별도로 고정하므로 자기참조가 되지 않는다.
     """
-    from coverage.constants import YN_ITEMS
+    from coverage.constants import YN_ITEMS_V2 as YN_ITEMS
 
+    assert [label for label, _ in YN_ITEMS] == [
+        "운전자특약", "자동차부상치료비", "가족일상배상책임", "상해실손의료비", "질병실손의료비",
+    ]
+    assert {s for _l, sources in YN_ITEMS for s in sources} == {
+        "벌금(대인/스쿨존/대물)", "교통사고처리지원금", "변호사선임비용", "자동차사고부상",
+        "가족/일상/자녀배상", "상해입원의료비", "상해통원의료비", "질병입원의료비", "질병통원의료비",
+    }
     yn_rows = {row.row_id for row in KB_COVERAGES_V2 if row.yn_source}
     assert yn_rows == {
         "actual_inpatient", "actual_outpatient", "liability_daily",
@@ -215,13 +224,24 @@ def test_v2_wiring_started_in_s2_and_legacy_schema_left_the_aggregator():
 
     S2부터 aggregator는 V2(`KB_COVERAGES_V2`)를 참조하고, 구 40행 스키마 상수
     (`KB_COVERAGES`·`GROUP13`·`NEW_ITEM_ORDER`·`STAGE_COMPONENTS`·`YN_ITEMS`)는 **더 이상
-    참조하지 않는다**. 구 상수 자체는 S3 완료 시점까지 삭제하지 않는다(export 최소 어댑터가 쓴다).
+    참조하지 않는다**.
+    ★BOHUMFIT-293(층위 2 정리): 구 **양식 파생** 상수 5종(`NEW_ITEM_ORDER`·`YN_ITEMS`·`STAGE_COMPONENTS`·
+      `STAGE_COMMON_ADD`·`STANDARD_COUNT`)은 삭제됐다. `KB_COVERAGES`·`KB_NAME_ALIASES`·`GROUP12/13`은
+      **파서 사전·구 페이로드 축**으로 남는다(파서 무접촉 제약 — 293 태스크 §Step 2 사유).
     """
     root = Path(__file__).resolve().parents[1] / "coverage"
     aggregator = (root / "aggregator.py").read_text(encoding="utf-8")
     assert "KB_COVERAGES_V2" in aggregator and "PAYOUT_CASCADE_V2" in aggregator
     for legacy in ("KB_COVERAGES,", "GROUP13,", "NEW_ITEM_ORDER", "STAGE_COMPONENTS", "STAGE_COMMON_ADD", "YN_ITEMS,"):
         assert legacy not in aggregator, f"aggregator가 구 스키마 상수 {legacy}를 아직 참조한다"
+    # ★293: 삭제된 5종은 어느 제품 모듈에도 **다시 정의되면 안 된다**(주석 언급은 허용 — 제거 사유 기록).
+    import importlib
+
+    for mod_name in ("constants", "aggregator", "v2_mapping", "compare", "export_excel", "export_pdf",
+                     "parser", "proposal_parser", "integrated_treatment"):
+        mod = importlib.import_module(f"coverage.{mod_name}")
+        for dead in ("NEW_ITEM_ORDER", "YN_ITEMS", "STAGE_COMPONENTS", "STAGE_COMMON_ADD", "STANDARD_COUNT"):
+            assert not hasattr(mod, dead), f"coverage.{mod_name}에 293에서 제거한 {dead}가 되살아났다"
     # ★BOHUMFIT-291(S3): export 2종은 49행 양식으로 전환됐고 S2 최소 어댑터(legacy_form_view·구 그룹 축)는 제거됐다.
     for name in ("export_excel.py", "export_pdf.py"):
         text = (root / name).read_text(encoding="utf-8")

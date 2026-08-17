@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from coverage.aggregator import build_before, compute_stage_totals  # noqa: E402
 from coverage.consulting import apply_consulting_plan  # noqa: E402
-from coverage.constants import GROUP13, GROUP_ETC, NEW_ITEM_ORDER  # noqa: E402
+from coverage.constants import GROUP13, GROUP_ETC  # noqa: E402  (293: 미사용 NEW_ITEM_ORDER import 제거)
 from coverage.v2_mapping import GROUP13_V2, GROUP_APPENDIX_V2, ROW_INDEX  # noqa: E402  (290)
 from tests.v2names import find_row  # noqa: E402  (290: 구 이름 → V2 행 투영)
 
