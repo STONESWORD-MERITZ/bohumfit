@@ -36,10 +36,12 @@ from coverage.constants import (
 
 # ── 신판 46행 실측(`컨설팅 전`·`컨설팅 후` 두 시트 r7~r52 · 완전 일치) ────────
 EXPECTED_DISPLAY_46: tuple[str, ...] = (
+    "3 대 비 급 여 실 손",  # ★296: 비고 → 정규 행 이관(실비 상단)
     "상 해/질 병 입 원", "상 해/질 병 통 원 약 제",
     "상 해 수 술 비", "질 병 수 술 비",
     "1종 수술비 (질병 I 상해)", "2종 수술비 (질병 I 상해)", "3종 수술비 (질병 I 상해)",
     "4종 수술비 (질병 I 상해)", "5종 수술비 (질병 I 상해)",
+    "N대수술비 최대 보상금액",  # ★296: 신규 행(종수술 5종 하단·뇌혈관 상단)
     "뇌혈관 수술비", "심장질환 수술비",
     # ★암 11행 — 289 재설계의 핵심
     "암 진 단 비(일반암)", "유 사 암 진 단 비",
@@ -53,7 +55,7 @@ EXPECTED_DISPLAY_46: tuple[str, ...] = (
     "상해 질병 후 유 장 해 80%", "상 해 후 유 장 해 3%", "질 병 후 유 장 해 3%",
     "골 절 진 단 비", "골 절 수 술 비", "깁스치료비",
     "일 상 생 활 배 상 책 임",
-    "형 사 합 의 금", "변 호 사 선 임", "벌 금", "자 부 상",
+    "형 사 합 의 금", "형사합의금(6주미만)", "변 호 사 선 임", "벌 금", "자 부 상",
 )
 
 
@@ -61,11 +63,13 @@ EXPECTED_DISPLAY_46: tuple[str, ...] = (
 # ★BOHUMFIT-290(Step 0): 신판 46행 + 3행(유사암 수술·다빈치 특정암·순환계 치료비) = **49행**.
 #   신판 파일에는 이 3행이 없으므로 원본 대조 테스트는 그 3행을 **빼고** 비교한다.
 ROWS_ADDED_IN_290 = ("유사암 수술", "다빈치 특정암", "순환계 치료비")
+# ★BOHUMFIT-296: 신규 3행도 수기 46행에는 없으므로 원본 대조에서 뺀다(비고 이관·N대수술비 신설).
+ROWS_ADDED_IN_296 = ("3 대 비 급 여 실 손", "N대수술비 최대 보상금액", "형사합의금(6주미만)")
 
 
 def test_forty_nine_rows_in_sheet_order():
-    assert STANDARD_COUNT_V2 == 49
-    assert len(EXPECTED_DISPLAY_46) == 49
+    assert STANDARD_COUNT_V2 == 52  # ★296: +3행
+    assert len(EXPECTED_DISPLAY_46) == 52
     assert tuple(row.display for row in KB_COVERAGES_V2) == EXPECTED_DISPLAY_46
 
 
@@ -270,5 +274,5 @@ def test_display_names_match_the_new_workbook(sheet: str):
     openpyxl = pytest.importorskip("openpyxl")
     worksheet = openpyxl.load_workbook(path, data_only=True)[sheet]
     actual = tuple(str(worksheet.cell(row, 3).value).strip() for row in range(7, 53))
-    expected = tuple(d for d in EXPECTED_DISPLAY_46 if d not in ROWS_ADDED_IN_290)
+    expected = tuple(d for d in EXPECTED_DISPLAY_46 if d not in ROWS_ADDED_IN_290 and d not in ROWS_ADDED_IN_296)
     assert actual == expected

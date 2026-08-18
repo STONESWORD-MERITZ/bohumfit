@@ -7,6 +7,7 @@ from typing import Optional
 
 from .amount import extract_cells, extract_diag_cells, parse_amount, parse_won, years_to_months, diag_status
 from .constants import (
+    AGG_REP,
     KB_FORMAT_HINTS,
     KNOWN_INSURERS,
     DAVINCI_LABELS,
@@ -866,7 +867,13 @@ def parse_detail_pages(detail_pages: list[list[str]], contracts: list[dict], jon
                 if label == DAVINCI_UNKNOWN_LABEL:
                     dv_entry["needs_review"] = True
             entry = extra.setdefault(label, {"agg": agg, "by_company": {}})
-            entry["by_company"][key] = entry["by_company"].get(key, 0) + amount
+            # BOHUMFIT-296: N대수술비는 정규 행 `N대수술비 최대 보상금액`으로 이관됐다 — 같은 계약에 복수 N대수술비
+            #   담보가 있으면 **최대 보상금액**(max)만 담는다(합산 아님 · Human 확정). 그 외 라벨은 종전대로 합산.
+            if label == "N대수술비":
+                entry["by_company"][key] = max(entry["by_company"].get(key, 0), amount)
+                entry["agg"] = AGG_REP
+            else:
+                entry["by_company"][key] = entry["by_company"].get(key, 0) + amount
             # BOHUMFIT-237 C: N대수술비는 원문의 N(131대 등)을 채집해 표시명 병기에 쓴다.
             if label == "N대수술비":
                 n = extract_n_surgery(line)

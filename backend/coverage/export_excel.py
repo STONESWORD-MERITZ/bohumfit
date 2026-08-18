@@ -1,13 +1,13 @@
-"""BOHUMFIT-291(S3): 49행 수기표 양식 4시트 엑셀 — 표지(세로) · 컨설팅 전 · 컨설팅 후 · 최종.
+"""BOHUMFIT-291(S3)·296: 52행 수기표 양식 4시트 엑셀 — 표지(세로) · 컨설팅 전 · 컨설팅 후 · 최종.
 
 181 다운로드 동선(엔드포인트·build_workbook_bytes 시그니처)은 무파손 유지하고, 산출 구조를
-신판 수기표(46행 + 290 확정 3행 = 49행 · 대분류 11)로 전면 교체한다(248 비분양식 3시트 폐기).
+신판 수기표(46행 + 290 확정 3행 + 296 확정 3행 = 52행 · 대분류 11)로 전면 교체한다(248 비분양식 3시트 폐기).
 
 확정 결정(286-D Q1~Q9 · 289 · 290 · 291):
 - ★값 계층 동결 — S2(aggregator) 집계 결과(`summary`·`by_company`·`columns`·`stage_totals`)를
   **그대로 옮겨 적는다**. export는 어떤 값도 재계산·보정하지 않는다(값 기입 방식 유지 — 수식 아님).
 - 시트명 `컨설팅 전`/`컨설팅 후`(+표지·최종) · 행명은 신판 수기표 문자열 그대로(`중 입 자 치료` 등).
-- 회사 열 = 계약당 **2열**(수기표 구조): 종수술 5행 = 질병|상해, 간병인 = 상해|질병(Q7). 그 밖은 병합 1값.
+- 회사 열 = 계약당 **2열**(수기표 구조): 종수술 5행·간병인 = 질병|상해. 그 밖은 병합 1값.
   종별을 잃은 값(238 표준환산 → unspecified)은 열로 못 갈라 병합 셀에 합계(추측 금지).
 - Q2: 80% 행 값 표시 + 대분류 합계 제외 + "합계 미포함" 셀 메모. Q4: 비고행 블록. Q5: Y/N은
   운전자/배상/실비 행 안(셀 메모·금액 없는 가입 계약은 "Y") — 별도 Y/N 블록 없음.
@@ -207,7 +207,7 @@ def _sheet_cover(ws, analysis: dict, generated_at=None) -> None:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# BOHUMFIT-291(S3) — 49행 수기표 양식: 표지 · 컨설팅 전 · 컨설팅 후 · 최종
+# BOHUMFIT-291(S3)·296 — 52행 수기표 양식: 표지 · 컨설팅 전 · 컨설팅 후 · 최종
 #   ★값 계층은 S2(aggregator)에서 동결됐다. 이 모듈은 어떤 값도 재계산·보정하지 않는다 —
 #     `summary`·`by_company`·`columns`·`stage_totals`(compute_stage_totals)·premium을 **그대로 옮겨 적는다**.
 #   ★구조·행명은 신판 수기표(46행 + 290 확정 3행)를 따르고, 서식은 FIT 브랜드가 우선한다
@@ -216,7 +216,7 @@ def _sheet_cover(ws, analysis: dict, generated_at=None) -> None:
 
 TITLE_BEFORE = "【 전 】"
 TITLE_AFTER = "【 후 】"
-DATA_ROW0 = 7          # 담보 49행 시작 행(수기표 r7)
+DATA_ROW0 = 7          # 담보 52행 시작 행(수기표 r7)
 HEADER_ROWS = (2, 3, 4, 5, 6)
 
 #: 291 Human 확정 — 케스케이드 하위 행 표시(`L ` 접두). 뇌·심장 + 암 계열. ★`최종` 시트에만.
@@ -233,17 +233,15 @@ DUAL_ORDER: dict[str, tuple[str, str]] = {
     "caregiver": (COLUMN_DISEASE, COLUMN_INJURY),
 }
 DUAL_LABEL = {COLUMN_DISEASE: "질병", COLUMN_INJURY: "상해"}
-#: BOHUMFIT-292(S4·Phase F): 컨설팅 전/후 시트의 2열 헤더 행(`질병 | 상해`)을 **종수술 첫 행 바로 위**에 삽입한다.
-#:   그 아래 행은 1행씩 밀린다 — 좌표는 `track_row_of()` 한 곳에서 계산한다(최종 시트는 헤더 없음 · `DATA_ROW0 + 순서`).
-DUAL_HEADER_BEFORE = "tier_surgery_1"
-DUAL_HEADER_ROW = DATA_ROW0 + ROW_INDEX[DUAL_HEADER_BEFORE]
-TRACK_LAST_DATA_ROW = DATA_ROW0 + len(KB_COVERAGES_V2)  # 49행 + 헤더 1행
+#: ★BOHUMFIT-296(Human 확정): 292 F가 넣은 `2열 병기 (좌 | 우)` 헤더 행·`질병 | 상해` 헤더를 **제거**한다.
+#:   행명 `1종 수술비 (질병 I 상해)`가 이미 열 순서를 표현하므로 헤더가 중복이다. 각 칸에는 금액만.
+#:   → 컨설팅 전/후 시트도 최종 시트처럼 헤더 없이 `DATA_ROW0 + 순서`로 배치한다.
+TRACK_LAST_DATA_ROW = DATA_ROW0 + len(KB_COVERAGES_V2) - 1
 
 
 def track_row_of(row_id: str) -> int:
-    """컨설팅 전/후 시트에서 담보 행의 엑셀 행 번호(2열 헤더 삽입분 반영)."""
-    idx = ROW_INDEX[row_id]
-    return DATA_ROW0 + idx + (1 if idx >= ROW_INDEX[DUAL_HEADER_BEFORE] else 0)
+    """컨설팅 전/후 시트에서 담보 행의 엑셀 행 번호(2열 헤더 제거 — 최종 시트와 동일 좌표)."""
+    return DATA_ROW0 + ROW_INDEX[row_id]
 #: Q2 표기(상수 단일 소스 `SUM_EXCLUDED_NOTE_V2`).
 YN_ROW_IDS = tuple(row.row_id for row in KB_COVERAGES_V2 if row.yn_source)
 _YN_ITEM_OF_ROW: dict[str, str] = {}
@@ -332,7 +330,7 @@ def _dual_cells(row: dict, order: tuple[str, str], key: str | None):
 
 
 def _sheet_track(ws, analysis: dict, before_like: dict, *, is_after: bool) -> None:
-    """`컨설팅 전` / `컨설팅 후` — 49행 × (합계 2열 + 회사별 2열). 수기표 r2~r6 머리행·r7~ 담보행 구조."""
+    """`컨설팅 전` / `컨설팅 후` — 52행 × (합계 2열 + 회사별 2열). 수기표 r2~r6 머리행·r7~ 담보행 구조."""
     ws.title = SHEET_NAME_AFTER_V2 if is_after else SHEET_NAME_BEFORE_V2
     customer = (before_like.get("customer") or {}).get("name") or ""
     companies = (before_like.get("contract_list") or before_like.get("companies") or []) \
@@ -411,25 +409,13 @@ def _sheet_track(ws, analysis: dict, before_like: dict, *, is_after: bool) -> No
         _cell(ws, 4, col, "-", fmt="@"); _cell(ws, 4, col + 1, None); _cell(ws, 5, col, None); _cell(ws, 5, col + 1, None)
         _pair(6, col, None, fmt="#,##0")
 
-    # ── 담보 49행 ───────────────────────────────────────────────────────
+    # ── 담보 52행 ───────────────────────────────────────────────────────
     rows_by_id = _row_by_id(before_like)
     yn = _yn_by_row(before_like)
     group_start: dict[str, int] = {}
     group_end: dict[str, int] = {}
     for spec in KB_COVERAGES_V2:
-        row = track_row_of(spec.row_id)
-        if spec.row_id == DUAL_HEADER_BEFORE:
-            # ★292 Phase F: 2열 헤더 행 — 대분류(B) 병합 구간 안에 들어가고 합계·회사별 각 2열에 `질병 | 상해`.
-            hdr = DUAL_HEADER_ROW
-            group_start.setdefault(spec.group, hdr)
-            group_end[spec.group] = hdr
-            ws.row_dimensions[hdr].height = 16
-            ws.merge_cells(start_row=hdr, start_column=col_name0, end_row=hdr, end_column=col_name0 + 2)
-            _cell(ws, hdr, col_name0, "2열 병기 (좌 | 우)", bold=True, fill=EMERALD_SOFT, fmt="@", size=9)
-            _cell(ws, hdr, col_name0 + 1, None, fill=EMERALD_SOFT); _cell(ws, hdr, col_name0 + 2, None, fill=EMERALD_SOFT)
-            for col in [col_sum] + [col_co0 + 2 * k for k in range(n + unk + (1 if new_slot else 0))]:
-                _cell(ws, hdr, col, DUAL_LABEL[COLUMN_DISEASE], bold=True, fill=EMERALD, color=WHITE, fmt="@", size=9)
-                _cell(ws, hdr, col + 1, DUAL_LABEL[COLUMN_INJURY], bold=True, fill=EMERALD, color=WHITE, fmt="@", size=9)
+        row = track_row_of(spec.row_id)  # ★296: 2열 헤더 제거 — 헤더 행 삽입 없음
         data = rows_by_id.get(spec.row_id) or {}
         group_start.setdefault(spec.group, row)
         group_end[spec.group] = row
@@ -488,8 +474,8 @@ def _sheet_track(ws, analysis: dict, before_like: dict, *, is_after: bool) -> No
         for r in range(start + 1, end + 1):
             _cell(ws, r, col_grp, None, fill=GREENTEA)
 
-    # 2열 병기: 헤더 행(질병 | 상해)이 종수술 위에 있고, 간병인도 같은 순서(292 Human 확정). 메모는 보조 안내.
-    ws.cell(row=DUAL_HEADER_ROW, column=col_name0).comment = Comment(
+    # ★296: 2열 병기 헤더 행 제거(행명이 이미 `(질병 I 상해)` 순서 표현). 첫 종수술 행 라벨 메모로만 안내.
+    ws.cell(row=track_row_of("tier_surgery_1"), column=col_name0).comment = Comment(
         "2열 병기: 좌=질병 · 우=상해 (종수술 1~5종 · 간병인 동일). 종별 미확인(표준환산)은 병합 셀에 합계.", "BohumFit")
 
     # ── 비고 블록 ───────────────────────────────────────────────────────
@@ -680,7 +666,7 @@ def _sheet_final(ws, analysis: dict, before: dict, after_before: dict | None) ->
 
 
 def build_workbook_bytes(analysis: dict, generated_at=None) -> bytes:
-    """분석 dict([전]만 또는 전후 비교 결과) → 49행 수기표 양식 4시트 xlsx 바이트.
+    """분석 dict([전]만 또는 전후 비교 결과) → 52행 수기표 양식 4시트 xlsx 바이트.
 
     BOHUMFIT-291(S3): 표지(세로) · 컨설팅 전 · 컨설팅 후 · 최종. ★값은 S2 집계 그대로.
     """

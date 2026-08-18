@@ -41,7 +41,7 @@ from coverage.constants import (
 # ── ① 골격 ────────────────────────────────────────────────────────────────
 def test_row_count_and_order_match_the_manual_tables():
     """★42행·순서까지 수기표와 같다 — 순서가 어긋나면 산출물 행이 밀린다."""
-    assert STANDARD_COUNT_V2 == 49  # ★289: 암 7→11행 · 290: +유사암수술·다빈치특정암·순환계 치료비
+    assert STANDARD_COUNT_V2 == 52  # ★296: 49 + N대수술비 최대 보상금액·3대비급여실손·교통사고처리지원금(6주미만) 3행
 
 
 def test_eleven_groups_in_sheet_order():
@@ -66,7 +66,7 @@ def test_every_row_belongs_to_a_declared_group_and_groups_are_contiguous():
 def test_row_ids_are_unique_and_ascii():
     """★`row_id`는 표시명과 분리된 안정 키다 — 표기가 흔들려도 코드가 안 흔들리게."""
     ids = [row.row_id for row in KB_COVERAGES_V2]
-    assert len(set(ids)) == 49
+    assert len(set(ids)) == 52  # ★296: +3행
     for row_id in ids:
         assert row_id.isascii() and row_id.islower(), row_id
 
@@ -127,8 +127,9 @@ def test_appendix_holds_exactly_the_confirmed_items():
 
     289에서 `장기요양간병비`·`경증치매진단`이 보류 → 부록으로 확정됐다(Human).
     """
+    # ★296: `3대비급여실손`은 정규 행으로 이관돼 부록에서 빠졌다. `고액암`·`경증치매진단`은 비고 유지(Human 확정).
     assert APPENDIX_ITEMS_V2 == (
-        "고액암", "3대비급여실손", "보철치료비", "화재벌금",
+        "고액암", "보철치료비", "화재벌금",
         "장기요양간병비", "경증치매진단",
     )
     appendix = {name for name, target in LEGACY_TO_V2.items() if target == LEGACY_APPENDIX_V2}
@@ -166,7 +167,7 @@ def test_new_rows_are_the_ones_without_a_legacy_source():
     판정 기준은 287 그대로 — "구 40행 이름을 하나라도 별칭으로 갖는가"다.
     별칭이 비었는지로 세면 종수술 5행(파서·238 환산 라벨을 가짐)을 놓친다.
     """
-    assert len(NEW_ROWS_V2) == 19  # 290: +유사암수술·다빈치특정암·순환계 치료비
+    assert len(NEW_ROWS_V2) == 21  # 296: +N대수술비 최대 보상금액·교통사고처리지원금(6주미만)(3대비급여실손은 구 이름 보유)
     assert set(NEW_ROWS_V2) == {
         "tier_surgery_1", "tier_surgery_2", "tier_surgery_3", "tier_surgery_4", "tier_surgery_5",
         "cancer_minor_surgery", "cancer_surgery_davinci", "cancer_surgery_davinci_specific",
@@ -174,6 +175,7 @@ def test_new_rows_are_the_ones_without_a_legacy_source():
         "radio_imrt", "radio_proton", "radio_carbon", "circulatory_treatment",
         "inpatient_private_room", "death_general", "disability_80",
         "fracture_surgery", "cast_treatment",
+        "major_n_surgery", "driver_settlement_6w",  # 296
     }
 
 

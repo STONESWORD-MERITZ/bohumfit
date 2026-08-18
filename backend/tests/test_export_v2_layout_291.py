@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""BOHUMFIT-291(S3) — 산출물 49행 양식(엑셀·PDF) 계약.
+"""BOHUMFIT-291(S3)·296 — 산출물 52행 양식(엑셀·PDF) 계약.
 
 ★S2 값 계층은 동결이다. 이 파일이 고정하는 것은 **모양**과 **값 무변경 증명**이다.
   ①시트 4개(표지·컨설팅 전·컨설팅 후·최종) · 행명 49개 = V2 스키마 문자열 · 회사당 2열
@@ -247,7 +247,7 @@ def test_pdf_dual_cell_stage_rows_l_prefix_and_no_yn_block():
     assert "심장말기" not in html                                          # 구 3단 폐기
     assert "가입특약 Y/N</h3>" not in html                                # 별도 Y/N 블록 없음
     assert "[가입 Y]" in html and f"[{SUM_EXCLUDED_NOTE_V2}]" in html      # 행 안 태그
-    assert "49행 밖 담보 — 정보 보존" in html                              # 비고 블록
+    assert "52행 밖 담보 — 정보 보존" in html                              # 비고 블록
     assert 'class="chunk-caption"' not in html or html.count('<th rowspan="2">담보</th>') >= 1
 
 
@@ -261,6 +261,8 @@ def test_new_workbook_row_names_match(tmp_path=None):
     ours = workbook(_result(RICH, RICH_EXTRA))
     assert manual.sheetnames[1:3] == [SHEET_BEFORE, SHEET_AFTER]
     manual_rows = [str(manual[SHEET_BEFORE].cell(row=r, column=3).value).strip() for r in range(7, 53)]
-    added = {"유사암 수술", "다빈치 특정암", "순환계 치료비"}
+    # 290 추가 3행 + ★296 추가 3행(비고 이관·N대수술비)은 수기 46행에 없으므로 대조에서 뺀다.
+    added = {"유사암 수술", "다빈치 특정암", "순환계 치료비",
+             "3 대 비 급 여 실 손", "N대수술비 최대 보상금액", "형사합의금(6주미만)"}
     ours_rows = [ours[SHEET_BEFORE].cell(row=row_of(r.row_id), column=COL_NAME).value for r in KB_COVERAGES_V2]
     assert [x for x in ours_rows if x not in added] == manual_rows

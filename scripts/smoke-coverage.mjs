@@ -17,13 +17,13 @@ import { join, resolve } from "node:path";
 const ROOT = resolve(import.meta.dirname, "..");
 const PDF_DIR = join(ROOT, "보장분석", "비교분석표");
 
-/** verify.md "스모크 정본 세트" 기준값(BOHUMFIT-292 Human ① 승인 · 갱신 시 verify.md와 함께 수정). */
+/** verify.md "스모크 정본 세트" 기준값(BOHUMFIT-296 Human Q6 재승인 · 갱신 시 verify.md와 함께 수정). */
 const BASELINE = [
   {
     label: "표준(계약별 매트릭스)",
     file: globSync("*-INPUT.pdf", { cwd: PDF_DIR })[0] ?? "__missing-standard.pdf",
     contracts: 15,
-    coverageRows: 57,
+    coverageRows: 59,
     enrolled: 29,
     total: 614_860_000,
     monthly: 681_312,
@@ -37,7 +37,7 @@ const BASELINE = [
     contracts: 15,
     coverageRows: 59,
     enrolled: 42,
-    total: 1_501_690_000,
+    total: 1_500_690_000,
     monthly: 4_675_189,
     monthlyActive: 4_675_189,
     overviewRows: 25,

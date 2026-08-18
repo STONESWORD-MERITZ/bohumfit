@@ -166,9 +166,9 @@ def test_classify_extra_skips_class_only_burn_line():
     ("name", "expected"),
     [
         # BOHUMFIT-234 재계산: 구 N대수술비 4,090만에는 5대장기이식 3,000만이 과포섭돼 있었다.
-        # BOHUMFIT-237 C: 원문 N 병기(112대) + 5대골절수술비 50만은 골절수술비로 분리
-        # (N 병기에 골절 N 혼입 방지) → N대 = 112대 6건 1,040만.
-        ("N대수술비(112대)", 1040 * MAN),
+        # BOHUMFIT-237 C: 원문 N 병기(112대) + 5대골절수술비 50만은 골절수술비로 분리(N 병기에 골절 N 혼입 방지).
+        # ★BOHUMFIT-296: N대수술비는 정규 행 `N대수술비 최대 보상금액`으로 이관 — 112대 6건(500·300·100·50·50·40) → **max 500만**.
+        ("N대수술비 최대 보상금액", 500 * MAN),
         ("골절수술비", 50 * MAN),
         ("장기이식수술비", 3000 * MAN),
         # 구 화상 6,000만에는 담보명 없는 상품명 라인(중대화상진단 분류 5,000만)이
@@ -184,7 +184,9 @@ def test_extra_coverages_summary(name, expected):
     # BOHUMFIT-246 → 290: 화상류·N대수술 등 비항목은 **비고행**(구 기타)에 값 불변 보존.
     #   골절수술비는 290에서 V2 정식 행(골 절)으로 승격됐다.
     from coverage.v2_mapping import GROUP_APPENDIX_V2
-    expected_group = "골 절" if name == "골절수술비" else GROUP_APPENDIX_V2
+    # ★296: 골절수술비→골 절 · N대수술비→수 술(정규 행) · 그 외 비항목은 비고행 보존.
+    _regular_group = {"골절수술비": "골 절", "N대수술비 최대 보상금액": "수 술"}
+    expected_group = _regular_group.get(name, GROUP_APPENDIX_V2)
     assert _cov(before, name)["group12"] == expected_group
     assert _cov(before, name)["agg"] == "sum"
 

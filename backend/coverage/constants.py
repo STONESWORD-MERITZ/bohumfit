@@ -73,7 +73,7 @@ KNOWN_INSURERS = (
 )
 
 # ★BOHUMFIT-293(층위 2 정리) — 이 표의 **역할이 바뀌었다**. 더 이상 "산출물 양식 40행"이 아니다.
-#   49행 V2(`KB_COVERAGES_V2`)가 **유일한 산출물 스키마**이고(286~292), 이 표는 아래 둘로만 남는다.
+#   52행 V2(`KB_COVERAGES_V2`)가 **유일한 산출물 스키마**이고(286~296), 이 표는 아래 둘로만 남는다.
 #     ① **KB 원문 담보명 사전** — `_BY_DESPACE` → `match_coverage`/`match_coverage_span`/`coverage_meta`.
 #        parser.py·proposal_parser.py가 PDF 원문 담보명을 정식명으로 정규화할 때 쓴다(정식명 = `meta[0]`).
 #        `agg` 필드는 `v2_mapping._LEGACY_AGG` → `ROW_AGG`로 흘러 **V2 행의 sum/rep을 정한다**(실손 rep).
@@ -479,7 +479,7 @@ def davinci_label(compact_name: str) -> str:
 #   ★S1 원칙(287): 위쪽 `KB_COVERAGES`·`GROUP12`·`KB_NAME_ALIASES`는 **한 글자도 바꾸지 않는다.**
 #     배선은 S2(집계)·S3(산출물)·S4(매칭)에서 했다. ★BOHUMFIT-293에서 배선이 끝난 지금도 이 원칙은
 #     그대로 유효하다 — 세 상수는 이제 **파서 사전·구 페이로드 축**이라 바뀌면 파싱 결과가 달라진다.
-#     아래 V2 49행이 **유일한 산출물 스키마**다(구 40행 양식 상수는 293에서 제거됨).
+#     아래 V2 52행이 **유일한 산출물 스키마**다(구 40행 양식 상수는 293에서 제거됨).
 #
 #   ★Human 확정(286-D Q1~Q9, 재검토 금지)
 #     Q1 40행 → 42행 전면 교체        Q2 80% 행은 신설하되 **합계 제외 + 미포함 표기**(243 유지)
@@ -520,6 +520,8 @@ class CoverageRowV2(NamedTuple):
 
 KB_COVERAGES_V2: tuple[CoverageRowV2, ...] = (
     # ── 실 비 (Q5: 실손 Y/N 판정 원천) ───────────────────────────────────────
+    # BOHUMFIT-296: 비고 → 정규 행 이관(Human 확정) — 실손 대분류 상단(입원 위). 구 appendix(rep) 유지.
+    CoverageRowV2("actual_3major_nonpay", "실 비", "3 대 비 급 여 실 손", aliases=("3대비급여실손",)),
     CoverageRowV2("actual_inpatient", "실 비", "상 해/질 병 입 원", yn_source=True,
                   aliases=("상해입원의료비", "질병입원의료비")),
     CoverageRowV2("actual_outpatient", "실 비", "상 해/질 병 통 원 약 제", yn_source=True,
@@ -537,6 +539,9 @@ KB_COVERAGES_V2: tuple[CoverageRowV2, ...] = (
                   aliases=("N종수술비(질병 4종)", "N종수술비(상해 4종)", "일반종수술 4종(표준환산)")),
     CoverageRowV2("tier_surgery_5", "수 술", "5종 수술비 (질병 I 상해)", dual_column=True,
                   aliases=("N종수술비(질병 5종)", "N종수술비(상해 5종)", "일반종수술 5종(표준환산)")),
+    # BOHUMFIT-296: 신규 행(Human 확정) — 종수술 5종 하단·뇌혈관 수술비 상단. N값(124·132대) 무관하게 **최대 보상금액**
+    #   한 행으로 담는다(케스케이드 없음·독립·2열 아님). base 라벨 `N대수술비`로 라우팅(build_v2_rows) → 여러 건 max(REP).
+    CoverageRowV2("major_n_surgery", "수 술", "N대수술비 최대 보상금액", aliases=("N대수술비",)),
     CoverageRowV2("surgery_cerebral", "수 술", "뇌혈관 수술비", aliases=("뇌혈관수술", "뇌혈관수술비")),   # 292(S4·E): 상세 분리 라벨
     CoverageRowV2("surgery_cardiac", "수 술", "심장질환 수술비", aliases=("심혈관수술", "심혈관수술비")),  # 292(S4·E)
     # ── 암 (BOHUMFIT-289: 7행 → **11행** 재설계. 제품 오너 확정) ────────────
@@ -582,7 +587,7 @@ KB_COVERAGES_V2: tuple[CoverageRowV2, ...] = (
     CoverageRowV2("inpatient_disease", "입 원", "질 병 입 원", aliases=("질병입원",)),
     CoverageRowV2("inpatient_private_room", "입 원", "1 인 실 입 원"),
     # ★병합: 구 기타의 간병 2행 → 1행.
-    # BOHUMFIT-290(S2·Human): 간병인은 **상해|질병 2열 병기**(종수술과 같은 방식).
+    # BOHUMFIT-290(S2·Human)·296: 간병인은 **질병|상해 2열 병기**(종수술과 같은 방식).
     #   상해일당·질병일당 두 원천을 한 행에 합치지 않고 열로 나눈다.
     CoverageRowV2("caregiver", "입 원", "간 병 인", dual_column=True,
                   aliases=("간병인/간호간병상해일당", "간병인/간호간병질병일당")),
@@ -614,6 +619,8 @@ KB_COVERAGES_V2: tuple[CoverageRowV2, ...] = (
     # ── 운전자 (Q5 판정 원천) ───────────────────────────────────────────────
     CoverageRowV2("driver_settlement", "운전자", "형 사 합 의 금", yn_source=True,
                   aliases=("교통사고처리지원금",)),
+    # BOHUMFIT-296: 비고 → 정규 행 이관(Human 확정) — 형사합의금 하단. 구 EXTRA(sum) 유지. yn_source 아님(별도 담보).
+    CoverageRowV2("driver_settlement_6w", "운전자", "형사합의금(6주미만)", aliases=("교통사고처리지원금(6주미만)",)),
     CoverageRowV2("driver_lawyer", "운전자", "변 호 사 선 임", yn_source=True,
                   aliases=("변호사선임비용",)),
     CoverageRowV2("driver_fine", "운전자", "벌 금", yn_source=True,
@@ -626,8 +633,11 @@ STANDARD_COUNT_V2 = len(KB_COVERAGES_V2)
 
 #: Q4 + BOHUMFIT-289 — 46행에 자리가 없는 항목은 **비고행(부록)** 으로 내린다. 삭제는 정보 손실이다.
 #:   ★289에서 `장기요양간병비`·`경증치매진단` 2건이 보류에서 **부록으로 확정**됐다(Human).
+#: ★BOHUMFIT-296(Human 확정): `3대비급여실손`은 정규 행(actual_3major_nonpay)으로 이관돼 비고에서 빠졌다.
+#:   `고액암`·`경증치매진단`은 **비고 유지**(Human 스펙 확정 · 289 암 재설계로 고액항암치료 행 소멸·287 PENDING→Q4 확장).
+#:   남는 비고 7항목 = 아래 4 + 동적(양성종양·폴립·응급실) — 문서는 §대조표 참조.
 APPENDIX_ITEMS_V2: tuple[str, ...] = (
-    "고액암", "3대비급여실손", "보철치료비", "화재벌금",
+    "고액암", "보철치료비", "화재벌금",
     "장기요양간병비", "경증치매진단",
 )
 

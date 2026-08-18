@@ -138,5 +138,5 @@ def test_form_schema_is_v2_49_rows():
     from coverage.constants import GROUP12_V2, KB_COVERAGES_V2
     import coverage.export_excel as ex
 
-    assert len(KB_COVERAGES_V2) == 49 and len(GROUP12_V2) == 11
+    assert len(KB_COVERAGES_V2) == 52 and len(GROUP12_V2) == 11  # 296: +3행
     assert not hasattr(ex, "FORM_ITEMS") and not hasattr(ex, "YN_ROWS") and not hasattr(ex, "STAGE_ROWS")

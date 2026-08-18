@@ -29,7 +29,7 @@ from coverage.constants import (
     classify_extra,
     davinci_label,
 )
-from coverage.export_excel import DATA_ROW0, DUAL_HEADER_ROW, DUAL_ORDER, build_workbook_bytes, track_row_of
+from coverage.export_excel import DATA_ROW0, DUAL_ORDER, build_workbook_bytes, track_row_of
 from coverage.export_pdf import DUAL_ORDER as PDF_DUAL_ORDER
 from coverage.integrated_treatment import (
     MODE_MAJOR,
@@ -266,8 +266,8 @@ def test_split_labels_land_on_v2_rows_via_build_before():
     assert next(c for c in before["coverages"] if c["kb_name"] == "항암약물방사선")["summary"] == 500 * MAN
 
 
-# ── F. 2열 헤더 ──────────────────────────────────────────────────────────
-def test_excel_dual_header_row_and_caregiver_order_unified():
+# ── F. 2열 라벨 (★BOHUMFIT-296: 292 F 헤더 행 제거 · 행명이 열 순서 표현) ──────────────
+def test_excel_no_dual_header_row_and_caregiver_order_unified():
     import io
     import openpyxl
     from tests.test_export_v2_layout_291 import RICH, RICH_EXTRA, _result
@@ -276,15 +276,15 @@ def test_excel_dual_header_row_and_caregiver_order_unified():
     wb = openpyxl.load_workbook(io.BytesIO(build_workbook_bytes(result)))
     for sheet in ("컨설팅 전", "컨설팅 후"):
         ws = wb[sheet]
-        assert DUAL_HEADER_ROW == DATA_ROW0 + ROW_INDEX["tier_surgery_1"]
-        assert (ws.cell(row=DUAL_HEADER_ROW, column=6).value, ws.cell(row=DUAL_HEADER_ROW, column=7).value) == ("질병", "상해")
-        assert (ws.cell(row=DUAL_HEADER_ROW, column=8).value, ws.cell(row=DUAL_HEADER_ROW, column=9).value) == ("질병", "상해")
+        # ★296: 2열 헤더 행 제거 — 컨설팅 전/후도 최종 시트와 동일 좌표(DATA_ROW0 + 순서), 헤더 삽입 0.
+        assert track_row_of("tier_surgery_1") == DATA_ROW0 + ROW_INDEX["tier_surgery_1"]
+        assert track_row_of("surgery_disease") == DATA_ROW0 + ROW_INDEX["surgery_disease"]
         assert ws.cell(row=track_row_of("tier_surgery_1"), column=3).value == KB_COVERAGES_V2[ROW_INDEX["tier_surgery_1"]].display
-        assert track_row_of("tier_surgery_1") == DUAL_HEADER_ROW + 1
-        assert track_row_of("surgery_disease") == DATA_ROW0 + ROW_INDEX["surgery_disease"]   # 헤더 위 행은 그대로
+        # `2열 병기 (좌 | 우)` 라벨 셀·`질병|상해` 헤더 행이 없어야 한다.
+        for r in range(DATA_ROW0, DATA_ROW0 + len(KB_COVERAGES_V2)):
+            assert ws.cell(row=r, column=3).value != "2열 병기 (좌 | 우)"
         assert ws.page_setup.fitToWidth == 1
     assert DUAL_ORDER["caregiver"] == ("disease", "injury") == PDF_DUAL_ORDER["caregiver"]
     assert all(DUAL_ORDER[f"tier_surgery_{t}"] == ("disease", "injury") for t in range(1, 6))
-    # 최종 시트는 헤더 없음 — 담보 행 = DATA_ROW0 + 순서
     wsf = wb["최종"]
     assert wsf.cell(row=DATA_ROW0 + ROW_INDEX["tier_surgery_1"], column=3).value == KB_COVERAGES_V2[ROW_INDEX["tier_surgery_1"]].display

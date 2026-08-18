@@ -11,11 +11,11 @@ Codex 2차 검증에서야 발견됐다). 그때 잃어버릴 뻔한 규칙을 �
   ③ Q2 80% 메모      — `합계 미포함` 문구가 라벨 셀 메모에 남는다(243)
   ④ Q5 Y/N 메모      — yn_source 7행 라벨 메모에 `가입특약 Y/N`
   ⑤ L 접두(291)      — 케스케이드 하위 10행은 `최종` 시트에서만 `L ` 접두
-  ⑥ 2열 헤더(292)    — 종수술 바로 위 `질병 | 상해` 헤더 행 · 간병인도 같은 순서
+  ⑥ 2열 안내(296)    — 별도 헤더 행 없이 행명·메모로 `질병 | 상해` 순서 유지
   ⑦ 브랜드 색(250)   — 에메랄드 헤더+흰 글자 · 그린 티 대분류 선두 · 라임 특수행 · **빨강 미사용**
   ⑧ 인쇄 설정        — 컨설팅 전/후·최종 landscape·fitToWidth=1·fitToHeight=0 · 표지 portrait · 눈금선 off · 틀고정
   ⑨ PDF 고령 가독성  — 본문 13.5pt·line-height 1.65 · 회사 5개씩 분할 · 섹션 page-break · 2열 병기 한 칸
-  ⑩ 비고 블록        — 49행 밖 담보가 이름 그대로 보존된다
+  ⑩ 비고 블록        — 52행 밖 담보가 이름 그대로 보존된다
 
 ★이 파일은 서식만 본다. 값 단언은 291·292가 담당한다(중복 금지).
 """
@@ -40,7 +40,6 @@ from coverage.excel_style import AMBER_TX, EMERALD, EMERALD_SOFT, GREENTEA, LIME
 from coverage.export_excel import (
     CASCADE_CHILD_ROWS,
     DATA_ROW0,
-    DUAL_HEADER_ROW,
     DUAL_ORDER,
     SPECIAL_ROW_IDS,
     build_workbook_bytes,
@@ -129,10 +128,10 @@ def test_excel_format_contract(name):
 
     for sheet in (SHEET_BEFORE, SHEET_AFTER):
         ws = wb[sheet]
-        # ⑥ 2열 헤더(292)
-        assert (ws.cell(row=DUAL_HEADER_ROW, column=COL_SUM).value,
-                ws.cell(row=DUAL_HEADER_ROW, column=COL_SUM + 1).value) == ("질병", "상해")
+        # ⑥ 2열 라벨(★296: 292 F 헤더 행 제거 · 간병인 순서만 유지)
         assert DUAL_ORDER["caregiver"] == ("disease", "injury")
+        for r in range(DATA_ROW0, DATA_ROW0 + len(KB_COVERAGES_V2)):
+            assert ws.cell(row=r, column=COL_NAME).value != "2열 병기 (좌 | 우)"
         for spec in KB_COVERAGES_V2:
             row = track_row_of(spec.row_id)
             label = ws.cell(row=row, column=COL_NAME)
@@ -176,7 +175,7 @@ def test_excel_format_contract(name):
 
 @pytest.mark.parametrize("name", DOCS)
 def test_appendix_block_keeps_out_of_schema_names(name):
-    """⑩ 49행 밖 담보는 비고 블록에 **이름 그대로** 남는다(정보 보존 — 276a)."""
+    """⑩ 52행 밖 담보는 비고 블록에 **이름 그대로** 남는다(정보 보존 — 276a)."""
     result, wb = _built(name)
     extras = [c["kb_name"] for c in result["before"]["coverages"] if not c.get("row_id")]
     if not extras:
@@ -198,6 +197,6 @@ def test_pdf_readability_contract(name):
     companies = len(result["before"]["contract_list"])
     assert html.count('<th rowspan="2">담보</th>') >= max(1, -(-companies // COMPANY_CHUNK))
     assert f"[{SUM_EXCLUDED_NOTE_V2}]" in html                           # Q2 태그
-    assert "49행 밖 담보 — 정보 보존" in html                             # 비고 헤딩
+    assert "52행 밖 담보 — 정보 보존" in html                             # 비고 헤딩
     assert "가입특약 Y/N</h3>" not in html                                # 구 Y/N 블록 부활 금지
     assert "#FF0000" not in html.upper()                                 # 브랜드: 빨강 미사용

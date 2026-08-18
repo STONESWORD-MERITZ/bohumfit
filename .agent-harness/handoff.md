@@ -1,17 +1,371 @@
-## 2026-08-18 BOHUMFIT-295/295b — Codex 3차 검증 PASS · 단독 커밋/push 진행
+## 2026-08-18 BOHUMFIT-296/296b — Human Q6 재승인 반영 · Codex 2차 검증 PASS / 단독 커밋 대기
 
-Owner flow: Claude Chat → Claude Code → Codex → Human | Current owner: **Codex**(단독 커밋·push) / **Human**(프로덕션 육안)
+Owner flow: Claude Chat → Claude Code → Codex → Human | Current owner: **Codex**(296+296b 단독 커밋·push)
 
-- 루트 게이트 통과. 기준 HEAD/origin `59fca67`, 시작 `origin/main...HEAD` = `0 0`. 후속 미커밋분 298·296 문서가 같은 워킹트리에 존재함을 확인했고, 격리 worktree에서 **295/295b만** 검증·커밋 대상으로 구성했다.
-- ★반려 R1 재검증: (1) `CoverageRemodel` 네 useMemo를 종전 비대칭으로 복원, (2) 표시 헬퍼를 무조건 재산출로 교체, (3) stale 판정 제거 뮤테이션을 각각 직접 적용했다. 세 경우 모두 `CoverageRemodelWiring295.test.tsx`가 실패했고, 원복 뒤 집중 테스트 2/2 통과. `CoverageRemodel.tsx`는 뮤테이션 전 SHA-256 `B00C9D28…`로 바이트 복원, lib는 후속 298 동시 변경과 분리해 295 논리만 보존했다.
-- ★반려 R2 재검증: 신규 4파일과 diff 추가 줄을 실명·실파일명·연락처·주민번호·주소 패턴으로 전수 검사해 0건. 서버 불변식 테스트는 `_raw` 익명 합성만 사용한다. 기존 276b·286·290·291·292의 실명은 범위 밖으로 미수정.
-- 전체 게이트(295 단독): backend **1058 passed, 8 skipped**(1 warning) · frontend **412 passed / 42 files** · tsc app/node · lint · `smoke:coverage` PASS. `npm run build` 343,702 B, `build:verify`는 크기 하한·필수 문자열 누락의 **예상 FAIL**(248 확정 로컬 껍데기).
-- 산출물 무영향: 293 HEAD와 295 수정본에 정본 4문서를 각각 투입해 payload·PDF HTML·XLSX canonical hash **12/12 동일**. 원시 XLSX ZIP 바이트의 생성시각 차이는 `docProps/core.xml` 제외 정규화로 제거했다. 임시 산출물·검증 하네스는 삭제했다.
-- `npm run dev` 실브라우저: 로컬 제품 엔트리는 Supabase 환경변수 부재로 인증 E2E가 불가했다. 대신 격리 dev 서버에서 실제 `CoverageRemodel`을 익명 V2 페이로드로 렌더해 표준형·overview형 제안서 0건 모두 종합 7행과 Y/N 5항목 [전]=[후], 암 +1,410만 소거를 확인했다. 해지 시 stale 값 미복사, 익명 3제안 시 [후]가 [전] 복사가 아님을 확인했다. 실제 제안서 3건은 백엔드 직접 재파싱해 담보 31행 변화·월납 181,802→327,182를 확인했다. 브라우저 콘솔 오류 0. 실계정 E2E는 Human 프로덕션 육안으로 이관한다.
-- 보호 범위: backend 제품 코드·케스케이드·`compute_stage_totals`·49행 스키마·pipeline·filters·vite diff 0. 254·272 스프레드 누수 재발 0. 실 PDF·PII·수기 엑셀·생성 산출물 stage 0.
-- 기준선 3문서: backend **1058/8**, frontend **412/42**로 동기화. `verify.md`에 결함 지점 배선 뮤테이션 표준과 295의 410 오통과 선례가 유지됨.
+- Human 재승인 계약을 HEAD(`05c038f`) 격리 worktree와 현재 296 워킹트리로 다시 독립 대조했다. A 불변 / B −1,000,000 / C −11,700,000 / D −4,000,000이며, 전부 원시 N대수술비 복수 행의 계약별 `sum→max` 차이다.
+- 원시 N행 직접 계수: A 1건·합 2M·max 2M, B 8건·합 2M·max 1M, C 5건·합 21.7M·max 10M, D 9건·합 5M·max 1M. 이 차이가 각 총액 변화와 정확히 일치했다.
+- 3대비급여실손·6주미만은 비고→정규 행 이동 전후 대분류 합계·총액 보존, 2열 헤더 제거의 값 영향 0, 사유 없는 변화 0. 종수술비 합성 비고는 297 조사 전까지 유지했다.
+- smoke 기준값을 Human 재승인대로 표준 `coverageRows` 59, overview 총액 1,500,690,000으로 갱신한 뒤 PASS. 기준선 3문서는 backend **1065 passed, 8 skipped** / frontend **413 passed / 42 files**로 동기화했다.
+- 전체 게이트: backend **1065 passed, 8 skipped** · frontend **413 passed / 42 files** · tsc app/node · lint · smoke PASS. `npm run build` 343,702 B, `build:verify`는 248 확정 껍데기 거부로 예상 FAIL.
+- 실렌더 A~D: 엑셀 4시트(`표지(세로)`·`컨설팅 전`·`컨설팅 후`·`최종`)·52행·대분류 11·신규 3행 위치·2열 헤더 제거·간병인 질병|상해·fitToWidth=1 확인. PDF A/B/C/D 각각 18/19/12/16쪽, 행 잘림·우측 침범·261 차액 색상·FIT 팔레트 회귀 0. 실측 중 발견한 PDF 비고 표제의 과거 `49행 밖` 문구만 같은 범위 한 줄급으로 `52행 밖` 정합 보정하고 표적 31 tests 통과.
+- 보호 범위: pipeline·filters·compare·consulting·v2_mapping·compute_stage_totals·src·vite diff 0. 실 PDF·PII·수기 엑셀·생성 산출물 stage 0. 미추적 `BOHUMFIT-297-tier-split-audit.md`는 후속 문서라 이번 stage에서 제외한다.
 
-### 시작 상태 원문
+### 커밋 전 원문
+
+`git log --oneline -5`:
+
+```text
+05c038f feat(BOHUMFIT-298): 프런트 종합비교 V2 17키 이관(암 12행 표시·구 7키 폐기)
+3ec464b fix(BOHUMFIT-295): 제안서 없음 케이스 종합비교 회귀 — 표시 대칭화·stale 판정·배선 회귀 테스트
+59fca67 docs(BOHUMFIT-294): Codex 검증·push 결과 기록
+7b91bfd fix(BOHUMFIT-294): 카카오 복사문 중복 필드 생략(251 원문 충실화·4경로 동등성 유지)
+676e4b6 chore(BOHUMFIT-293): 층위 2 정리 — 구 40행 제거·서식 회귀 테스트·문서 정합(산출물 무변경)
+```
+
+`git rev-list --left-right --count origin/main...HEAD`:
+
+```text
+0\t0
+```
+
+### Next
+
+1. **Chat/Human** — 297 종수술 2열 조사 결과(종수술비 합성 라벨 기전·개별행/요약행 이중 계상)를 검토하고 값 정책을 확정.
+2. **Chat** — 297 결정 뒤 299(총납입 Q6) 진행.
+
+## 2026-08-18 BOHUMFIT-296b — Q6 대조표 오류 규명 완료 · Step 2(a) / Human 재승인 대기
+
+Owner flow: Claude Chat → Claude Code → Codex → Human | Current owner: **Human**(정정 Q6 B/C/D 총액 변화 재승인)
+
+- 296 구현은 되돌리지 않았고 제품 코드 추가 수정 0. HEAD `05c038f` 백엔드와 296 워킹트리를 같은 정본 A~D·기준일로 독립 재파싱했다.
+- 결론 **Step 2(a)**: 이관 손실·2열 헤더 영향 0, 사유 없는 변화 0. 총액 변화는 전부 원시 N대수술비 행의 계약별 `sum→max` 정정분이다.
+
+### 정정 Q6(익명)
+
+| 정본 | 원시 N행 | N 전→후 | 총액 전→후 | 월납 | 판정 |
+|---|---:|---:|---:|---:|---|
+| A | 1건 | 2M→2M | 614.86M→614.86M | 681,312 불변 | 단건 sum=max |
+| B | 8건 | 2M→1M | 1,501.69M→1,500.69M(**−1M**) | 4,675,189 불변 | N행만 변화 |
+| C | **5건** | 21.7M→10M | 410.66M→398.96M(**−11.7M**) | 181,802 불변 | N행만 변화 |
+| D | **9건** | 5M→1M | 480.44M→476.44M(**−4M**) | 488,294 불변 | N행만 변화 |
+
+### 오류 원인·검산
+
+- 기존 C `10M`·D `1M`은 **296 적용 후 max 값**이며 HEAD 전 sum 스냅샷이 기존 표·테스트에 없었다. 후값을 전값으로도 취급해 불변으로 기록했다.
+- parser의 `n_values`는 중복 제거된 N **종류 목록**이다. C `[119]`·D `[2,142]`를 담보 건수처럼 해석할 수 없는데 기존 표가 이를 단건으로 오판했다. 원시 상세 행 직접 계수는 C 5건·D 9건이다.
+- 대분류 이동: A 비고 −2M/수 술 +2M, B 비고 −21M/수 술 +1M/실 비 +9M/운전자 +10M, C 비고 −21.7M/수 술 +10M, D 비고 −5M/수 술 +1M. B의 3대비급여 9M·6주미만 10M은 값 그대로 이동했다.
+- 기존 `test_relocation_preserves_value_and_group_total`에 정본 A~D 자동 검산을 연결했다. PII 파일명 없이 구조로 식별하고 원시 N행 수·sum·max·총액·월납·이관값을 함께 단언한다. 실 PDF 없는 CI에서는 기존 익명 합성 검산을 유지해 테스트 수 기준선은 변하지 않는다.
+
+### 게이트
+
+- backend **1065 passed, 8 skipped** · frontend **413 passed / 42 files** · tsc app/node · lint 통과.
+- `npm run smoke:coverage`: 예상 FAIL 2건이 정정 표와 일치 — A `coverageRows` 57→59, B `total` 1,501,690,000→1,500,690,000. smoke 기준값은 지시대로 미갱신.
+- `npm run build` 343,702 B · `build:verify` 기존 확정 껍데기 거부 예상 FAIL.
+- pipeline·filters·compare·consulting·src·vite diff 0. 295/295b/298·케스케이드·`compute_stage_totals`·종수술비 비고 무접촉. 실 PDF·PII·생성 산출물 저장/stage/git 쓰기 0.
+
+### Next
+
+1. **Human** — 정정 Q6 승인: B −1M뿐 아니라 C −11.7M·D −4M도 N대수술비 복수 행 sum→max의 승인 대상인지 확정.
+2. **Codex** — 승인 후 smoke BASELINE·verify 기준값 갱신, 296+296b 합산 전체 재검증·커밋.
+3. **Chat/Human** — 297의 종수술비 개별행/요약행 이중계상은 별도 값 정책으로 유지해 후속 결정.
+
+## 2026-08-18 BOHUMFIT-298 Codex 2차 검증·커밋 완료 / BOHUMFIT-296 Q6 범위 초과 반려
+
+Owner flow: Claude Chat → Claude Code → Codex → Human | Current owner: **Claude Code/Human**(296 N대수술비 max 정책 재결정)
+
+### BOHUMFIT-298 — PASS
+- 커밋 `05c038f` — `feat(BOHUMFIT-298): 프런트 종합비교 V2 17키 이관(암 12행 표시·구 7키 폐기)`, `origin/main` push 완료.
+- 격리 worktree에서 뮤테이션 3종(구 7키 복원·헬퍼 무조건 재산출·`LEGACY_TO_V2_ROW_ID` 투영 제거)을 각각 심어 모두 테스트 실패를 확인하고 바이트 단위 원복했다. 원복 후 targeted 17 passed.
+- 실측 게이트: frontend **413 passed / 42 files** · tsc app/node · lint · backend **1058 passed, 8 skipped** · 정본 smoke PASS(표준 614,860,000/681,312, overview 1,501,690,000/4,675,189). `npm run build` 343,702 B, `build:verify`는 기존 확정 이슈와 같은 껍데기 거부로 예상 FAIL.
+- 295/295b 배선·stale 판정 보존, 데스크톱·모바일 `STAGE_ROWS` 단일 소스, 구 payload 투영 실패 시 미기여를 테스트로 확인. 296 백엔드·297 문서는 stage 0.
+
+### BOHUMFIT-296 — BLOCKED(커밋 0)
+- Human 승인 대조표를 로컬 정본 A~D로 HEAD(`3ec464b`)와 독립 재현했다. 정본 A와 B는 승인값과 일치했으나, **정본 C·D도 N대수술비 복수 건**이라 총액이 변해 "A·C·D 총액 불변" 계약을 위반했다.
+  - A: 총액 614,860,000→614,860,000, N대수술비 2,000,000→2,000,000, 월납 681,312 불변.
+  - B: 총액 1,501,690,000→1,500,690,000(**−1,000,000**), N대수술비 2,000,000→1,000,000, 월납 4,675,189 불변 — 승인 범위와 일치.
+  - **C: 총액 410,660,000→398,960,000(−11,700,000)**, N대수술비 21,700,000→10,000,000, 월납 181,802 불변.
+  - **D: 총액 480,440,000→476,440,000(−4,000,000)**, N대수술비 5,000,000→1,000,000, 월납 488,294 불변.
+- 원인: parser의 N대수술비 계약별 `sum`→`max` 전환이 B뿐 아니라 C·D의 복수 N 담보에도 직접 적용된다. C·D의 유일 변경 행은 N대수술비였다. 기존 296 문서/상단 기록의 "정본C·D 단건 → 불변" 판정은 실측과 불일치하므로 폐기한다.
+- 296 focused/갱신 테스트 141 passed였지만 승인 범위 밖 값 변화가 있어 fail-fast. BASELINE·verify 기준값은 갱신하지 않았고 296 코드·테스트·문서는 워킹트리에 그대로 보존했다. 이 값 정책은 검증자가 임의 수정할 수 없어 Claude Code/Human 회송.
+
+### push 직후 원문
+
+`git log --oneline -5`:
+
+```text
+05c038f feat(BOHUMFIT-298): 프런트 종합비교 V2 17키 이관(암 12행 표시·구 7키 폐기)
+3ec464b fix(BOHUMFIT-295): 제안서 없음 케이스 종합비교 회귀 — 표시 대칭화·stale 판정·배선 회귀 테스트
+59fca67 docs(BOHUMFIT-294): Codex 검증·push 결과 기록
+7b91bfd fix(BOHUMFIT-294): 카카오 복사문 중복 필드 생략(251 원문 충실화·4경로 동등성 유지)
+676e4b6 chore(BOHUMFIT-293): 층위 2 정리 — 구 40행 제거·서식 회귀 테스트·문서 정합(산출물 무변경)
+```
+
+`git status --short -uall`:
+
+```text
+ M .agent-harness/handoff.md
+ M .agent-harness/locks.md
+ M backend/coverage/aggregator.py
+ M backend/coverage/constants.py
+ M backend/coverage/export_excel.py
+ M backend/coverage/parser.py
+ M backend/tests/test_coverage_export_fix_272.py
+ M backend/tests/test_coverage_group_183.py
+ M backend/tests/test_coverage_parser_179b.py
+ M backend/tests/test_coverage_staff_237.py
+ M backend/tests/test_export_v2_layout_291.py
+ M backend/tests/test_format_regression_293.py
+ M backend/tests/test_schema_v2_287.py
+ M backend/tests/test_schema_v2_rev46_289.py
+ M backend/tests/test_schema_v2_s4_matching_292.py
+?? .agent-harness/tasks/BOHUMFIT-296-remark-relocation.md
+?? .agent-harness/tasks/BOHUMFIT-297-tier-split-audit.md
+?? backend/tests/test_remark_relocation_296.py
+```
+
+`git rev-list --left-right --count origin/main...HEAD`:
+
+```text
+0\t0
+```
+
+### Next
+1. **Claude Code/Human** — 정본 C·D의 복수 N대수술비에도 max를 적용해 각각 −11.7M/−4M을 승인할지, 또는 상품/문서별 합산 규칙을 보강할지 결정 후 296 대조표·테스트·smoke 기준값을 정정.
+2. **Codex** — 정정된 296을 전체 게이트·4문서 대조 후 두 번째 커밋으로 처리.
+3. **Chat/Human** — 297 종수술 2열 조사 결과(개별행/요약행 이중 계상 포함)와 함께 값 정책을 검토한 뒤 299로 진행.
+
+## 2026-08-18 BOHUMFIT-297 종수술 2열 미분리·종수술비 1~5종 미반영 기전 조사 · 완료 (★코드 0)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human**(수정 방향 결정 4건)
+기준 HEAD `3ec464b`. git 쓰기 0 · 실 PDF 읽기 전용·stage 0 · PII 0(라벨만). 상세: tasks/BOHUMFIT-297-tier-split-audit.md. 코드 diff 0.
+
+### ★핵심 판정 — item 5(종수 미반영)와 item 1(종별 미분리)은 **같은 뿌리**
+- 기전: 심평원 종수술 담보는 담보명에 **종별(질병/상해)+종수(N종)**를 담는다(예 `상해1-5종수술비Ⅲ(3종)`).
+  파서가 `\d+종수술`로 잡아 label="종수술비" → `has_explicit_tier`가 `(N종)` 마커로 True → 238 환산을 건너뛰지만,
+  **`(N종)`을 tier_surgery_N으로 라우팅하는 코드가 없어** bare "종수술비" 한 라벨에 전부 누적. `(3종)`도 `상해`도 둘 다 소실.
+- → 같은 라인이 종수·종별을 동시에 잃는다. 파서가 이 형식을 tier 행+종별 열로 라우팅만 하면 **item 1·5 동시 해소**. 별개 아님.
+
+### 실측(익명)
+- 정본C(표준형): `질병1-5종수술비Ⅱ(1~5종)` 5행 → 전부 explicit True → **tier 전부 빈칸 · bare 종수술비 21.5M**(item 5 순수 사례).
+- 정본B(overview형): 개별행(`(N종)`, explicit True → bare) + `…기타인보험(정액)담보` 요약행(explicit False → 238 환산 → tier).
+
+### ★★부수 발견 — 이중 계상(기존 결함 · 296 이전)
+정본B는 **같은 종수술 상품**이 개별행(→bare 종수술비) + 요약행(→238 환산 tier)으로 **이중 표현**된다. 296이 만든 게 아니라 파서 원 결함.
+
+### ★종수술비 비고 제거(296 보류분) 답 — **조건부 가능**
+A(파서 `(1-5종)(N종)`→tier+열) + B(개별행 vs 요약행 이중 계상 정리) + C(6종 이상 N>5 처분)를 **함께** 구현하면 제거 가능.
+A만으로는 6종 이상·요약행 잔여로 불완전.
+
+### Human 결정 4건
+1. 파서 갭 수정(A) 착수 여부(값 계층 변경 → Q6 · 별도 태스크). 2. 이중 계상 정리 방향(B: 개별행 vs 요약행 우선). 3. 6종 이상 처분(C). 4. 확정 후 종수술비 비고 제거.
+
+### Next
+1. **Human** — 수정 방향 4건 결정. 결정 시 파서 수정 태스크(값 계층·Q6) 발행.
+2. **Codex** — 297 문서 커밋(docs · 코드 0).
+3. **Chat** — (296 Q6 승인 후) 296 기준값 갱신 · 299(총납입) 발행 · 파서 수정 태스크(A+B+C).
+
+## 2026-08-18 BOHUMFIT-296 비고 정규 행 이관·N대수술비 신설(52행)·2열 라벨 정리 · 구현 완료 / Q6 승인 대기 (주간)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human**(Q6 smoke 승인 + 결정 3건) → **Codex**(승인 후 기준값 갱신·커밋)
+기준 HEAD `3ec464b`(295 커밋). 298 미커밋분 위(프런트 무접촉). git 쓰기 0 · 실 PDF stage 0 · 신규 파일 PII 0. 상세·대조표: tasks/BOHUMFIT-296-remark-relocation.md.
+★야간이 남긴 중단 판정을 Human이 스펙 충돌 해소(남는 비고 7항목) 후 주간 구현.
+
+### 무엇을 했나 (백엔드 전용)
+- **스키마 49→52행**: N대수술비 최대 보상금액(종수술 5종 하단)·3대비급여실손(실비 상단)·교통사고처리지원금(6주미만)(형사합의금 하단). 대분류 11 불변.
+- **N대수술비**: 비고 → 정규 행(major_n_surgery) · N값 병기 폐기 · **여러 건이면 최대 보상금액(max)**(파서 REP).
+- **3대비급여실손(rep)·6주미만(sum)** 정규 행 이관 · 비고 제거. **2열 병기 (좌 | 우) 라벨·헤더 행 제거**(292 F) · track_row_of 단순화 · 간병인 질병|상해 유지.
+- 프런트 무접촉 — 서버 payload를 그대로 렌더, 종합비교 17키(298)는 신규 행이 케스케이드 밖이라 무영향.
+
+### ★★Human 확인·결정 3건
+1. **행 수 52(패킷 "50"과 불일치)** — 3대비급여실손·6주미만이 현행 상수에 자리가 없어(전부 appendix) 신규 행이 됐다. 패킷 "없으면 행 신설 판단·기록" 조항 적용.
+2. **종수술비 비고 유지** — ★Step 6 선결: 값이 1~5종에 반영 안 됨(정본B tier 전부 빈칸인데 종수술비 21.5M) → 패킷 "반영 안 됐으면 삭제하지 말고 기록" 조항대로 삭제 안 함. → "남는 비고 정확히 7항목"은 종수술비 있는 문서에서 8항목.
+3. **6종 이상 담보** — 4문서 관측 0 · 전수는 실 데이터 한계로 **확인 불가**.
+
+### ★★Q6 대조표 — smoke 기준값 미갱신 · 승인 대기
+★유일한 값 변화 = **N대수술비 sum→max**. 이관분은 대분류 합계에 값 보존(총액 불변).
+- 표준(정본A) `coverageRows` 57→**59**(N대수술비 정규 행화 + 신규 행 노출) · 총액 불변.
+- overview(정본B) `total` 1,501,690,000→**1,500,690,000**(N대수술비 복수 건 sum 2M→max 1M · −1,000,000). 3대비급여 9M·6주미만 10M 이관은 값 보존.
+- 정본C·D 단건 N대수술비 → 불변.
+smoke **예상 FAIL 2건**(대조표와 일치). Human 승인 후 Codex가 BASELINE·verify.md 갱신(이 태스크 갱신 금지).
+
+### 게이트
+backend **1065/8**(1058 + 신규 296 테스트 7 · 회귀 0) · `npm test` 413/42 무변경(백엔드 전용) · tsc · lint ·
+★smoke 예상 FAIL 2건(기준값 미갱신·대조표 일치) · 케스케이드·compute_stage_totals·pipeline·filters·vite diff 0 · 295/298 무접촉. build:verify 예상 FAIL(248).
+기존 테스트 9파일 갱신(52행·N대수술비 max·2열 헤더 제거의 직접 귀결) + 신설 test_remark_relocation_296.py 7건.
+
+### Next
+1. **Human** — Q6 smoke 승인(대조표 확인) + 결정 3건(행 수 52·종수술비 존치·6종 이상). 승인 시 Codex가 기준값 갱신.
+2. **Codex** — ★295b→298→296 순서 분리 커밋. 296은 승인 후 BASELINE·verify 갱신 포함.
+3. **Chat** — 297(종수술 2열 조사 — 296 50행 구조 전제, 이제 52행)·299(총납입) 발행.
+
+## 2026-08-18 BOHUMFIT-295/295b — Codex 3차 검증 PASS · 단독 커밋/push 완료
+
+Owner flow: Claude Chat → Claude Code → Codex → Human | Current owner: **Human**(프로덕션 육안) / **Codex**(후속 298·296·297·299 순차 리뷰)
+
+- 커밋 `3ec464b` — `fix(BOHUMFIT-295): 제안서 없음 케이스 종합비교 회귀 — 표시 대칭화·stale 판정·배선 회귀 테스트`, `origin/main` push 완료. 295+295b만 포함했고 후속 298·296 변경은 워킹트리에 보존했다.
+- 반려 R1: useMemo 비대칭 복원·헬퍼 무조건 재산출·stale 판정 제거 **뮤테이션 3종 모두 실패 검출**, 원복 후 배선 테스트 통과. R2: 신규 4파일·추가 줄 PII 0.
+- 실측: backend **1058 passed, 8 skipped** · frontend **412 passed / 42 files** · tsc app/node · lint · smoke PASS · build 343,702 B / build:verify 예상 FAIL. 정본 4문서 payload·PDF HTML·XLSX canonical hash **12/12 동일**.
+- dev 실브라우저 대체 검증: 실제 `CoverageRemodel`에서 표준형·overview형 제안서 0건 종합/Y/N [전]=[후], 암 +1,410만 소거, 해지 stale 미복사, 익명 3제안 시 [후] 비복사를 확인. 실제 제안서 3건은 백엔드 재파싱으로 담보 31행 변화·월납 181,802→327,182 확인. 로컬 제품 엔트리는 Supabase 환경변수 부재라 실계정 E2E는 Human 프로덕션 육안으로 이관.
+- 보호 범위·stage: backend 제품 코드·케스케이드·49행·pipeline·filters·vite diff 0, 실 PDF·PII·수기 엑셀·생성 산출물 0. 임시 worktree/하네스 산출물 삭제 예정.
+
+### push 직후 원문
+
+`git log --oneline -5`:
+
+```text
+3ec464b fix(BOHUMFIT-295): 제안서 없음 케이스 종합비교 회귀 — 표시 대칭화·stale 판정·배선 회귀 테스트
+59fca67 docs(BOHUMFIT-294): Codex 검증·push 결과 기록
+7b91bfd fix(BOHUMFIT-294): 카카오 복사문 중복 필드 생략(251 원문 충실화·4경로 동등성 유지)
+676e4b6 chore(BOHUMFIT-293): 층위 2 정리 — 구 40행 제거·서식 회귀 테스트·문서 정합(산출물 무변경)
+6efce30 docs(BOHUMFIT-292): Codex 검증·push 결과 기록
+```
+
+`git status --short -uall`(295 커밋 반영 후, 후속 작업분만):
+
+```text
+ M .agent-harness/handoff.md
+ M .agent-harness/locks.md
+ M src/components/CoverageInsightBlocks.test.tsx
+ M src/components/CoverageInsightBlocks.tsx
+ M src/lib/coverageAfterDisplayCache.ts
+ M src/lib/coverageNewTaxonomyDisplay.test.ts
+ M src/pages/CoverageRemodelWiring295.test.tsx
+?? .agent-harness/tasks/BOHUMFIT-296-remark-relocation.md
+?? .agent-harness/tasks/BOHUMFIT-298-frontend-v2.md
+```
+
+`git rev-list --left-right --count origin/main...HEAD`:
+
+```text
+0	0
+```
+
+### Next
+
+1. **Codex** — 야간 298·296·297·299 handoff 리뷰 후 순차 분리 커밋(현재 298 완료, 296 Human 결정 대기 중단, 297·299 미시작).
+2. **Human** — 프로덕션에서 표준형·overview형 제안서 0건 종합비교/Y/N, 3제안, 해지 즉시 반영 육안 확인.
+
+## 2026-08-18 BOHUMFIT-296 ★중단 판정 — 실측·계획만(코드 diff 0) · 297/299 미시작 (야간 순차 2/4)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human**(스펙 충돌 결정 1건 + Q6 승인)
+기준 HEAD `59fca67`. git 쓰기 0 · 실 PDF stage 0 · PII 0(문서 라벨 익명). 상세: tasks/BOHUMFIT-296-remark-relocation.md.
+
+### ★왜 중단했나 (세 가지 겹침)
+1. **49→50 값 계층 스키마 변경** — `KB_COVERAGES_V2`에 `N대수술비 최대 보상금액` 신설 + 비고 2건(3대비급여실손·
+   교통사고처리지원금(6주미만))을 정규 행으로 이관 → `ROW_INDEX`가 밀려 export 레이아웃·smoke 프로브·값 대조가 전부 이동.
+   **테스트 blast radius 29파일**(291급 풀세션 규모).
+2. **smoke 기준값 변화(Q6 필수)** — 비고 이관은 대분류 합계에 값을 더한다(현재 비고는 합계 제외). 정본 총액·행수·귀속률이
+   바뀌므로 대조표→Human 눈 승인→Codex 기준값 갱신이 필요. 무인 세션에서 "완료" 불가.
+3. **★스펙 충돌(추측 금지)** — 패킷 "남는 비고" 목록(장기요양간병비·보철치료비·화재벌금·양성종양폴립·응급실)이
+   현행 `APPENDIX_ITEMS_V2`의 `고액암`·`경증치매진단`을 누락. 이관/삭제 지시도 없다 → Human 결정 없이 진행 불가.
+
+★야간 무인에서 29개 테스트를 깨진 채 남길 위험 + 추측 금지 + Human 결정 필요 → 코드 변경 0으로 **실측·계획·충돌만 문서화**했다.
+
+### Step 1 실측(완료)
+- 삽입 지점 확정: N대수술비 index 9(종수술5종 하단·뇌혈관 수술비 상단) · 3대비급여실손 index 0(실비 상단) · 6주미만 index 46(형사합의금 하단).
+- 이관 대상 4건 전부 현행 appendix · 실 문서(익명)에서 `N대수술비(32/124/119/2·142대)`·`3대비급여실손`·`6주미만`·`종수술비` 관측 → 실 데이터 뒷받침.
+- 2열 헤더 구조물: `export_excel.DUAL_HEADER_BEFORE`·`DUAL_HEADER_ROW`·`track_row_of`·`2열 병기 (좌 | 우)` 라벨 행 → 제거 대상.
+- 구현 계획 8단계 + Stage 목록 문서화(주간 실행용).
+
+### ★Human 결정 필요
+1. **`고액암`·`경증치매진단` 처분** — (a) 현행 유지(정보 손실 0·276a — Claude Code 권장) / (b) 이관·삭제(행선지 미지정 → 추측 금지).
+2. **smoke Q6 승인** — 구현 후 대조표 제시 예정.
+
+### ★297·299 미시작
+야간 순차 규칙("앞 태스크 중단 판정 시 뒤 태스크 시작 금지 · 거기서 종료")에 따라 **297(종수술 2열 조사)·299(총납입 산식)를
+시작하지 않았다.** 297은 296의 50행 구조를 전제로 하고, 299는 독립이나 규칙상 세션을 여기서 종료한다.
+→ Human이 296 스펙 충돌을 확정하면 296 구현(주간) 후 297, 그리고 299를 이어서 진행하면 된다.
+
+### 이번 세션 산출(누적)
+- **298 완료**(프런트 17키 이관 · 커밋 대기) · **296 실측/계획/중단**(코드 0). 296 코드 diff 0 확인(constants/export/parser/smoke 무변경).
+
+### Next
+1. **Human** — 296 §Human 결정 1(고액암·경증치매진단) 확정 → 확정 시 주간 세션에서 296 구현 → 297 → 299.
+2. **Codex** — 295b→298 순서 분리 커밋(298은 완료분). 296은 코드 없음(문서만).
+
+## 2026-08-18 BOHUMFIT-298 층위 3 — 프런트 종합비교 V2 17키 이관 · 완료 / 커밋 대기 (야간 순차 1/4)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(2차 검증·커밋) / **Human**(육안)
+기준 HEAD `59fca67`. ★295/295b 미커밋분 위에서 진행(그 헬퍼·stale·배선 테스트 보존). git 쓰기 0. 상세: tasks/BOHUMFIT-298-frontend-v2.md.
+
+### 무엇을 했나
+화면 종합비교 표가 아직 **구 7키**라 `암`·`심장말기`가 [전]에서도 0으로 보이고 암 계열 12행이 안 나오던 문제(295 §1-6 ③)를 닫았다.
+**표시 계층만** V2 케스케이드 17키로 이관 — 값·백엔드 무접촉.
+
+### 이관
+- `CoverageInsightBlocks.STAGE_ROWS` 7키 → **17키**(key=서버 stage_totals 키 정확 일치). 데스크톱·모바일 단일 소스라 자동 반영.
+- `coverageAfterDisplayCache.computeStageTotals`(구 payload 폴백 미러)를 **row_id 기준 17키 합산**으로 재작성(서버 `compute_stage_totals`와 동일 · 공통 가산 폐기).
+  구 payload(row_id 없음)는 `LEGACY_TO_V2_ROW_ID`(케스케이드 체인 row_id만 이식) 투영. 투영 실패는 미기여(silent 0 아님).
+- ★295 헬퍼(`displayStageTotals`·`displayYnFlags`)·stale 판정 **그대로 재사용**(우회 경로 미신설 — 295b 교훈).
+- 담보 목록·해지 UI는 이미 서버 V2 payload를 그대로 렌더 → 추가 이관 불필요(종합비교·미러만 구 7키였다).
+
+### 7→17 대응
+구 `암` → 소멸·분화(암 12행) / 뇌초기·중기·말기 유지(정의 290) / 심장초기·중기 유지 / **심장말기 소멸**(290 심장 2단).
+
+### Step 5 — 배선 회귀 테스트(295b 교훈)
+295b 배선 테스트를 17키 픽스처로 갱신(컴포넌트 실제 렌더 · 암 수술 3,000만 [전]=[후] · 비고행 1,410만이 암 체인 어디에도 없음).
+`CoverageInsightBlocks.test`(17행·암 12행·심장말기 없음)·`coverageNewTaxonomyDisplay.test`(17키 미러·구 payload 투영) 갱신.
+★**뮤테이션 3종 전부 검출**: ①STAGE_ROWS 구 7키 복원 ②헬퍼 우회 ③resolve 투영 제거. 전부 원복.
+
+### 게이트
+`npm test` **413/42**(순증 1) · tsc · lint · smoke **PASS 기준값 무변경** · ★**backend 무접촉**(diff=295b 테스트 1파일 · pytest 1058/8 불변) ·
+산출물 해시 **12종 293 기준 동일** · 케스케이드 상수·compute_stage_totals·49행 스키마·pipeline·filters·vite diff 0 · 295/295b 헬퍼·stale 보존.
+
+### Next
+1. **Codex** — ★295b→298 순서 분리 커밋. 298 = 표시 축(STAGE_ROWS)·미러(computeStageTotals)·프런트 테스트만.
+2. **Human** — 프로덕션에서 종합비교 17행·암 12행 육안(특히 구 payload 히스토리).
+3. (세션 계속) — 296 시작.
+
+## 2026-08-18 BOHUMFIT-295b 반려 보정 — 화면 배선 회귀 테스트 + PII 익명화 · 완료 / 커밋 대기
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(2차 재검증·커밋 · ★295+295b 합쳐) / **Human**(295 결정 2건 승계)
+기준 HEAD `59fca67`. git 쓰기 0 · 실 PDF stage 0 · ★신규 파일 PII 0. 상세는 tasks/BOHUMFIT-295b-wiring-test-pii.md. ★295 미커밋분 위에 보정(되돌림 0).
+
+### R1 — 화면 배선 회귀 테스트
+- 반려 재현: `CoverageRemodel` 네 useMemo를 종전 비대칭으로 되돌려 전체 테스트 → **410 passed**(Codex 지적 정확).
+- 원인 규명: 295가 헬퍼(`displayStageTotals`)를 **로직 단위 테스트**만 했다 — 컴포넌트가 그 헬퍼를 쓰는지(배선)는 미검증.
+  기존 렌더 테스트(182)가 못 잡은 이유는 골든 픽스처(211)가 구 40행 이름 + 파생값 없음이라 [전]·[후] 둘 다 폴백 미러를 타서다.
+- 신설 `src/pages/CoverageRemodelWiring295.test.tsx`: **CoverageRemodel 실제 렌더** → 종합비교·Y/N **표시 셀**을 단언.
+  재현 픽스처 = **V2 표시명 담보 + 서버 파생값**(대칭 배선이면 [후]=서버 값, 비대칭이면 [후]=구 미러 미스 0/N).
+- ★**뮤테이션 3종 전부 검출**: ①비대칭 useMemo 복원(=R1 그 자체) ②헬퍼 무조건 재산출 ③stale 판정 제거. 원복 후 제품 소스 diff = 295 정본.
+
+### R2 — PII 익명화
+- 서버 불변식 테스트: 실 PDF 4문서 로드(실명 파일) → **290 `_raw` 익명 합성**(build_before→build_after_analysis)으로 전환.
+  10건 실문서 파라미터 → 6건 합성(표준형·overview형 2형태 + 결합 비고행 + 제안서). 실 PDF 미의존 → robustness↑.
+- 배선 테스트: 익명 합성 픽스처(인물·실파일명 0). 소스 주석 실명 1건(`라금실`→`overview형 문서`). 태스크 문서 295·295b 실명→익명 라벨(정본A~D).
+- ★전수: `git diff` 추가 줄 + 신규 파일에서 실명·실파일명·주민번호·연락처 **0건**. 기존 5개 테스트(276b·286·290·291·292)의 실명은 **커밋분·범위 밖 → 별도 정리 태스크로 기록**.
+
+### Step 4 — verify.md 표준
+"회귀 수정은 결함이 있던 **그 지점**에 뮤테이션을 심는다. 추출 헬퍼의 로직 테스트는 배선 회귀를 못 잡는다(295 선례 — 410 통과).
+컴포넌트 렌더 결과 단언이 필요하다"를 verify.md에 반영 + 뮤테이션 목록에 원래 결함 형태 포함 규칙.
+
+### 게이트
+backend **1058/8**(1052 + 합성 6 · 회귀 0) · `npm test` **412/42**(406 + 295 파생 4 + 295b 배선 2) · tsc · lint ·
+smoke **PASS 기준값 무변경** · ★**backend 값 계층 diff 0**(변경=신규 테스트 1파일) · 산출물 해시 **12종 293 기준 동일** · 케스케이드·산식·스키마·pipeline·filters·vite diff 0.
+
+### Next
+1. **Codex** — 295+295b 합쳐 2차 재검증: ①뮤테이션 3종(useMemo 복원 포함) 실패 재현 ②신규 파일 PII 0 ③1058/8·412/42 ④backend diff 0·해시 12종 ⑤smoke 기준값 무변경 ⑥`보장분석/` 미stage → 통과 시 커밋·push.
+2. **Human** — 295 결정 2건 승계(층위 3 프런트 V2 이관 / 총납입 산식). 프로덕션 육안.
+3. **Chat** — 298(프런트 V2 이관·7키→17키) · 기존 테스트 PII 일괄 정리 태스크.
+
+## 2026-08-18 BOHUMFIT-295 — Codex 2차 검증 BLOCKED / 커밋·push 0
+
+Owner flow: Claude Chat → Claude Code → Codex → Claude Code | Current owner: **Claude Code**(회귀 검출력 보강·PII 제거)
+
+- 루트 게이트 통과: `C:\Users\18_rk\BOHUMFIT`, 원격 `STONESWORD-MERITZ/bohumfit`, 리트머스 존재. 시작 HEAD `59fca67`, `origin/main...HEAD` = `0 0`.
+- 수정본 집중 테스트는 `10 passed`였다. 뮤테이션 ① stale 판정 제거는 해당 테스트가 실패했고, ② 표시 헬퍼를 무조건 재산출로 되돌리면 해당 테스트가 실패해 두 결함은 검출했다. 두 뮤테이션은 즉시 원복했다.
+- ★반려: `CoverageRemodel.tsx`의 네 useMemo를 종전 비대칭 구현([전]=서버 우선, [후]=구 미러 강제 재산출)으로 되돌린 뒤 **전체 `npm test`를 실행했으나 `410 passed / 41 files`로 통과**했다. 따라서 현재 테스트는 실제 화면 배선 회귀를 검출하지 못한다. 뮤테이션 원복 후 집중 테스트 `10 passed`를 다시 확인했다.
+- ★PII 추가 반려: 신규 `backend/tests/test_no_proposal_invariant_295.py`와 태스크 문서에 실명·실파일명이 문자열로 들어 있다. 실 PDF가 stage되지 않더라도 코드·문서 PII 0 계약을 충족하지 않는다. 익명 별칭/패턴 탐색 방식으로 교체해야 한다.
+- 필수 검출력과 PII 계약이 충족되지 않아 fail-fast했다. 전체 게이트·실브라우저·산출물 해시 재검증은 이번 2차에서 완료 판정하지 않았고, stage/commit/push는 전부 0이다. 제품 수정본은 원상태로 보존했으며 검증용 뮤테이션 잔재는 없다.
+
+### 재현 명령과 원문
+
+`CoverageRemodel.tsx`를 종전 useMemo 구현으로 되돌린 상태의 전체 테스트:
+
+```text
+Test Files  41 passed (41)
+Tests  410 passed (410)
+```
 
 `git log --oneline -5`:
 
@@ -23,35 +377,76 @@ Owner flow: Claude Chat → Claude Code → Codex → Human | Current owner: **C
 3ebcc8d feat(BOHUMFIT-292): S4 매칭·분배 배선 — 통합치료비 자동판정·다빈치 3분류·과포섭 정정·합성 라벨 분리·2열 헤더 (라금실 enrolled 42 — Human 승인)
 ```
 
-`git status --short -uall`:
+`git status --short -uall`(결과 기록 전):
 
 ```text
  M .agent-harness/handoff.md
  M .agent-harness/locks.md
- M .agent-harness/verify.md
- M src/components/CoverageInsightBlocks.test.tsx
- M src/components/CoverageInsightBlocks.tsx
  M src/lib/coverageAfterDisplayCache.ts
  M src/lib/coverageNewTaxonomyDisplay.test.ts
  M src/pages/CoverageRemodel.tsx
 ?? .agent-harness/tasks/BOHUMFIT-295-cascade-regression.md
-?? .agent-harness/tasks/BOHUMFIT-295b-wiring-test-pii.md
-?? .agent-harness/tasks/BOHUMFIT-296-remark-relocation.md
-?? .agent-harness/tasks/BOHUMFIT-298-frontend-v2.md
 ?? backend/tests/test_no_proposal_invariant_295.py
-?? src/pages/CoverageRemodelWiring295.test.tsx
 ```
 
 `git rev-list --left-right --count origin/main...HEAD`:
 
 ```text
-0	0
+0\t0
 ```
 
 ### Next
 
-1. **Codex** — 야간 298·296·297·299 handoff 리뷰 후 순차 분리 커밋(현재 확인: 298 완료, 296는 Human 결정 대기 중단, 297·299 미시작).
-2. **Human** — 프로덕션에서 표준형·overview형 제안서 0건 종합비교/Y/N 및 제안서 3건·해지 즉시 반영 육안 확인.
+1. **Claude Code** — `CoverageRemodel`의 실제 네 useMemo 배선이 종전 비대칭으로 회귀하면 실패하는 컴포넌트/소스 계약 테스트를 추가하고, 그 뮤테이션의 실패를 실증한다. 신규 테스트·태스크 문서의 실명/실파일명도 익명화한다.
+2. **Codex** — 보정 후 295 전체 게이트·실브라우저·12종 해시를 다시 수행하고 통과 시 커밋/push한다.
+3. **Chat** — 295 완료 뒤 298(프런트 V2 이관·7키→17키) → 296 → 297 → 299 순서로 진행한다.
+
+## 2026-08-18 BOHUMFIT-295 제안서 없음 케이스 종합비교 회귀 · 완료 / 커밋 대기
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(2차 검증·커밋) / **Human**(육안 + 결정 2건)
+기준 HEAD `59fca67`(293·294 반영). git 쓰기 0 · 실 PDF stage 0. 상세는 tasks/BOHUMFIT-295-cascade-regression.md.
+
+### Step 1 — 원인 1곳으로 특정
+- **서버는 정상**이었다. `build_after_analysis(제안서 0)`로 익명 합성 정본 4형태로 돌려 종합 17행·Y/N·담보
+  49행+비고·월납을 전수 대조 → **위반 0**. 케스케이드 배선(290)·산식·49행 스키마에 결함 없음.
+- ★원인은 `CoverageRemodel.tsx`의 **비대칭**: [전]은 서버 파생값 우선, **[후]는 무조건 클라 미러로 재산출**.
+  그 미러(`computeStageTotals`/`computeYnFlags`)는 **구 40행 `kb_name`** 기준인데 payload는 290 이후
+  **V2 49행 표시명**이라 조회가 전부 빗나간다.
+- **증상 4가지가 전부 이 하나로 설명된다**: 뇌·심장 4,000만→0(이름 미스) · Y/N 전부 N(원천명 미스) ·
+  월납만 정상(재계산 경로 아님) · ★**암 0→1,410만** = 구 키 `"암"`이 서버 17키에 없어 [전] 0, [후]는 미러가
+  비고행 `항암약물방사선`(292 Phase E가 **구 이름 그대로** 보존)만 매칭 → overview형 값 그대로. Human 보고와 일치.
+- ★함정: `afterResult`는 항상 클라 `buildAfterResult`(182 D-11 네트워크 0)이고 `{...analysis.before}` 스프레드가
+  **[전] 파생값을 복사**한다(254·272 지목 경로). 그래서 "payload 우선"만 고치면 제안서가 있을 때 [전] 값이
+  [후]인 척 나오는 **새 결함**이 생긴다 — stale 판정을 함께 해야 한다.
+
+### Step 2 — 수정 2가지 (백엔드 **diff 0**)
+(a) 표시 선택을 **헬퍼 하나**(`displayStageTotals`·`displayYnFlags`)로 합쳐 [전]·[후] 대칭화 — 규칙을 한 곳에 둬
+    비대칭이 재발할 수 없게 했다. (b) `buildAfterResult`에서 **stale 파생값 판정** — 담보가 그대로면 [전] 파생값
+    유지(불변식 복원), 바뀌면 **지운다**(조용히 [전] 값을 [후]인 척 보여주지 않는다).
+집계 산식·케스케이드·49행 스키마·서버 코드는 한 줄도 안 바꿨다.
+
+### Step 3 — 테스트 + ★뮤테이션
+서버 10건(불변식 4문서 · 비고행 체인 유입 0 · overview형 결합 담보 1,410만 · 제안서 있으면 정상 변화) + 프런트 4건.
+뮤테이션 2종(stale 판정 제거 / 헬퍼를 무조건 재산출) **전부 검출**. ※1차엔 `CoverageRemodel` useMemo를 되돌려도
+아무 테스트도 못 잡아서, 선택 로직을 **헬퍼로 뽑아 테스트 가능하게** 만들었다.
+
+### 게이트
+backend **1062/8**(1052 + 10 · 회귀 0) · `npm test` **410/41**(406 + 4) · tsc · lint · smoke **PASS 기준값 무변경** ·
+★엑셀·PDF·payload **해시 12종 완전 동일**(293 기준 해시 재대조 — 산출물 무영향) · build:verify 예상 FAIL ·
+`backend/` 전체 diff 0 · `vite.config` diff 0.
+
+### ★Human 결정 2건
+1. **층위 3(프런트 V2 이관 + 구 7키 → 17키 표시)** — 화면 표가 아직 구 7키라 `암`·`심장말기`가 [전]에서도 0으로
+   보인다(별개 미이관 잔재). 이관하면 암 계열 12행이 보이고 **제안서가 있을 때의 [후] 종합비교도 정확**해진다.
+   295는 제안서 0건 케이스만 복원했다. 293이 남긴 층위 3과 같은 뿌리다.
+2. **총납입 산식 불일치** — [전] `aggregator._paid`는 일시납 미곱(234 결정), [후] `compare._paid_total`은 곱함.
+   표준형 문서 126,083,040 vs 144,647,520. 제안서·해지와 무관한 상시 차이. 맞추면 값 계층이 바뀌어 승인 필요.
+
+### Next
+1. **Codex** — 2차 검증·커밋: ①1062/8 ②410/41 ③산출물 해시 12종 동일 ④뮤테이션 2종 재현 ⑤백엔드 diff 0
+   ⑥smoke 기준값 무변경 ⑦`보장분석/` 미stage.
+2. **Human** — 프로덕션에서 제안서 없이 재분석해 종합비교·Y/N 육안 확인 + 결정 2건.
+3. **Chat** — 층위 3 태스크 발주(293·295가 같은 뿌리를 가리킨다) · 285(수술 판정) 조사.
 
 ## 2026-08-18 BOHUMFIT-293/294 — Codex 2차 검증 PASS · 분리 커밋/push 완료
 

@@ -61,7 +61,7 @@ def _company_label(co: dict, companies: list) -> str:
     return f"{insurer} ({ordinal})"
 
 
-# BOHUMFIT-291(S3): 49행 양식 표시 규칙 — 엑셀(export_excel)과 동일 계약.
+# BOHUMFIT-291(S3)·296: 52행 양식 표시 규칙 — 엑셀(export_excel)과 동일 계약.
 #   ★값은 S2 집계 그대로. 여기서는 표기만 정한다.
 CASCADE_CHILD_ROWS: frozenset[str] = frozenset({
     "stroke", "cerebral_hemorrhage", "acute_mi",
@@ -272,7 +272,7 @@ def build_coverage_html(analysis: dict, generated_at: datetime | None = None) ->
             chunk_rows = []
             for group, group_rows in grouped:
                 # BOHUMFIT-291: 비고행 블록(Q4 · 미매칭 보존) — 정보 보존 문구 병기.
-                head = f"{group} (49행 밖 담보 — 정보 보존)" if group == GROUP_APPENDIX_V2 else group
+                head = f"{group} (52행 밖 담보 — 정보 보존)" if group == GROUP_APPENDIX_V2 else group
                 chunk_rows.append(f'<tr class="grp-head"><td colspan="{col_span}">{_esc(head)}</td></tr>')
                 for c in group_rows:
                     # BOHUMFIT-291: 2열 병기 행은 한 칸 `질병/상해` · Q2/Q5 태그는 이름 뒤 작은 글자.

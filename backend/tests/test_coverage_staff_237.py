@@ -73,30 +73,36 @@ def _raw_with_extra(extra):
     }
 
 
-def test_n_values_collected_and_displayed():
+def test_n_surgery_lands_in_the_regular_row_with_max_amount():
+    """★BOHUMFIT-296: N대수술비는 정규 행 `N대수술비 최대 보상금액`(수 술)으로 이관됐다.
+
+    복수 N(131대 500만·121대 300만)은 **최대 보상금액**(max 500만)만 담는다(합산 아님·N 병기 없음).
+    파서의 n_values 수집은 그대로 두되(정보), 표시명에는 N을 병기하지 않는다.
+    """
     contracts = [{"idx": 1, "monthly_premium": 50_000}]
     _notes, extra = parse_detail_pages([DETAIL_N], contracts)
     assert sorted(extra["N대수술비"]["n_values"]) == [121, 131]
+    assert extra["N대수술비"]["by_company"]["1"] == 5_000_000  # ★max(500만, 300만)
     before = build_before(_raw_with_extra(extra), today="2026-07-21")
-    names = [c["kb_name"] for c in before["coverages"]]
-    # 복수 N은 나열 병기(정보 무손실 — 최대값 단일 표기 대신 채택, 근거는 태스크 문서)
-    assert "N대수술비(121·131대)" in names
-    row = next(c for c in before["coverages"] if c["kb_name"] == "N대수술비(121·131대)")
-    assert row["summary"] == 8_000_000
-    assert row["group12"] == _APPENDIX  # 290: 기타 → 비고
+    row = next(c for c in before["coverages"] if c.get("row_id") == "major_n_surgery")
+    assert row["kb_name"] == "N대수술비 최대 보상금액"
+    assert row["summary"] == 5_000_000 and row["group12"] == "수 술"
+    # 구 N 병기 라벨은 더 이상 나오지 않는다.
+    assert not any("N대수술비(" in c["kb_name"] for c in before["coverages"])
 
 
-def test_single_n_value_displayed():
+def test_single_n_value_lands_in_regular_row():
     before = build_before(
         _raw_with_extra({"N대수술비": {"agg": "sum", "by_company": {"1": 5_000_000}, "n_values": [131]}}),
         today="2026-07-21",
     )
-    assert any(c["kb_name"] == "N대수술비(131대)" for c in before["coverages"])
+    row = next(c for c in before["coverages"] if c.get("row_id") == "major_n_surgery")
+    assert row["summary"] == 5_000_000 and row["kb_name"] == "N대수술비 최대 보상금액"
 
 
-def test_no_n_values_keeps_plain_label():
+def test_no_n_values_lands_in_regular_row():
     before = build_before(
         _raw_with_extra({"N대수술비": {"agg": "sum", "by_company": {"1": 5_000_000}}}),
         today="2026-07-21",
     )
-    assert any(c["kb_name"] == "N대수술비" for c in before["coverages"])
+    assert any(c.get("row_id") == "major_n_surgery" for c in before["coverages"])

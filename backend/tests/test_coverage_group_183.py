@@ -80,8 +80,11 @@ def test_selected_non_standard_riders_stay_in_etc() -> None:
     before = build_before(_raw())
     by_name = {row["kb_name"]: row for row in before["coverages"]}
 
-    for label in ("N대수술비", "상급/종합병원 일당", "양성종양·폴립", "통원일당"):
+    # ★296: N대수술비는 정규 행(수 술)으로 이관됐다 — 비고에 남지 않는다.
+    for label in ("상급/종합병원 일당", "양성종양·폴립", "통원일당"):
         assert by_name[label]["group12"] == _APPENDIX  # 290: 기타 → 비고
+    n_row = next(c for c in before["coverages"] if c.get("row_id") == "major_n_surgery")
+    assert n_row["group12"] == "수 술" and n_row["summary"] == 7_000_000  # 단건이므로 max=원값
 
 
 def test_mojibake_extra_pattern_removed() -> None:

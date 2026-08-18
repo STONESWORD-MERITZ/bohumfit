@@ -28,7 +28,7 @@ from .v2_mapping import (
     resolve,
 )
 
-# BOHUMFIT-290(S2): ★V2 49행이 처음으로 실계산에 물린다. 구 40행 스키마 상수(행 목록·그룹 순서·
+# BOHUMFIT-290(S2)·296: ★V2 52행이 실계산에 물린다. 구 40행 스키마 상수(행 목록·그룹 순서·
 #   항목 순서·246 단계 수식·Y/N 항목표)는 이 모듈에서 더 이상 참조하지 않는다(배선 증명 테스트가
 #   고정). 구 상수 자체는 S3 완료 시점까지 삭제하지 않는다(export 최소 어댑터가 쓴다).
 
@@ -375,7 +375,7 @@ def _appendix_row(name: str, by_company: dict, agg: str, **flags) -> dict:
 
 
 def build_v2_rows(matrix: dict, extras: dict) -> list[dict]:
-    """BOHUMFIT-290(S2): 파서 결과(구 이름 매트릭스 + extras) → **V2 49행 + 비고행**.
+    """BOHUMFIT-290(S2)·296: 파서 결과(구 이름 매트릭스 + extras) → **V2 52행 + 비고행**.
 
     ★규칙
       · 이름 → 목적지는 `v2_mapping.resolve()` 한 곳에서 정한다(표시명 → 별칭 → 처분).
@@ -421,10 +421,9 @@ def build_v2_rows(matrix: dict, extras: dict) -> list[dict]:
 
     for label, extra in (extras or {}).items():
         by_company = extra.get("by_company") or {}
+        # BOHUMFIT-296: N대수술비는 정규 행(major_n_surgery)으로 이관 — base 라벨 `N대수술비`로 라우팅한다
+        #   (N값 병기는 비고 시절 표시용이었고, 신규 행은 N 무관 최대 보상금액이라 조인 라벨을 쓰지 않는다).
         display_label = label
-        n_values = extra.get("n_values") or []
-        if label == "N대수술비" and n_values:
-            display_label = f"N대수술비({'·'.join(str(n) for n in sorted(set(n_values)))}대)"
         _route(display_label, by_company, extra.get("agg", AGG_SUM), estimated=bool(extra.get("estimated")),
                needs_review=bool(extra.get("needs_review")))
 
