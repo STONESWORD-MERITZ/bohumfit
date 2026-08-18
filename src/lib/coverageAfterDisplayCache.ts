@@ -32,6 +32,7 @@ export type BeforeCoverage = {
   enrolled: boolean;
   estimated?: boolean; // BOHUMFIT-238: 종수술 표준 환산 산출 행 구분
   overview?: boolean; // BOHUMFIT-246: 전체 보장현황(합계-only) 유래 행 — [후] 이월 시 합계 수준 유지
+  row_id?: string; // BOHUMFIT-298: V2 49행 안정 키(서버 payload가 실어 보낸다). 종합비교 미러가 이 키로 케스케이드를 센다.
 };
 
 // BOHUMFIT-246/247: 양식 45~49행 Y/N 파생(백엔드 compute_yn_flags와 동일 스키마).
@@ -247,25 +248,69 @@ export function computeYnFlags(coverages: BeforeCoverage[]): YnFlag[] {
   }));
 }
 
-// BOHUMFIT-246/247: 종합비교 단계 파생 미러(백엔드 constants.STAGE_COMPONENTS — 비분양식
-// 시트3 수식 이식. 원문 수식은 backend/coverage/constants.py 주석 참조. K7 이중합산 미이식).
-export const STAGE_COMMON_ADD = ["일반종수술 5종(표준환산)", "질병수술"];
-export const STAGE_COMPONENTS: [string, string[]][] = [
-  ["암", ["암진단금", "유사암진단금", "암수술", "항암약물방사선", "표적항암치료", "면역항암치료", "중입자방사선"]],
-  ["뇌초기", ["뇌혈관질환", "뇌졸중", "뇌출혈", "뇌혈관수술"]],
-  ["뇌중기", ["뇌졸중", "뇌출혈", "뇌혈관수술"]],
-  ["뇌말기", ["뇌출혈", "뇌혈관수술"]],
-  ["심장초기", ["심혈관질환", "허혈성심장질환", "급성심근경색", "심혈관수술"]],
-  ["심장중기", ["허혈성심장질환", "급성심근경색", "심혈관수술"]],
-  ["심장말기", ["급성심근경색", "심혈관수술"]],
+// ★BOHUMFIT-298(층위 3): 종합비교 미러를 **케스케이드 17키**로 이관한다(백엔드 `PAYOUT_CASCADE_V2` 1:1).
+//   구 7키(암·뇌초기·뇌중기·뇌말기·심장초기·심장중기·심장말기 + 공통 가산)는 폐기됐다(290이 3단 종합비교를
+//   17행으로 교체). 이 미러는 **`stage_totals`가 없는 구 payload(90일 히스토리)** 폴백에서만 쓰인다 —
+//   새 payload는 `displayStageTotals`가 서버 `stage_totals`(17키)를 그대로 쓴다(295 헬퍼 불변).
+//   ★값은 `row_id` 기준으로 센다. 구 payload는 `row_id`가 없으므로 구 담보명→row_id(`LEGACY_TO_V2` 이식)로 투영한다.
+export const STAGE_CHAINS_V2: [string, string[]][] = [
+  ["뇌초기", ["cerebral_disease"]],
+  ["뇌중기", ["cerebral_disease", "stroke"]],
+  ["뇌말기", ["cerebral_disease", "stroke", "cerebral_hemorrhage"]],
+  ["심장초기", ["ischemic_heart"]],
+  ["심장중기", ["ischemic_heart", "acute_mi"]],
+  ["암 수 술 (레보아이 포함)", ["cancer_surgery"]],
+  ["유사암 수술", ["cancer_minor_surgery"]],
+  ["다빈치(일반암)", ["cancer_surgery", "cancer_surgery_davinci"]],
+  ["다빈치(전립선)", ["cancer_surgery", "cancer_surgery_davinci_specific"]],
+  ["다빈치(갑상선)", ["cancer_minor_surgery", "cancer_surgery_davinci_specific"]],
+  ["항암 약물 치료", ["cancer_drug"]],
+  ["표적 약물 치료", ["cancer_drug", "cancer_drug_targeted"]],
+  ["면역 약물 치료", ["cancer_drug", "cancer_drug_targeted", "cancer_drug_immune"]],
+  ["방사선 치료", ["cancer_radiation"]],
+  ["세기조절 방사선 치료", ["cancer_radiation", "radio_imrt"]],
+  ["양성자 방사선 치료", ["cancer_radiation", "radio_proton"]],
+  ["중 입 자 치료", ["cancer_radiation", "radio_carbon"]],
 ];
 
+// BOHUMFIT-298: 구 payload(row_id 없음) 투영용 — 백엔드 `LEGACY_TO_V2` 중 **케스케이드 체인에 쓰이는 row_id**만.
+//   비고행(APPENDIX)·분배(DISTRIBUTED)로 가는 이름은 담지 않는다(체인에 안 쓰이므로 불필요).
+export const LEGACY_TO_V2_ROW_ID: Record<string, string> = {
+  암수술: "cancer_surgery",
+  "암 수 술 / 로 봇 암 수 술": "cancer_surgery",
+  유사암수술: "cancer_minor_surgery",
+  "다빈치(일반암)": "cancer_surgery_davinci",
+  "다빈치(종별 미상)": "cancer_surgery_davinci",
+  "다빈치(전립선)": "cancer_surgery_davinci_specific",
+  "다빈치(갑상선)": "cancer_surgery_davinci_specific",
+  "다빈치(특정암)": "cancer_surgery_davinci_specific",
+  항암약물치료비: "cancer_drug",
+  표적항암치료: "cancer_drug_targeted",
+  면역항암치료: "cancer_drug_immune",
+  항암방사선치료비: "cancer_radiation",
+  "세기조절 / 양성자 방사선": "radio_imrt",
+  세기조절방사선: "radio_imrt",
+  양성자방사선: "radio_proton",
+  중입자방사선: "radio_carbon",
+  "중입자 / 정위 방사선": "radio_carbon",
+  뇌혈관질환: "cerebral_disease",
+  뇌졸중: "stroke",
+  뇌출혈: "cerebral_hemorrhage",
+  허혈성심장질환: "ischemic_heart",
+  급성심근경색: "acute_mi",
+};
+
 export function computeStageTotals(coverages: BeforeCoverage[]): Record<string, number> {
-  const byName = new Map(coverages.map((coverage) => [coverage.kb_name, coverage]));
-  const value = (name: string) => byName.get(name)?.summary || 0;
-  const common = STAGE_COMMON_ADD.reduce((sum, name) => sum + value(name), 0);
+  // ★BOHUMFIT-298: row_id 기준 합산(서버 `compute_stage_totals`와 동일 규칙). 구 payload는 담보명→row_id 투영.
+  //   같은 row_id에 여러 원천이 오면 더한다(구 payload는 row_id당 원천 1개라 이중 계상 없음).
+  const byRowId = new Map<string, number>();
+  for (const coverage of coverages) {
+    const rowId = coverage.row_id ?? LEGACY_TO_V2_ROW_ID[coverage.kb_name];
+    if (!rowId) continue; // 투영 실패(체인 밖 담보) — 조용히 0을 만들지 않고 그냥 기여하지 않는다.
+    byRowId.set(rowId, (byRowId.get(rowId) ?? 0) + (coverage.summary ?? 0));
+  }
   return Object.fromEntries(
-    STAGE_COMPONENTS.map(([stage, names]) => [stage, names.reduce((sum, name) => sum + value(name), 0) + common]),
+    STAGE_CHAINS_V2.map(([stage, ids]) => [stage, ids.reduce((sum, id) => sum + (byRowId.get(id) ?? 0), 0)]),
   );
 }
 

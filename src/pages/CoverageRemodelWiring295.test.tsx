@@ -42,10 +42,14 @@ function v2Analysis(): AnalyzeResult {
     // 292 Phase E 결합 담보 — 비고행이라 **구 이름 그대로** 남는다(회귀 때 암 체인 오염의 통로).
     { kb_name: "항암약물방사선", kb_group: "비고", group12: "비고", agg: "sum", summary: 1410 * MAN, by_company: { "1": null, "2": 1410 * MAN, "3": null }, enrolled: true },
   ];
-  // 서버 파생값(정본) — [전]은 이 값을, 대칭 배선이면 [후]도 이 값을 표시한다.
+  // 서버 파생값(정본 · ★BOHUMFIT-298: 케스케이드 17키) — [전]은 이 값을, 대칭 배선이면 [후]도 이 값을 표시한다.
   clone.before.stage_totals = {
-    암: 0, 뇌초기: 4000 * MAN, 뇌중기: 4000 * MAN, 뇌말기: 4000 * MAN,
-    심장초기: 2000 * MAN, 심장중기: 2000 * MAN, 심장말기: 0,
+    뇌초기: 4000 * MAN, 뇌중기: 4000 * MAN, 뇌말기: 4000 * MAN,
+    심장초기: 2000 * MAN, 심장중기: 2000 * MAN,
+    "암 수 술 (레보아이 포함)": 3000 * MAN, "유사암 수술": 0,
+    "다빈치(일반암)": 0, "다빈치(전립선)": 0, "다빈치(갑상선)": 0,
+    "항암 약물 치료": 0, "표적 약물 치료": 0, "면역 약물 치료": 0,
+    "방사선 치료": 0, "세기조절 방사선 치료": 0, "양성자 방사선 치료": 0, "중 입 자 치료": 0,
   };
   clone.before.yn_flags = [
     { item: "운전자특약", value: "N", sources: [] },
@@ -142,10 +146,15 @@ describe("BOHUMFIT-295b(R1) — CoverageRemodel 화면 배선 회귀", () => {
     expect(heart.after).toBe(heart.before);
     expect(heart.after).not.toBe("0원");
 
-    // ★암 — 서버 값 0이 그대로여야 한다. 회귀 때 비고행 1,410만이 [후]에 들어왔었다.
-    const cancer = stageRow(container, "암");
-    expect(cancer.before).toBe("0원");
-    expect(cancer.after).toBe("0원");
+    // ★BOHUMFIT-298: 암 계열 17키 표시 — 암 수술은 서버 값 3,000만이 [전]=[후]로 그대로.
+    const cancerSurgery = stageRow(container, "암 수술(레보아이 포함)");
+    expect(cancerSurgery.before).toBe("3,000만원");
+    expect(cancerSurgery.after).toBe(cancerSurgery.before);
+    // 회귀 때 비고행 1,410만이 [후] 암 체인에 들어왔었다 — 이제 암 체인 어느 행에도 1,410만은 없다.
+    for (const key of ["항암 약물 치료", "표적 약물 치료", "방사선 치료"]) {
+      const row = stageRow(container, key);
+      expect(row.after).not.toBe("1,410만원");
+    }
 
     // Y/N — 실손 2항목이 [전]=[후]=Y(비대칭 배선이면 [후]=N).
     for (const item of ["상해실손의료비", "질병실손의료비"]) {

@@ -6,16 +6,20 @@ import { SpecialNotes, StageComparisonTable, YnFlagTable } from "./CoverageInsig
 const MAN = 10_000;
 
 describe("CoverageInsightBlocks", () => {
-  it("StageComparisonTable — 7개 단계 행·H10 정정 라벨(심장 중기)·개선(후−전) 표기", () => {
+  it("StageComparisonTable — ★BOHUMFIT-298 케스케이드 17행·암 계열 12행 표시·개선(후−전) 표기", () => {
     const before = {
-      암: 5000 * MAN, 뇌초기: 3000 * MAN, 뇌중기: 2000 * MAN, 뇌말기: 1000 * MAN,
-      심장초기: 4000 * MAN, 심장중기: 3000 * MAN, 심장말기: 2000 * MAN,
+      뇌초기: 3000 * MAN, 뇌중기: 2000 * MAN, 뇌말기: 1000 * MAN,
+      심장초기: 4000 * MAN, 심장중기: 3000 * MAN,
+      "암 수 술 (레보아이 포함)": 5000 * MAN, "표적 약물 치료": 2000 * MAN,
     };
-    const after = { ...before, 암: 8000 * MAN, 뇌말기: 500 * MAN };
+    const after = { ...before, "암 수 술 (레보아이 포함)": 8000 * MAN, 뇌말기: 500 * MAN };
     render(<StageComparisonTable before={before} after={after} />);
-    expect(screen.getByText("심장 중기")).toBeInTheDocument(); // H10 심장중기 정정 반영
+    expect(screen.getByText("심장 중기")).toBeInTheDocument();
     expect(screen.getByText("뇌 초기")).toBeInTheDocument();
-    expect(screen.getByText("+3,000만원")).toBeInTheDocument(); // 암 개선 + 표기
+    expect(screen.getByText("암 수술(레보아이 포함)")).toBeInTheDocument(); // 암 계열 12행 표시
+    expect(screen.getByText("중입자 치료")).toBeInTheDocument();
+    expect(screen.queryByText("심장 말기")).toBeNull(); // 구 7키 폐기 — 심장말기 없음
+    expect(screen.getByText("+3,000만원")).toBeInTheDocument(); // 암 수술 개선 + 표기
     expect(screen.getByText("-500만원")).toBeInTheDocument(); // 감소는 − 표기
   });
 

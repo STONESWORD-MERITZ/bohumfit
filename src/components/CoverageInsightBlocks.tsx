@@ -9,14 +9,27 @@ import { useIsMobile } from "./mobile/useIsMobile";
 import { StageComparisonMobile, YnFlagMobile } from "./mobile/CoverageInsightMobile";
 
 // 시트3 종합비교 표시 라벨(암/뇌 초·중·말/심장 초·중·말 — H10 심장중기 정정 반영).
+// ★BOHUMFIT-298(층위 3): 종합비교 표시 축을 **케스케이드 17키**로 이관(백엔드 `PAYOUT_CASCADE_V2` 1:1).
+//   구 7키(암·심장말기 포함)는 폐기됐다 — 서버가 17키를 주는데 화면이 7키만 조회해 `암`·`심장말기`가 [전]에서도
+//   0으로 보이고 암 계열 12행이 아예 안 나오던 문제(295 §1-6 ③)를 닫는다. key = 서버 `stage_totals` 키와 정확히 일치.
 const STAGE_ROWS: { key: string; label: string; section: string }[] = [
-  { key: "암", label: "암", section: "암" },
   { key: "뇌초기", label: "뇌 초기", section: "뇌" },
   { key: "뇌중기", label: "뇌 중기", section: "뇌" },
   { key: "뇌말기", label: "뇌 말기", section: "뇌" },
   { key: "심장초기", label: "심장 초기", section: "심장" },
   { key: "심장중기", label: "심장 중기", section: "심장" },
-  { key: "심장말기", label: "심장 말기", section: "심장" },
+  { key: "암 수 술 (레보아이 포함)", label: "암 수술(레보아이 포함)", section: "암" },
+  { key: "유사암 수술", label: "유사암 수술", section: "암" },
+  { key: "다빈치(일반암)", label: "다빈치(일반암)", section: "암" },
+  { key: "다빈치(전립선)", label: "다빈치(전립선)", section: "암" },
+  { key: "다빈치(갑상선)", label: "다빈치(갑상선)", section: "암" },
+  { key: "항암 약물 치료", label: "항암 약물 치료", section: "암" },
+  { key: "표적 약물 치료", label: "표적 약물 치료", section: "암" },
+  { key: "면역 약물 치료", label: "면역 약물 치료", section: "암" },
+  { key: "방사선 치료", label: "방사선 치료", section: "암" },
+  { key: "세기조절 방사선 치료", label: "세기조절 방사선 치료", section: "암" },
+  { key: "양성자 방사선 치료", label: "양성자 방사선 치료", section: "암" },
+  { key: "중 입 자 치료", label: "중입자 치료", section: "암" },
 ];
 
 export function StageComparisonTable({

@@ -58,20 +58,33 @@ describe("BOHUMFIT-247 신 체계 표시 미러", () => {
     expect(itemOrderKey("80%이상 후유장해")).toBe(ITEM_ORDER.length); // 기타(목록 밖)
   });
 
-  it("computeStageTotals — 비분양식 시트3 수식(공통 가산 = 5종 + 질병수술)", () => {
+  it("computeStageTotals — ★BOHUMFIT-298 케스케이드 17키(row_id 기준 · 서버와 동일)", () => {
+    // 새 payload처럼 row_id가 있으면 그 키로 센다(공통 가산·구 7키 폐기 — 290 정의).
     const stages = computeStageTotals([
-      coverage({ kb_name: "뇌혈관질환", group12: "뇌", summary: 1000 * MAN, enrolled: true }),
-      coverage({ kb_name: "뇌졸중", group12: "뇌", summary: 2000 * MAN, enrolled: true }),
-      coverage({ kb_name: "뇌출혈", group12: "뇌", summary: 3000 * MAN, enrolled: true }),
-      coverage({ kb_name: "뇌혈관수술", group12: "뇌", summary: 300 * MAN, enrolled: true }),
-      coverage({ kb_name: "일반종수술 5종(표준환산)", group12: "종수술", summary: 1000 * MAN, enrolled: true, estimated: true }),
-      coverage({ kb_name: "질병수술", group12: "수술", summary: 200 * MAN, enrolled: true }),
+      coverage({ kb_name: "뇌 혈 관 질 환", row_id: "cerebral_disease", summary: 1000 * MAN, enrolled: true }),
+      coverage({ kb_name: "뇌 졸 중", row_id: "stroke", summary: 2000 * MAN, enrolled: true }),
+      coverage({ kb_name: "뇌 출 혈", row_id: "cerebral_hemorrhage", summary: 3000 * MAN, enrolled: true }),
+      coverage({ kb_name: "암 수 술 (레보아이 포함)", row_id: "cancer_surgery", summary: 500 * MAN, enrolled: true }),
+      coverage({ kb_name: "표적 약물 치료", row_id: "cancer_drug_targeted", summary: 700 * MAN, enrolled: true }),
     ]);
-    const common = (1000 + 200) * MAN;
-    expect(stages["뇌초기"]).toBe((1000 + 2000 + 3000 + 300) * MAN + common);
-    expect(stages["뇌중기"]).toBe((2000 + 3000 + 300) * MAN + common);
-    expect(stages["뇌말기"]).toBe((3000 + 300) * MAN + common);
-    expect(stages["암"]).toBe(common); // 암 담보 없음 → 공통 가산만
+    expect(stages["뇌초기"]).toBe(1000 * MAN); // cerebral_disease
+    expect(stages["뇌중기"]).toBe((1000 + 2000) * MAN); // + stroke
+    expect(stages["뇌말기"]).toBe((1000 + 2000 + 3000) * MAN); // + cerebral_hemorrhage
+    expect(stages["암 수 술 (레보아이 포함)"]).toBe(500 * MAN);
+    expect(stages["표적 약물 치료"]).toBe(700 * MAN); // cancer_drug(0) + cancer_drug_targeted(700)
+    expect(Object.keys(stages)).toHaveLength(17);
+    expect(stages).not.toHaveProperty("암"); // 구 7키 폐기
+    expect(stages).not.toHaveProperty("심장말기");
+  });
+
+  it("computeStageTotals — 구 payload(row_id 없음)는 담보명→row_id 투영으로 17키를 채운다", () => {
+    // 90일 히스토리 저장분: row_id 없이 구 40행 이름. `LEGACY_TO_V2_ROW_ID`로 투영.
+    const stages = computeStageTotals([
+      coverage({ kb_name: "뇌혈관질환", summary: 1000 * MAN, enrolled: true }),
+      coverage({ kb_name: "암수술", summary: 500 * MAN, enrolled: true }),
+    ]);
+    expect(stages["뇌초기"]).toBe(1000 * MAN);
+    expect(stages["암 수 술 (레보아이 포함)"]).toBe(500 * MAN);
   });
 
   it("computeYnFlags — 원천 1건 이상 enrolled면 Y(COUNTA 등가)", () => {
@@ -122,13 +135,15 @@ describe("BOHUMFIT-247 신 체계 표시 미러", () => {
     const after = buildAfterResult(analysis, {}, []);
     expect(after.after.before.stage_totals).toEqual(analysis.before.stage_totals);
     expect(after.after.before.yn_flags).toEqual(analysis.before.yn_flags);
-    // ★회귀 재현: 구 이름 미러로 재산출하면 뇌가 0이 되고 암에 비고행 1,410만이 들어온다.
-    const legacyMirror = computeStageTotals(after.after.before.coverages);
-    expect(legacyMirror["뇌초기"]).toBe(0);
-    expect(legacyMirror["암"]).toBe(1410 * MAN);
-    // 화면은 파생값을 우선 쓰므로 그 오염이 표시되지 않는다.
+    // ★BOHUMFIT-298: 미러는 17키(row_id 기준)로 이관됐다. 이 픽스처는 row_id 없는 **띄어쓴 V2 표시명**이라
+    //   미러가 투영하지 못해 뇌초기=0이고 구 `암` 키는 아예 없다(비고행 1,410만도 어느 체인에도 안 들어간다).
+    //   → 그래서 화면은 반드시 **서버 파생값**을 써야 한다(헬퍼가 payload 값 우선).
+    const mirror = computeStageTotals(after.after.before.coverages);
+    expect(mirror["뇌초기"]).toBe(0);
+    expect(mirror).not.toHaveProperty("암");
+    expect(Object.values(mirror).every((v) => v !== 1410 * MAN)).toBe(true); // 비고행이 체인에 유입 0
+    // 화면은 파생값을 우선 쓰므로 미러의 0이 표시되지 않는다.
     expect(after.after.before.stage_totals!["뇌초기"]).toBe(4000 * MAN);
-    expect(Object.keys(after.after.before.stage_totals!)).not.toContain("암");
   });
 
   it("295 — 해지가 있으면 stale 파생값을 지운다([전] 값을 [후]인 척 보이지 않는다)", () => {

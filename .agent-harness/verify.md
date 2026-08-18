@@ -16,7 +16,7 @@ For UI changes, also run the app locally and do a browser smoke test:
 npm run dev
 ```
 
-## 검증 기준선 (BOHUMFIT-294 Codex 2차 실측 · 2026-08-18 갱신)
+## 검증 기준선 (BOHUMFIT-298 Codex 2차 실측 · 2026-08-18 갱신)
 
 백엔드 pytest — `cd backend && python -m pytest -q`:
 
@@ -33,10 +33,10 @@ BOHUMFIT-293은 292 기준선 1031/8에 서식 회귀 스위트 13건을 더해 
 프런트 테스트 — `npm test`(라우트 스모크 18건 포함):
 
 ```text
-412 passed / 42 files
+413 passed / 42 files
 ```
 
-(BOHUMFIT-294 Codex 2차 실측·2026-08-18 — 기존 402/41에 카카오 중복 생략 회귀 4건을 더해 406/41.)
+(BOHUMFIT-298 Codex 2차 실측·2026-08-18 — 295/295b 기준선 412/42에 프런트 V2 17키 이관 회귀 1건을 더해 413/42.)
 
 타입체크 — 양쪽 모두 통과해야 한다:
 
