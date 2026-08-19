@@ -1,6 +1,47 @@
+## 2026-08-18 BOHUMFIT-297 종수술 2열 미분리·종수술비 기전 조사 (재발행 확장 items 1~6) · 완료 (★코드 0)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human**(수정 방향 결정) / **Codex**(문서 커밋)
+기준 HEAD `397056b`(296 커밋·52행). git 쓰기 0 · 실 PDF 읽기 전용·stage 0 · PII 0(정본A~D 라벨). 코드 diff 0. 상세: tasks/BOHUMFIT-297-tier-split-audit.md(기존 조사에 items 1~6 이어서 확장).
+
+Codex 간단 검증(2026-08-19): backend **1065 passed, 8 skipped** · frontend **413 passed / 42 files** 재현. 제품 코드 diff 0이며 297 조사 문서와 handoff만 커밋 범위로 확인했다(`locks.md`의 별도 하네스 변경은 stage 제외).
+
+### ★item 1 — 원문 실재: **파서 갭**(정직한 238 아님)
+[전] tier 값은 값이 있으면 **전부 미상(unspecified) 열**(238 환산 유래). 질병/상해 열은 4문서 [전] 전부 빈칸.
+원문 종별 접두: 정본B=질병·상해 둘 다 · 정본C=질병만 → **종별이 원문에 있는데 파서가 못 읽어** bare/미상으로 흘린다. 정직한 238 미구분이 아니라 파서 갭.
+
+### item 2 — [후] 제안서 vs [전] 심평원
+정본C [후]=proposal_parser(286 B1) → `N종수술비(질병/상해 N종)` → **질병·상해 정확 분리**(tier 양쪽 열 채움). 정본B/C [전]=detail parser → `질병/상해 1-5종수술비(N종)` → **bare 종수술비 소실**. 경로·형식이 다르다.
+
+### item 3 — overview형 무관
+tier 미분리는 detail 파서의 `(N종)` 형식 미지원이 원인. 표준형 정본C도 동일. overview 특유 아님.
+
+### item 4 — 값 손실 검산
+정본C(질병만): bare 21.5M = 질병 5행 정확 일치 → tier 라우팅 시 **손실 0**·bare 완전 소거. 정본B(질병·상해+요약행): bare 개별행 + tier 미상(238 환산) **이중 계상** → 이중 계상 정리(B) 없이는 손실/중복 0 보장 불가.
+
+### item 5 — 4문서 관측표
+정본A·D: 종수술 없음. 정본B(overview): 원문 질병·상해 둘 다+요약행 · tier 미상 550k~2,000만 · bare 18.3M(이중 계상). 정본C(표준형): 원문 질병만 · tier 빈칸 · bare 21.5M · [후] 제안서 질병·상해 양쪽. ★[전]은 어느 문서도 질병/상해 열 값 없음(전부 미상/빈칸).
+
+### ★증상1("질병 열만") 재현 → 현행 미재현·확인 불가
+현행 [전] 질병·상해 둘 다 빈칸(값은 미상), [후] 제안서 둘 다 채움. "질병 열만"은 4문서에서 미재현. 정확한 화면은 실 고지 데이터(비밀번호 잠금)로만 확인 가능 → 확인 불가. ★수정 시 질병·상해 대칭 처리해야 "질병만" 상태를 안 만든다(A안 설계).
+
+### 증상1=증상2 동일 뿌리(기존 조사 유지)
+`질병/상해 1-5종수술비(N종)` 한 라인이 종수(1~5종)·종별(질병/상해)을 동시에 잃는다. 파서가 tier 행+종별 열로 라우팅만 하면 둘 다 해소.
+
+### 종수술비 비고 제거 = 조건부
+정본C류(개별행만)는 손실 0 제거 가능. 정본B류(개별행+요약행 이중 계상)는 B 정리 후에만. A(파서 라우팅)+B(이중계상)+C(6종 이상) 함께여야 완전.
+
+### Human 결정 4건 (기존 유지)
+A 파서 갭 수정 착수 여부(값 계층·Q6) / B 이중 계상 정리 방향 / C 6종 이상 처분 / D 종수술비 비고 제거.
++수정 방향 보강: 접촉 파일(parser.py·jong_surgery.py·회귀 테스트) · smoke Q6 필수 · 291 "종별 추측 금지" 준수(종별 접두 있는 (N종) 행만 라우팅).
+
+### Next
+1. **Human** — A~D 결정. 2. **Codex** — 297 문서 커밋(docs·코드 0). 3. **Chat** — 결정 시 파서 수정 태스크(A+B+C·Q6) · 299(총납입) 발행.
+
 ## 2026-08-18 BOHUMFIT-296/296b — Human Q6 재승인 반영 · Codex 2차 검증 PASS / 단독 커밋 대기
 
 Owner flow: Claude Chat → Claude Code → Codex → Human | Current owner: **Codex**(296+296b 단독 커밋·push)
+
+- 커밋 `397056b` — `feat(BOHUMFIT-296): 비고 정규 행 이관·N대수술비 신설·2열 라벨 정리(52행·smoke 기준값 갱신 — Human Q6 재승인)`, `origin/main` push 완료.
 
 - Human 재승인 계약을 HEAD(`05c038f`) 격리 worktree와 현재 296 워킹트리로 다시 독립 대조했다. A 불변 / B −1,000,000 / C −11,700,000 / D −4,000,000이며, 전부 원시 N대수술비 복수 행의 계약별 `sum→max` 차이다.
 - 원시 N행 직접 계수: A 1건·합 2M·max 2M, B 8건·합 2M·max 1M, C 5건·합 21.7M·max 10M, D 9건·합 5M·max 1M. 이 차이가 각 총액 변화와 정확히 일치했다.
@@ -32,6 +73,30 @@ Owner flow: Claude Chat → Claude Code → Codex → Human | Current owner: **C
 
 1. **Chat/Human** — 297 종수술 2열 조사 결과(종수술비 합성 라벨 기전·개별행/요약행 이중 계상)를 검토하고 값 정책을 확정.
 2. **Chat** — 297 결정 뒤 299(총납입 Q6) 진행.
+
+### push 직후 원문
+
+`git log --oneline -5`:
+
+```text
+397056b feat(BOHUMFIT-296): 비고 정규 행 이관·N대수술비 신설·2열 라벨 정리(52행·smoke 기준값 갱신 — Human Q6 재승인)
+05c038f feat(BOHUMFIT-298): 프런트 종합비교 V2 17키 이관(암 12행 표시·구 7키 폐기)
+3ec464b fix(BOHUMFIT-295): 제안서 없음 케이스 종합비교 회귀 — 표시 대칭화·stale 판정·배선 회귀 테스트
+59fca67 docs(BOHUMFIT-294): Codex 검증·push 결과 기록
+7b91bfd fix(BOHUMFIT-294): 카카오 복사문 중복 필드 생략(251 원문 충실화·4경로 동등성 유지)
+```
+
+`git status --short -uall`:
+
+```text
+?? .agent-harness/tasks/BOHUMFIT-297-tier-split-audit.md
+```
+
+`git rev-list --left-right --count origin/main...HEAD`:
+
+```text
+0\t0
+```
 
 ## 2026-08-18 BOHUMFIT-296b — Q6 대조표 오류 규명 완료 · Step 2(a) / Human 재승인 대기
 
