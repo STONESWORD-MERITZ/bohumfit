@@ -97,14 +97,18 @@ def test_two_base_riders_sum_per_tier():
     assert extra[estimated_tier_label(1)]["by_company"] == {"1": 40 * MAN}
 
 
-def test_explicit_tier_lines_not_converted():
+def test_explicit_tier_lines_routed_to_columns():
+    # BOHUMFIT-301: 종별·종수 명시 개별행은 238 환산이 아니라 tier 질병/상해 열로 라우팅된다
+    #   ([후] proposal_parser·286 B1과 동일 착지). 밑줄형 `_N종` 마커도 지원.
     page = _detail(
         "16 정액 질병1~5종수술비Ⅱ(매회지급)(간편가입)(갱신형)_1종 질병종수술 10만\n"
         "17 정액 질병1~5종수술비Ⅱ(매회지급)(간편가입)(갱신형)_2종 질병종수술 20만\n"
     )
     _notes, extra = parse_detail_pages([page], CONTRACTS)
-    # 원문 종별 존재 → 환산 미적용(원문 우선), 기존 통합 합산 유지·값 불변.
-    assert extra["종수술비"]["by_company"] == {"1": 30 * MAN}
+    # 원문 종별(질병)·종수(1종·2종) 존재 → tier 질병 열로 착지, bare 종수술비·환산 라벨 없음.
+    assert "종수술비" not in extra
+    assert extra["N종수술비(질병 1종)"]["by_company"] == {"1": 10 * MAN}
+    assert extra["N종수술비(질병 2종)"]["by_company"] == {"1": 20 * MAN}
     assert not any("표준환산" in label for label in extra)
 
 

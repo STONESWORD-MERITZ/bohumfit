@@ -17,7 +17,7 @@ import { join, resolve } from "node:path";
 const ROOT = resolve(import.meta.dirname, "..");
 const PDF_DIR = join(ROOT, "보장분석", "비교분석표");
 
-/** verify.md "스모크 정본 세트" 기준값(BOHUMFIT-296 Human Q6 재승인 · 갱신 시 verify.md와 함께 수정). */
+/** verify.md "스모크 정본 세트" 기준값(BOHUMFIT-301 Human Q6 승인 · 갱신 시 verify.md와 함께 수정). */
 const BASELINE = [
   {
     label: "표준(계약별 매트릭스)",
@@ -35,13 +35,13 @@ const BASELINE = [
     label: "overview(합계-only · 239 fallback)",
     file: globSync("*INPUT.pdf", { cwd: PDF_DIR }).find((name) => !name.endsWith("-INPUT.pdf")) ?? "__missing-overview.pdf",
     contracts: 15,
-    coverageRows: 59,
-    enrolled: 42,
-    total: 1_500_690_000,
+    coverageRows: 58,
+    enrolled: 41,
+    total: 1_467_790_000,
     monthly: 4_675_189,
     monthlyActive: 4_675_189,
     overviewRows: 25,
-    warnings: 1,
+    warnings: 2,
     // 256~258 귀속 완결 — overview 담보 26종 전부 회사별 귀속(회사합=합계).
     overviewTotal: 1_358_940_000,
     attributionRate: 99.3,

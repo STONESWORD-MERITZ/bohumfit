@@ -23,7 +23,6 @@ from .constants import (
 from .jong_surgery import (
     OUT_OF_RANGE_LABEL,
     estimated_tier_label,
-    has_explicit_tier,
     lookup_jong_tiers,
 )
 
@@ -774,7 +773,96 @@ def _last_amount(line: str):
     return None
 
 
-def parse_detail_pages(detail_pages: list[list[str]], contracts: list[dict], jong_table: dict | None = None):
+# BOHUMFIT-301: [전] 종수술 tier 라우팅 — 종별 마커에서 종수를 뽑는다. 두 실형식 모두 지원:
+#   밑줄형 `…_1종`(237-F)과 괄호형 `…(3종)`·`…(1종,`. 담보명의 `1-5종수술비`·`1-8종수술비`
+#   범위 표기와 `(5종수술)` 기준 표기는 마커가 아니다(jong_surgery._TIER_MARKER_RE와 같은 관례).
+_JONG_TIER_RE = re.compile(r"_([1-9][0-9]*)종|\(([1-9][0-9]*)종[,)]")
+
+
+def _jong_kind(compact_name: str) -> str | None:
+    """담보명(공백 제거) 접두 종별 — 없으면 None(291: 종별 추측 금지)."""
+    if compact_name.startswith("질병"):
+        return "질병"
+    if compact_name.startswith("상해"):
+        return "상해"
+    return None
+
+
+def _jong_tier_n(compact_name: str) -> int | None:
+    match = _JONG_TIER_RE.search(compact_name)
+    if not match:
+        return None
+    return int(match.group(1) or match.group(2))
+
+
+def route_jong_surgery(records: list[tuple], jong_table: dict | None = None):
+    """BOHUMFIT-301: [전] 종수술 라인들을 tier 행으로 라우팅한다(297 조사 → 파서 갭 해소).
+
+    records: `(key, agg, amount, compact_name)` 목록(공백 제거된 담보명).
+    반환 `(entries, ignored, suppressed)`:
+      - entries: `{라벨: {"agg","by_company",...}}` — extra에 병합할 결과.
+        개별행(종별 접두 + `(N종)`, N∈1~5)은 `N종수술비({종별} {N}종)` 라벨로 tier 질병/상해 열에
+        착지한다([후] proposal_parser·286 B1과 동일 착지). 종별 없는 요약행/순수 5종기준액은 238
+        표준환산(미상 열, 291 준수)으로 남긴다.
+      - ignored: **6종 이상**(N≥6) 무시 목록(C·1~5종 고정 · 무시 목록 기록용).
+      - suppressed: 같은 (계약, 종별)에 개별행이 있어 폐기한 **요약행**(B·이중 계상 정리).
+        ★개별행이 없으면 요약행을 238 환산으로 살린다(요약행만 있는 문서 보존).
+    """
+    parsed = []
+    has_individual: set[tuple] = set()
+    for key, agg, amount, compact_name in records:
+        kind = _jong_kind(compact_name)
+        tier_n = _jong_tier_n(compact_name)
+        is_summary = "기타인보험" in compact_name
+        parsed.append((key, agg, amount, compact_name, kind, tier_n, is_summary))
+        if tier_n is not None and 1 <= tier_n <= 5 and kind:
+            has_individual.add((key, kind))
+
+    entries: dict[str, dict] = {}
+    ignored: list[dict] = []
+    suppressed: list[dict] = []
+
+    def _add(label: str, key: str, amount: int, agg: str, estimated: bool = False):
+        entry = entries.setdefault(label, {"agg": agg, "by_company": {}})
+        if estimated:
+            entry["estimated"] = True
+        entry["by_company"][key] = entry["by_company"].get(key, 0) + amount
+
+    for key, agg, amount, compact_name, kind, tier_n, is_summary in parsed:
+        if tier_n is not None and tier_n >= 6:
+            # C: 6종 이상은 1~5종 표에 넣지 않는다(Human 확정). 무시 목록에 기록.
+            ignored.append({"key": key, "kind": kind, "n": tier_n, "amount": amount, "name": compact_name})
+            continue
+        if tier_n is not None and 1 <= tier_n <= 5:
+            if kind:
+                # A: 종별·종수 명시 개별행 → tier 질병/상해 열(원문 값 그대로 · 환산 아님).
+                _add(f"N종수술비({kind} {tier_n}종)", key, amount, agg)
+            else:
+                # 종별 접두가 없는 명시 tier 행 — 추측 금지(291). bare로 보존(손실 방지).
+                _add("종수술비", key, amount, agg)
+            continue
+        # tier_n is None — 요약행 또는 순수 5종기준액.
+        if is_summary and kind and (key, kind) in has_individual:
+            # B: 개별행이 있으면 요약행은 이중 계상이므로 폐기.
+            suppressed.append({"key": key, "kind": kind, "amount": amount, "name": compact_name})
+            continue
+        # 238 표준환산 — 요약행만 있는 문서 또는 순수 bare 5종기준액(종별·종수 미상 → 미상 열).
+        tiers = lookup_jong_tiers(amount, jong_table)
+        if tiers is None:
+            _add(OUT_OF_RANGE_LABEL, key, amount, agg)
+        else:
+            for tier, tier_amount in tiers.items():
+                _add(estimated_tier_label(tier), key, tier_amount, agg, estimated=True)
+
+    return entries, ignored, suppressed
+
+
+def parse_detail_pages(
+    detail_pages: list[list[str]],
+    contracts: list[dict],
+    jong_table: dict | None = None,
+    sink: dict | None = None,
+):
     """Parse detailed pages for contract remarks and non-standard 기타 riders."""
     # BOHUMFIT-253(회송): 동일 보험료 계약을 보존하는 집합 역인덱스(last-wins dict 제거).
     premium_index = _premium_index(contracts)
@@ -785,6 +873,9 @@ def parse_detail_pages(detail_pages: list[list[str]], contracts: list[dict], jon
     #   재등장은 1회만 계상해 담보 자체의 이중 합산을 막는다(사망 배타 가드의 일부).
     _DEATH_DEDUP_LABELS = ("일반사망", "재해사망")
     death_seen: set[tuple] = set()
+    # BOHUMFIT-301: 종수술비 라인은 (계약,종별) 개별행 유무를 알아야 요약행 이중 계상을
+    #   정리할 수 있어, 스트리밍 중 모아 루프 후 route_jong_surgery로 일괄 라우팅한다.
+    jong_records: list[tuple] = []
 
     for lines in detail_pages:
         idx = _detail_contract_idx(lines, premium_index)
@@ -811,25 +902,13 @@ def parse_detail_pages(detail_pages: list[list[str]], contracts: list[dict], jon
                 continue
             label, agg = classified
             key = str(idx) if idx is not None else "?"
-            # BOHUMFIT-238: 종수술비가 종별 마커 없이 "5종 기준 최대금액"만 표기된 경우
-            # 표준 환산표로 1~5종을 세팅한다(원문에 종별이 있으면 미적용 — 원문 우선).
+            # BOHUMFIT-301: 종수술비는 (계약,종별) 개별행 유무를 봐야 이중 계상을 정리할 수
+            #   있어 라인을 모아 루프 후 route_jong_surgery로 일괄 라우팅한다(238 환산·6종 이상
+            #   처분·요약행 폐기 포함). ★인라인 238 환산은 그 함수로 이관됐다.
             if label == "종수술비":
                 name, _cls = split_detail_parts(line)
-                compact_name = _despace(name)
-                if not has_explicit_tier(compact_name):
-                    tiers = lookup_jong_tiers(amount, jong_table)
-                    if tiers is None:
-                        # 표 외(100만원 미만): 세팅하지 않고 "표 외" 표기 버킷으로 유지.
-                        entry = extra.setdefault(OUT_OF_RANGE_LABEL, {"agg": agg, "by_company": {}})
-                        entry["by_company"][key] = entry["by_company"].get(key, 0) + amount
-                    else:
-                        for tier, tier_amount in tiers.items():
-                            entry = extra.setdefault(
-                                estimated_tier_label(tier),
-                                {"agg": agg, "by_company": {}, "estimated": True},
-                            )
-                            entry["by_company"][key] = entry["by_company"].get(key, 0) + tier_amount
-                    continue
+                jong_records.append((key, agg, amount, _despace(name)))
+                continue
             if label in _DEATH_DEDUP_LABELS:
                 name, cls = split_detail_parts(line)
                 # BOHUMFIT-246: 배타 차감 근거 — 지급사유(KB분류) 행별 금액을 계약 키로 기록.
@@ -881,6 +960,20 @@ def parse_detail_pages(detail_pages: list[list[str]], contracts: list[dict], jon
                     values = entry.setdefault("n_values", [])
                     if n not in values:
                         values.append(n)
+
+    # BOHUMFIT-301: 모아둔 종수술 라인을 tier 행으로 일괄 라우팅(개별행→질병/상해 열, 요약행
+    #   폐기, 6종 이상 무시, 나머지는 238 환산 미상 열).
+    if jong_records:
+        jong_entries, jong_ignored, jong_suppressed = route_jong_surgery(jong_records, jong_table)
+        for jlabel, jentry in jong_entries.items():
+            dst = extra.setdefault(jlabel, {"agg": jentry["agg"], "by_company": {}})
+            if jentry.get("estimated"):
+                dst["estimated"] = True
+            for jkey, jamount in jentry["by_company"].items():
+                dst["by_company"][jkey] = dst["by_company"].get(jkey, 0) + jamount
+        if sink is not None:
+            sink["jong_ignored"] = jong_ignored
+            sink["jong_suppressed"] = jong_suppressed
 
     return notes, extra
 
@@ -938,7 +1031,18 @@ def parse_document(pdf_bytes: bytes, jong_table: dict | None = None) -> dict:
     if contracts and matrix and not matrix_from_overview:
         contracts = _ensure_contracts_for_matrix_columns(contracts, matrix)
     diagnosis = parse_diagnosis(diagnosis_lines) if diagnosis_lines else {}
-    notes, extra = parse_detail_pages(detail_pages, contracts, jong_table) if detail_pages else ({}, {})
+    jong_sink: dict = {}
+    notes, extra = (
+        parse_detail_pages(detail_pages, contracts, jong_table, sink=jong_sink)
+        if detail_pages
+        else ({}, {})
+    )
+    # BOHUMFIT-301(C): 6종 이상 종수술은 1~5종 표에 넣지 않는다(Human 확정) — 추적용 경고.
+    if jong_sink.get("jong_ignored"):
+        ignored_ns = sorted({rec["n"] for rec in jong_sink["jong_ignored"]})
+        warnings.append(
+            "종수술 " + ",".join(str(n) for n in ignored_ns) + "종(6종 이상)은 1~5종 표에 반영하지 않았습니다."
+        )
     # BOHUMFIT-256: overview fallback 문서만 — detail에서 계약별 귀속을 복원한다(귀속 게이트
     #   통과분만 채움·summary 불변). 표준 문서는 matrix_from_overview가 False라 미진입.
     if matrix_from_overview:

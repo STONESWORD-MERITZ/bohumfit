@@ -4,9 +4,10 @@ Use this file to record active Codex file ownership during a task.
 
 ## Active
 
-(없음 — 296/296b Codex 최종 검증 완료·커밋 대기 / 297 조사 문서 후속 커밋 대기)
+(없음 — 301 Human Q6 승인 반영·Codex 2차 검증 PASS, 커밋/push 진행)
 
 ### Released
+- 2026-08-19 `BOHUMFIT-301-tier-routing` - Codex - Released(Human Q6 승인 반영·2차 검증 PASS). BEFORE/AFTER 4문서 독립 대조 A·D 불변/C rows−1·총액 불변/B rows−1·총액−32.9M, 사유 없는 변화 0. backend 1076/8·frontend 413/42·tsc/lint/smoke PASS, build:verify 343,702 B 예상 FAIL, 뮤테이션 3종 검출·원복, 엑셀/PDF 실렌더 통과. 실 PDF·PII·산출물 stage 0.
 - 2026-08-18 `BOHUMFIT-296/296b` - Codex - Released(Human Q6 재승인 반영·2차 검증 PASS). A 0/B −1M/C −11.7M/D −4M 전부 원시 N대수술비 sum→max 산술 일치, 이관 손실·2열 값 영향 0. smoke 기준값 갱신 후 PASS, backend 1065/8·frontend 413/42·tsc·lint, A~D 엑셀/PDF 실렌더 통과. 실 PDF·PII·산출물 stage 0, 297 문서 제외.
 - 2026-08-18 `BOHUMFIT-296b-q6-recheck` - Codex - Released(Step 2(a) · 제품 코드 추가 수정 0). 정본 A~D HEAD/296 전후 재파싱: B −1M·C −11.7M·D −4M 모두 N대수술비 원시 복수 행 sum→max, 이관 손실·2열 영향 0. 오류 원인=후 max값을 전값으로 간주 + 중복 제거 `n_values`를 건수로 오해. 기존 296 테스트에 A~D 자동 검산 연결. backend 1065/8·frontend 413/42·tsc·lint 통과, smoke 예상 FAIL 2건 일치·기준값 미갱신. Human 재승인 대기.
 - 2026-08-18 `BOHUMFIT-297-tier-split-audit` - Claude Code - Released(★조사 · 코드 diff 0). 종수술 2열 종별 미분리(item 1)와 종수술비 1~5종 미반영(item 5)이 **동일 파서 갭**임을 판정 — `질병/상해 1-5종수술비(N종)`이 has_explicit_tier=True로 238 환산은 건너뛰되 `(N종)`→tier 라우팅이 없어 종수·종별 둘 다 bare 종수술비로 소실. 부수 발견: 개별행+요약행 이중 계상(기존 결함). 종수술비 비고 제거는 A(파서)+B(이중계상)+C(6종이상) 함께여야 가능(조건부). Human 결정 4건. PII 0(익명 라벨).

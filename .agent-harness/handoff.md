@@ -1,9 +1,95 @@
+## 2026-08-19 BOHUMFIT-301 [전] 종수술 tier 라우팅·이중 계상 정리·종수술비 비고 제거 · Codex 2차 검증 PASS (Human Q6 승인 반영)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex 완료** → **Chat**(299 발행)
+검증 기준 HEAD `92e364b`(297 문서 커밋). Human Q6 승인값 반영. 상세: tasks/BOHUMFIT-301-tier-routing.md.
+
+### 변경 (접촉 최소)
+- `backend/coverage/parser.py`: 종수술비 라인을 모아 신설 순수 함수 `route_jong_surgery`로 일괄 라우팅.
+  A 개별행(종별 접두+`(N종)`/`_N종`,N∈1~5) → `N종수술비({종별} {N}종)` → tier 질병/상해 열([후]와 동일 착지).
+  B 개별행 있으면 요약행(`기타인보험`) 폐기·없으면 238 유지. C N≥6 무시+warnings 노출. D bare 종수술비 소거.
+  ★291 준수: 종별 접두 없으면 bare 보존(추측 0). `has_explicit_tier` import 제거(이관). jong_surgery.py 무변경.
+- `backend/tests/test_coverage_jong_238.py`: 구 계약(`_not_converted`) → 신 동작(`_routed_to_columns`) 갱신.
+- `backend/tests/test_tier_routing_301.py`(신설 11건): 추출·A·B·C·D·값보존 + 뮤테이션 3종 대응.
+
+### ★Q6 대조표 (4문서 전부 실행·추정 0 · BEFORE=HEAD·AFTER=301 각각 독립 실행)
+- 정본A·D: 종수술 없음 → **완전 불변**.
+- 정본C(표준형·질병만): total **불변**·rows 56→55. bare 21.5M → tier 질병 200k/300k/1M/10M/10M(=21.5M 정확). 상해 빈칸=원문 그대로. **손실 0**.
+- 정본B(overview): total 1,500,690,000→**1,467,790,000(−32.9M)**·rows 59→58. 이중 계상(요약행 238 환산)+6~8종 오환산 제거. 개별행 18.3M은 bare→tier 위치 이동(값 보존). 질병 500k/600k/1.5M/1.1M/1.1M·상해 500k/1M/2M/5M/5M.
+- ★사유 없는 변화 0. 6종 이상 무시: 질병 6/7/8종 각 1M(경고 노출). 요약행 폐기: 상해13.5M·질병3.5M·질병4.3M.
+- 분배 검산: B·C 모두 bare==tier 합 정확 일치 → 비고 제거 안전.
+
+### Codex 2차 검증 (Windows 권위)
+- BEFORE는 분리 worktree의 HEAD `92e364b`, AFTER는 301 워킹트리에서 4문서를 각각 독립 실행했다. A·D 완전 불변, C rows 56→55·총액 398,960,000 불변, B rows 59→58·총액 1,500,690,000→1,467,790,000(−32.9M). 월납 4문서 불변.
+- B −32.9M = 요약행 238 환산 이중 계상 27.5M + 질병 6·7·8종 각 1M의 오환산 5.4M. C bare 21.5M은 질병 tier 5행 합과 일치하고 상해 열은 원문대로 빈칸. 사유 없는 변화 0.
+- 정본C + 제안서 3건으로 [전]/[후] tier row_id·질병/상해 열의 동일 착지를 확인했다. 개별행 없는 238 요약행 보존도 표적 테스트로 확인했다.
+- 뮤테이션 3종(라우팅 제거·요약행 정리 제거·종별 추측)을 직접 주입해 모두 테스트 실패를 확인하고 원복했다. `parser.py` SHA-256 전후 `8EA5701BCF11197689141D0368D7CEA1B2892281F4C8E17F1D2F56734E97DF53` 동일.
+- 기준 갱신: smoke 정본B rows/enrolled/total/warnings = 58/41/1,467,790,000/2, 296 실PDF recheck B·C, verify·CLAUDE·AGENTS backend 1076/8.
+- 게이트: backend **1076 passed, 8 skipped** / frontend **413 passed, 42 files** / tsc app·node PASS / lint PASS / smoke PASS. build 343.70 kB, build:verify **343,702 B 예상 FAIL**(248 확정 Windows 껍데기).
+- 엑셀·PDF A~D 실렌더: 52행·tier 배치·bare 비고 제거·FIT 팔레트·261 차액 색상 무회귀. PDF 18/18/12/16쪽 경계 잘림·우측 침범 0. 임시 산출물·분리 worktree 삭제 완료.
+- src·pipeline·filters·proposal_parser·constants·compare·aggregator·jong_surgery·vite diff 0. 실 PDF·PII·생성 산출물 stage 0.
+
+### Git 원문 (커밋 전)
+
+```text
+$ git log --oneline -5
+92e364b docs(BOHUMFIT-297): 종수술 tier 미분리·종수술비 합성 라벨 기전 조사
+397056b feat(BOHUMFIT-296): 비고 정규 행 이관·N대수술비 신설·2열 라벨 정리(52행·smoke 기준값 갱신 — Human Q6 재승인)
+05c038f feat(BOHUMFIT-298): 프런트 종합비교 V2 17키 이관(암 12행 표시·구 7키 폐기)
+3ec464b fix(BOHUMFIT-295): 제안서 없음 케이스 종합비교 회귀 — 표시 대칭화·stale 판정·배선 회귀 테스트
+59fca67 docs(BOHUMFIT-294): Codex 검증·push 결과 기록
+
+$ git status --short -uall
+ M .agent-harness/handoff.md
+ M .agent-harness/locks.md
+ M .agent-harness/verify.md
+ M AGENTS.md
+ M CLAUDE.md
+ M backend/coverage/parser.py
+ M backend/tests/test_coverage_jong_238.py
+ M backend/tests/test_remark_relocation_296.py
+ M scripts/smoke-coverage.mjs
+?? .agent-harness/tasks/BOHUMFIT-301-tier-routing.md
+?? backend/tests/test_tier_routing_301.py
+
+$ git rev-list --left-right --count origin/main...HEAD
+0	0
+```
+
+### Next
+1. **Chat** — BOHUMFIT-299(총납입 산식 — Q6) 발행. 2. **Human** — 필요 시 프로덕션 정본B·C 종수술 tier 배치 육안 확인.
+
 ## 2026-08-18 BOHUMFIT-297 종수술 2열 미분리·종수술비 기전 조사 (재발행 확장 items 1~6) · 완료 (★코드 0)
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human**(수정 방향 결정) / **Codex**(문서 커밋)
 기준 HEAD `397056b`(296 커밋·52행). git 쓰기 0 · 실 PDF 읽기 전용·stage 0 · PII 0(정본A~D 라벨). 코드 diff 0. 상세: tasks/BOHUMFIT-297-tier-split-audit.md(기존 조사에 items 1~6 이어서 확장).
 
 Codex 간단 검증(2026-08-19): backend **1065 passed, 8 skipped** · frontend **413 passed / 42 files** 재현. 제품 코드 diff 0이며 297 조사 문서와 handoff만 커밋 범위로 확인했다(`locks.md`의 별도 하네스 변경은 stage 제외).
+
+커밋 `92e364b` — `docs(BOHUMFIT-297): 종수술 tier 미분리·종수술비 합성 라벨 기전 조사`, `origin/main` push 완료.
+
+### push 직후 원문
+
+`git log --oneline -5`:
+
+```text
+92e364b docs(BOHUMFIT-297): 종수술 tier 미분리·종수술비 합성 라벨 기전 조사
+397056b feat(BOHUMFIT-296): 비고 정규 행 이관·N대수술비 신설·2열 라벨 정리(52행·smoke 기준값 갱신 — Human Q6 재승인)
+05c038f feat(BOHUMFIT-298): 프런트 종합비교 V2 17키 이관(암 12행 표시·구 7키 폐기)
+3ec464b fix(BOHUMFIT-295): 제안서 없음 케이스 종합비교 회귀 — 표시 대칭화·stale 판정·배선 회귀 테스트
+59fca67 docs(BOHUMFIT-294): Codex 검증·push 결과 기록
+```
+
+`git status --short -uall`:
+
+```text
+ M .agent-harness/locks.md
+```
+
+`git rev-list --left-right --count origin/main...HEAD`:
+
+```text
+0\t0
+```
 
 ### ★item 1 — 원문 실재: **파서 갭**(정직한 238 아님)
 [전] tier 값은 값이 있으면 **전부 미상(unspecified) 열**(238 환산 유래). 질병/상해 열은 4문서 [전] 전부 빈칸.
