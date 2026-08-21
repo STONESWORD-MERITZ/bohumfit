@@ -41,7 +41,7 @@ from coverage.constants import (
 # ── ① 골격 ────────────────────────────────────────────────────────────────
 def test_row_count_and_order_match_the_manual_tables():
     """★42행·순서까지 수기표와 같다 — 순서가 어긋나면 산출물 행이 밀린다."""
-    assert STANDARD_COUNT_V2 == 52  # ★296: 49 + N대수술비 최대 보상금액·3대비급여실손·교통사고처리지원금(6주미만) 3행
+    assert STANDARD_COUNT_V2 == 55  # ★302b: 52 + 뇌/심장 혈전용해·암 통합치료비 한도(회색) 3행
 
 
 def test_eleven_groups_in_sheet_order():
@@ -66,16 +66,17 @@ def test_every_row_belongs_to_a_declared_group_and_groups_are_contiguous():
 def test_row_ids_are_unique_and_ascii():
     """★`row_id`는 표시명과 분리된 안정 키다 — 표기가 흔들려도 코드가 안 흔들리게."""
     ids = [row.row_id for row in KB_COVERAGES_V2]
-    assert len(set(ids)) == 52  # ★296: +3행
+    assert len(set(ids)) == 55  # ★302b: +3행
     for row_id in ids:
         assert row_id.isascii() and row_id.islower(), row_id
 
 
 # ── ② 행 성격 플래그 ──────────────────────────────────────────────────────
-def test_sum_excluded_is_only_the_80_percent_row():
+def test_sum_excluded_rows_are_the_three_gray_headers():
     """★Q2 + 243: 행은 **보이되 더해지지 않는다**. 다른 행에 번지면 합계가 조용히 줄어든다."""
+    # ★302b: 회색 헤더 2행(암 통합치료비 한도·순환계 치료비)이 합류해 sum_excluded는 3행이 됐다.
     excluded = [row.row_id for row in KB_COVERAGES_V2 if row.sum_excluded]
-    assert excluded == ["disability_80"]
+    assert set(excluded) == {"disability_80", "cancer_integrated_limit", "circulatory_treatment"}
     row = next(r for r in KB_COVERAGES_V2 if r.row_id == "disability_80")
     assert row.display == "상해 질병 후 유 장 해 80%"
     assert SUM_EXCLUDED_NOTE_V2 == "합계 미포함"
@@ -167,7 +168,7 @@ def test_new_rows_are_the_ones_without_a_legacy_source():
     판정 기준은 287 그대로 — "구 40행 이름을 하나라도 별칭으로 갖는가"다.
     별칭이 비었는지로 세면 종수술 5행(파서·238 환산 라벨을 가짐)을 놓친다.
     """
-    assert len(NEW_ROWS_V2) == 21  # 296: +N대수술비 최대 보상금액·교통사고처리지원금(6주미만)(3대비급여실손은 구 이름 보유)
+    assert len(NEW_ROWS_V2) == 24  # 302b: +뇌/심장 혈전용해·암 통합치료비 한도
     assert set(NEW_ROWS_V2) == {
         "tier_surgery_1", "tier_surgery_2", "tier_surgery_3", "tier_surgery_4", "tier_surgery_5",
         "cancer_minor_surgery", "cancer_surgery_davinci", "cancer_surgery_davinci_specific",
@@ -176,6 +177,7 @@ def test_new_rows_are_the_ones_without_a_legacy_source():
         "inpatient_private_room", "death_general", "disability_80",
         "fracture_surgery", "cast_treatment",
         "major_n_surgery", "driver_settlement_6w",  # 296
+        "thrombolysis_cerebral", "thrombolysis_cardiac", "cancer_integrated_limit",  # 302b
     }
 
 

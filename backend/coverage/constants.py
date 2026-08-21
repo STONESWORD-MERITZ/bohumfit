@@ -544,6 +544,11 @@ KB_COVERAGES_V2: tuple[CoverageRowV2, ...] = (
     CoverageRowV2("major_n_surgery", "수 술", "N대수술비 최대 보상금액", aliases=("N대수술비",)),
     CoverageRowV2("surgery_cerebral", "수 술", "뇌혈관 수술비", aliases=("뇌혈관수술", "뇌혈관수술비")),   # 292(S4·E): 상세 분리 라벨
     CoverageRowV2("surgery_cardiac", "수 술", "심장질환 수술비", aliases=("심혈관수술", "심혈관수술비")),  # 292(S4·E)
+    # BOHUMFIT-302b 신설(Human 확정) — 순환계 통합치료 내역의 `혈전용해치료`가 착지할 자리.
+    #   수술 대분류 · 뇌혈관/심장질환 수술비 **아래**. 뇌·심장 동일 금액으로 각각 싣는다(분배는 302b).
+    #   ★케스케이드 없음(독립) · 2열 아님 · 합계 포함(회색 아님).
+    CoverageRowV2("thrombolysis_cerebral", "수 술", "뇌 혈전용해", aliases=("뇌혈전용해",)),
+    CoverageRowV2("thrombolysis_cardiac", "수 술", "심장 혈전용해", aliases=("심장혈전용해",)),
     # ── 암 (BOHUMFIT-289: 7행 → **11행** 재설계. 제품 오너 확정) ────────────
     #   ★구 42행의 묶음 3개가 전부 풀렸다:
     #     `암 수 술 / 로 봇 암 수 술` → 암수술 + 다빈치 로봇 수술
@@ -551,6 +556,12 @@ KB_COVERAGES_V2: tuple[CoverageRowV2, ...] = (
     #     `세기조절 / 양성자 방사선` + `중입자 / 정위 방사선` → 세기조절·양성자·중입자 3행
     #   ★Q3 폐기: 신판은 구형 표기 `중 입 자 치료`를 쓴다. 287이 채택했던
     #     `중입자 / 정위 방사선`은 이제 **별칭**으로 내려간다(표기 결정이 뒤집혔다).
+    # BOHUMFIT-302b 신설(Human 확정) — 암 통합치료비 **본체(연간 총 지급 한도)** 회색 헤더.
+    #   암 대분류 최상단(암 진단비 위). 한도는 지급 항목이 아니므로 **`sum_excluded`**(80% 행과 같은 처리) —
+    #   값은 보존하되 대분류·총액 합계에서 뺀다. 담보가 여러 건(실속형+비급여Ⅱ)이면 한 행에 합산하고
+    #   출처는 `sources`로 분리 보존한다(고정 스키마라 담보별 동적 행은 만들지 않는다).
+    CoverageRowV2("cancer_integrated_limit", "암", "암 통합치료비 (연간 총 지급 한도)", sum_excluded=True,
+                  aliases=("암 통합치료비 한도",)),
     CoverageRowV2("cancer_general", "암", "암 진 단 비(일반암)", aliases=("암진단금",)),
     CoverageRowV2("cancer_minor", "암", "유 사 암 진 단 비", aliases=("유사암진단금",)),
     CoverageRowV2("cancer_surgery", "암", "암 수 술 (레보아이 포함)",
@@ -572,6 +583,10 @@ KB_COVERAGES_V2: tuple[CoverageRowV2, ...] = (
     CoverageRowV2("radio_carbon", "암", "중 입 자 치료",
                   aliases=("중입자방사선", "중입자 / 정위 방사선")),
     # ── 뇌 ──────────────────────────────────────────────────────────────────
+    # BOHUMFIT-302b(Human 확정): 순환계 치료비를 **심장 대분류 말미 → 뇌 대분류 최상단**으로 옮기고
+    #   회색 헤더(`sum_excluded`)로 바꾼다. 본체는 연간 총 지급 한도라 지급 항목이 아니다(290 착지 행은 유지).
+    #   ★행 자체는 신설이 아니라 **위치·성격 변경**이다(52→55의 +3에 포함되지 않는다).
+    CoverageRowV2("circulatory_treatment", "뇌", "순환계 치료비", sum_excluded=True),
     CoverageRowV2("cerebral_disease", "뇌", "뇌 혈 관 질 환", aliases=("뇌혈관질환",)),
     CoverageRowV2("stroke", "뇌", "뇌 졸 중", aliases=("뇌졸중",)),
     CoverageRowV2("cerebral_hemorrhage", "뇌", "뇌 출 혈", aliases=("뇌출혈",)),
@@ -579,9 +594,7 @@ KB_COVERAGES_V2: tuple[CoverageRowV2, ...] = (
     CoverageRowV2("cardiac_disease", "심 장", "심 장 질 환", aliases=("심혈관질환",)),
     CoverageRowV2("ischemic_heart", "심 장", "허혈성 심장질환", aliases=("허혈성심장질환",)),
     CoverageRowV2("acute_mi", "심 장", "급성심근경색", aliases=("급성심근경색",)),
-    # BOHUMFIT-290(S2·Human 확정): 순환계 치료비 — Q8형 분배의 **본체** 착지 행.
-    #   심장 대분류 말미 · ★케스케이드 밖 독립 행(체인 없음).
-    CoverageRowV2("circulatory_treatment", "심 장", "순환계 치료비"),
+    # BOHUMFIT-302b: `circulatory_treatment`는 뇌 대분류 최상단으로 이동했다(위 참조).
     # ── 입 원 ───────────────────────────────────────────────────────────────
     CoverageRowV2("inpatient_injury", "입 원", "상 해 입 원", aliases=("상해입원",)),
     CoverageRowV2("inpatient_disease", "입 원", "질 병 입 원", aliases=("질병입원",)),

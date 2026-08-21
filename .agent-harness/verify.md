@@ -16,15 +16,16 @@ For UI changes, also run the app locally and do a browser smoke test:
 npm run dev
 ```
 
-## 검증 기준선 (BOHUMFIT-301 Codex 2차 실측 · 2026-08-19 갱신)
+## 검증 기준선 (BOHUMFIT-302b 실측 · 2026-08-20 갱신)
 
 백엔드 pytest — `cd backend && python -m pytest -q`:
 
 ```text
-1076 passed, 8 skipped
+1087 passed, 8 skipped
 ```
 
-(BOHUMFIT-301 Codex 2차 실측·2026-08-19 — 296/296b 기준선 1065/8에 종수술 tier 라우팅·이중 계상·6종 이상·비고 제거 계약 11건을 더해 1076/8.
+(BOHUMFIT-302b 실측·2026-08-20 — 301 기준선 1076/8에 통합치료비 표시 구조 확장(55행·회색 헤더 3행·혈전용해 2행) 계약 11건을 더해 1087/8.
+BOHUMFIT-301은 296/296b 기준선 1065/8에 종수술 tier 라우팅·이중 계상·6종 이상·비고 제거 계약 11건을 더해 1076/8.
 BOHUMFIT-296/296b는 295/295b 기준선 1058/8에 52행·N대수술비 max·이관/헤더 제거 계약 7건을 더해 1065/8.
 296b의 정본 A~D 검산은 기존 이관 테스트 안에 배선해 테스트 수 기준선은 유지한다.
 BOHUMFIT-295/295b는 294 기준선 1052/8에 제안서 없음 불변식 계약 6건을 더해 1058/8.

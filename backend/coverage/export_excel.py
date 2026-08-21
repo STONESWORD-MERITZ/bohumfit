@@ -252,6 +252,18 @@ for _item, _sources in YN_ITEMS_V2:
             _YN_ITEM_OF_ROW.setdefault(_rid, _item)
 
 
+def _lead_rows(row_of) -> dict[str, int]:
+    """대분류 **선두 강조(GREENTEA)를 받을 행** — ★BOHUMFIT-302b: 회색 헤더(`sum_excluded`)가 대분류
+    맨 위에 오면 그 행은 회색이므로, 선두 강조는 **회색이 아닌 첫 행**이 받는다(대분류 구분 유지).
+    회색 행뿐인 대분류는 없으므로 폴백은 필요 없다."""
+    lead: dict[str, int] = {}
+    for spec in KB_COVERAGES_V2:
+        if spec.sum_excluded:
+            continue
+        lead.setdefault(spec.group, row_of(spec.row_id))
+    return lead
+
+
 def _row_by_id(before_like: dict) -> dict:
     """행 조회(row_id 기준). ★구 페이로드(row_id 없음 — 과거 저장분·구 클라이언트)는 이름을 `resolve()`로
     V2 행에 **투영**해 읽는다(값 계산 없음 · 표시 전용 · 같은 행에 둘 이상 오면 먼저 온 것)."""
@@ -414,13 +426,17 @@ def _sheet_track(ws, analysis: dict, before_like: dict, *, is_after: bool) -> No
     yn = _yn_by_row(before_like)
     group_start: dict[str, int] = {}
     group_end: dict[str, int] = {}
+    lead_row = _lead_rows(track_row_of)
     for spec in KB_COVERAGES_V2:
         row = track_row_of(spec.row_id)  # ★296: 2열 헤더 제거 — 헤더 행 삽입 없음
         data = rows_by_id.get(spec.row_id) or {}
         group_start.setdefault(spec.group, row)
         group_end[spec.group] = row
-        lead = group_start[spec.group] == row
-        row_fill = GREENTEA if lead else (LIME if spec.row_id in SPECIAL_ROW_IDS else None)
+        lead = lead_row.get(spec.group) == row
+        # ★BOHUMFIT-302b: `sum_excluded` 행은 **회색 헤더**로 구분한다(합계에 안 더해지는 행임을 면으로 알린다).
+        #   FIT 팔레트의 `GRAY_SOFT`를 쓰고, 대분류 선두(GREENTEA)·특수 강조(LIME)보다 우선한다.
+        row_fill = GRAY_SOFT if spec.sum_excluded else (
+            GREENTEA if lead else (LIME if spec.row_id in SPECIAL_ROW_IDS else None))
         ws.row_dimensions[row].height = 18
         # 담보명(C~E 병합) — ★수기표 문자열 그대로. Q2·Q5 표기는 셀 메모.
         ws.merge_cells(start_row=row, start_column=col_name0, end_row=row, end_column=col_name0 + 2)
@@ -569,11 +585,15 @@ def _sheet_final(ws, analysis: dict, before: dict, after_before: dict | None) ->
 
     group_start: dict[str, int] = {}
     group_end: dict[str, int] = {}
+    lead_row = _lead_rows(lambda rid: DATA_ROW0 + ROW_INDEX[rid])
     for offset, spec in enumerate(KB_COVERAGES_V2):
         row = DATA_ROW0 + offset
         group_start.setdefault(spec.group, row); group_end[spec.group] = row
-        lead = group_start[spec.group] == row
-        row_fill = GREENTEA if lead else (LIME if spec.row_id in SPECIAL_ROW_IDS else None)
+        lead = lead_row.get(spec.group) == row
+        # ★BOHUMFIT-302b: `sum_excluded` 행은 **회색 헤더**로 구분한다(합계에 안 더해지는 행임을 면으로 알린다).
+        #   FIT 팔레트의 `GRAY_SOFT`를 쓰고, 대분류 선두(GREENTEA)·특수 강조(LIME)보다 우선한다.
+        row_fill = GRAY_SOFT if spec.sum_excluded else (
+            GREENTEA if lead else (LIME if spec.row_id in SPECIAL_ROW_IDS else None))
         ws.merge_cells(start_row=row, start_column=col_name0, end_row=row, end_column=col_name0 + 2)
         label = _cell(ws, row, col_name0, _final_label(spec), bold=True, fill=EMERALD_SOFT, wrap=True, fmt="@",
                       align="left" if spec.row_id in CASCADE_CHILD_ROWS else "center")

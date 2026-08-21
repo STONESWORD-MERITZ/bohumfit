@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import openpyxl
 
 from coverage.aggregator import build_before
-from coverage.excel_style import EMERALD, FILL_ONLY_COLORS, GREENTEA, LIME, WHITE
+from coverage.excel_style import GRAY_SOFT, EMERALD, FILL_ONLY_COLORS, GREENTEA, LIME, WHITE
 from coverage.export_excel import build_workbook_bytes
 from tests.excel_v2_layout import COL_SUM, SHEET_BEFORE, company_col, row_of  # 291
 
@@ -63,9 +63,10 @@ def test_style_presence_and_values_unchanged():
     cancer_row = row_of("cancer_general")
     assert any(ws.cell(row=cancer_row, column=col).fill.fgColor.rgb == GREENTEA
                for col in range(COL_SUM, ws.max_column))
-    # 특수 행(순환계 치료비): 라임 면.
+    # ★BOHUMFIT-302b: 순환계 치료비는 **회색 헤더**(`sum_excluded`)로 바뀌었다 — 라임 특수 강조 → 그레이.
+    #   대분류 선두 강조(그린 티)는 회색이 아닌 첫 행(뇌 혈관 질환)이 받는다.
     circ_row = row_of("circulatory_treatment")
-    assert any(ws.cell(row=circ_row, column=col).fill.fgColor.rgb == LIME
+    assert any(ws.cell(row=circ_row, column=col).fill.fgColor.rgb == GRAY_SOFT
                for col in range(COL_SUM, ws.max_column))
     # 값 검증(스타일 계층이 값을 바꾸지 않음): 질병사망 5,000·암진단 3,000·순환계 1,000(만원).
     assert ws.cell(row=row_of("death_disease"), column=COL_SUM).value == 5000

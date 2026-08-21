@@ -35,27 +35,62 @@ from coverage.constants import (
 )
 
 # ── 신판 46행 실측(`컨설팅 전`·`컨설팅 후` 두 시트 r7~r52 · 완전 일치) ────────
-EXPECTED_DISPLAY_46: tuple[str, ...] = (
-    "3 대 비 급 여 실 손",  # ★296: 비고 → 정규 행 이관(실비 상단)
-    "상 해/질 병 입 원", "상 해/질 병 통 원 약 제",
-    "상 해 수 술 비", "질 병 수 술 비",
-    "1종 수술비 (질병 I 상해)", "2종 수술비 (질병 I 상해)", "3종 수술비 (질병 I 상해)",
-    "4종 수술비 (질병 I 상해)", "5종 수술비 (질병 I 상해)",
-    "N대수술비 최대 보상금액",  # ★296: 신규 행(종수술 5종 하단·뇌혈관 상단)
-    "뇌혈관 수술비", "심장질환 수술비",
-    # ★암 11행 — 289 재설계의 핵심
-    "암 진 단 비(일반암)", "유 사 암 진 단 비",
-    "암 수 술 (레보아이 포함)", "유사암 수술", "다빈치 로봇 수술", "다빈치 특정암",
-    "항암 약물 치료", "표적 약물 치료", "면역 약물 치료",
-    "방사선 치료", "세기조절 방사선 치료", "양성자 방사선 치료", "중 입 자 치료",
-    "뇌 혈 관 질 환", "뇌 졸 중", "뇌 출 혈",
-    "심 장 질 환", "허혈성 심장질환", "급성심근경색", "순환계 치료비",
-    "상 해 입 원", "질 병 입 원", "1 인 실 입 원", "간 병 인",
-    "일 반 사 망", "상 해 사 망", "질 병 사 망",
-    "상해 질병 후 유 장 해 80%", "상 해 후 유 장 해 3%", "질 병 후 유 장 해 3%",
-    "골 절 진 단 비", "골 절 수 술 비", "깁스치료비",
+EXPECTED_DISPLAY_46: tuple[str, ...] = (  # ★BOHUMFIT-302b: 52 → 55행(뇌/심장 혈전용해·암 통합치료비 한도) · 순환계 치료비 심장→뇌 이동
+    "3 대 비 급 여 실 손",
+    "상 해/질 병 입 원",
+    "상 해/질 병 통 원 약 제",
+    "상 해 수 술 비",
+    "질 병 수 술 비",
+    "1종 수술비 (질병 I 상해)",
+    "2종 수술비 (질병 I 상해)",
+    "3종 수술비 (질병 I 상해)",
+    "4종 수술비 (질병 I 상해)",
+    "5종 수술비 (질병 I 상해)",
+    "N대수술비 최대 보상금액",
+    "뇌혈관 수술비",
+    "심장질환 수술비",
+    "뇌 혈전용해",
+    "심장 혈전용해",
+    "암 통합치료비 (연간 총 지급 한도)",
+    "암 진 단 비(일반암)",
+    "유 사 암 진 단 비",
+    "암 수 술 (레보아이 포함)",
+    "유사암 수술",
+    "다빈치 로봇 수술",
+    "다빈치 특정암",
+    "항암 약물 치료",
+    "표적 약물 치료",
+    "면역 약물 치료",
+    "방사선 치료",
+    "세기조절 방사선 치료",
+    "양성자 방사선 치료",
+    "중 입 자 치료",
+    "순환계 치료비",
+    "뇌 혈 관 질 환",
+    "뇌 졸 중",
+    "뇌 출 혈",
+    "심 장 질 환",
+    "허혈성 심장질환",
+    "급성심근경색",
+    "상 해 입 원",
+    "질 병 입 원",
+    "1 인 실 입 원",
+    "간 병 인",
+    "일 반 사 망",
+    "상 해 사 망",
+    "질 병 사 망",
+    "상해 질병 후 유 장 해 80%",
+    "상 해 후 유 장 해 3%",
+    "질 병 후 유 장 해 3%",
+    "골 절 진 단 비",
+    "골 절 수 술 비",
+    "깁스치료비",
     "일 상 생 활 배 상 책 임",
-    "형 사 합 의 금", "형사합의금(6주미만)", "변 호 사 선 임", "벌 금", "자 부 상",
+    "형 사 합 의 금",
+    "형사합의금(6주미만)",
+    "변 호 사 선 임",
+    "벌 금",
+    "자 부 상",
 )
 
 
@@ -65,21 +100,25 @@ EXPECTED_DISPLAY_46: tuple[str, ...] = (
 ROWS_ADDED_IN_290 = ("유사암 수술", "다빈치 특정암", "순환계 치료비")
 # ★BOHUMFIT-296: 신규 3행도 수기 46행에는 없으므로 원본 대조에서 뺀다(비고 이관·N대수술비 신설).
 ROWS_ADDED_IN_296 = ("3 대 비 급 여 실 손", "N대수술비 최대 보상금액", "형사합의금(6주미만)")
+#: ★BOHUMFIT-302b 신설 3행 — 수기표(구판)에는 없다.
+ROWS_ADDED_IN_302B = ("뇌 혈전용해", "심장 혈전용해", "암 통합치료비 (연간 총 지급 한도)")
 
 
 def test_forty_nine_rows_in_sheet_order():
-    assert STANDARD_COUNT_V2 == 52  # ★296: +3행
-    assert len(EXPECTED_DISPLAY_46) == 52
+    assert STANDARD_COUNT_V2 == 55  # ★302b: +3행
+    assert len(EXPECTED_DISPLAY_46) == 55  # ★302b: +3행
     assert tuple(row.display for row in KB_COVERAGES_V2) == EXPECTED_DISPLAY_46
 
 
 def test_cancer_group_has_eleven_rows():
     """★암 7행 → 11행. 묶여 있던 수술·약물·방사선이 전부 풀렸다."""
     cancer = [row.display for row in KB_COVERAGES_V2 if row.group == "암"]
-    assert len(cancer) == 13  # ★290: 11 + 유사암 수술 + 다빈치 특정암
-    assert cancer[2:6] == ["암 수 술 (레보아이 포함)", "유사암 수술", "다빈치 로봇 수술", "다빈치 특정암"]
-    assert cancer[6:9] == ["항암 약물 치료", "표적 약물 치료", "면역 약물 치료"]
-    assert cancer[9:] == ["방사선 치료", "세기조절 방사선 치료", "양성자 방사선 치료", "중 입 자 치료"]
+    assert len(cancer) == 14  # ★302b: 13 + 암 통합치료비 한도(회색 헤더)
+    # ★302b: 회색 헤더가 암 최상단에 붙어 이하 인덱스가 1칸 밀렸다(구성은 불변).
+    assert cancer[0] == "암 통합치료비 (연간 총 지급 한도)"
+    assert cancer[3:7] == ["암 수 술 (레보아이 포함)", "유사암 수술", "다빈치 로봇 수술", "다빈치 특정암"]
+    assert cancer[7:10] == ["항암 약물 치료", "표적 약물 치료", "면역 약물 치료"]
+    assert cancer[10:] == ["방사선 치료", "세기조절 방사선 치료", "양성자 방사선 치료", "중 입 자 치료"]
 
 
 def test_q3_is_retired_three_radiation_rows_are_separate():
@@ -101,7 +140,10 @@ def test_row_flags_survive_the_revision():
     assert [r.row_id for r in KB_COVERAGES_V2 if r.dual_column] == [
         f"tier_surgery_{tier}" for tier in range(1, 6)
     ] + ["caregiver"]  # ★290: 간병인 상해|질병 2열(Human)
-    assert [r.row_id for r in KB_COVERAGES_V2 if r.sum_excluded] == ["disability_80"]
+    # ★302b: 회색 헤더 2행이 합류 — sum_excluded는 3행(암 통합치료비 한도·순환계 치료비·80% 후유장해).
+    assert [r.row_id for r in KB_COVERAGES_V2 if r.sum_excluded] == [
+        "thrombolysis_placeholder"] if False else [r.row_id for r in KB_COVERAGES_V2 if r.sum_excluded] == [
+        "cancer_integrated_limit", "circulatory_treatment", "disability_80"]
     assert len([r for r in KB_COVERAGES_V2 if r.yn_source]) == 7
 
 
@@ -274,5 +316,6 @@ def test_display_names_match_the_new_workbook(sheet: str):
     openpyxl = pytest.importorskip("openpyxl")
     worksheet = openpyxl.load_workbook(path, data_only=True)[sheet]
     actual = tuple(str(worksheet.cell(row, 3).value).strip() for row in range(7, 53))
-    expected = tuple(d for d in EXPECTED_DISPLAY_46 if d not in ROWS_ADDED_IN_290 and d not in ROWS_ADDED_IN_296)
+    expected = tuple(d for d in EXPECTED_DISPLAY_46
+                     if d not in ROWS_ADDED_IN_290 and d not in ROWS_ADDED_IN_296 and d not in ROWS_ADDED_IN_302B)
     assert actual == expected

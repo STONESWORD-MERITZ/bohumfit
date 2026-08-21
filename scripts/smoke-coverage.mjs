@@ -23,7 +23,7 @@ const BASELINE = [
     label: "표준(계약별 매트릭스)",
     file: globSync("*-INPUT.pdf", { cwd: PDF_DIR })[0] ?? "__missing-standard.pdf",
     contracts: 15,
-    coverageRows: 59,
+    coverageRows: 62,   // ★302b(Human Q6 승인): 52→55행 스키마로 +3
     enrolled: 29,
     total: 614_860_000,
     monthly: 681_312,
@@ -35,7 +35,7 @@ const BASELINE = [
     label: "overview(합계-only · 239 fallback)",
     file: globSync("*INPUT.pdf", { cwd: PDF_DIR }).find((name) => !name.endsWith("-INPUT.pdf")) ?? "__missing-overview.pdf",
     contracts: 15,
-    coverageRows: 58,
+    coverageRows: 61,   // ★302b(Human Q6 승인): 52→55행 스키마로 +3
     enrolled: 41,
     total: 1_467_790_000,
     monthly: 4_675_189,

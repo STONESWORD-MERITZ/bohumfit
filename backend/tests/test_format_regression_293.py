@@ -36,7 +36,7 @@ from coverage.constants import (
     SUM_EXCLUDED_NOTE_V2,
     YN_ITEMS_V2,
 )
-from coverage.excel_style import AMBER_TX, EMERALD, EMERALD_SOFT, GREENTEA, LIME, WHITE
+from coverage.excel_style import AMBER_TX, EMERALD, EMERALD_SOFT, GRAY_SOFT, GREENTEA, LIME, WHITE
 from coverage.export_excel import (
     CASCADE_CHILD_ROWS,
     DATA_ROW0,
@@ -143,8 +143,12 @@ def test_excel_format_contract(name):
                 assert SUM_EXCLUDED_NOTE_V2 in note, (sheet, spec.display)          # ③ Q2
             if spec.row_id in yn_sources:
                 assert "가입특약 Y/N" in note, (sheet, spec.display)                 # ④ Q5
-            # ⑦ 브랜드: 특수행은 라임, 대분류 선두는 그린 티, 빨강은 어디에도 없다
-            if spec.row_id in SPECIAL_ROW_IDS:
+            # ⑦ 브랜드: 회색 헤더는 그레이, 특수행은 라임, 대분류 선두는 그린 티, 빨강은 어디에도 없다
+            # ★BOHUMFIT-302b: `sum_excluded` 회색이 특수 강조(LIME)보다 우선한다 —
+            #   순환계 치료비는 SPECIAL_ROW_IDS이면서 회색 헤더가 됐다.
+            if spec.sum_excluded:
+                assert _rgb(ws.cell(row=row, column=COL_SUM).fill.fgColor) == GRAY_SOFT
+            elif spec.row_id in SPECIAL_ROW_IDS:
                 assert _rgb(ws.cell(row=row, column=COL_SUM).fill.fgColor) == LIME
         header = ws.cell(row=2, column=COL_CO0)
         if header.value:

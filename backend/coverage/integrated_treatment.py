@@ -238,6 +238,11 @@ def _is_circulatory(name: str) -> bool:
     return "순환계" in _compact(name)
 
 
+def _is_thrombolysis(name: str) -> bool:
+    """BOHUMFIT-302b: 순환계 내역의 혈전용해 항목(`혈전용해치료` 등)."""
+    return "혈전용해" in _compact(name)
+
+
 def distribution_entries(treatments: list[dict[str, Any]], make_entry) -> list[dict[str, Any]]:
     """판정 결과 → 분배 entry 목록. `make_entry(kb_name, amount, group12, agg, source, raw)`는 proposal_parser._entry."""
     entries: list[dict[str, Any]] = []
@@ -254,7 +259,8 @@ def distribution_entries(treatments: list[dict[str, Any]], make_entry) -> list[d
         # Q8형
         if _is_circulatory(rider["name"]):
             if body:
-                entries.append(_mark(make_entry("순환계 치료비", body, "심장", AGG_SUM, tag + ":본체", rider["name"]), rider["no"]))
+                # BOHUMFIT-302b: 본체(연간 총 지급 한도)는 뇌 대분류 최상단 회색 헤더 행에 싣는다(`sum_excluded`).
+                entries.append(_mark(make_entry("순환계 치료비", body, "뇌", AGG_SUM, tag + ":본체", rider["name"]), rider["no"]))
             surgery = [it for it in rider["items"] if _compact(it["name"]) == "수술"]
             if surgery:
                 amt = surgery[0]["amount"]
@@ -262,13 +268,26 @@ def distribution_entries(treatments: list[dict[str, Any]], make_entry) -> list[d
                     entries.append(_mark(make_entry(target, amt, "수술", AGG_SUM, tag + ":수술", surgery[0]["name"]), rider["no"]))
             else:
                 rider["needs_review"] = "내역에 수술 항목 없음 — 뇌·심장 수술비 빈칸(폴백 금지)"
+            # BOHUMFIT-302b(Human 확정): 혈전용해치료 → 신규 2행(뇌·심장)에 **각각 같은 금액**으로 싣는다.
+            #   ★`route_item` 표기 매칭은 무변경 — 순환계 분배 분기에서만 처리한다(302 판정 준수).
+            thrombo = [it for it in rider["items"] if _is_thrombolysis(it["name"])]
+            if thrombo:
+                amt = thrombo[0]["amount"]
+                for target in ("뇌혈전용해", "심장혈전용해"):
+                    entries.append(_mark(make_entry(target, amt, "수술", AGG_SUM, tag + ":혈전용해", thrombo[0]["name"]),
+                                         rider["no"]))
             for it in rider["items"]:
-                if _compact(it["name"]) != "수술":
+                # 수술·혈전용해는 위에서 착지했다. 나머지(CRRT·인공호흡기·저체온·부분체외순환·중환자실·
+                # 검사 MRI/PET/CT·재활)는 **제외**(Human 확정) — 표·비고 어디에도 넣지 않고 기록만 한다.
+                if _compact(it["name"]) != "수술" and not _is_thrombolysis(it["name"]):
                     rider["unrouted"].append(it)
             continue
-        # 암 통합치료비류 Q8형: 내역 항목 → 각자 행 · 본체는 비고(한도 — 지급 항목 아님)
+        # 암 통합치료비류 Q8형: 내역 항목 → 각자 행.
+        # BOHUMFIT-302b(Human 확정): 본체(연간 총 지급 한도)는 **비고 → 암 대분류 최상단 회색 헤더 행**으로
+        #   이관한다(`sum_excluded`이라 합계에는 안 더해진다). 담보가 여러 건이면 한 행에 합산되고
+        #   출처는 `source`(담보 번호·이름)로 분리 보존된다.
         if body:
-            entries.append(_mark(make_entry(f"{rider['name']} — 연간 총 지급 한도", body, "비고", AGG_SUM, tag + ":본체(비고)", rider["name"]),
+            entries.append(_mark(make_entry("암 통합치료비 한도", body, "암", AGG_SUM, tag + ":본체(한도)", rider["name"]),
                                  rider["no"]))
         routed_any = False
         for it in rider["items"]:
@@ -297,7 +316,13 @@ def summarize(treatments: list[dict[str, Any]]) -> list[dict[str, Any]]:
         out.append({
             "no": r["no"], "name": r["name"], "mode": r["mode"], "basis": r["basis"],
             "body_amount": r.get("body_amount"),
-            "items": [{"name": it["name"], "amount": it["amount"], "route": route_item(it["name"]) if not _is_circulatory(r["name"]) else ("뇌혈관수술·심혈관수술" if _compact(it["name"]) == "수술" else None)} for it in r["items"]],
+            # BOHUMFIT-302b: 순환계는 `route_item`이 아니라 분배 분기가 착지를 정한다 —
+            #   수술 → 뇌·심장 수술비, 혈전용해 → 뇌·심장 혈전용해(신규 2행). 그 외는 제외(None).
+            "items": [{"name": it["name"], "amount": it["amount"],
+                       "route": route_item(it["name"]) if not _is_circulatory(r["name"]) else (
+                           "뇌혈관수술·심혈관수술" if _compact(it["name"]) == "수술"
+                           else ("뇌혈전용해·심장혈전용해" if _is_thrombolysis(it["name"]) else None))}
+                      for it in r["items"]],
             "limit_lines": r.get("limit_lines", []),
             "needs_review": r.get("needs_review"),
         })

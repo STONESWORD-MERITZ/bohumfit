@@ -133,10 +133,10 @@ def test_272_does_not_touch_protected_modules():
         assert "BOHUMFIT-272" not in path.read_text(encoding="utf-8"), path.name
 
 
-def test_form_schema_is_v2_49_rows():
+def test_form_schema_row_count_and_groups():
     """291: 엑셀 양식 = V2 49행 스키마(대분류 11) — 구 FORM_ITEMS(35)+YN(5)는 폐기됐다."""
     from coverage.constants import GROUP12_V2, KB_COVERAGES_V2
     import coverage.export_excel as ex
 
-    assert len(KB_COVERAGES_V2) == 52 and len(GROUP12_V2) == 11  # 296: +3행
+    assert len(KB_COVERAGES_V2) == 55 and len(GROUP12_V2) == 11  # 302b: +3행
     assert not hasattr(ex, "FORM_ITEMS") and not hasattr(ex, "YN_ROWS") and not hasattr(ex, "STAGE_ROWS")

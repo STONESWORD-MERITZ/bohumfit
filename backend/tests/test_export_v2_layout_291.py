@@ -263,6 +263,8 @@ def test_new_workbook_row_names_match(tmp_path=None):
     manual_rows = [str(manual[SHEET_BEFORE].cell(row=r, column=3).value).strip() for r in range(7, 53)]
     # 290 추가 3행 + ★296 추가 3행(비고 이관·N대수술비)은 수기 46행에 없으므로 대조에서 뺀다.
     added = {"유사암 수술", "다빈치 특정암", "순환계 치료비",
-             "3 대 비 급 여 실 손", "N대수술비 최대 보상금액", "형사합의금(6주미만)"}
+             "3 대 비 급 여 실 손", "N대수술비 최대 보상금액", "형사합의금(6주미만)",
+             # ★302b 신설 3행 — 구판 수기표에는 없다.
+             "뇌 혈전용해", "심장 혈전용해", "암 통합치료비 (연간 총 지급 한도)"}
     ours_rows = [ours[SHEET_BEFORE].cell(row=row_of(r.row_id), column=COL_NAME).value for r in KB_COVERAGES_V2]
     assert [x for x in ours_rows if x not in added] == manual_rows

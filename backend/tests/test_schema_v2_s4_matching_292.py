@@ -154,11 +154,13 @@ def test_circulatory_q8_body_and_surgery_split_limit_is_not_an_item():
     assert any("합산하여" in l for l in r["limit_lines"])           # 한도 문구는 항목이 아니다
     entries = distribution_entries(riders, _entry)
     got = {(e["kb_name"], e["amount"]) for e in entries}
-    assert got == {("순환계 치료비", 5000 * MAN), ("뇌혈관수술", 1000 * MAN), ("심혈관수술", 1000 * MAN)}  # 288 Q8 실증값
+    # ★302b: 혈전용해치료가 신규 2행(뇌·심장)에 각각 착지한다(같은 금액).
+    assert got == {("순환계 치료비", 5000 * MAN), ("뇌혈관수술", 1000 * MAN), ("심혈관수술", 1000 * MAN),
+                   ("뇌혈전용해", 1000 * MAN), ("심장혈전용해", 1000 * MAN)}  # 288 Q8 실증값 + 302b
     assert all(e["origin"] == ORIGIN_DISTRIBUTED and e["merge_rule"] == "sum" for e in entries)
 
 
-def test_cancer_integrated_table_is_q8_items_routed_body_to_appendix():
+def test_cancer_integrated_table_is_q8_items_routed_body_to_gray_header():
     riders = extract_integrated_treatments(CANCER.splitlines())
     r = next(x for x in riders if x["no"] == "117")
     assert r["mode"] == MODE_Q8 and r["body_amount"] == 3000 * MAN
@@ -168,8 +170,9 @@ def test_cancer_integrated_table_is_q8_items_routed_body_to_appendix():
     assert got["암수술"] == 500 * MAN and minor_total == 200 * MAN
     assert got["항암방사선치료비"] == 500 * MAN and got["항암약물치료비"] == 500 * MAN
     assert got["표적항암치료"] == 500 * MAN and got["양성자방사선"] == 500 * MAN
-    body = next(k for k in got if "연간 총 지급 한도" in k)
-    assert got[body] == 3000 * MAN and resolve(body).kind == "appendix"       # 본체(한도)는 비고 보존
+    # ★302b: 본체(연간 총 지급 한도)는 비고 → **암 대분류 최상단 회색 헤더 행**으로 이관됐다(sum_excluded).
+    assert got["암 통합치료비 한도"] == 3000 * MAN
+    assert resolve("암 통합치료비 한도") == ("row", "cancer_integrated_limit", None)
     assert route_item("기타피부암 및 갑상선암 항암방사선치료") == "유사암수술"  # Human ⑥ 확정
     assert r["unrouted"] == []
 
@@ -188,7 +191,8 @@ def test_q8_without_surgery_item_leaves_r16_r17_blank_with_review_flag():
     lines = ["169 갱신형 특정순환계질환 통합치료비", "- 혈전용해치료 : 1,000만원", "- MRI촬영 : 5만원", "5천만원 1"]
     riders = extract_integrated_treatments(lines)
     entries = distribution_entries(riders, _entry)
-    assert {e["kb_name"] for e in entries} == {"순환계 치료비"}
+    # ★302b: 수술 항목이 없어도 혈전용해가 있으면 그 2행은 착지한다.
+    assert {e["kb_name"] for e in entries} == {"순환계 치료비", "뇌혈전용해", "심장혈전용해"}
     assert "수술 항목 없음" in riders[0]["needs_review"]
 
 

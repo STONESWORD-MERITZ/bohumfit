@@ -26,19 +26,21 @@ from coverage.v2_mapping import ROW_INDEX, resolve
 MAN = 10_000
 
 # BOHUMFIT-296b: 익명 정본 A~D의 Q6 전후 검산 정본.
+# ★BOHUMFIT-302b(Human Q6 승인): 스키마 52→55행으로 `rows` +3(A 62·B 61·C 58·D 60).
+#   `total`(값 보존 지표)은 회색 행이 sum_excluded라 **불변**이다.
 # 실 PDF가 없는 CI에서는 합성 계약만 실행하고, 로컬 정본 폴더가 있으면 같은 테스트 안에서
 # 원시 N대수술비 행 수·sum→max 차이·이관 값 보존을 전수 재검산한다(테스트 수 기준선 불변).
 _Q6_REAL_EXPECTED = {
-    "A": {"contracts": 15, "rows": 59, "legacy_total": 614_860_000, "total": 614_860_000,
+    "A": {"contracts": 15, "rows": 62, "legacy_total": 614_860_000, "total": 614_860_000,
           "monthly": 681_312, "n_events": 1, "n_values": [32], "n_sum": 2_000_000, "n_max": 2_000_000,
           "nonpay": 0, "six_weeks": 0},
-    "B": {"contracts": 15, "rows": 58, "legacy_total": 1_468_790_000, "total": 1_467_790_000,
+    "B": {"contracts": 15, "rows": 61, "legacy_total": 1_468_790_000, "total": 1_467_790_000,
           "monthly": 4_675_189, "n_events": 8, "n_values": [124], "n_sum": 2_000_000, "n_max": 1_000_000,
           "nonpay": 9_000_000, "six_weeks": 10_000_000},
-    "C": {"contracts": 5, "rows": 55, "legacy_total": 410_660_000, "total": 398_960_000,
+    "C": {"contracts": 5, "rows": 58, "legacy_total": 410_660_000, "total": 398_960_000,
           "monthly": 181_802, "n_events": 5, "n_values": [119], "n_sum": 21_700_000, "n_max": 10_000_000,
           "nonpay": 0, "six_weeks": 0},
-    "D": {"contracts": 6, "rows": 57, "legacy_total": 480_440_000, "total": 476_440_000,
+    "D": {"contracts": 6, "rows": 60, "legacy_total": 480_440_000, "total": 476_440_000,
           "monthly": 488_294, "n_events": 9, "n_values": [2, 142], "n_sum": 5_000_000, "n_max": 1_000_000,
           "nonpay": 0, "six_weeks": 0},
 }
@@ -145,8 +147,8 @@ def _assert_real_q6_recheck():
 
 
 # ── ① 스키마 ────────────────────────────────────────────────────────────────
-def test_schema_is_fifty_two_rows_with_stable_groups():
-    assert STANDARD_COUNT_V2 == 52 and len(KB_COVERAGES_V2) == 52
+def test_schema_row_count_with_stable_groups():
+    assert STANDARD_COUNT_V2 == 55 and len(KB_COVERAGES_V2) == 55  # ★302b: +3행
     assert len(GROUP12_V2) == 11
     ids = {r.row_id for r in KB_COVERAGES_V2}
     assert {"major_n_surgery", "actual_3major_nonpay", "driver_settlement_6w"} <= ids

@@ -4,7 +4,7 @@ Use this file to record active Codex file ownership during a task.
 
 ## Active
 
-(없음 — 301 Human Q6 승인 반영·Codex 2차 검증 PASS, 커밋/push 진행)
+(없음 — 302 문서·302b 구현 커밋/push 완료 · Human Q6 승인 반영)
 
 ### Released
 - 2026-08-19 `BOHUMFIT-301-tier-routing` - Codex - Released(Human Q6 승인 반영·2차 검증 PASS). BEFORE/AFTER 4문서 독립 대조 A·D 불변/C rows−1·총액 불변/B rows−1·총액−32.9M, 사유 없는 변화 0. backend 1076/8·frontend 413/42·tsc/lint/smoke PASS, build:verify 343,702 B 예상 FAIL, 뮤테이션 3종 검출·원복, 엑셀/PDF 실렌더 통과. 실 PDF·PII·산출물 stage 0.
