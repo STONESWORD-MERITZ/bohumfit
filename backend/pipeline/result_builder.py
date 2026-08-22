@@ -125,8 +125,9 @@ def _merge_display_stats_for_code(disease_stats: dict, code_key: str) -> dict | 
             "visit_dates", "inpatient_dates", "inpatient_admissions", "surgeries", "surgery_dates",
             "hospitals", "procedures", "procedure_dates", "surgery_suspected_names",
             "surgery_suspected_dates", "tests_found",
+            "surgery_review_names",  # BOHUMFIT-303: 확인 티어 이름(표시 전용)
         ):
-            merged[key].update(s.get(key, set()) or set())
+            merged.setdefault(key, set()).update(s.get(key, set()) or set())
         merged["visit_events"].extend(s.get("visit_events") or [])
         merged["test_events"].extend(s.get("test_events") or [])
         merged["inpatient_periods"].extend(s.get("inpatient_periods") or [])
@@ -325,6 +326,13 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
             _surgery_records_out = [
                 r for r in (_ds.get("surgery_records") or []) if r.get("date") in _win_dates
             ][:_EVIDENCE_CAP]
+            # BOHUMFIT-303: `수술 여부 확인` 티어 이름(표시 전용) — 창 내 건별 기록의 tier=review 이름 ∪
+            #   (건별 기록이 없을 때) 그룹 확인명 중 이 항목의 대표 수술명. 카운트·판정에는 미사용.
+            _surgery_review_out = _sorted_strings(
+                {str(r.get("surgery_name") or "").strip() for r in _surgery_records_out if r.get("tier") == "review"}
+                | {n for n in (_ds.get("surgery_review_names", set()) or set())
+                   if n and n == (m.get("surgery_name") or "")}
+            )
             _raw_codes_out = _sorted_strings({
                 display_raw_code(rc) for rc in (_ds.get("raw_codes", set()) or []) if str(rc).strip()
             })
@@ -343,6 +351,7 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
             _med_records       = []
             _surgery_events    = []
             _surgery_records_out = []  # BOHUMFIT-251
+            _surgery_review_out = []   # BOHUMFIT-303
             _raw_codes_out     = []
 
         _chojin          = _ds["chojin_count"]  if _ds else 0
@@ -404,6 +413,8 @@ def _build_reports_for_product(merged_items, disease_stats, product_type, d3m, d
             "surgery_events":          _surgery_events,
             # BOHUMFIT-251: 수술 건별 원문 기록(날짜/원문코드/맥락/병명/수술명) — 문안 전개용.
             "surgery_records":         _surgery_records_out,
+            # BOHUMFIT-303: `수술 여부 확인` 티어 이름 — 표시 전용(surgeries·surgery_count는 불변).
+            "surgery_review":          _surgery_review_out,
             "procedures":              _procedures,
             "procedure_dates":         _proc_dates,
             "surgery_suspected":       _surg_susp,

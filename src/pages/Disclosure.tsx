@@ -41,6 +41,7 @@ import {
   inpatientSummary,
   MED_SUM_FORMULA_NOTE, // BOHUMFIT-183: 투약 산식 설명(표시 전용)
   subYearsIso,
+  surgeryTierCounts, // BOHUMFIT-303: 확정 N / 수술 여부 확인 M 칩 분리(합 = 헤더 수술 N건)
 } from "../lib/disclosureWindow";
 
 const API_BASE = (import.meta.env.VITE_API_URL || "http://localhost:8000").replace(/\/+$/, "");
@@ -104,6 +105,8 @@ type SummaryItem = {
   surgery_count?: number;
   surgeries: string[];
   surgery_dates?: string[];
+  surgery_review?: string[];          // BOHUMFIT-303: `수술 여부 확인` 티어 이름(표시 전용)
+  surgery_records?: { date?: string; code?: string; context?: string; name?: string; surgery_name?: string; hospital?: string; co_diagnoses?: string[]; tier?: string }[];
   procedures?: string[];
   procedure_dates?: string[];
   surgery_suspected?: string[];
@@ -442,7 +445,9 @@ export function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem;
   const isMobile = useIsMobile();
   const fz = isMobile ? DISEASE_CARD_MOBILE_TYPO : DISEASE_CARD_DESKTOP_TYPO;
   const risk = riskOf(item);
-  const surgN = currentSurgeryCount(item);
+  // BOHUMFIT-303: 확정 N / 수술 여부 확인 M — 합은 currentSurgeryCount(=헤더 "수술 N건")과 같다
+  //   (030~032 배지=헤더 불변식 — surgeryTierCounts가 내부에서 그 합을 보장한다).
+  const surgTiers = surgeryTierCounts(item);
   const procN = item.procedures?.length ?? 0;
   const suspN = item.surgery_suspected?.length ?? 0;
   const metric = getMetricVisibility(item, qNum, isEasy);
@@ -539,7 +544,9 @@ export function DiseaseCard({ item, qNum, isEasy = false }: { item: SummaryItem;
           {inpatient.show && inpatient.count > 0 && <Chip label={<>입원 총 <AnimatedNumber value={inpatient.count} />회</>} title={windowTip} tone="red-light" sizeCls={fz.chip} />}
           {inpatient.show && inpatient.days > 0 && <Chip label={<>합산 <AnimatedNumber value={inpatient.days} />일</>} title={windowTip} tone="red" sizeCls={fz.chip} />}
           {metric.visit && <Chip label={<>통원 <AnimatedNumber value={item.visit ?? 0} />회</>} title={windowTip} tone={(item.visit ?? 0) >= 7 ? "amber" : "gray"} sizeCls={fz.chip} />}
-          {metric.surgery && <Chip label={<>수술 <AnimatedNumber value={surgN} />건</>} title={windowTip} tone="red" sizeCls={fz.chip} />}
+          {/* BOHUMFIT-303: 확정(빨강) / 수술 여부 확인(앰버 — 회색 강등 아님, "직접 확인"). 두 칩 합 = surgN = 헤더. */}
+          {metric.surgery && surgTiers.confirmed > 0 && <Chip label={<>수술 <AnimatedNumber value={surgTiers.confirmed} />건</>} title={windowTip} tone="red" sizeCls={fz.chip} />}
+          {metric.surgery && surgTiers.review > 0 && <Chip label={<>수술 여부 확인 <AnimatedNumber value={surgTiers.review} />건</>} title={windowTip} tone="amber" sizeCls={fz.chip} />}
           {metric.med && (
             <Chip
               label={<>투약 <AnimatedNumber value={item.med_days ?? 0} />일</>}

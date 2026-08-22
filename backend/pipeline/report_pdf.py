@@ -239,6 +239,24 @@ def _visible_surgery_names(item: dict) -> list[str]:
     return [str(s).strip() for s in (item.get("surgeries") or []) if str(s).strip() and str(s).strip() != "수술"]
 
 
+def _surgery_tier_counts(item: dict) -> tuple[int, int]:
+    """BOHUMFIT-303: (확정 N, 확인 M) — 합은 항상 surgery_count(=헤더 "수술 N건")와 같다(배지 합 불변식).
+    확인 M = 창 내 건별 기록 중 tier=review인 **날짜** 수(surgery_count가 날짜 단위라 단위를 맞춘다);
+    건별 기록이 없으면 surgery_review 이름이 있을 때 전부 확인으로 본다. 티어 정보가 없으면 전부 확정(구 payload 호환)."""
+    total = _current_surgery_count(item)
+    if total <= 0:
+        return 0, 0
+    records = [r for r in (item.get("surgery_records") or []) if isinstance(r, dict)]
+    if records:
+        review_dates = {str(r.get("date") or "") for r in records if r.get("tier") == "review"}
+        confirmed_dates = {str(r.get("date") or "") for r in records if r.get("tier") != "review"}
+        review = len(review_dates - confirmed_dates)
+    else:
+        review = total if item.get("surgery_review") else 0
+    review = max(0, min(total, review))
+    return total - review, review
+
+
 def _inpatient_summary(item: dict) -> dict:
     try:
         days = max(0, int(item.get("inpatient") or 0))
@@ -426,6 +444,9 @@ def _prepare_section(reports: dict, is_easy: bool) -> list[dict]:
                 "display_detail": _display_detail(item),
                 "metric": _metric_visibility(item, q_num, is_easy),
                 "surgery_n": surg_n,
+                # BOHUMFIT-303: 확정 N / 확인 M 분리 칩(합 = surgery_n · 헤더 불변).
+                "surgery_confirmed_n": _surgery_tier_counts(item)[0],
+                "surgery_review_n": _surgery_tier_counts(item)[1],
                 "inpatient_summary": inpatient_summary,
                 "procedures_n": len(item.get("procedures") or []),
                 "suspected_n": len(item.get("surgery_suspected") or []),

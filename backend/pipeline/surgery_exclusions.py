@@ -90,3 +90,47 @@ def is_non_surgery_action(name: str) -> bool:
     if any(_norm(k).lower() in cl for k in _STRONG_SURGERY_KEYWORDS):
         return False
     return any(_norm(k).lower() in cl for k in _NON_SURGERY_ACTION_KEYWORDS)
+
+
+# ── BOHUMFIT-303: 수술 판정 3단 표시 — `수술 여부 확인` 티어(285 C-1 · Human 확정) ───────
+# ★제외가 아니라 **강등**이다. 확정 조건(surgeries·surgery_dates)은 그대로이고 "5년 이내 수술 N건"·
+#   Q1~Q5 헤더 판정에 확정과 동일하게 포함된다(030~032 배지=헤더). 바뀌는 것은 **라벨뿐**.
+# ★명칭 패턴만 본다 — 당일 외래·의원급·입원 0일 같은 맥락 신호는 강등 근거로 쓰지 않는다
+#   (백내장·내시경 절제 등 당일 외래 수술이 실재). 강수술 신호가 함께 있으면 강등하지 않는다.
+# ★판정은 이 파일 **한 곳**에서만 한다(062 중앙 목록 원칙). aggregator·main·프런트에 패턴을 흩지 않는다.
+# 목록 근거(285·303 실측): `이물제거술(단순` — 실 고지 1건(단순 처치인데 `제거`로 확정) · `발사`·`세척`·
+#   `흡인`·`천자` — 285 강등 후보 중 현행 제외(059)에 걸리지 않아 확정까지 도달 가능한 것.
+#   `드레싱`·`도뇨`는 059/130이 이미 제외하므로 넣지 않는다(무접촉). `(단순` 일반화·294 B 유형(치료재료·
+#   수술팩·IVPCA·절삭기)은 303b/303c 결정지 — 근거 부족으로 넣지 않는다.
+SURGERY_TIER_CONFIRMED = "confirmed"
+SURGERY_TIER_REVIEW = "review"
+
+SURGERY_REVIEW_PATTERNS = (
+    "이물제거술(단순",
+    "발사",
+    "세척",
+    "흡인",
+    "천자",
+)
+
+
+def surgery_tier(name: str) -> str:
+    """확정된 수술명의 표시 티어 — `confirmed` / `review`.
+
+    우선순위(303 Step 1 실측 순서): 비수술 제외는 호출 전에 이미 끝나 있다(여기 오면 확정) →
+    강수술 신호 있으면 **확정 유지** → 강등 패턴이면 **확인** → 그 외(일반 양성·컬럼 경로) 확정.
+    ★이름이 비면 확정(폴백은 항상 누락 방향이 아닌 쪽 — 확정).
+    """
+    c = _norm(name)
+    if not c:
+        return SURGERY_TIER_CONFIRMED
+    cl = c.lower()
+    if any(_norm(k).lower() in cl for k in _STRONG_SURGERY_KEYWORDS):
+        return SURGERY_TIER_CONFIRMED
+    if any(_norm(p).lower() in cl for p in SURGERY_REVIEW_PATTERNS):
+        return SURGERY_TIER_REVIEW
+    return SURGERY_TIER_CONFIRMED
+
+
+def is_surgery_review(name: str) -> bool:
+    return surgery_tier(name) == SURGERY_TIER_REVIEW

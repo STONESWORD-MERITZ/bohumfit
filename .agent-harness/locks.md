@@ -7,6 +7,7 @@ Use this file to record active Codex file ownership during a task.
 (없음)
 
 ### Released
+- 2026-08-22 `BOHUMFIT-303-surgery-review-tier` - Codex - Released(2차 검증 PASS · 실 고지 재파싱 한계 명시). backend 1102/8·frontend 419/43·tsc/lint·route 18/18·smoke PASS, build:verify 343,702 B 예상 FAIL. 뮤테이션 4/2/2 failed 후 SHA 원복, 375px 넘침 0·15px amber, 익명 PDF 3p 라벨/면책 확인. 암호화 실문서 3건은 비밀번호 env 부재로 Codex 재실행 확인 불가(Code 1차 실측 보존). 실 PDF·PII·임시 산출물 stage 0.
 - 2026-08-22 `BOHUMFIT-285-surgery-classification` - Codex - Released(조사 문서 2차 검증 PASS · 제품 코드 diff 0). EDI 수가코드 부재·C-1 표시 강등 권고·누점폐쇄술 누락을 실측 근거와 함께 확인. `.agent-harness/` 밖 tracked/untracked diff 0, PII·8자리 연속 숫자·비밀번호 리터럴 0, 실 PDF·임시 산출물 stage 0. 전체 게이트·기준선 갱신 생략.
 - 2026-08-22 `BOHUMFIT-300-pii-fixture-cleanup` - Codex - Released(2차 검증 PASS). 실명 경로를 공용 `real_docs.py` 정본 라벨로 전환, 290·291·292 실문서 테스트 57 passed/skip 0, 테스트 assert AST 무변경·제품 실행 AST 무변경. 프로토타입 익명 glob이 제안서 0건을 만드는 회귀를 발견해 공용 `real_proposals("정본C")`로 최소 보정(3건 복원). 전체 backend 1093/8·frontend 413/42·smoke/tsc/lint PASS, PII·실자료·산출물 stage 0.
 - 2026-08-22 `BOHUMFIT-299-total-premium` - Codex - Released(Human Q6 승인 반영·2차 검증 PASS). BEFORE/AFTER 별도 프로세스 4문서 독립 대조: A −18,564,480/B·C·D 0, 전부 [전]==[후], 제안서 3건 영향 0. 뮤테이션 2종 검출·원복 SHA 동일, A~D 엑셀/PDF 실렌더 무회귀. 기준선 1093/8·413/42.

@@ -296,8 +296,8 @@ src/                        React 19 · TypeScript · Vite (Vercel 배포)
 ### 검증 게이트 (변경 후 필수)
 
 - 백엔드: `cd backend && python -m pytest -q`
-  - 현재 기준선(BOHUMFIT-299 Codex 2차 실측 · 2026-08-22): `1093 passed, 8 skipped`
-- 프런트 테스트: `npm test` — 현재 기준선 `413 passed / 42 files`(BOHUMFIT-298 Codex 2차 실측·2026-08-18, 라우트 스모크 18건 포함)
+  - 현재 기준선(BOHUMFIT-303 Codex 2차 실측 · 2026-08-22): `1102 passed, 8 skipped`
+- 프런트 테스트: `npm test` — 현재 기준선 `419 passed / 43 files`(BOHUMFIT-303 Codex 2차 실측·2026-08-22, 라우트 스모크 18건 포함)
 - 프런트 타입체크: `npx tsc -p tsconfig.app.json --noEmit` 및 `tsconfig.node.json`
 - 빌드: `npm run build && npm run build:verify` — ★기준선 정정(BOHUMFIT-248 · 2026-07-26):
   과거 "343 kB대 정상"은 **폐기**. 로컬 Windows 번들 343 kB대는 앱 코드가 빠진 껍데기였고

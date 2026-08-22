@@ -1,0 +1,134 @@
+{
+  "_note": "BOHUMFIT-303 — 서버 _kakao_item == 프런트 memoItem 동등성 골든(수술 여부 확인 티어). 익명 합성. 형식 변경 시 골든·양쪽 테스트 동시 갱신.",
+  "review_item": {
+    "first_date": "2026-04-11",
+    "latest_date": "2026-04-11",
+    "first_diagnosis_date": "2026-04-11",
+    "code": "T17",
+    "display_code": "T17",
+    "name": "(양방)인두의 이물",
+    "display_name": "(양방)인두의 이물",
+    "visit": 1,
+    "med_days": 1,
+    "inpatient": 0,
+    "inpatient_count": 0,
+    "inpatient_periods": [],
+    "surgeries": [
+      "인두이물제거술(단순[편도상와])"
+    ],
+    "surgery_count": 1,
+    "surgery_dates": [
+      "2026-04-11"
+    ],
+    "surgery_events": [
+      {
+        "date": "2026-04-11",
+        "hospital": "가나이비인후과의원"
+      }
+    ],
+    "surgery_records": [
+      {
+        "date": "2026-04-11",
+        "code": "T17",
+        "context": "통원1회",
+        "name": "(양방)인두의 이물",
+        "surgery_name": "인두이물제거술(단순[편도상와])",
+        "hospital": "가나이비인후과의원",
+        "co_diagnoses": [],
+        "tier": "review"
+      }
+    ],
+    "surgery_review": [
+      "인두이물제거술(단순[편도상와])"
+    ],
+    "surgery_suspected": [],
+    "surgery_suspected_grade": "",
+    "detail": "5년 이내 수술",
+    "hospitals": [
+      "가나이비인후과의원"
+    ]
+  },
+  "review_item_expected": "2026-04-11 / T17 / (양방)(양방)인두의 이물\n2026-04-11 / 통원1회 / 수술 여부 확인: 인두이물제거술(단순[편도상와]) / 가나이비인후과의원\n\n",
+  "confirmed_item": {
+    "first_date": "2023-02-05",
+    "latest_date": "2023-02-05",
+    "first_diagnosis_date": "2023-02-05",
+    "code": "L05",
+    "display_code": "L050",
+    "name": "(양방)농양이있는 모소낭",
+    "display_name": "(양방)농양이있는 모소낭",
+    "visit": 0,
+    "med_days": 0,
+    "inpatient": 4,
+    "inpatient_count": 1,
+    "inpatient_periods": [
+      {
+        "start": "2023-02-05",
+        "end": "2023-02-09",
+        "days": 4,
+        "hospital": "가나병원"
+      }
+    ],
+    "surgeries": [
+      "절개술(제1범위)"
+    ],
+    "surgery_count": 1,
+    "surgery_dates": [
+      "2023-02-05"
+    ],
+    "surgery_events": [
+      {
+        "date": "2023-02-05",
+        "hospital": "가나병원"
+      }
+    ],
+    "surgery_records": [
+      {
+        "date": "2023-02-05",
+        "code": "L050",
+        "context": "입원4일",
+        "name": "(양방)농양이있는 모소낭",
+        "surgery_name": "절개술(제1범위)",
+        "hospital": "가나병원",
+        "co_diagnoses": [],
+        "tier": "confirmed"
+      }
+    ],
+    "surgery_review": [],
+    "surgery_suspected": [],
+    "surgery_suspected_grade": "",
+    "detail": "5년 이내 입원, 수술",
+    "hospitals": [
+      "가나병원"
+    ]
+  },
+  "confirmed_item_expected": "2023-02-05 ~ 2023-02-09 / 입원4일 / L050 / (양방)(양방)농양이있는 모소낭 / 가나병원\n2023-02-05 / 입원4일 / 절개술(제1범위) / 가나병원\n\n",
+  "legacy_item_no_tier": {
+    "first_date": "2024-01-10",
+    "latest_date": "2024-01-10",
+    "code": "K35",
+    "display_code": "K35",
+    "name": "(양방)급성 충수염",
+    "display_name": "(양방)급성 충수염",
+    "visit": 1,
+    "med_days": 0,
+    "inpatient": 0,
+    "inpatient_count": 0,
+    "inpatient_periods": [],
+    "surgeries": [
+      "충수절제술"
+    ],
+    "surgery_count": 1,
+    "surgery_dates": [
+      "2024-01-10"
+    ],
+    "surgery_records": [],
+    "surgery_suspected": [],
+    "surgery_suspected_grade": "",
+    "detail": "5년 이내 수술",
+    "hospitals": [
+      "다라병원"
+    ]
+  },
+  "legacy_item_no_tier_expected": "2024-01-10 / 통원1회 / K35 / (양방)(양방)급성 충수염 / 다라병원\n충수절제술\n\n"
+}

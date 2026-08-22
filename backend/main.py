@@ -385,6 +385,23 @@ def _visible_surgery_names(item: dict) -> list[str]:
     return [s for s in _kakao_values(item.get("surgeries")) if s and s != "수술"]
 
 
+# BOHUMFIT-303: `수술 여부 확인` 티어 라벨 — 서버 1상수(프런트 disclosureWindow.SURGERY_REVIEW_LABEL과 동등성 테스트로 고정).
+SURGERY_REVIEW_LABEL = "수술 여부 확인"
+
+
+def _kakao_review_names(item: dict) -> set[str]:
+    return {n for n in _kakao_values(item.get("surgery_review")) if n}
+
+
+def _kakao_surgery_display(item: dict, name: str, tier: str | None = None) -> str:
+    """확정 수술명은 그대로, 확인 티어(강등 패턴)는 `수술 여부 확인: {명칭}`. 티어 정보가 없으면 확정(구 payload 호환)."""
+    name = _s(name).strip()
+    if not name:
+        return name
+    is_review = (tier == "review") if tier else (name in _kakao_review_names(item))
+    return f"{SURGERY_REVIEW_LABEL}: {name}" if is_review else name
+
+
 def _kakao_has_surgery_signal(item: dict) -> bool:
     return bool(_current_surgery_count(item) > 0 or _kakao_values(item.get("surgery_suspected")))
 
@@ -529,7 +546,7 @@ def _kakao_item(item: dict) -> str:
             # BOHUMFIT-294: 직전 줄과 **글자 단위로 같은** 코드·병명만 생략(다르면 그대로 — 251 원문 충실화).
             _rc, _rn = _dedup(_s(r.get("code")), _s(r.get("name")))
             _parts = [p for p in (_s(r.get("date")), _rc, _s(r.get("context")),
-                                  _rn, _s(r.get("surgery_name"))) if p.strip()]
+                                  _rn, _kakao_surgery_display(item, r.get("surgery_name"), _s(r.get("tier")))) if p.strip()]
             _line = " / ".join(_parts)
             if _s(r.get("hospital")).strip():
                 _line += f" / {_s(r.get('hospital')).strip()}"
@@ -539,7 +556,7 @@ def _kakao_item(item: dict) -> str:
             _rec_lines.append(_line + "\n")
         line2 = "".join(_rec_lines)
     elif surgery_count > 0:
-        line2 = (", ".join(surgeries) if surgeries else "수술") + "\n"
+        line2 = (", ".join(_kakao_surgery_display(item, n) for n in surgeries) if surgeries else "수술") + "\n"
     elif suspected_names:
         suspected_text = ", ".join(suspected_names)
         if suspected_grade:

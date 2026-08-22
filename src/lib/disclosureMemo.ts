@@ -4,6 +4,7 @@ import {
   displayJudgmentDetail,
   filterDisclosureReportsByWindow,
   visibleSurgeryNames,
+  labeledSurgeryName, // BOHUMFIT-303: `수술 여부 확인` 티어 라벨(서버 _kakao_surgery_display와 동등)
   type DisclosureWindowItem,
 } from "./disclosureWindow";
 
@@ -134,7 +135,8 @@ function memoItem(item: DisclosureMemoItem) {
       .map((r) => {
         // BOHUMFIT-294: 직전 줄과 **글자 단위로 같은** 코드·병명만 생략(다르면 그대로 — 251 원문 충실화).
         const [rc, rn] = dedup(s(r.code), s(r.name));
-        const parts = [s(r.date), rc, s(r.context), rn, s(r.surgery_name)].map((p) => p.trim());
+        // BOHUMFIT-303: 확인 티어(강등 패턴)는 `수술 여부 확인: {명칭}` — 서버 _kakao_item과 동일 라벨.
+        const parts = [s(r.date), rc, s(r.context), rn, labeledSurgeryName(item, s(r.surgery_name), s(r.tier))].map((p) => p.trim());
         const hospital = s(r.hospital).trim() ? ` / ${s(r.hospital).trim()}` : "";
         // BOHUMFIT-251 ③: 동일 일자 타 진단 병기(예: 모소낭 수술 + 항문농양) — 둘 다 고지 대상.
         const co = values(r.co_diagnoses);
@@ -143,7 +145,7 @@ function memoItem(item: DisclosureMemoItem) {
       })
       .join("");
   } else if (surgeryCount > 0) {
-    line2 = `${surgeries.length ? surgeries.join(", ") : "수술"}\n`;
+    line2 = `${surgeries.length ? surgeries.map((n) => labeledSurgeryName(item, n)).join(", ") : "수술"}\n`;
   } else if (suspected.length) {
     line2 = `수술 의심: ${suspected.join(", ")}${suspectedGrade ? ` (${suspectedGrade})` : ""}\n`;
   } else {

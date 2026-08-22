@@ -74,6 +74,9 @@ def new_disease():
         "_raw_code_by_date": {},
         "_diag_name_by_date": {},
         "surgery_records": [],
+        # BOHUMFIT-303: 확정 수술명 중 `수술 여부 확인` 티어(강등 패턴) — 표시 전용. 판정·카운트는
+        #   surgeries/surgery_dates 그대로(불변). 티어 판정은 surgery_exclusions.surgery_tier 한 곳.
+        "surgery_review_names": set(),
     }
 
 
@@ -221,6 +224,9 @@ def _is_detail_surgery_match(text: str) -> bool:
         or any(kw in text for kw in nhis_surg_keywords)
     )
 
+
+# BOHUMFIT-303: 확정 수술의 표시 티어(확정/확인) — 판정 단일 소스는 surgery_exclusions.
+from .surgery_exclusions import SURGERY_TIER_CONFIRMED, SURGERY_TIER_REVIEW, surgery_tier  # noqa: E402
 
 _S_CODE_RE = re.compile(r"^S\d")  # BOHUMFIT-126: 상해 S코드(S00~S99) 판별(그룹코드 기준)
 
@@ -512,6 +518,11 @@ def build_disease_stats(
                 elif is_surg_by_keyword:
                     s["surgeries"].add(surg_target)
                     s["surgery_dates"].add(clean_date)
+                # BOHUMFIT-303: 확정은 위 그대로 두고 표시 티어만 부가(강등 패턴 → `수술 여부 확인`).
+                _tier_name = (surg_label if is_surg_by_column else surg_target) if (is_surg_by_column or is_surg_by_keyword) else ""
+                _tier = surgery_tier(_tier_name) if _tier_name else SURGERY_TIER_CONFIRMED
+                if _tier == SURGERY_TIER_REVIEW:
+                    s["surgery_review_names"].add(_tier_name)
                 if (is_surg_by_column or is_surg_by_keyword) and clean_date:
                     # BOHUMFIT-251 회송 보정: 건별 수술 이벤트를 ★판정과 동일한 연결
                     #   (detail→basic (날짜+병원 정규화) 링크로 귀속된 바로 이 그룹 s)에 적재.
@@ -521,6 +532,7 @@ def build_disease_stats(
                         "date": clean_date,
                         "surgery_name": (surg_label if is_surg_by_column else surg_target) or "수술",
                         "hospital": (hospital or "").strip(),
+                        "tier": _tier,  # BOHUMFIT-303
                     })
 
                 day_fact = s["_daily_facts"].setdefault(clean_date, {"max_basic_cost": 0, "detail_proc_names": set()})
@@ -653,6 +665,8 @@ def build_disease_stats(
                 if _is_surgery_match(name_str):
                     s["surgeries"].add(name_str)
                     if clean_date: s["surgery_dates"].add(clean_date)
+                    if surgery_tier(name_str) == SURGERY_TIER_REVIEW:  # BOHUMFIT-303: 표시 티어만 부가
+                        s["surgery_review_names"].add(name_str)
                 for kw in test_keywords:
                     if kw in name_str: s["tests_found"].add(name_str); break
 
@@ -825,6 +839,8 @@ def build_disease_stats(
                         "surgery_name": display_clean_text(_ev["surgery_name"]),
                         "hospital": display_clean_text(_ev["hospital"] or (_s.get("hospital_dates") or {}).get(_d, "")),
                         "co_diagnoses": _co,
+                        # BOHUMFIT-303: 표시 티어(확정/확인) — 소비처는 부재 시 확정으로 폴백(구 payload 호환).
+                        "tier": _ev.get("tier") or surgery_tier(_ev["surgery_name"]),
                     })
             else:
                 _names = _sorted_strings(_s.get("surgeries", set()) or [])
@@ -846,6 +862,7 @@ def build_disease_stats(
                     "surgery_name": display_clean_text(_names[0] if _names else "수술"),
                     "hospital": display_clean_text((_s.get("hospital_dates") or {}).get(_d, "")),
                     "co_diagnoses": _co,
+                    "tier": surgery_tier(_names[0]) if _names else SURGERY_TIER_CONFIRMED,  # BOHUMFIT-303
                 })
         if _records:
             _s["surgery_records"] = _records

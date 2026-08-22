@@ -1,3 +1,99 @@
+## 2026-08-22 BOHUMFIT-303 Codex 2차 검증 — PASS(실 고지 재파싱 1건 한계 명시) · 커밋 대기
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(커밋·push) → **Human**(303b 결정)
+
+### 결과
+- 루트 게이트 PASS: `C:\Users\18_rk\BOHUMFIT` · `STONESWORD-MERITZ/bohumfit` · 219 리트머스 존재. 기준 HEAD/origin `20cec2c`, 시작 0/0.
+- 전체 게이트 PASS: backend **1102 passed, 8 skipped** · frontend **419 passed / 43 files** · tsc app/node · lint · 라우트 **18/18** ·
+  `smoke:coverage` 정본 2건 PASS. 빌드 **343,702 B**는 현 Windows 껍데기이며 `build:verify`가 크기/문자열 3종으로 예상 FAIL을 반환했다.
+- 중점 E에서 칩의 최종 숫자 단언이 없음을 발견해 같은 범위 테스트만 보강: `waitFor`로 amber 칩의 `aria-label=1`·본문 `1`을 직접 확인한다.
+  단독 6건과 전체 419건 모두 통과했다.
+- 뮤테이션 재실행: 강등 목록 비움 **4 failed**, 카운트 제외 **2 failed**, 프런트 티어 분기 제거 **2 failed**. 각 원복 후
+  `surgery_exclusions.py`·`disease_aggregator.py`·`disclosureWindow.ts` SHA-256은 주입 전과 바이트 동일.
+- 판정 단일 소스/우선순위 PASS: 패턴·`surgery_tier()` 정의는 `surgery_exclusions.py` 한 곳, 호출은 aggregator 표시 부가에만 있다.
+  제외 → 강수술 확정 → 패턴 확인 → 일반 확정 순서이며 드레싱·도뇨 059/130 무접촉. 기존 픽스처/골든의 5패턴 충돌은 의도 T17과
+  강신호 우선 `흉강천자배농술`뿐이고 진짜 수술의 오강등 0. `(단순` 일반화 근거/한계는 task 303b 절에 기록돼 있다.
+- `git show 20cec2c:` 심볼 복원 **0/6·0/3** 확인. 격리 복원본/현재를 익명 T17 동일 입력으로 별도 프로세스 실행해 Q 항목과 리포트
+  `surgery_count`/`surgeries` Δ=0, 건강체·간편 카카오 각 1줄 라벨만 변경됨을 재현했다. 251/294 골든 22건·프런트 문안+303 24건 통과.
+- ★실 고지 3문서 Codex 재파싱은 **확인 불가**: 세 파일 모두 암호화, Code 1차 때 환경변수로만 전달된 비밀번호가 현재 셸에 없다.
+  `.env*` 조회·비밀번호 추측은 하지 않았다. 따라서 실문서 15→15/리포트 14항목 Δ0은 바로 아래 Code 1차 실측 기록을 근거로 보존하고,
+  Codex는 동일 T17 익명 경로·전체 게이트·뮤테이션으로 독립 보완했다.
+- 익명 T17 PDF 실제 Chromium 생성: 3페이지, 표준/간편 확인 칩 각 1곳, 047 면책 문구 보존, 텍스트 좌표 페이지 밖 침범 0.
+  PDF 래스터/Orca CLI 부재로 이미지 육안은 확인 불가. 실제 Vite dev+Chromium 375px는 `scrollWidth=375`·칩 15px·amber·콘솔 error 0.
+  일회성 하네스/산출물/격리 복원본 전부 삭제, 실 PDF·PII·8자리 숫자·비밀번호 리터럴 stage 0.
+- 기준선 3문서(`verify.md`·`CLAUDE.md`·`AGENTS.md`)를 **1102/8 · 419/43**으로 동기화했다.
+
+### 지반 원문(커밋 전)
+```text
+git log --oneline -5
+20cec2c docs(BOHUMFIT-285): 수술 판정 정확도 조사 — EDI 수가코드 부재 실측·C-1 표시 강등 권고·폐쇄술 누락 발견
+8ecb38e chore(BOHUMFIT-300): 기존 테스트 픽스처 PII 익명화(기대값 무변경)
+6efec12 fix(BOHUMFIT-299): 총납입 산식 [전] 기준 통일 — 일시납 미곱
+f942fa0 feat(BOHUMFIT-302b): 통합치료비 표시 구조 확장 — 회색 헤더 3행·혈전용해 2행·순환계 수술 분배(55행)
+d78ddbf docs(BOHUMFIT-302): 통합치료비 전제 반증 — 제안서 원문 완전형 확인·292 정상 작동 실측
+
+git status --short -uall
+ M .agent-harness/handoff.md
+ M .agent-harness/locks.md
+ M .agent-harness/verify.md
+ M AGENTS.md
+ M CLAUDE.md
+ M backend/main.py
+ M backend/pipeline/disease_aggregator.py
+ M backend/pipeline/report_pdf.py
+ M backend/pipeline/result_builder.py
+ M backend/pipeline/surgery_exclusions.py
+ M backend/templates/report_disclosure.html
+ M src/lib/disclosureMemo.ts
+ M src/lib/disclosureWindow.ts
+ M src/pages/Disclosure.tsx
+?? .agent-harness/tasks/BOHUMFIT-303-surgery-review-tier.md
+?? backend/tests/fixtures/surgery_review_parity_303.json
+?? backend/tests/test_surgery_review_tier_303.py
+?? src/pages/SurgeryReviewTier303.test.tsx
+
+git rev-list --left-right --count origin/main...HEAD
+0	0
+```
+
+### Next
+1. **Human** — 303b(`폐쇄술` Q6 포함) 승인. 2. **Codex** — Human 승인 후 303b를 303과 분리한 별도 커밋으로 처리.
+
+## 2026-08-22 BOHUMFIT-303 수술 판정 3단 표시 — `수술 여부 확인` 티어 신설(285 C-1) · 구현+1차검증 완료
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(2차 검증·커밋) → **Human**(303b 결정지)
+기준 HEAD `20cec2c`(285). 야간 무인 · git 쓰기 0 · 실 PDF 읽기 전용·복사/stage 0 · ★비밀번호 문서·픽스처·스크립트 어디에도 0건
+(환경변수로만 전달 · 임시 산출물 삭제). 상세: tasks/BOHUMFIT-303-surgery-review-tier.md.
+
+### ★불변식 충족 — Q1~Q5·수술 N건·헤더 reason Δ=0
+BEFORE는 `git show HEAD:` 6파일 복원 + 별도 프로세스(복원 검증 `surgery_tier` 0/6 · `SURGERY_REVIEW_LABEL` 0/3), 3문서 전부 실행·추정 0.
+Q 판정 항목 15 → 15 **전부 동일** · 리포트 14항목 surgery_count·surgeries Δ 0 · 변한 것은 T17 라벨뿐
+(카카오 건강체·간편 각 1줄: `… / 인두이물제거술(단순[…])` → `… / 수술 여부 확인: 인두이물제거술(단순[…])`). 251 골든·smoke **무변동**.
+
+### 구현 (판정 한 곳 · 데이터 부가 · 라벨 4경로)
+- `surgery_exclusions.py`: `SURGERY_REVIEW_PATTERNS`(`이물제거술(단순`·`발사`·`세척`·`흡인`·`천자`) + `surgery_tier()` — 강수술 신호→확정 · 패턴→확인 · 그 외 확정.
+  `드레싱`·`도뇨`는 059/130이 이미 제외라 미포함(무접촉) · `(단순` 일반화·294 B 유형은 303b/303c 결정지.
+- `disease_aggregator`: `surgeries`/`surgery_dates` **그대로**(카운트 불변 구조 보장) + `surgery_review_names`·`surgery_records[].tier` 부가.
+- `result_builder`: item `surgery_review`(창 내). `main._kakao_item`: `SURGERY_REVIEW_LABEL` 1상수 → `수술 여부 확인: {명칭}`.
+- `report_pdf`·템플릿: 확정 N(red)/확인 M(amber) 칩 — 합 = surgery_n. 프런트 `disclosureWindow`(상수·`surgeryTierCounts`·`labeledSurgeryName`)·
+  `disclosureMemo`(동일 라벨)·`Disclosure.tsx` DiseaseCard 칩(amber — 회색 강등 아님). 티어 부재 시 **확정 폴백**(구 payload).
+
+### 검증
+- 신설: 백엔드 `test_surgery_review_tier_303.py` 9건 + 골든 `surgery_review_parity_303.json`(확인·확정·구 payload) · 프런트 `SurgeryReviewTier303.test.tsx` 6건
+  (★DiseaseCard 실제 렌더 · memoItem==서버 골든 · 라벨 상수 서버 원문 일치).
+- ★뮤테이션 3종 검출 후 원복(blob 동일): ①강등 목록 비움(4건 실패) ②카운트 제외로(헤더 변화 2건 실패) ③프런트 티어 분기 제거(렌더 2건 실패).
+- backend pytest **1102 passed / 8 skipped**(1093+9) · npm test **419 / 43**(413+6) · tsc app·node 0 · lint 0 · smoke:coverage PASS 무변동 · build:verify 예상 FAIL(343,702 B).
+- 무접촉 확인: filters.py·keywords.json·coverage/·251 골든·smoke 기준값 diff 0.
+- 실측 중 교정 1건: 프런트 전체 스위트에서만 칩 숫자(AnimatedNumber) 렌더 타이밍이 달라 3건 실패 → 칩 **요소·톤**으로 단언하도록 재작성(뮤테이션 ③ 재검출 확인).
+
+### ★303b 결정지 (코드 무변경 · 스크래치 사본 시뮬)
+- 누락 스윕 5건: **`누점폐쇄술`(H16) = 잠재 누락**(`폐쇄술` 양성 부재) · 침술 계열 4건 미판정 정당.
+- `폐쇄술` 추가 시: Q 항목 15→17(+H16 5년·10년 수술) · Q3 H16 수술 0→1 · 다른 그룹 0 · ★누점폐쇄술은 **확정** 티어로 떨어짐 → Q6 절차.
+- 303c: 294 B 유형은 컬럼 경로(치료재료·절삭기)·강신호(수술팩)·`주입` 양성(IVPCA) — 강등 목록이 아니라 보조재 가드/059 검토 대상.
+
+### Next
+1. **Codex** — 303 2차 검증·커밋(pytest 기준선 1093→**1102** · verify/CLAUDE/AGENTS 갱신 동반). 2. **Human** — 303b(`폐쇄술`·Q6)·303c 결정.
+
 ## 2026-08-22 BOHUMFIT-285 수술 판정 정확도 조사 · 완료 (★코드 0 · 문서만)
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(문서 커밋) → **Cowork 303**(C-1 구현 · 야간)

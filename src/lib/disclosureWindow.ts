@@ -22,9 +22,12 @@ export type DisclosureWindowItem = {
   surgery_events?: { date?: string; hospital?: string }[];
   // BOHUMFIT-251(3차): 수술 건별 record — 창 필터를 통과시키되 날짜로 걸러야 한다
   //   (미통과 시 필터 경로가 옛 합산 폴백으로 떨어져 중복 잔존).
-  surgery_records?: { date?: string; code?: string; context?: string; name?: string; surgery_name?: string; hospital?: string; co_diagnoses?: string[] }[];
+  // BOHUMFIT-303: tier = "confirmed" | "review"(수술 여부 확인). 부재 시 확정으로 폴백(구 payload 호환).
+  surgery_records?: { date?: string; code?: string; context?: string; name?: string; surgery_name?: string; hospital?: string; co_diagnoses?: string[]; tier?: string }[];
   surgeries?: string[];
   surgery_count?: number;
+  // BOHUMFIT-303: `수술 여부 확인` 티어 이름(표시 전용 — surgeries·surgery_count는 불변).
+  surgery_review?: string[];
   surgery_suspected_dates?: string[];
   surgery_suspected?: string[];
   surgery_suspected_grade?: string;
@@ -86,6 +89,39 @@ export function currentSurgeryCount(item: DisclosureWindowItem): number {
 export function visibleSurgeryNames(item: DisclosureWindowItem): string[] {
   if (currentSurgeryCount(item) <= 0) return [];
   return values(item.surgeries).filter((name) => name !== "수술");
+}
+
+// ── BOHUMFIT-303: `수술 여부 확인` 티어(285 C-1) — 프런트 1상수. 서버 main.SURGERY_REVIEW_LABEL과
+//   동등성 테스트로 고정(251 4경로). ★카운트(currentSurgeryCount)는 티어와 무관하게 불변이다.
+export const SURGERY_REVIEW_LABEL = "수술 여부 확인";
+
+export function surgeryReviewNames(item: DisclosureWindowItem): string[] {
+  return values(item.surgery_review);
+}
+
+/** 확정 수술명은 그대로, 확인 티어는 `수술 여부 확인: {명칭}`. 티어 정보가 없으면 확정(구 payload 호환). */
+export function labeledSurgeryName(item: DisclosureWindowItem, name: string, tier?: string): string {
+  const n = String(name || "").trim();
+  if (!n) return n;
+  const isReview = tier ? tier === "review" : surgeryReviewNames(item).includes(n);
+  return isReview ? `${SURGERY_REVIEW_LABEL}: ${n}` : n;
+}
+
+/** (확정 N, 확인 M) — 합은 항상 currentSurgeryCount(=헤더 "수술 N건"). 서버 report_pdf._surgery_tier_counts와 동일 규칙. */
+export function surgeryTierCounts(item: DisclosureWindowItem): { confirmed: number; review: number } {
+  const total = currentSurgeryCount(item);
+  if (total <= 0) return { confirmed: 0, review: 0 };
+  const records = (item.surgery_records ?? []).filter((r) => r && typeof r === "object");
+  let review: number;
+  if (records.length) {
+    const reviewDates = new Set(records.filter((r) => r.tier === "review").map((r) => String(r.date || "")));
+    const confirmedDates = new Set(records.filter((r) => r.tier !== "review").map((r) => String(r.date || "")));
+    review = [...reviewDates].filter((d) => !confirmedDates.has(d)).length;
+  } else {
+    review = surgeryReviewNames(item).length ? total : 0;
+  }
+  review = Math.max(0, Math.min(total, review));
+  return { confirmed: total - review, review };
 }
 
 export function inpatientSummary(item: DisclosureWindowItem) {
