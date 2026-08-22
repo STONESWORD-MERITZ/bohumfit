@@ -1,8 +1,63 @@
+## 2026-08-22 BOHUMFIT-285 수술 판정 정확도 조사 · 완료 (★코드 0 · 문서만)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(문서 커밋) → **Cowork 303**(C-1 구현 · 야간)
+기준 HEAD `8ecb38e`(300). 실 고지 PDF는 Human이 세션에 입력한 비밀번호로 열람(★비밀번호는 문서·handoff 어디에도 미기록 ·
+임시 스크립트 덮어쓰기+삭제 · 스크래치패드 잔존 스캔 0건). 상세: tasks/BOHUMFIT-285-surgery-classification.md.
+
+### ★기전 특정 (함수 단위 실측)
+`인두이물제거술(단순[편도상와])` = `surg_keywords`의 **`제거`** positive + negative 0 + 062/059/보조재 3겹 어디에도 미해당
+→ `_is_surgery_match` True → **수술 확정**. 진료기간=최초진단 당일·의원급·`(단순)` 한정자는 판정에 미반영.
+
+### ★분기점 실측 — EDI 수가코드 **부재**
+실 고지 detail 헤더 전수: `순번·진료시작일·병의원·진료내역·코드명·투약량·투여횟수·투약일수` — 수가코드 컬럼 없음.
+`코드명`은 명칭 텍스트다. → **A안(코드 사전) 전제 반증 · 보류**. 명칭 기반 판정이 유일 선택지.
+
+### 표본 전수 (파싱 basic 124·detail 550·pharma 440 · 오류 0)
+- 수술 확정 = **1건뿐이고 그 1건이 강등 후보(100%)**. ★294 B 유형은 **이 표본 0건**(캡처 원문 별도 문서 — 확보 시 재측정).
+- ★누락 방향 수확: **`누점폐쇄술` 수술 미판정**(잠재 누락 — `폐쇄술` 키워드 부재). 침술 4건 미판정은 정당.
+- ★카운트 영향 실증: 해당 그룹(T17)은 통원 1회·투약 1일 — **수술이 유일한 Q3 사유**. 카운트 제외 시 그룹이 Q3에서 소멸.
+
+### 기존 자산 판정
+- 보장분석 "수술 등급 DB" 실체 = 238 금액 환산표(키=금액) → **재사용 불가(B안 기각)**.
+- `medical_judgment`는 수술 판정 안 함(힌트 전달만) · 291/301 종수술 tier와 무관 · 확정/의심(강·약) 2단이 현행.
+
+### ★권고 — C-1 조합안
+확정 조건 유지 + 강등 패턴(`이물제거술(단순`·`발사`·`세척`·`흡인`·B 유형 4종 등) 매칭 시
+`수술 확정` → 신설 **`수술 여부 확인`** 티어로 **표시만 강등, Q1~Q5 카운트는 유지**
+(위험 비대칭: 누락≫과잉 · 030~032 배지=헤더 일치 자동 준수 · smoke·골든 무변동 · 047 면책 정합).
+3단 정리: 확정(심평원 명시) / 확인(심평원+강등 패턴 · 신설) / 의심(공단 추정 · 기존).
++`폐쇄술` positive 추가(누락 보강 · 카운트 증가 방향이라 Q6 대조) · A안은 코드 실재 양식 확보 시 후속.
+
+### Human 결정 3건
+1. C-1 채택(표시 2단·카운트 유지 — 표시 계층만이라 값 계층 무변동). 2. `폐쇄술` positive 추가(Q6). 3. 294 B 유형 원문 확보 여부.
+
+### Codex 문서 커밋 검증
+```text
+$ git status --short -uall
+ M .agent-harness/handoff.md
+ M .agent-harness/locks.md
+?? .agent-harness/tasks/BOHUMFIT-285-surgery-classification.md
+
+$ git diff --stat
+ .agent-harness/handoff.md | 56 +++++++++++++++++++++++++++++++++++++++++++++--
+ .agent-harness/locks.md   |  2 +-
+ 2 files changed, 55 insertions(+), 3 deletions(-)
+
+$ git diff --stat -- . ':(exclude).agent-harness/**'
+(출력 없음)
+```
+- tracked/untracked 모두 `.agent-harness/` 밖 변경 **0** · 실 PDF·`보장분석/`·임시 스크립트 stage 대상 0.
+- 285 태스크+handoff 추가분 PII: 실명·연락처·주민번호·주소 **0**, 생년월일형 포함 8자리 연속 숫자 **0**, 비밀번호 리터럴 후보 **0**.
+- locks 285 해제 확인. 코드 diff 0이므로 전체 게이트·기준선 갱신 생략.
+
+### Next
+1. **Cowork 303** — C-1 구현(야간).
+
 ## 2026-08-22 BOHUMFIT-299·300 Codex 2차 검증 PASS · Human Q6 승인 반영 · 분리 커밋 직전
 
-Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(299→300 분리 커밋·push)
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Chat**(BOHUMFIT-285 발번/진행)
 기준 HEAD `f942fa0`(302b) · 실 PDF 읽기 전용 · PII/실 PDF/엑셀/렌더 산출물 stage 0.
-분리 커밋: ① BOHUMFIT-299 `6efec12` push 완료 · ② BOHUMFIT-300 본 handoff 포함 커밋 진행.
+분리 커밋: ① BOHUMFIT-299 `6efec12` · ② BOHUMFIT-300 `8ecb38e` — 모두 origin/main push 완료.
 
 ### 지반 실측 원문
 ```text
@@ -58,6 +113,22 @@ $ git rev-list --left-right --count origin/main...HEAD
 
 ### Next
 1. **Chat/Code** — BOHUMFIT-285 수술 판정 조사(다음 야간).
+
+### push 후 원문 (해시 확정 기록 — 다음 커밋 편승)
+```text
+$ git log --oneline -5
+8ecb38e chore(BOHUMFIT-300): 기존 테스트 픽스처 PII 익명화(기대값 무변경)
+6efec12 fix(BOHUMFIT-299): 총납입 산식 [전] 기준 통일 — 일시납 미곱
+f942fa0 feat(BOHUMFIT-302b): 통합치료비 표시 구조 확장 — 회색 헤더 3행·혈전용해 2행·순환계 수술 분배(55행)
+d78ddbf docs(BOHUMFIT-302): 통합치료비 전제 반증 — 제안서 원문 완전형 확인·292 정상 작동 실측
+b9fc240 fix(BOHUMFIT-301): [전] 종수술 tier 라우팅·이중 계상 정리·종수술비 비고 제거(smoke 기준값 갱신 — Human Q6 승인)
+
+$ git status --short -uall
+(출력 없음)
+
+$ git rev-list --left-right --count origin/main...HEAD
+0\t0
+```
 
 ## 2026-08-20 BOHUMFIT-300 기존 테스트·제품 주석 PII 익명화 (기대값 무변경) · 완료
 

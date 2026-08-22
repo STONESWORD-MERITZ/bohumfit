@@ -4,9 +4,10 @@ Use this file to record active Codex file ownership during a task.
 
 ## Active
 
-(없음 — 299 구현+1차검증 완료·Q6 승인 대기 / 300 익명화 완료·Codex 커밋 대기)
+(없음)
 
 ### Released
+- 2026-08-22 `BOHUMFIT-285-surgery-classification` - Codex - Released(조사 문서 2차 검증 PASS · 제품 코드 diff 0). EDI 수가코드 부재·C-1 표시 강등 권고·누점폐쇄술 누락을 실측 근거와 함께 확인. `.agent-harness/` 밖 tracked/untracked diff 0, PII·8자리 연속 숫자·비밀번호 리터럴 0, 실 PDF·임시 산출물 stage 0. 전체 게이트·기준선 갱신 생략.
 - 2026-08-22 `BOHUMFIT-300-pii-fixture-cleanup` - Codex - Released(2차 검증 PASS). 실명 경로를 공용 `real_docs.py` 정본 라벨로 전환, 290·291·292 실문서 테스트 57 passed/skip 0, 테스트 assert AST 무변경·제품 실행 AST 무변경. 프로토타입 익명 glob이 제안서 0건을 만드는 회귀를 발견해 공용 `real_proposals("정본C")`로 최소 보정(3건 복원). 전체 backend 1093/8·frontend 413/42·smoke/tsc/lint PASS, PII·실자료·산출물 stage 0.
 - 2026-08-22 `BOHUMFIT-299-total-premium` - Codex - Released(Human Q6 승인 반영·2차 검증 PASS). BEFORE/AFTER 별도 프로세스 4문서 독립 대조: A −18,564,480/B·C·D 0, 전부 [전]==[후], 제안서 3건 영향 0. 뮤테이션 2종 검출·원복 SHA 동일, A~D 엑셀/PDF 실렌더 무회귀. 기준선 1093/8·413/42.
 - 2026-08-19 `BOHUMFIT-301-tier-routing` - Codex - Released(Human Q6 승인 반영·2차 검증 PASS). BEFORE/AFTER 4문서 독립 대조 A·D 불변/C rows−1·총액 불변/B rows−1·총액−32.9M, 사유 없는 변화 0. backend 1076/8·frontend 413/42·tsc/lint/smoke PASS, build:verify 343,702 B 예상 FAIL, 뮤테이션 3종 검출·원복, 엑셀/PDF 실렌더 통과. 실 PDF·PII·산출물 stage 0.
