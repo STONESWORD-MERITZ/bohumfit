@@ -210,10 +210,13 @@ def test_every_sheet_cell_equals_s2_aggregation():
 REAL = Path(__file__).resolve().parents[2] / "보장분석" / "비교분석표"
 
 
-@pytest.mark.parametrize("name", ["이인숙-INPUT.pdf", "라금실INPUT.pdf", "20260805_오현지님_보장분석.pdf"])
-def test_real_documents_render_and_match_s2(name):
-    path = REAL / name
-    if not path.exists():
+# ★BOHUMFIT-300: 실파일명 → 익명 라벨(정본A~C). 같은 문서를 고르므로 기대값은 불변이다.
+@pytest.mark.parametrize("label", ["정본A", "정본B", "정본C"])
+def test_real_documents_render_and_match_s2(label):
+    from tests.real_docs import real_doc
+
+    path = real_doc(label)
+    if path is None or not path.exists():
         pytest.skip("실 PDF 없음(gitignore 폴더)")
     from coverage.service import analyze_kb_coverage
 

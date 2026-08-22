@@ -17,7 +17,7 @@ from coverage.proposal_parser import (
     parse_proposal_text,
 )
 
-# 실 PDF(오현지) 구조를 익명·합성으로 재현한다 — 실 PDF/PII는 저장하지 않는다.
+# 실 PDF(정본C) 구조를 익명·합성으로 재현한다 — 실 PDF/PII는 저장하지 않는다.
 REAL_SHAPE = """
 (무) 메리츠 The좋은 알파Plus보장보험2607(2.0) (해약환급금미지급형)(납입면제 일반형)
 계약사항 : 20년납 20년만기 | 월납 | 자동이체

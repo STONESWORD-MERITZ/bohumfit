@@ -198,16 +198,14 @@ def test_stage_totals_follow_cascade_chains_one_to_one():
 REAL = Path(__file__).resolve().parents[2] / "보장분석" / "비교분석표"
 
 
-@pytest.mark.parametrize("name", [
-    "이인숙-INPUT.pdf",
-    "라금실INPUT.pdf",
-    "20260805_오현지님_보장분석.pdf",
-    "20260729_우O균님_보장분석.pdf",
-])
-def test_cascade_is_monotonic_on_real_documents(name):
+# ★BOHUMFIT-300: 실파일명 → 익명 라벨(정본A~D). 같은 문서를 고르므로 기대값은 불변이다.
+@pytest.mark.parametrize("label", ["정본A", "정본B", "정본C", "정본D"])
+def test_cascade_is_monotonic_on_real_documents(label):
     """★실문서 4건에서 뇌·심장·암 케스케이드가 모두 단조다."""
-    path = REAL / name
-    if not path.exists():
+    from tests.real_docs import real_doc
+
+    path = real_doc(label)
+    if path is None or not path.exists():
         pytest.skip("실 PDF 없음(gitignore 폴더)")
     stages = analyze_kb_coverage(path.read_bytes())["before"]["stage_totals"]
     assert stages["뇌초기"] <= stages["뇌중기"] <= stages["뇌말기"]

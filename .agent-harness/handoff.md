@@ -1,3 +1,137 @@
+## 2026-08-22 BOHUMFIT-299·300 Codex 2차 검증 PASS · Human Q6 승인 반영 · 분리 커밋 직전
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(299→300 분리 커밋·push)
+기준 HEAD `f942fa0`(302b) · 실 PDF 읽기 전용 · PII/실 PDF/엑셀/렌더 산출물 stage 0.
+분리 커밋: ① BOHUMFIT-299 `6efec12` push 완료 · ② BOHUMFIT-300 본 handoff 포함 커밋 진행.
+
+### 지반 실측 원문
+```text
+$ git log --oneline -5
+f942fa0 feat(BOHUMFIT-302b): 통합치료비 표시 구조 확장 — 회색 헤더 3행·혈전용해 2행·순환계 수술 분배(55행)
+d78ddbf docs(BOHUMFIT-302): 통합치료비 전제 반증 — 제안서 원문 완전형 확인·292 정상 작동 실측
+b9fc240 fix(BOHUMFIT-301): [전] 종수술 tier 라우팅·이중 계상 정리·종수술비 비고 제거(smoke 기준값 갱신 — Human Q6 승인)
+92e364b docs(BOHUMFIT-297): 종수술 tier 미분리·종수술비 합성 라벨 기전 조사
+397056b feat(BOHUMFIT-296): 비고 정규 행 이관·N대수술비 신설·2열 라벨 정리(52행·smoke 기준값 갱신 — Human Q6 재승인)
+
+$ git status --short -uall
+ M .agent-harness/handoff.md
+ M .agent-harness/locks.md
+ M backend/coverage/compare.py
+ M backend/coverage/constants.py
+ M backend/coverage/integrated_treatment.py
+ M backend/coverage/parser.py
+ M backend/coverage/proposal_parser.py
+ M backend/coverage/proposal_registry.py
+ M backend/tests/test_export_v2_layout_291.py
+ M backend/tests/test_proposal_parsing_accuracy_276b.py
+ M backend/tests/test_proposal_tier_surgery_286.py
+ M backend/tests/test_schema_v2_s2_wiring_290.py
+ M backend/tests/test_schema_v2_s4_matching_292.py
+ M scripts/prototype_286_ohj.py
+?? .agent-harness/tasks/BOHUMFIT-299-total-premium.md
+?? .agent-harness/tasks/BOHUMFIT-300-pii-fixture-cleanup.md
+?? backend/tests/real_docs.py
+?? backend/tests/test_total_premium_299.py
+
+$ git rev-list --left-right --count origin/main...HEAD
+0\t0
+```
+
+### BOHUMFIT-299 — Q6 독립 재현·승인 반영
+- BEFORE는 `git show HEAD:backend/coverage/compare.py`를 별도 프로세스에서 복원, AFTER는 현재 코드로 4문서 전부 실행. 변경 심볼 `일시납` **3→6**.
+- 정본A `[후]` **144,647,520→126,083,040(−18,564,480)**, 정본B·C·D **0**, 정본C+제안서 3건 **0**. 4문서 전부 `[전]==[후]`.
+- 차액 = `(555,960×12−555,960)+(1,131,720×12−1,131,720)` = **18,564,480** 정확 일치.
+- `compare._paid_total` 한 곳만 수정, 호출자 1곳. `aggregator._paid`와 일시납 미곱 계약 동일.
+- 뮤테이션 2종 직접 검출: 산식 통일 되돌림 **4 failed / 2 passed**, 일시납 판정 제거 **5 failed / 1 passed**. 원복 후 `compare.py` SHA-256 `435376E4CF3B2546521D3874845E807B4658F9745F107B823E5C3511CB006D1A` 동일.
+
+### BOHUMFIT-300 — 익명화 독립 검증·최소 보정
+- 290·291·292 실문서 테스트 **57 passed**, skip 0. 변경 테스트 5파일 assert AST가 HEAD와 동일(삭제·완화 0).
+- 제품 5파일은 docstring을 제외한 실행 AST가 HEAD와 전부 동일. 소스 실명 0, 주민·주소 0; `010-1234-5678`은 비밀번호 재설정 기능 테스트 더미라 Step 4 미도입 근거 유지.
+- ★Codex 발견/보정: 프로토타입의 실명 glob을 익명 문자열로 바꾼 결과 제안서 **0건**으로 퇴행. 직접 glob 대신 공용 `real_proposals("정본C")`를 사용해 **3건** 복원, 전부 담보 파싱 확인.
+
+### 전체 게이트·실렌더
+- backend **1093 passed, 8 skipped** · frontend **413 passed / 42 files** · tsc app/node · lint · `smoke:coverage` PASS.
+- `npm run build` **343,702 B** · `build:verify`는 기존 Windows 껍데기 거부 **예상 FAIL**.
+- A~D 엑셀 각 4시트와 PDF 전 페이지(19/19/12/17쪽) 실렌더: 총납입 라벨·값, 261 차액 색상, 302b 회색 행, FIT 브랜드·인쇄 폭·페이지 경계 무회귀. 모든 임시 실자료 산출물 삭제.
+- 보호 영역 `pipeline/`·`filters.py`·`aggregator.py`·월납 산식(276c)·`src/`·`vite.config.*` diff 0.
+- 기준선 3문서 backend **1087/8→1093/8**, frontend **413/42** 유지. smoke 기준값은 paid_total 미검사라 무변경.
+
+### Next
+1. **Chat/Code** — BOHUMFIT-285 수술 판정 조사(다음 야간).
+
+## 2026-08-20 BOHUMFIT-300 기존 테스트·제품 주석 PII 익명화 (기대값 무변경) · 완료
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Codex**(2차 검증·커밋)
+기준 HEAD `f942fa0`(302b). 야간 무인 2건 중 ②. git 쓰기 0 · 실 PDF 복사/stage 0. 상세: tasks/BOHUMFIT-300-pii-fixture-cleanup.md.
+
+### Step 1 전수 스캔 — 295b 지목 5파일 **외에 6파일 더** 있었다
+소스(py·ts·tsx·mjs·js, node_modules 제외) 실명 스캔 **11파일**:
+제품 코드 5(constants 6·integrated_treatment 1·parser 2·proposal_parser 2·proposal_registry 2 — **전부 주석**) ·
+테스트 주석 2(276b 1·286 2) · 테스트 경로 3(290·291·292 — 실파일명이 **로딩 경로**) · 스크립트 1(prototype 5).
+★**값 검증에 쓰이는 실명 0건** — 손대지 않고 남길 항목 없음. 주민번호 패턴 **0건**.
+
+### Step 2~3 익명화 + 경로 의존 전환
+- 치환 체계(정본A~E)를 **한 곳**에 정의: 신설 `backend/tests/real_docs.py`.
+- 실파일명 대신 **패턴+문서 구조**로 정본 식별(296b `_real_q6_paths()` 선례 공용화):
+  정본A=표준형 `*-INPUT.pdf` · 정본B=overview형 · 정본C=계약 5건 · 정본D=계약 6건 · 제안서는 정본 문서명에서 접두 유도.
+- 290·291·292가 `real_doc(라벨)`을 쓰도록 전환 — 같은 파일을 같은 순서로 고르므로 **기대값 불변**.
+  ★검증: 3파일 **57건 전부 통과**(skip 아님 — 실제 문서를 찾아 실행).
+- 제품 코드 5파일은 **주석만** 변경(로직 diff 0 확인).
+
+### Step 4 재발 방지 검사 — ★도입 보류(사유 기록)
+주민번호·전화번호 패턴 0건 단언을 검토했으나 `test_password_reset_216.py`가 `010-1234-5678`을
+**기능 테스트 더미**로 쓴다 → 금지하면 정당한 테스트가 깨지고 예외 목록을 두면 검사가 무력해진다.
+대안으로 커밋 전 `git diff` 실명 스캔(295b 방식)을 verify 관례로 유지한다.
+
+### 검증
+- ★소스 실명 **0건**(전수 재스캔) · 기대값·단언 **무변경** · 제품 로직 diff 0
+- 290·291·292 57건 통과 · 게이트는 299와 함께 아래 항목에 기록
+
+### Next
+**Codex** — 300 커밋(chore · 기대값 무변경). ※문서(.md)의 과거 실명은 커밋된 역사 기록이라 범위 밖.
+
+## 2026-08-20 BOHUMFIT-299 총납입 산식 [전] 기준 통일(일시납 미곱) · 구현+1차검증 (★Q6 승인 대기)
+
+Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Human**(Q6 승인) → **Codex**(승인 후 기준값·커밋)
+기준 HEAD `f942fa0`(302b) · 입력물 295 §1-6 ②. 야간 무인 2건 중 ①. git 쓰기 0 · 실 PDF 읽기 전용 · PII 0(정본A~D).
+★smoke 기준값 **미갱신**(Q6 절차). 상세: tasks/BOHUMFIT-299-total-premium.md.
+
+### 변경 — ★한 지점만
+`backend/coverage/compare.py::_paid_total`에 234 분기(`일시납 → premium`)를 추가해 `aggregator._paid`와 동일 산식으로 통일.
+호출자가 `build_after_analysis` 1곳뿐이라 이 한 지점이 단일 소스다(방어 분산 금지 — 295 선례).
+
+### Step 1 실측
+- [전] `aggregator._paid` 미곱(234) vs [후] `compare._paid_total` 곱함 ← 결함. 호출자 1곳.
+- ★272 라벨 정합 — **라벨 변경 불필요**: PDF `총납입보험료(계약별 납입기간 반영)`가 대상이고 그 문구는 일시납 미곱과 **더 정합**.
+  엑셀 `20년 납부 시 총납입(월납×240)`은 `MONTHS_20Y` 기반 **별개 지표**라 무관. → 중단 조건 미해당.
+- ★일시납 전수: **정본A만 2건**(표기 555,960·1,131,720 / 각 12개월). B·C·D **0건**.
+  차액 검산 (555,960×12−555,960)+(1,131,720×12−1,131,720) = **18,564,480** = 144,647,520−126,083,040 **정확 일치**.
+
+### ★★Q6 대조표 (BEFORE=`git show HEAD:` 복원·별도 프로세스 / 4문서+제안서 전부 실행·추정 0)
+복원 검증(변경 심볼 `일시납` 출현): **BEFORE 3 / AFTER 6**.
+| 대상 | [전] | [후](전→후) | Δ | [전]==[후] |
+|---|---|---|---|---|
+| 정본A | 126,083,040 | 144,647,520 → **126,083,040** | **−18,564,480** | ✓ |
+| 정본B | 462,276,000 | 462,276,000 → 462,276,000 | **0** | ✓ |
+| 정본C | 43,632,480 | 43,632,480 → 43,632,480 | **0** | ✓ |
+| 정본D | 83,371,584 | 83,371,584 → 83,371,584 | **0** | ✓ |
+| 정본C+제안서 3건 | — | 값 동일 | **0** | — |
+★Δ는 정본A 하나뿐이고 **전액이 일시납 2건에 정확히 귀속**된다. ★일시납 없는 3문서 **변화 0**(값 보존).
+★4문서 모두 **[전]==[후]** 성립 — 통일 목표 달성. **사유 없는 변화 0.**
+
+### 검증
+- 신설 `test_total_premium_299.py` **6건** 통과(동일 산식 5케이스·일시납 미곱·값 보존·None·문서 합계 검산·일시납 없는 문서 불변)
+- ★뮤테이션 2종 검출 후 원복(blob 동일): ①산식 통일 되돌림(4건 실패) ②일시납 판정 제거(2건 실패)
+- backend pytest **1093 passed / 8 skipped**(1087+6 · 회귀 0) · `smoke:coverage` **PASS**(기준값 무변경 — smoke는 paid_total 미검사)
+- tsc app·node 0 · lint 0 · 보호 영역(src·pipeline·filters·parser·constants·aggregator·export_excel·vite) **무접촉**
+
+### ★기준값 갱신 대상 (Human 승인 후 Codex — 본 태스크 미갱신)
+`CLAUDE.md`·`AGENTS.md`·`verify.md` pytest 기준선 1087 → **1093**(신설 6건). smoke는 무변경.
+※300의 신규 6건은 없으므로(치환만) 최종 기준선은 299 기준 1093이다.
+
+### Next
+1. **Human** — Q6 승인. 2. **Codex** — 승인 후 기준선 갱신 + 299·300 커밋.
+
 ## 2026-08-20 BOHUMFIT-302/302b — Human Q6 승인 반영·기준값 3건 갱신·최종 검증 (분리 커밋)
 
 Owner flow: Claude Chat -> Claude Code -> Codex -> Human | Current owner: **Chat**(299 발행)

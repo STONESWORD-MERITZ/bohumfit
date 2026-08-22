@@ -218,12 +218,15 @@ def test_parse_proposal_text_carries_origin_and_integrated_metadata():
     assert meta and meta[0]["mode"] == MODE_Q8 and any(it["route"] for it in meta[0]["items"])
 
 
-@pytest.mark.skipif(not (REAL / "20260805_오현지님_보장분석.pdf").exists(), reason="실 PDF 없음(gitignore 폴더)")
+# ★BOHUMFIT-300: 실파일명 → 익명 라벨(정본C + 그 제안서). 같은 파일을 고르므로 기대값 불변.
 def test_real_alpha_plus_proposal_matches_288_q8_evidence():
-    import glob
     from coverage.service import analyze_kb_coverage
+    from tests.real_docs import real_doc, real_proposals
 
-    prop = sorted(glob.glob(str(REAL / "오현지_77,476원*가입제안서*.pdf")))
+    doc = real_doc("정본C")
+    if doc is None or not doc.exists():
+        pytest.skip("실 PDF 없음(gitignore 폴더)")
+    prop = [p for p in real_proposals("정본C") if "77,476" in p.name]
     if not prop:
         pytest.skip("제안서 없음")
     parsed = parse_proposal_pdf(Path(prop[0]).read_bytes(), "alpha.pdf")
@@ -236,7 +239,7 @@ def test_real_alpha_plus_proposal_matches_288_q8_evidence():
     assert by["암수술"]["amount"] == 1500 * MAN and by["다빈치(일반암)"]["amount"] == 1000 * MAN
     assert by["중입자방사선"]["amount"] == 5000 * MAN                    # 신설 매칭 규칙(#124)
     parsed["proposal_id"] = "P1"
-    analysis = analyze_kb_coverage((REAL / "20260805_오현지님_보장분석.pdf").read_bytes())
+    analysis = analyze_kb_coverage(doc.read_bytes())
     res = build_after_analysis(analysis, {"existing": [], "proposals": [parsed]})
     rows = res["after"]["before"]["coverages"]
     assert _row(rows, "surgery_cerebral")["by_company"]["P1"] == 1300 * MAN

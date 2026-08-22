@@ -931,13 +931,13 @@ def parse_detail_pages(
                     #   합산함(D 실측: 표적 6,000만+중입자 5,000만=1.1억) — 배타 차감용 포함분
                     #   기록(검출·계상 불변). E형("기타 인보험" 분류)은 미기록 → 차감 없음.
                     # BOHUMFIT-292(S4): 세기조절·양성자도 같은 지급사유(고액항암치료비)로 합산돼 있어
-                    #   (오현지 [전] 표적 5,000만 = 세기 1,000+표적 3,000+양성자 1,000 실측) 동일 차감.
+                    #   (정본C [전] 표적 5,000만 = 세기 1,000+표적 3,000+양성자 1,000 실측) 동일 차감.
                     ion_entry = extra.setdefault(label, {"agg": agg, "by_company": {}})
                     included = ion_entry.setdefault("target_included", {})
                     included[key] = included.get(key, 0) + amount
             if label in DAVINCI_LABELS:
                 # BOHUMFIT-292(S4·Phase C): KB가 다빈치 라인을 KB분류 `암수술`로 매트릭스 암수술 행에
-                #   합산한다(오현지 [전] 실측) — 배타 차감용 포함분 기록. 종별 미상은 확인 필요 표기.
+                #   합산한다(정본C [전] 실측) — 배타 차감용 포함분 기록. 종별 미상은 확인 필요 표기.
                 name, cls = split_detail_parts(line)
                 dv_entry = extra.setdefault(label, {"agg": agg, "by_company": {}})
                 if _despace(cls) == "암수술":

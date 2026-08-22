@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """BOHUMFIT-286 Phase C — 목표 디자인 프로토타입 생성기 (★제품 코드 무접촉).
 
-수기표(`오현지님 비교분석표260810.xlsx`)의 **42행 체계·서식**을 재현하되,
+수기표(`정본C 수기 비교분석표`)의 **42행 체계·서식**을 재현하되,
 값은 **현행 파서가 실제로 읽은 것만** 채운다.
 
 ★가장 중요한 규칙: **파싱 못 한 칸은 빈칸으로 둔다.**
@@ -11,11 +11,10 @@
 실행:
     python scripts/prototype_286_ohj.py
 산출:
-    보장분석/비교분석표/BOHUMFIT_프로토타입_오현지_260811.xlsx  (★gitignore 폴더)
+    보장분석/비교분석표/BOHUMFIT_프로토타입_정본C_260811.xlsx  (★gitignore 폴더)
 """
 from __future__ import annotations
 
-import glob
 import sys
 from pathlib import Path
 
@@ -26,9 +25,10 @@ import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 
 from coverage.proposal_parser import parse_proposal_pdf  # noqa: E402
+from tests.real_docs import real_proposals  # noqa: E402
 
 PDF_DIR = ROOT / "보장분석" / "비교분석표"
-OUT = PDF_DIR / "BOHUMFIT_프로토타입_오현지_260811.xlsx"
+OUT = PDF_DIR / "BOHUMFIT_프로토타입_정본C_260811.xlsx"
 
 # ── 목표 42행 (수기표 '리모델링' B/C열 원문 그대로) ────────────────────────────
 #   (대분류, 담보명) — 대분류는 구간 첫 행에만 적힌다.
@@ -88,8 +88,7 @@ WON = '"₩"\\ #,##0"원"'
 
 def load_proposals() -> list[dict]:
     out = []
-    for path in sorted(glob.glob(str(PDF_DIR / "오현지_*가입제안서*.pdf"))):
-        p = Path(path)
+    for p in real_proposals("정본C"):
         out.append(parse_proposal_pdf(p.read_bytes(), p.name))
     return out
 
@@ -100,7 +99,7 @@ def build() -> Path:
     ws = wb.active
     ws.title = "리모델링(프로토타입)"
 
-    ws["B2"] = "(오현지)님 리모델링      【 후 】 보장분석표 — BOHUMFIT 프로토타입(286)"
+    ws["B2"] = "(정본C)님 리모델링      【 후 】 보장분석표 — BOHUMFIT 프로토타입(286)"
     ws["B2"].font = Font(name="맑은 고딕", size=16, bold=True)
 
     ws["B4"], ws["C4"] = "대분류", "담 보 명"

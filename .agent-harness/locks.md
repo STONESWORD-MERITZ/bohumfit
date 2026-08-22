@@ -4,9 +4,11 @@ Use this file to record active Codex file ownership during a task.
 
 ## Active
 
-(없음 — 302 문서·302b 구현 커밋/push 완료 · Human Q6 승인 반영)
+(없음 — 299 구현+1차검증 완료·Q6 승인 대기 / 300 익명화 완료·Codex 커밋 대기)
 
 ### Released
+- 2026-08-22 `BOHUMFIT-300-pii-fixture-cleanup` - Codex - Released(2차 검증 PASS). 실명 경로를 공용 `real_docs.py` 정본 라벨로 전환, 290·291·292 실문서 테스트 57 passed/skip 0, 테스트 assert AST 무변경·제품 실행 AST 무변경. 프로토타입 익명 glob이 제안서 0건을 만드는 회귀를 발견해 공용 `real_proposals("정본C")`로 최소 보정(3건 복원). 전체 backend 1093/8·frontend 413/42·smoke/tsc/lint PASS, PII·실자료·산출물 stage 0.
+- 2026-08-22 `BOHUMFIT-299-total-premium` - Codex - Released(Human Q6 승인 반영·2차 검증 PASS). BEFORE/AFTER 별도 프로세스 4문서 독립 대조: A −18,564,480/B·C·D 0, 전부 [전]==[후], 제안서 3건 영향 0. 뮤테이션 2종 검출·원복 SHA 동일, A~D 엑셀/PDF 실렌더 무회귀. 기준선 1093/8·413/42.
 - 2026-08-19 `BOHUMFIT-301-tier-routing` - Codex - Released(Human Q6 승인 반영·2차 검증 PASS). BEFORE/AFTER 4문서 독립 대조 A·D 불변/C rows−1·총액 불변/B rows−1·총액−32.9M, 사유 없는 변화 0. backend 1076/8·frontend 413/42·tsc/lint/smoke PASS, build:verify 343,702 B 예상 FAIL, 뮤테이션 3종 검출·원복, 엑셀/PDF 실렌더 통과. 실 PDF·PII·산출물 stage 0.
 - 2026-08-18 `BOHUMFIT-296/296b` - Codex - Released(Human Q6 재승인 반영·2차 검증 PASS). A 0/B −1M/C −11.7M/D −4M 전부 원시 N대수술비 sum→max 산술 일치, 이관 손실·2열 값 영향 0. smoke 기준값 갱신 후 PASS, backend 1065/8·frontend 413/42·tsc·lint, A~D 엑셀/PDF 실렌더 통과. 실 PDF·PII·산출물 stage 0, 297 문서 제외.
 - 2026-08-18 `BOHUMFIT-296b-q6-recheck` - Codex - Released(Step 2(a) · 제품 코드 추가 수정 0). 정본 A~D HEAD/296 전후 재파싱: B −1M·C −11.7M·D −4M 모두 N대수술비 원시 복수 행 sum→max, 이관 손실·2열 영향 0. 오류 원인=후 max값을 전값으로 간주 + 중복 제거 `n_values`를 건수로 오해. 기존 296 테스트에 A~D 자동 검산 연결. backend 1065/8·frontend 413/42·tsc·lint 통과, smoke 예상 FAIL 2건 일치·기준값 미갱신. Human 재승인 대기.
