@@ -60,8 +60,18 @@ def _to_int(value: Any) -> int | None:
 
 
 def _paid_total(contract: dict) -> int | None:
+    """BOHUMFIT-299(Human 확정): 총납입은 **[전] 기준(`aggregator._paid`)과 같은 산식**을 쓴다.
+
+    ★234 결정 — 일시납은 표기 금액이 **1회 납입 총액**이므로 개월 수를 곱하지 않는다.
+      곱하면 이미 납입 완료된 금액이 부풀려져 [전]과 상시 어긋난다(295 §1-6 ② 발견:
+      일시납 2건이 있는 표준형 문서에서 126,083,040 vs 144,647,520).
+    ★수정은 **이 한 지점**에서만 한다 — 호출자는 `build_after_analysis`의 유지 계약 갱신 1곳뿐이고,
+      방어를 여러 곳에 흩으면 이중 적용·누락이 생긴다(295 선례).
+    """
     premium = _to_int(contract.get("monthly_premium"))
     months = _to_int(contract.get("pay_months"))
+    if contract.get("pay_cycle") == "일시납":
+        return premium
     if premium is None or months is None:
         return None
     return premium * months
